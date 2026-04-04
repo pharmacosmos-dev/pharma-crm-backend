@@ -813,6 +813,57 @@
                 }
             }
         },
+        "/cart_item/check-marking": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Barcode dan qidiradi. Topilsa cart_item.barcode ni yangilaydi va true qaytaradi.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "cart_items"
+                ],
+                "summary": "Check barcode for cart item",
+                "parameters": [
+                    {
+                        "description": "Cart item ID, product ID va barcode",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/domain.CartItemCheckMarkingRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    }
+                }
+            }
+        },
         "/cart_item/list": {
             "get": {
                 "security": [
@@ -28389,6 +28440,25 @@
                     "type": "string"
                 },
                 "name": {
+                    "type": "string"
+                }
+            }
+        },
+        "domain.CartItemCheckMarkingRequest": {
+            "type": "object",
+            "required": [
+                "barcode",
+                "cart_item_id",
+                "product_id"
+            ],
+            "properties": {
+                "barcode": {
+                    "type": "string"
+                },
+                "cart_item_id": {
+                    "type": "string"
+                },
+                "product_id": {
                     "type": "string"
                 }
             }

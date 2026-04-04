@@ -31,6 +31,7 @@ func (h *CartItemHandler) CartItemRoutes(r *gin.RouterGroup) {
 		cartItem.DELETE("/:id/markings", h.DeleteMarking)
 		cartItem.PATCH("/:id/skip-auto-order", h.SkipAutoOrder)
 		cartItem.PATCH("/:id/is-auto-order", h.UpdateAutoOrder)
+		cartItem.POST("/check-marking", h.CheckMarking)
 
 		// temporary update
 		cartItem.PUT("/temporary/:id", h.TemporaryUpdate)
@@ -464,4 +465,35 @@ func (h *CartItemHandler) DeleteMarking(c *gin.Context) {
 	}
 
 	handleResponse(c, OK, "DELETED")
+}
+
+// CheckMarking godoc
+// @Summary      Check barcode for cart item
+// @Description  Barcode dan qidiradi. Topilsa cart_item.barcode ni yangilaydi va true qaytaradi.
+// @Tags         cart_items
+// @Security     BearerAuth
+// @Accept       json
+// @Produce      json
+// @Param        body body domain.CartItemCheckMarkingRequest true "Cart item ID, product ID va barcode"
+// @Success      200 {object} v1.Response
+// @Failure      400 {object} v1.Response
+// @Failure      500 {object} v1.Response
+// @Router       /cart_item/check-marking [post]
+func (h *CartItemHandler) CheckMarking(c *gin.Context) {
+	var body domain.CartItemCheckMarkingRequest
+	if err := c.ShouldBindJSON(&body); err != nil {
+		handleServiceResponse(c, BadRequest, domain.InvalidRequestBodyError)
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(c.Request.Context(), constants.DefaultContextTimeout)
+	defer cancel()
+
+	found, err := h.service.CheckCartItemMarking(ctx, &body)
+	if err != nil {
+		handleServiceResponse(c, InternalError, err)
+		return
+	}
+
+	handleResponse(c, OK, gin.H{"found": found})
 }
