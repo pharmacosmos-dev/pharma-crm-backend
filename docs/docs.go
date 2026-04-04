@@ -820,6 +820,57 @@ const docTemplate = `{
                 }
             }
         },
+        "/cart_item/check-marking": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Barcode dan qidiradi. Topilsa cart_item.barcode ni yangilaydi va true qaytaradi.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "cart_items"
+                ],
+                "summary": "Check barcode for cart item",
+                "parameters": [
+                    {
+                        "description": "Cart item ID, product ID va barcode",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/domain.CartItemCheckMarkingRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    }
+                }
+            }
+        },
         "/cart_item/list": {
             "get": {
                 "security": [
@@ -7043,59 +7094,6 @@ const docTemplate = `{
                         "description": "Internal Server Error",
                         "schema": {
                             "$ref": "#/definitions/v1.Response"
-                        }
-                    }
-                }
-            }
-        },
-        "/helper/create-product-without-barcode": {
-            "post": {
-                "description": "Upload Excel file and create product_barcodes for products with null barcode or update mxik/unit_code",
-                "consumes": [
-                    "multipart/form-data"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "Helper"
-                ],
-                "summary": "Create/Update products without barcode",
-                "parameters": [
-                    {
-                        "type": "file",
-                        "description": "Excel file",
-                        "name": "file",
-                        "in": "formData",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "UPDATED: \u003ccount\u003e",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
-                        }
-                    },
-                    "400": {
-                        "description": "Bad request or file format",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
-                        }
-                    },
-                    "500": {
-                        "description": "Internal server error",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
                         }
                     }
                 }
@@ -28262,6 +28260,25 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "name": {
+                    "type": "string"
+                }
+            }
+        },
+        "domain.CartItemCheckMarkingRequest": {
+            "type": "object",
+            "required": [
+                "barcode",
+                "cart_item_id",
+                "product_id"
+            ],
+            "properties": {
+                "barcode": {
+                    "type": "string"
+                },
+                "cart_item_id": {
+                    "type": "string"
+                },
+                "product_id": {
                     "type": "string"
                 }
             }
