@@ -105,7 +105,13 @@ func (h *DashboardHandler) ChartStats(c *gin.Context) {
 			params.StoreIds = storeIds
 			params.CompanyIds = []string{user.CompanyId}
 
-		case !utils.In(user.Role, constants.AllAdminRoles...):
+		case user.Role == constants.RoleFounder:
+			if len(user.StoreIds) > 0 {
+				params.StoreIds = user.StoreIds
+				params.CompanyIds = []string{user.CompanyId}
+			}
+
+		case !helper.IsAdmin(user):
 			// Regular employee — faqat o'z storesi
 			if user.StoreId != "" {
 				params.StoreIds = []string{user.StoreId}
@@ -116,15 +122,6 @@ func (h *DashboardHandler) ChartStats(c *gin.Context) {
 			isAdmin = true
 	}
 	
-	// if !utils.In(user.Role, constants.AllAdminRoles...) {
-	// 	if user.StoreId != "" {
-	// 		params.StoreIds = []string{user.StoreId}
-	// 	}
-	// 	params.CompanyIds = []string{user.CompanyId}
-	// } else {
-	// 	isAdmin = true
-	// }
-
 	// check pharma or franchise
 	if isAdmin && params.IsFranchise != nil && *params.IsFranchise {
 		params.CompanyIds, _ = h.service.GetCompanyIds(ctx, true)
@@ -204,6 +201,12 @@ func (h *DashboardHandler) TopStores(c *gin.Context) {
 			}
 			params.StoreIds = storeIds
 			params.CompanyIds = []string{user.CompanyId}
+
+		case user.Role == constants.RoleFounder:
+			if len(user.StoreIds) > 0 {
+				params.StoreIds = user.StoreIds
+				params.CompanyIds = []string{user.CompanyId}
+			}
 
 		case !helper.IsAdmin(user):
 			if user.StoreId != "" {
@@ -308,6 +311,12 @@ func (h *DashboardHandler) TopProducts(c *gin.Context) {
 			params.StoreIds = storeIds
 			params.CompanyIds = []string{user.CompanyId}
 
+		case user.Role == constants.RoleFounder:
+			if len(user.StoreIds) > 0 {
+				params.StoreIds = user.StoreIds
+				params.CompanyIds = []string{user.CompanyId}
+			}
+
 		case !helper.IsAdmin(user):
 			if user.StoreId != "" {
 				params.StoreIds = []string{user.StoreId}
@@ -411,6 +420,12 @@ func (h *DashboardHandler) BonusProducts(c *gin.Context) {
 			params.StoreIds = storeIds
 			params.CompanyIds = []string{user.CompanyId}
 
+		case user.Role == constants.RoleFounder:
+			if len(user.StoreIds) > 0 {
+				params.StoreIds = user.StoreIds
+				params.CompanyIds = []string{user.CompanyId}
+			}
+
 		case !helper.IsAdmin(user):
 			if user.StoreId != "" {
 				params.StoreIds = []string{user.StoreId}
@@ -504,6 +519,12 @@ func (h *DashboardHandler) TopSeller(c *gin.Context) {
 			}
 			params.StoreIds = storeIds
 			params.CompanyIds = []string{user.CompanyId}
+
+		case user.Role == constants.RoleFounder:
+			if len(user.StoreIds) > 0 {
+				params.StoreIds = user.StoreIds
+				params.CompanyIds = []string{user.CompanyId}
+			}
 
 		case !helper.IsAdmin(user):
 			if user.StoreId != "" {
@@ -605,6 +626,12 @@ func (h *DashboardHandler) Payments(c *gin.Context) {
 		params.StoreIds = storeIds
 		params.CompanyIds = []string{user.CompanyId}
 
+	case user.Role == constants.RoleFounder:
+		if len(user.StoreIds) > 0 {
+			params.StoreIds = user.StoreIds
+			params.CompanyIds = []string{user.CompanyId}
+		}
+
 	case !helper.IsAdmin(user):
 		if user.StoreId != "" {
 			params.StoreIds = []string{user.StoreId}
@@ -702,6 +729,12 @@ func (h *DashboardHandler) Transaction(c *gin.Context) {
 			params.StoreIds = storeIds
 			params.CompanyIds = []string{user.CompanyId}
 
+		case user.Role == constants.RoleFounder:
+			if len(user.StoreIds) > 0 {
+				params.StoreIds = user.StoreIds
+				params.CompanyIds = []string{user.CompanyId}
+			}
+
 		case !helper.IsAdmin(user):
 			if user.StoreId != "" {
 				params.StoreIds = []string{user.StoreId}
@@ -791,6 +824,12 @@ func (h *DashboardHandler) OldImport(c *gin.Context) {
 			}
 			params.StoreIds = storeIds
 			params.CompanyIds = []string{user.CompanyId}
+
+		case user.Role == constants.RoleFounder:
+			if len(user.StoreIds) > 0 {
+				params.StoreIds = user.StoreIds
+				params.CompanyIds = []string{user.CompanyId}
+			}
 
 		case !helper.IsAdmin(user):
 			if user.StoreId != "" {
@@ -899,6 +938,12 @@ func (h *DashboardHandler) SaleStatistic(c *gin.Context) {
 			params.StoreIds = storeIds
 			params.CompanyIds = []string{user.CompanyId}
 
+		case user.Role == constants.RoleFounder:
+			if len(user.StoreIds) > 0 {
+				params.StoreIds = user.StoreIds
+				params.CompanyIds = []string{user.CompanyId}
+			}
+
 		case !helper.IsAdmin(user):
 			if user.StoreId != "" {
 				params.StoreIds = []string{user.StoreId}
@@ -999,6 +1044,12 @@ func (h *DashboardHandler) NetProfitStatistic(c *gin.Context) {
 			params.StoreIds = storeIds
 			params.CompanyIds = []string{user.CompanyId}
 
+		case user.Role == constants.RoleFounder:
+			if len(user.StoreIds) > 0 {
+				params.StoreIds = user.StoreIds
+				params.CompanyIds = []string{user.CompanyId}
+			}
+
 		case !helper.IsAdmin(user):
 			if user.StoreId != "" {
 				params.StoreIds = []string{user.StoreId}
@@ -1097,6 +1148,12 @@ func (h *DashboardHandler) ImportStatistic(c *gin.Context) {
 			params.StoreIds = storeIds
 			params.CompanyIds = []string{user.CompanyId}
 
+		case user.Role == constants.RoleFounder:
+			if len(user.StoreIds) > 0 {
+				params.StoreIds = user.StoreIds
+				params.CompanyIds = []string{user.CompanyId}
+			}
+
 		case !helper.IsAdmin(user):
 			if user.StoreId != "" {
 				params.StoreIds = []string{user.StoreId}
@@ -1190,6 +1247,12 @@ func (h *DashboardHandler) ProductStatistic(c *gin.Context) {
 			}
 			params.StoreIds = storeIds
 			params.CompanyIds = []string{user.CompanyId}
+
+		case user.Role == constants.RoleFounder:
+			if len(user.StoreIds) > 0 {
+				params.StoreIds = user.StoreIds
+				params.CompanyIds = []string{user.CompanyId}
+			}
 
 		case !helper.IsAdmin(user):
 			if user.StoreId != "" {
@@ -1291,6 +1354,12 @@ func (h *DashboardHandler) EmployeeBonus(c *gin.Context) {
 			params.StoreIds = storeIds
 			params.CompanyIds = []string{user.CompanyId}
 
+		case user.Role == constants.RoleFounder:
+			if len(user.StoreIds) > 0 {
+				params.StoreIds = user.StoreIds
+				params.CompanyIds = []string{user.CompanyId}
+			}
+
 		case !helper.IsAdmin(user):
 			if user.StoreId != "" {
 				params.StoreIds = []string{user.StoreId}
@@ -1390,6 +1459,12 @@ func (h *DashboardHandler) LoyaltyCardStatistic(c *gin.Context) {
 			}
 			params.StoreIds = storeIds
 			params.CompanyIds = []string{user.CompanyId}
+
+		case user.Role == constants.RoleFounder:
+			if len(user.StoreIds) > 0 {
+				params.StoreIds = user.StoreIds
+				params.CompanyIds = []string{user.CompanyId}
+			}
 
 		case !helper.IsAdmin(user):
 			if user.StoreId != "" {

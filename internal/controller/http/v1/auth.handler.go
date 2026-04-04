@@ -79,6 +79,7 @@ func (h *AuthHandler) Login(c *gin.Context) {
 		"user_id":    employee.Id,
 		"company_id": employee.CompanyId,
 		"store_id":   employee.StoreId,
+		"store_ids":  []string(employee.StoreIds),
 		"role":       employee.RoleType,
 	}
 	// generate tokens

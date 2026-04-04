@@ -237,6 +237,12 @@ func (h *SaleHandler) GetSales(c *gin.Context) {
 			params.StoreIds = storeIds
 			params.CompanyId = user.CompanyId
 
+		case user.Role == constants.RoleFounder:
+			if len(user.StoreIds) > 0 {
+				params.StoreIds = user.StoreIds
+				params.CompanyId = user.CompanyId
+			}
+
 		case !helper.IsAdmin(user):
 			// oddiy employee
 			if user.StoreId != "" {
@@ -244,7 +250,7 @@ func (h *SaleHandler) GetSales(c *gin.Context) {
 			}
 			params.CompanyId = user.CompanyId
 
-		// admin -> filter yo‘q (hammasi)
+		// admin -> filter yo’q (hammasi)
 	}
 	
 	// if !helper.IsAdmin(user) {
@@ -508,7 +514,21 @@ func (h *SaleHandler) GetSalesStats(c *gin.Context) {
 	defer cancel()
 
 	// check user role
-	if !helper.IsAdmin(user) {
+	switch {
+	case user.Role == constants.RoleFranchise:
+		storeIds, err := h.service.GetStoreIdsByCompanyId(ctx, user.CompanyId)
+		if err != nil {
+			handleServiceResponse(c, nil, err)
+			return
+		}
+		params.StoreIds = storeIds
+		params.CompanyId = user.CompanyId
+	case user.Role == constants.RoleFounder:
+		if len(user.StoreIds) > 0 {
+			params.StoreIds = user.StoreIds
+			params.CompanyId = user.CompanyId
+		}
+	case !helper.IsAdmin(user):
 		if user.StoreId != "" {
 			params.StoreId = user.StoreId
 		}
@@ -563,7 +583,13 @@ func (h *SaleHandler) GetSaleList(c *gin.Context) {
 
 	params.Limit, params.Offset = defaultLimitOffset(params.Limit, params.Offset)
 
-	if !helper.IsAdmin(user) {
+	switch {
+	case user.Role == constants.RoleFounder:
+		if len(user.StoreIds) > 0 {
+			params.StoreIds = user.StoreIds
+			params.CompanyId = user.CompanyId
+		}
+	case !helper.IsAdmin(user):
 		if user.StoreId != "" {
 			params.StoreId = user.StoreId
 		}

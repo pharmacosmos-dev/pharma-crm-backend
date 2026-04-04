@@ -1,6 +1,10 @@
 package domain
 
-import "time"
+import (
+	"time"
+
+	"github.com/lib/pq"
+)
 
 type Login struct {
 	Phone    string `json:"phone" validate:"required,e164"`
@@ -14,16 +18,18 @@ type LoginResponse struct {
 }
 
 type EmployeeClaims struct {
-	UserId    string `json:"user_id"`
-	CompanyId string `json:"company_id"`
-	StoreId   string `json:"store_id"`
-	Role      string `json:"role"`
+	UserId    string   `json:"user_id"`
+	CompanyId string   `json:"company_id"`
+	StoreId   string   `json:"store_id"`
+	StoreIds  []string `json:"store_ids"`
+	Role      string   `json:"role"`
 }
 
 type Employee struct {
 	Id         string           `gorm:"id" json:"id"`
 	CompanyId  string           `gorm:"company_id" json:"company_id"`
 	StoreId    string           `gorm:"store_id" json:"store_id"`
+	StoreIds   pq.StringArray   `gorm:"type:text[];column:store_ids" json:"store_ids"`
 	PublicId   int              `gorm:"public_id" json:"public_id"`
 	Position   string           `gorm:"position" json:"position"`
 	FirstName  string           `gorm:"first_name" json:"first_name"`
@@ -48,10 +54,11 @@ type Employee struct {
 }
 
 type EmployeeRequest struct {
-	Id        string   `gorm:"id" json:"-"`
-	RoleIds   []string `gorm:"-" json:"role_ids"`
-	CompanyId string   `gorm:"company_id" json:"company_id"`
-	StoreId   *string  `gorm:"store_id" json:"store_id"`
+	Id        string         `gorm:"id" json:"-"`
+	RoleIds   []string       `gorm:"-" json:"role_ids"`
+	CompanyId string         `gorm:"company_id" json:"company_id"`
+	StoreId   *string        `gorm:"store_id" json:"store_id"`
+	StoreIds  pq.StringArray `gorm:"type:text[];column:store_ids" json:"store_ids"`
 	Position  string   `gorm:"position" json:"position"`
 	FirstName string   `gorm:"first_name" json:"first_name"`
 	LastName  string   `gorm:"last_name" json:"last_name"`

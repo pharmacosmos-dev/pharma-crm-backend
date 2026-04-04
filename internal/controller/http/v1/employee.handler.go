@@ -364,6 +364,7 @@ func (h *EmployeeHandler) Update(c *gin.Context) {
 		"gender":     body.Gender,
 		"language":   body.Language,
 		"birthdate":  body.Birthdate,
+		"store_ids":  body.StoreIds,
 	}
 
 	if body.Password != nil {
