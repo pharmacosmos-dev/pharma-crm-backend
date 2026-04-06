@@ -905,6 +905,34 @@ func (s *Services) DeleteCartItemMarkings(ctx context.Context, id string, req *d
 	return nil
 }
 
+func (s *Services) CheckCartItemMarking(ctx context.Context, req *domain.CartItemCheckMarkingRequest) (bool, error) {
+	
+	
+	var result domain.BarcodeResponse
+	err := s.db.WithContext(ctx).Table("product_barcodes pb").
+		Select("pb.id, pb.barcode").
+		Where("pb.product_id = ? AND pb.barcode = ? AND pb.status = 'completed' AND pb.mxik is not null AND pb.unit_code is not null", req.ProductId, req.Barcode).
+		Order("pb.created_at desc").
+		Limit(1).
+		Scan(&result).Error
+	if err != nil {
+		s.log.Errorf("could not check cart_item marking barcode: %v", err)
+		return false, domain.InternalServerError
+	}
+
+	if result.Id == "" {
+		return false, nil
+	}
+
+	err = s.db.WithContext(ctx).Exec("UPDATE cart_items SET barcode = ? WHERE id = ?", req.Barcode, req.CartItemId).Error
+	if err != nil {
+		s.log.Errorf("could not update cart_item barcode: %v", err)
+		return false, domain.InternalServerError
+	}
+
+	return true, nil
+}
+
 func (s *Services) deleteCartItemByIds(ctx context.Context, tx *gorm.DB, id []string) error {
 	err := tx.WithContext(ctx).Delete(&domain.CartItem{}, "id IN (?)", id).Error
 	if err != nil {

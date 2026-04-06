@@ -115,6 +115,19 @@ definitions:
       name:
         type: string
     type: object
+  domain.CartItemCheckMarkingRequest:
+    properties:
+      barcode:
+        type: string
+      cart_item_id:
+        type: string
+      product_id:
+        type: string
+    required:
+    - barcode
+    - cart_item_id
+    - product_id
+    type: object
   domain.CartItemDiscountRequest:
     properties:
       discount_type:
@@ -3095,6 +3108,39 @@ paths:
       security:
       - BearerAuth: []
       summary: Skip auto order
+      tags:
+      - cart_items
+  /cart_item/check-marking:
+    post:
+      consumes:
+      - application/json
+      description: Barcode dan qidiradi. Topilsa cart_item.barcode ni yangilaydi va
+        true qaytaradi.
+      parameters:
+      - description: Cart item ID, product ID va barcode
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/domain.CartItemCheckMarkingRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Check barcode for cart item
       tags:
       - cart_items
   /cart_item/list:

@@ -179,6 +179,12 @@ type CartItemForDMED struct {
 	SerialNumber   string  `gorm:"serial_number" json:"serial_number"`
 }
 
+type CartItemCheckMarkingRequest struct {
+	CartItemId string `json:"cart_item_id" binding:"required,uuid"`
+	ProductId  string `json:"product_id" binding:"required,uuid"`
+	Barcode    string `json:"barcode" binding:"required"`
+}
+
 type CartItemWithProduct struct {
 	Id                       string            `gorm:"column:id;primaryKey" json:"id"`
 	StoreProductId           string            `gorm:"column:store_product_id" json:"store_product_id"`
