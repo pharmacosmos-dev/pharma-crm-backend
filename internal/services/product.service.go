@@ -2402,7 +2402,7 @@ func (s *Services) CreateProductBarcodes(
 		}
 	}()
 
-	if req.Barcode == "" {
+	if req.Mxik == ""  && req.UnitCode == "" {
 		return domain.BadRequestError
 	}
 
@@ -2427,13 +2427,18 @@ func (s *Services) CreateProductBarcodes(
 	// 🔹 Step 2: yangi record yaratish
 	newRecord := map[string]interface{}{
 		"product_id": productId,
-		"barcode":    req.Barcode,
 		"mxik":       req.Mxik,
 		"unit_code":  req.UnitCode,
 		"status":     constants.GeneralStatusCompleted,
 		"created_by": req.CreatedBy,
 		"created_at": time.Now(),
 		"updated_at": time.Now(),
+	}
+
+	if req.Barcode != "" {
+		newRecord["barcode"] = req.Barcode
+	} else {
+		newRecord["barcode"] = nil
 	}
 
 	if err := tx.Table("product_barcodes").Create(newRecord).Error; err != nil {
@@ -2482,6 +2487,8 @@ func (s *Services) UpdateProductBarcode(ctx context.Context, productId string, r
 	updates := map[string]interface{}{}
 	if req.Barcode != "" {
 		updates["barcode"] = req.Barcode
+	} else {
+		updates["barcode"] = nil
 	}
 	if req.Mxik != "" {
 		updates["mxik"] = req.Mxik
