@@ -2552,7 +2552,7 @@ func (s *Services) getProductBarcodeUnitsByProductId(ctx context.Context, tx *go
 	var result domain.BarcodeResponse
 	err := tx.WithContext(ctx).Table("product_barcodes pb").
 		Select("pb.id, pb.barcode, pb.mxik, pb.unit_code").
-		Where("pb.product_id = ? AND pb.status = 'completed' AND pb.mxik is not null AND pb.unit_code is not null ", productId, barcode).
+		Where("pb.product_id = ? AND pb.barcode =? AND pb.status = 'completed' AND pb.mxik is not null AND pb.unit_code is not null ", productId, barcode).
 		Order("pb.created_at desc").
 		Limit(1).
 		Scan(&result).Error
