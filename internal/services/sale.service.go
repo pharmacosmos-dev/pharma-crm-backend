@@ -2389,7 +2389,7 @@ func (s *Services) GetDatasByMarkings(ctx context.Context, tx *gorm.DB, markings
 					}
 
 					if br.Id == "" {
-						br, err = s.getProductBarcodeUnitsByProductId(ctx, tx, cartItem.ProductId, cartItem.Barcode)
+						br, err = s.getProductBarcodeUnitsByProductId(ctx, tx, cartItem.ProductId)
 						if err != nil {
 							s.log.Error("could not get barcode by product_id: %v", err)
 							return nil, err
@@ -2403,11 +2403,21 @@ func (s *Services) GetDatasByMarkings(ctx context.Context, tx *gorm.DB, markings
 		} else {
 
 			var br domain.BarcodeResponse
-			br, err = s.getProductBarcodeUnitsByProductId(ctx, tx, cartItem.ProductId, cartItem.Barcode)
-			if err != nil {
-				s.log.Error("could not get barcode by product_id: %v", err)
-				return nil, err
-			}
+			if cartItem.Barcode != "" {
+				br, err = s.getProductBarcodeUnitsByProductBarcode(ctx, tx, cartItem.ProductId, cartItem.Barcode)
+				if err != nil {
+					s.log.Error("could not get barcode by product_id: %v", err)
+					return nil, err
+				}
+			}	
+			
+			if br.Id == "" {
+				br, err = s.getProductBarcodeUnitsByProductId(ctx, tx, cartItem.ProductId)
+				if err != nil {
+					s.log.Error("could not get barcode by product_id: %v", err)
+					return nil, err
+				}
+			}		
 			br.CartItemId = m.Id
 
 			// quantity + unit_quantity hisoblash
