@@ -3097,12 +3097,6 @@ func (h *ProductHandler) CreateProductBarcode(c *gin.Context) {
 	}
 	body.CreatedBy = user.UserId
 
-	// validation: barcode bo'lishi shart
-	if body.Barcode == "" {
-		handleServiceResponse(c, BadRequest, domain.BadRequestError)
-		return
-	}
-
 	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
 	defer cancel()
 

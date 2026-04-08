@@ -2402,17 +2402,17 @@ func (s *Services) CreateProductBarcodes(
 		}
 	}()
 
-	if req.Mxik == ""  && req.UnitCode == "" {
+	if req.Mxik == "" && req.UnitCode == "" {
 		return domain.BadRequestError
 	}
 
 	// 🔍 Step 1: barcode mavjudligini tekshirish
 	var count int64
-	if err := tx.WithContext(ctx).
-		Table("product_barcodes").
-		Where("product_id = ? AND barcode = ?", productId, req.Barcode).
-		Count(&count).Error; err != nil {
+	query := tx.WithContext(ctx).Table("product_barcodes").Where("product_id = ?", productId)
+	// treat empty barcode as an empty string value (allow creating barcode = "")
+	query = query.Where("barcode = ?", req.Barcode)
 
+	if err := query.Count(&count).Error; err != nil {
 		tx.Rollback()
 		s.log.Errorf("failed to check existing barcode: %v", err)
 		return domain.InternalServerError
@@ -2421,7 +2421,7 @@ func (s *Services) CreateProductBarcodes(
 	if count > 0 {
 		tx.Rollback()
 		s.log.Errorf("barcode already exists: %s", req.Barcode)
-		return domain.AlreadyExistsError // 400
+		return domain.AlreadyExistsError
 	}
 
 	// 🔹 Step 2: yangi record yaratish
@@ -2435,11 +2435,7 @@ func (s *Services) CreateProductBarcodes(
 		"updated_at": time.Now(),
 	}
 
-	if req.Barcode != "" {
-		newRecord["barcode"] = req.Barcode
-	} else {
-		newRecord["barcode"] = nil
-	}
+	newRecord["barcode"] = req.Barcode
 
 	if err := tx.Table("product_barcodes").Create(newRecord).Error; err != nil {
 		tx.Rollback()
@@ -2485,11 +2481,8 @@ func (s *Services) UpdateProductBarcode(ctx context.Context, productId string, r
 
 	// 2️⃣ update qilinadigan column
 	updates := map[string]interface{}{}
-	if req.Barcode != "" {
-		updates["barcode"] = req.Barcode
-	} else {
-		updates["barcode"] = nil
-	}
+
+	updates["barcode"] = req.Barcode
 	if req.Mxik != "" {
 		updates["mxik"] = req.Mxik
 	}
