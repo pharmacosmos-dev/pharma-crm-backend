@@ -83,6 +83,7 @@ func (a *MiddlewareHandler) CheckPermission(c *gin.Context) (bool, error) {
 	c.Set("user_id", claims["user_id"])
 	c.Set("company_id", claims["company_id"])
 	c.Set("store_id", claims["store_id"])
+	c.Set("store_ids", claims["store_ids"])
 	c.Set("role", claims["role"])
 
 	return true, nil
@@ -162,6 +163,7 @@ func (a *MiddlewareHandler) CheckOAuthToken() gin.HandlerFunc {
 			c.Set("user_id", claims["user_id"])
 			c.Set("company_id", claims["company_id"])
 			c.Set("store_id", claims["store_id"])
+			c.Set("store_ids", claims["store_ids"])
 			c.Set("role", claims["role"])
 			c.Set("token_type", "user")
 		}

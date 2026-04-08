@@ -270,7 +270,7 @@ func (h *DashboardHandler) TopProducts(c *gin.Context) {
 		handleServiceResponse(c, nil, domain.UnauthorizedError)
 		return
 	}
-
+	
 	// bind query parameters
 	var params domain.DashboardQueryParam
 	if err := c.ShouldBindQuery(&params); err != nil {

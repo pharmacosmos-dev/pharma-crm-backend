@@ -73,8 +73,21 @@ func (s *Services) GetSignedUser(c *gin.Context) *domain.EmployeeClaims {
 	}
 
 	if storeIds, ok := c.Get("store_ids"); ok && storeIds != nil {
-		if ids, ok := storeIds.([]string); ok {
-			user.StoreIds = ids
+		switch v := storeIds.(type) {
+		case []string:
+			user.StoreIds = v
+		case []interface{}:
+			user.StoreIds = make([]string, 0, len(v))
+			for _, id := range v {
+				user.StoreIds = append(user.StoreIds, cast.ToString(id))
+			}
+		case string:
+			if v != "" {
+				user.StoreIds = []string{v}
+			}
+		default:
+			// fallback: try to cast to string
+			user.StoreIds = []string{cast.ToString(v)}
 		}
 	}
 

@@ -188,8 +188,8 @@ func (s *Services) FetchCartItems(ctx context.Context, saleId string, limit, off
 		u.unit_name,
 		u.short_name,
 		sh.name AS shelf,
-		COALESCE(sp.mxik, p.mxik) AS class_code,
-		COALESCE(sp.unit_code, p.unit_code) AS package_code,
+		COALESCE(pb2.mxik, sp.mxik, p.mxik) AS class_code,
+		COALESCE(pb2.unit_code, sp.unit_code, p.unit_code) AS package_code,
 		COALESCE(sp.unit_label, p.unit_label) AS package_name,
 
 		ci_amount.d_amount AS discount_amount,
@@ -203,6 +203,13 @@ func (s *Services) FetchCartItems(ctx context.Context, saleId string, limit, off
 		LEFT JOIN unit_types u ON p.unit_type_id = u.id
 		LEFT JOIN shelves sh ON p.shelf_id = sh.id
 		LEFT JOIN product_bonuses pb ON p.id = pb.product_id
+		LEFT JOIN LATERAL (
+			SELECT mxik, unit_code
+			FROM product_barcodes
+			WHERE product_id = p.id
+			AND barcode = ci.barcode
+			LIMIT 1
+		) pb2 ON true
 		WHERE ci.sale_id = ?
 		ORDER BY ci.created_at DESC 
 		LIMIT ? OFFSET ?;
