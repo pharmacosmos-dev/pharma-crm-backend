@@ -358,6 +358,7 @@ func (h *DashboardHandler) BonusProducts(c *gin.Context) {
 		if len(user.StoreIds) > 0 {
 			params.StoreIds = user.StoreIds
 		}
+		params.IsFranchise = &[]bool{true}[0]
 		params.CompanyIds = []string{user.CompanyId}
 	} else if helper.IsAdmin(user) {
 		isAdmin = true
