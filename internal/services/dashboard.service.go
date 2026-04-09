@@ -192,6 +192,7 @@ func (s *Services) DashboardTopProducts(ctx context.Context, params *domain.Dash
 
 	// Store filter
 	if len(params.StoreIds) > 0 {
+		fmt.Println("111", params.StoreIds)
 		qb.Where("s.store_id IN (?)", params.StoreIds)
 	}
 
