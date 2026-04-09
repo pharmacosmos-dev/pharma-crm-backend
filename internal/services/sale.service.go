@@ -1773,7 +1773,9 @@ func (s *Services) GetSales(ctx context.Context, params *domain.SaleQueryParams,
 	} else if params.StoreId != "" {
 		qb = qb.Where("s.store_id = ?", params.StoreId)
 	}
-	if params.CompanyId != "" {
+	if len(params.CompanyIds) > 0 {
+		qb = qb.Where("st.company_id IN (?)", params.CompanyIds)
+	} else if params.CompanyId != "" {
 		qb = qb.Where("st.company_id = ?", params.CompanyId)
 	}
 	if params.CashboxId != "" {
@@ -1919,7 +1921,9 @@ func (s *Services) GetSalesStats(ctx context.Context, params *domain.SaleQueryPa
 	} else if params.StoreId != "" {
 		qb = qb.Where("s.store_id = ?", params.StoreId)
 	}
-	if params.CompanyId != "" {
+	if len(params.CompanyIds) > 0 {
+		qb = qb.Where("st.company_id IN (?)", params.CompanyIds)
+	} else if params.CompanyId != "" {
 		qb = qb.Where("st.company_id = ?", params.CompanyId)
 	}
 	if params.CashboxId != "" {
