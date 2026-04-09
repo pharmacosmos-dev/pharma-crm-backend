@@ -93,16 +93,13 @@ func (h *DashboardHandler) ChartStats(c *gin.Context) {
 	// check if employee is not admin or superadmin
 	var isAdmin bool
 
-	if user.Role == constants.RoleFranchise {
-		params.StoreIds = user.StoreIds
-		params.CompanyIds = []string{user.CompanyId}
-	} else if helper.IsAdmin(user) {
-		isAdmin = true
-	} else {
+	if !helper.IsAdmin(user) {
 		if user.StoreId != "" {
 			params.StoreIds = []string{user.StoreId}
 		}
 		params.CompanyIds = []string{user.CompanyId}
+	} else {
+		isAdmin = true
 	}
 
 	// check pharma or franchise for admin
@@ -175,16 +172,13 @@ func (h *DashboardHandler) TopStores(c *gin.Context) {
 	// check if employee is not admin or superadmin
 	var isAdmin bool
 
-	if user.Role == constants.RoleFranchise {
-		params.StoreIds = user.StoreIds
-		params.CompanyIds = []string{user.CompanyId}
-	} else if helper.IsAdmin(user) {
-		isAdmin = true
-	} else {
+	if !helper.IsAdmin(user) {
 		if user.StoreId != "" {
 			params.StoreIds = []string{user.StoreId}
 		}
 		params.CompanyIds = []string{user.CompanyId}
+	} else {
+		isAdmin = true
 	}
 
 	// check pharma or franchise for admin
@@ -263,16 +257,13 @@ func (h *DashboardHandler) TopProducts(c *gin.Context) {
 	// check if employee is not admin or superadmin
 	var isAdmin bool
 
-	if user.Role == constants.RoleFranchise {
-		params.StoreIds = user.StoreIds
-		params.CompanyIds = []string{user.CompanyId}
-	} else if helper.IsAdmin(user) {
-		isAdmin = true
-	} else {
+	if !helper.IsAdmin(user) {
 		if user.StoreId != "" {
 			params.StoreIds = []string{user.StoreId}
 		}
 		params.CompanyIds = []string{user.CompanyId}
+	} else {
+		isAdmin = true
 	}
 
 	// check pharma or franchise for admin
@@ -348,16 +339,13 @@ func (h *DashboardHandler) BonusProducts(c *gin.Context) {
 	// check if employee is not admin or superadmin
 	var isAdmin bool
 
-	if user.Role == constants.RoleFranchise {
-		params.StoreIds = user.StoreIds
-		params.CompanyIds = []string{user.CompanyId}
-	} else if helper.IsAdmin(user) {
-		isAdmin = true
-	} else {
+	if !helper.IsAdmin(user) {
 		if user.StoreId != "" {
 			params.StoreIds = []string{user.StoreId}
 		}
 		params.CompanyIds = []string{user.CompanyId}
+	} else {
+		isAdmin = true
 	}
 
 	// check pharma or franchise for admin
@@ -434,16 +422,13 @@ func (h *DashboardHandler) TopSeller(c *gin.Context) {
 	// check if employee is not admin or superadmin
 	var isAdmin bool
 
-	if user.Role == constants.RoleFranchise {
-		params.StoreIds = user.StoreIds
-		params.CompanyIds = []string{user.CompanyId}
-	} else if helper.IsAdmin(user) {
-		isAdmin = true
-	} else {
+	if !helper.IsAdmin(user) {
 		if user.StoreId != "" {
 			params.StoreIds = []string{user.StoreId}
 		}
 		params.CompanyIds = []string{user.CompanyId}
+	} else {
+		isAdmin = true
 	}
 
 	// check pharma or franchise for admin
@@ -517,16 +502,13 @@ func (h *DashboardHandler) Payments(c *gin.Context) {
 
 	var isAdmin bool
 
-	if user.Role == constants.RoleFranchise {
-		params.StoreIds = user.StoreIds
-		params.CompanyIds = []string{user.CompanyId}
-	} else if helper.IsAdmin(user) {
-		isAdmin = true
-	} else {
+	if !helper.IsAdmin(user) {
 		if user.StoreId != "" {
 			params.StoreIds = []string{user.StoreId}
 		}
 		params.CompanyIds = []string{user.CompanyId}
+	} else {
+		isAdmin = true
 	}
 
 	// check pharma or franchise for admin
@@ -597,16 +579,13 @@ func (h *DashboardHandler) Transaction(c *gin.Context) {
 	// check if employee is not admin or superadmin
 	var isAdmin bool
 
-	if user.Role == constants.RoleFranchise {
-		params.StoreIds = user.StoreIds
-		params.CompanyIds = []string{user.CompanyId}
-	} else if helper.IsAdmin(user) {
-		isAdmin = true
-	} else {
+	if !helper.IsAdmin(user) {
 		if user.StoreId != "" {
 			params.StoreIds = []string{user.StoreId}
 		}
 		params.CompanyIds = []string{user.CompanyId}
+	} else {
+		isAdmin = true
 	}
 
 	// check pharma or franchise for admin
@@ -670,16 +649,13 @@ func (h *DashboardHandler) OldImport(c *gin.Context) {
 	// check if employee is not admin or superadmin
 	var isAdmin bool
 
-	if user.Role == constants.RoleFranchise {
-		params.StoreIds = user.StoreIds
-		params.CompanyIds = []string{user.CompanyId}
-	} else if helper.IsAdmin(user) {
-		isAdmin = true
-	} else {
+	if !helper.IsAdmin(user) {
 		if user.StoreId != "" {
 			params.StoreIds = []string{user.StoreId}
 		}
 		params.CompanyIds = []string{user.CompanyId}
+	} else {
+		isAdmin = true
 	}
 
 	// check pharma or franchise for admin
@@ -760,16 +736,13 @@ func (h *DashboardHandler) SaleStatistic(c *gin.Context) {
 
 	var isAdmin bool
 
-	if user.Role == constants.RoleFranchise {
-		params.StoreIds = user.StoreIds
-		params.CompanyIds = []string{user.CompanyId}
-	} else if helper.IsAdmin(user) {
-		isAdmin = true
-	} else {
+	if !helper.IsAdmin(user) {
 		if user.StoreId != "" {
 			params.StoreIds = []string{user.StoreId}
 		}
 		params.CompanyIds = []string{user.CompanyId}
+	} else {
+		isAdmin = true
 	}
 
 	// check pharma or franchise for admin
@@ -842,16 +815,13 @@ func (h *DashboardHandler) NetProfitStatistic(c *gin.Context) {
 	// check if employee is not admin or superadmin
 	var isAdmin bool
 
-	if user.Role == constants.RoleFranchise {
-		params.StoreIds = user.StoreIds
-		params.CompanyIds = []string{user.CompanyId}
-	} else if helper.IsAdmin(user) {
-		isAdmin = true
-	} else {
+	if !helper.IsAdmin(user) {
 		if user.StoreId != "" {
 			params.StoreIds = []string{user.StoreId}
 		}
 		params.CompanyIds = []string{user.CompanyId}
+	} else {
+		isAdmin = true
 	}
 
 	// check pharma or franchise for admin
@@ -919,16 +889,13 @@ func (h *DashboardHandler) ImportStatistic(c *gin.Context) {
 
 	var isAdmin bool
 
-	if user.Role == constants.RoleFranchise {
-		params.StoreIds = user.StoreIds
-		params.CompanyIds = []string{user.CompanyId}
-	} else if helper.IsAdmin(user) {
-		isAdmin = true
-	} else {
+	if !helper.IsAdmin(user) {
 		if user.StoreId != "" {
 			params.StoreIds = []string{user.StoreId}
 		}
 		params.CompanyIds = []string{user.CompanyId}
+	} else {
+		isAdmin = true
 	}
 
 	// check pharma or franchise for admin
@@ -996,16 +963,13 @@ func (h *DashboardHandler) ProductStatistic(c *gin.Context) {
 
 	var isAdmin bool
 
-	if user.Role == constants.RoleFranchise {
-		params.StoreIds = user.StoreIds
-		params.CompanyIds = []string{user.CompanyId}
-	} else if helper.IsAdmin(user) {
-		isAdmin = true
-	} else {
+	if !helper.IsAdmin(user) {
 		if user.StoreId != "" {
 			params.StoreIds = []string{user.StoreId}
 		}
 		params.CompanyIds = []string{user.CompanyId}
+	} else {
+		isAdmin = true
 	}
 
 	// check pharma or franchise for admin
@@ -1079,16 +1043,13 @@ func (h *DashboardHandler) EmployeeBonus(c *gin.Context) {
 
 	var isAdmin bool
 
-	if user.Role == constants.RoleFranchise {
-		params.StoreIds = user.StoreIds
-		params.CompanyIds = []string{user.CompanyId}
-	} else if helper.IsAdmin(user) {
-		isAdmin = true
-	} else {
+	if !helper.IsAdmin(user) {
 		if user.StoreId != "" {
 			params.StoreIds = []string{user.StoreId}
 		}
 		params.CompanyIds = []string{user.CompanyId}
+	} else {
+		isAdmin = true
 	}
 
 	// check pharma or franchise for admin
@@ -1161,16 +1122,13 @@ func (h *DashboardHandler) LoyaltyCardStatistic(c *gin.Context) {
 	// check if employee is not admin or superadmin
 	var isAdmin bool
 
-	if user.Role == constants.RoleFranchise {
-		params.StoreIds = user.StoreIds
-		params.CompanyIds = []string{user.CompanyId}
-	} else if helper.IsAdmin(user) {
-		isAdmin = true
-	} else {
+	if !helper.IsAdmin(user) {
 		if user.StoreId != "" {
 			params.StoreIds = []string{user.StoreId}
 		}
 		params.CompanyIds = []string{user.CompanyId}
+	} else {
+		isAdmin = true
 	}
 
 	// check pharma or franchise for admin
