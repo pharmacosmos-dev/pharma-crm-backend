@@ -94,10 +94,7 @@ func (h *DashboardHandler) ChartStats(c *gin.Context) {
 	var isAdmin bool
 
 	if user.Role == constants.RoleFranchise {
-		if len(user.StoreIds) > 0 {
-			params.StoreIds = user.StoreIds
-		}
-		params.IsFranchise = &[]bool{true}[0]
+		params.StoreIds = user.StoreIds
 		params.CompanyIds = []string{user.CompanyId}
 	} else if helper.IsAdmin(user) {
 		isAdmin = true
@@ -179,10 +176,7 @@ func (h *DashboardHandler) TopStores(c *gin.Context) {
 	var isAdmin bool
 
 	if user.Role == constants.RoleFranchise {
-		if len(user.StoreIds) > 0 {
-			params.StoreIds = user.StoreIds
-		}
-		params.IsFranchise = &[]bool{true}[0]
+		params.StoreIds = user.StoreIds
 		params.CompanyIds = []string{user.CompanyId}
 	} else if helper.IsAdmin(user) {
 		isAdmin = true
@@ -270,10 +264,7 @@ func (h *DashboardHandler) TopProducts(c *gin.Context) {
 	var isAdmin bool
 
 	if user.Role == constants.RoleFranchise {
-		if len(user.StoreIds) > 0 {
-			params.StoreIds = user.StoreIds
-		}
-		params.IsFranchise = &[]bool{true}[0]
+		params.StoreIds = user.StoreIds
 		params.CompanyIds = []string{user.CompanyId}
 	} else if helper.IsAdmin(user) {
 		isAdmin = true
@@ -358,10 +349,7 @@ func (h *DashboardHandler) BonusProducts(c *gin.Context) {
 	var isAdmin bool
 
 	if user.Role == constants.RoleFranchise {
-		if len(user.StoreIds) > 0 {
-			params.StoreIds = user.StoreIds
-		}
-		params.IsFranchise = &[]bool{true}[0]
+		params.StoreIds = user.StoreIds
 		params.CompanyIds = []string{user.CompanyId}
 	} else if helper.IsAdmin(user) {
 		isAdmin = true
@@ -447,10 +435,7 @@ func (h *DashboardHandler) TopSeller(c *gin.Context) {
 	var isAdmin bool
 
 	if user.Role == constants.RoleFranchise {
-		if len(user.StoreIds) > 0 {
-			params.StoreIds = user.StoreIds
-		}
-		params.IsFranchise = &[]bool{true}[0]
+		params.StoreIds = user.StoreIds
 		params.CompanyIds = []string{user.CompanyId}
 	} else if helper.IsAdmin(user) {
 		isAdmin = true
@@ -533,10 +518,7 @@ func (h *DashboardHandler) Payments(c *gin.Context) {
 	var isAdmin bool
 
 	if user.Role == constants.RoleFranchise {
-		if len(user.StoreIds) > 0 {
-			params.StoreIds = user.StoreIds
-		}
-		params.IsFranchise = &[]bool{true}[0]
+		params.StoreIds = user.StoreIds
 		params.CompanyIds = []string{user.CompanyId}
 	} else if helper.IsAdmin(user) {
 		isAdmin = true
@@ -616,10 +598,7 @@ func (h *DashboardHandler) Transaction(c *gin.Context) {
 	var isAdmin bool
 
 	if user.Role == constants.RoleFranchise {
-		if len(user.StoreIds) > 0 {
-			params.StoreIds = user.StoreIds
-		}
-		params.IsFranchise = &[]bool{true}[0]
+		params.StoreIds = user.StoreIds
 		params.CompanyIds = []string{user.CompanyId}
 	} else if helper.IsAdmin(user) {
 		isAdmin = true
@@ -692,10 +671,7 @@ func (h *DashboardHandler) OldImport(c *gin.Context) {
 	var isAdmin bool
 
 	if user.Role == constants.RoleFranchise {
-		if len(user.StoreIds) > 0 {
-			params.StoreIds = user.StoreIds
-		}
-		params.IsFranchise = &[]bool{true}[0]
+		params.StoreIds = user.StoreIds
 		params.CompanyIds = []string{user.CompanyId}
 	} else if helper.IsAdmin(user) {
 		isAdmin = true
@@ -785,10 +761,7 @@ func (h *DashboardHandler) SaleStatistic(c *gin.Context) {
 	var isAdmin bool
 
 	if user.Role == constants.RoleFranchise {
-		if len(user.StoreIds) > 0 {
-			params.StoreIds = user.StoreIds
-		}
-		params.IsFranchise = &[]bool{true}[0]
+		params.StoreIds = user.StoreIds
 		params.CompanyIds = []string{user.CompanyId}
 	} else if helper.IsAdmin(user) {
 		isAdmin = true
@@ -870,10 +843,7 @@ func (h *DashboardHandler) NetProfitStatistic(c *gin.Context) {
 	var isAdmin bool
 
 	if user.Role == constants.RoleFranchise {
-		if len(user.StoreIds) > 0 {
-			params.StoreIds = user.StoreIds
-		}
-		params.IsFranchise = &[]bool{true}[0]
+		params.StoreIds = user.StoreIds
 		params.CompanyIds = []string{user.CompanyId}
 	} else if helper.IsAdmin(user) {
 		isAdmin = true
@@ -950,10 +920,7 @@ func (h *DashboardHandler) ImportStatistic(c *gin.Context) {
 	var isAdmin bool
 
 	if user.Role == constants.RoleFranchise {
-		if len(user.StoreIds) > 0 {
-			params.StoreIds = user.StoreIds
-		}
-		params.IsFranchise = &[]bool{true}[0]
+		params.StoreIds = user.StoreIds
 		params.CompanyIds = []string{user.CompanyId}
 	} else if helper.IsAdmin(user) {
 		isAdmin = true
@@ -1030,10 +997,7 @@ func (h *DashboardHandler) ProductStatistic(c *gin.Context) {
 	var isAdmin bool
 
 	if user.Role == constants.RoleFranchise {
-		if len(user.StoreIds) > 0 {
-			params.StoreIds = user.StoreIds
-		}
-		params.IsFranchise = &[]bool{true}[0]
+		params.StoreIds = user.StoreIds
 		params.CompanyIds = []string{user.CompanyId}
 	} else if helper.IsAdmin(user) {
 		isAdmin = true
@@ -1116,10 +1080,7 @@ func (h *DashboardHandler) EmployeeBonus(c *gin.Context) {
 	var isAdmin bool
 
 	if user.Role == constants.RoleFranchise {
-		if len(user.StoreIds) > 0 {
-			params.StoreIds = user.StoreIds
-		}
-		params.IsFranchise = &[]bool{true}[0]
+		params.StoreIds = user.StoreIds
 		params.CompanyIds = []string{user.CompanyId}
 	} else if helper.IsAdmin(user) {
 		isAdmin = true
@@ -1201,10 +1162,7 @@ func (h *DashboardHandler) LoyaltyCardStatistic(c *gin.Context) {
 	var isAdmin bool
 
 	if user.Role == constants.RoleFranchise {
-		if len(user.StoreIds) > 0 {
-			params.StoreIds = user.StoreIds
-		}
-		params.IsFranchise = &[]bool{true}[0]
+		params.StoreIds = user.StoreIds
 		params.CompanyIds = []string{user.CompanyId}
 	} else if helper.IsAdmin(user) {
 		isAdmin = true
