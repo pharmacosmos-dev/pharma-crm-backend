@@ -140,12 +140,21 @@ func (h *StoreHandler) FetchStores(c *gin.Context) {
 
 	params.Limit, params.Offset = defaultLimitOffset(params.Limit, params.Offset)
 
+	ctx, cancel := context.WithTimeout(c.Request.Context(), constants.DefaultContextTimeout)
+	defer cancel()
+
 	// check if employee is not admin or superadmin
 	if !helper.IsAdmin(user) {
-		params.CompanyId = user.CompanyId
+		if user.Role == constants.RoleFranchise {
+			// franchise role: barcha franchise kompaniyalar do'konlarini ko'radi
+			params.CompanyIds, _ = h.service.GetCompanyIds(ctx, true)
+			params.CompanyId = ""
+		} else {
+			params.CompanyId = user.CompanyId
+		}
 	}
 
-	res, totalCount, ids, err := h.service.GetStores(c.Request.Context(), &params)
+	res, totalCount, ids, err := h.service.GetStores(ctx, &params)
 	if err != nil {
 		handleServiceResponse(c, InternalError, err)
 		return

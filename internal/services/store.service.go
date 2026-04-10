@@ -86,7 +86,9 @@ func (s *Services) GetStores(ctx context.Context, params *domain.StoreQueryParam
 		qb = qb.Where("name ILIKE ? OR detailed_name ILIKE ?", searchPattern, searchPattern)
 	}
 
-	if params.CompanyId != "" {
+	if len(params.CompanyIds) > 0 {
+		qb = qb.Where("stores.company_id IN (?)", params.CompanyIds)
+	} else if params.CompanyId != "" {
 		qb = qb.Where("stores.company_id = ?", params.CompanyId)
 	}
 
