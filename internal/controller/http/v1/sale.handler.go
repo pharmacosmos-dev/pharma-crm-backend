@@ -226,38 +226,11 @@ func (h *SaleHandler) GetSales(c *gin.Context) {
 
 	// get limit offset with checking default
 	params.Limit, params.Offset = defaultLimitOffset(params.Limit, params.Offset)
-	// switch {
-	// 	case user.Role == constants.RoleFranchise:
-	// 		// franchise -> barcha store’lari
-	// 		storeIds, err := h.service.GetStoreIdsByCompanyId(ctx, user.CompanyId)
-	// 		if err != nil {
-	// 			handleServiceResponse(c, nil, err)
-	// 			return
-	// 		}
-	// 		params.StoreIds = storeIds
-	// 		params.CompanyId = user.CompanyId
-
-	// 	case user.Role == constants.RoleFounder:
-	// 		if len(user.StoreIds) > 0 {
-	// 			params.StoreIds = user.StoreIds
-	// 			params.CompanyId = user.CompanyId
-	// 		}
-
-	// 	case !helper.IsAdmin(user):
-	// 		// oddiy employee
-	// 		if user.StoreId != "" {
-	// 			params.StoreId = user.StoreId
-	// 		}
-	// 		params.CompanyId = user.CompanyId
-
-	// 	// admin -> filter yo’q (hammasi)
-	// }
 	if !helper.IsAdmin(user) {
 		if user.Role == constants.RoleFranchise {
-			// franchise role: barcha franchise kompaniyalar sotuvlarini ko'radi
-			params.CompanyIds, _ = h.service.GetCompanyIds(ctx, true)
-			params.StoreId = ""
-			params.CompanyId = ""
+			if params.StoreId == "" {
+				params.CompanyIds, _ = h.service.GetCompanyIds(ctx, true)
+			}
 		} else {
 			if user.StoreId != "" {
 				params.StoreId = user.StoreId
@@ -522,10 +495,9 @@ func (h *SaleHandler) GetSalesStats(c *gin.Context) {
 	// check user role
 	if !helper.IsAdmin(user) {
 		if user.Role == constants.RoleFranchise {
-			// franchise role: barcha franchise kompaniyalar sotuvlarini ko'radi
-			params.CompanyIds, _ = h.service.GetCompanyIds(ctx, true)
-			params.StoreId = ""
-			params.CompanyId = ""
+			if params.StoreId == "" {
+				params.CompanyIds, _ = h.service.GetCompanyIds(ctx, true)
+			}
 		} else {
 			// oddiy xodim: faqat o'z do'koni
 			if user.StoreId != "" {
