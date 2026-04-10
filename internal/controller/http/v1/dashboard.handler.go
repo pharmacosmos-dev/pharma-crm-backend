@@ -94,7 +94,9 @@ func (h *DashboardHandler) ChartStats(c *gin.Context) {
 	var isAdmin bool
 
 	if !helper.IsAdmin(user) {
-		if user.StoreId != "" {
+		if len(body.StoreIds) > 0 {
+			params.StoreIds = body.StoreIds
+		} else if user.StoreId != "" {
 			params.StoreIds = []string{user.StoreId}
 		}
 		params.CompanyIds = []string{user.CompanyId}
@@ -176,7 +178,9 @@ func (h *DashboardHandler) TopStores(c *gin.Context) {
 	var isAdmin bool
 
 	if !helper.IsAdmin(user) {
-		if user.StoreId != "" {
+		if len(body.StoreIds) > 0 {
+			params.StoreIds = body.StoreIds
+		} else if user.StoreId != "" {
 			params.StoreIds = []string{user.StoreId}
 		}
 		params.CompanyIds = []string{user.CompanyId}
@@ -264,7 +268,9 @@ func (h *DashboardHandler) TopProducts(c *gin.Context) {
 	var isAdmin bool
 
 	if !helper.IsAdmin(user) {
-		if user.StoreId != "" {
+		if len(body.StoreIds) > 0 {
+			params.StoreIds = body.StoreIds
+		} else if user.StoreId != "" {
 			params.StoreIds = []string{user.StoreId}
 		}
 		params.CompanyIds = []string{user.CompanyId}
@@ -349,7 +355,9 @@ func (h *DashboardHandler) BonusProducts(c *gin.Context) {
 	var isAdmin bool
 
 	if !helper.IsAdmin(user) {
-		if user.StoreId != "" {
+		if len(body.StoreIds) > 0 {
+			params.StoreIds = body.StoreIds
+		} else if user.StoreId != "" {
 			params.StoreIds = []string{user.StoreId}
 		}
 		params.CompanyIds = []string{user.CompanyId}
@@ -435,7 +443,9 @@ func (h *DashboardHandler) TopSeller(c *gin.Context) {
 	var isAdmin bool
 
 	if !helper.IsAdmin(user) {
-		if user.StoreId != "" {
+		if len(body.StoreIds) > 0 {
+			params.StoreIds = body.StoreIds
+		} else if user.StoreId != "" {
 			params.StoreIds = []string{user.StoreId}
 		}
 		params.CompanyIds = []string{user.CompanyId}
@@ -518,7 +528,9 @@ func (h *DashboardHandler) Payments(c *gin.Context) {
 	var isAdmin bool
 
 	if !helper.IsAdmin(user) {
-		if user.StoreId != "" {
+		if len(body.StoreIds) > 0 {
+			params.StoreIds = body.StoreIds
+		} else if user.StoreId != "" {
 			params.StoreIds = []string{user.StoreId}
 		}
 		params.CompanyIds = []string{user.CompanyId}
@@ -598,7 +610,9 @@ func (h *DashboardHandler) Transaction(c *gin.Context) {
 	var isAdmin bool
 
 	if !helper.IsAdmin(user) {
-		if user.StoreId != "" {
+		if len(body.StoreIds) > 0 {
+			params.StoreIds = body.StoreIds
+		} else if user.StoreId != "" {
 			params.StoreIds = []string{user.StoreId}
 		}
 		params.CompanyIds = []string{user.CompanyId}
@@ -671,7 +685,9 @@ func (h *DashboardHandler) OldImport(c *gin.Context) {
 	var isAdmin bool
 
 	if !helper.IsAdmin(user) {
-		if user.StoreId != "" {
+		if len(body.StoreIds) > 0 {
+			params.StoreIds = body.StoreIds
+		} else if user.StoreId != "" {
 			params.StoreIds = []string{user.StoreId}
 		}
 		params.CompanyIds = []string{user.CompanyId}
@@ -761,7 +777,9 @@ func (h *DashboardHandler) SaleStatistic(c *gin.Context) {
 	var isAdmin bool
 
 	if !helper.IsAdmin(user) {
-		if user.StoreId != "" {
+		if len(body.StoreIds) > 0 {
+			params.StoreIds = body.StoreIds
+		} else if user.StoreId != "" {
 			params.StoreIds = []string{user.StoreId}
 		}
 		params.CompanyIds = []string{user.CompanyId}
@@ -843,7 +861,9 @@ func (h *DashboardHandler) NetProfitStatistic(c *gin.Context) {
 	var isAdmin bool
 
 	if !helper.IsAdmin(user) {
-		if user.StoreId != "" {
+		if len(body.StoreIds) > 0 {
+			params.StoreIds = body.StoreIds
+		} else if user.StoreId != "" {
 			params.StoreIds = []string{user.StoreId}
 		}
 		params.CompanyIds = []string{user.CompanyId}
@@ -920,7 +940,9 @@ func (h *DashboardHandler) ImportStatistic(c *gin.Context) {
 	var isAdmin bool
 
 	if !helper.IsAdmin(user) {
-		if user.StoreId != "" {
+		if len(body.StoreIds) > 0 {
+			params.StoreIds = body.StoreIds
+		} else if user.StoreId != "" {
 			params.StoreIds = []string{user.StoreId}
 		}
 		params.CompanyIds = []string{user.CompanyId}
@@ -997,7 +1019,9 @@ func (h *DashboardHandler) ProductStatistic(c *gin.Context) {
 	var isAdmin bool
 
 	if !helper.IsAdmin(user) {
-		if user.StoreId != "" {
+		if len(body.StoreIds) > 0 {
+			params.StoreIds = body.StoreIds
+		} else if user.StoreId != "" {
 			params.StoreIds = []string{user.StoreId}
 		}
 		params.CompanyIds = []string{user.CompanyId}
@@ -1080,7 +1104,9 @@ func (h *DashboardHandler) EmployeeBonus(c *gin.Context) {
 	var isAdmin bool
 
 	if !helper.IsAdmin(user) {
-		if user.StoreId != "" {
+		if len(body.StoreIds) > 0 {
+			params.StoreIds = body.StoreIds
+		} else if user.StoreId != "" {
 			params.StoreIds = []string{user.StoreId}
 		}
 		params.CompanyIds = []string{user.CompanyId}
@@ -1161,7 +1187,9 @@ func (h *DashboardHandler) LoyaltyCardStatistic(c *gin.Context) {
 	var isAdmin bool
 
 	if !helper.IsAdmin(user) {
-		if user.StoreId != "" {
+		if len(body.StoreIds) > 0 {
+			params.StoreIds = body.StoreIds
+		} else if user.StoreId != "" {
 			params.StoreIds = []string{user.StoreId}
 		}
 		params.CompanyIds = []string{user.CompanyId}
