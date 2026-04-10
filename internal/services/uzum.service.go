@@ -15,22 +15,24 @@ import (
 
 // ProductWithStore represents a product with store-specific data
 type ProductWithStore struct {
-	Id           string            `gorm:"id"`
-	ProductId    string            `gorm:"product_id"`
-	Name         string            `gorm:"name"`
-	Barcode      string            `gorm:"barcode"`
-	Description  string            `gorm:"description"`
-	Vat          int               `gorm:"vat"`
-	Photos       utils.StringArray `gorm:"type:text[]"`
-	UnitPerPack  int               `gorm:"unit_per_pack"`
-	IsMarking    bool              `gorm:"is_marking"`
-	RetailPrice  float64           `gorm:"retail_price"`
-	UnitQuantity int               `gorm:"unit_quantity"`
-	Mxik         string            `gorm:"mxik"`
-	UnitCode     string            `gorm:"unit_code"`
-	StoreId      string            `gorm:"store_id"`
-	CategoryId   *string           `gorm:"category_id"`
-	CategoryName *string           `gorm:"category_name"`
+	Id            string            `gorm:"id"`
+	ProductId     string            `gorm:"product_id"`
+	Name          string            `gorm:"name"`
+	Barcode       string            `gorm:"barcode"`
+	Description   string            `gorm:"description"`
+	ExpiredDate   string            `gorm:"expired_date"`
+	//VendorCountry string            `gorm:"vendor_country"`
+	Vat           int               `gorm:"vat"`
+	Photos        utils.StringArray `gorm:"type:text[]"`
+	UnitPerPack   int               `gorm:"unit_per_pack"`
+	IsMarking     bool              `gorm:"is_marking"`
+	RetailPrice   float64           `gorm:"retail_price"`
+	UnitQuantity  int               `gorm:"unit_quantity"`
+	Mxik          string            `gorm:"mxik"`
+	UnitCode      string            `gorm:"unit_code"`
+	StoreId       string            `gorm:"store_id"`
+	CategoryId    *string           `gorm:"category_id"`
+	CategoryName  *string           `gorm:"category_name"`
 }
 
 func (s *Services) GetNomenclature(ctx context.Context, storeId string, page, limit int) (*domain.NomenclatureResponse, error) {
@@ -40,7 +42,7 @@ func (s *Services) GetNomenclature(ctx context.Context, storeId string, page, li
 	query := `
 		SELECT 
 			p.id AS product_id,
-			p.name, 
+	    	p.name, 
 			p.barcode, 
 			p.description, 
 			p.photos, 
@@ -52,6 +54,7 @@ func (s *Services) GetNomenclature(ctx context.Context, storeId string, page, li
 			sp.retail_price, 
 			sp.unit_quantity, 
 			sp.vat,
+			sp.expire_date AS expired_date,
 			sp.store_id,
 			c.id as category_id, 
 			c.name as category_name
@@ -118,7 +121,9 @@ func (s *Services) GetNomenclature(ctx context.Context, storeId string, page, li
 			Vat:    p.Vat,
 			Images: images,
 			Description: domain.NomenclatureDescription{
-				General: p.Description,
+				General:       p.Description,
+				ExpiresIn:     p.ExpiredDate,
+				//VendorCountry:,
 			},
 			Measure: domain.NomenclatureMeasure{
 				Unit:    "GRM",
