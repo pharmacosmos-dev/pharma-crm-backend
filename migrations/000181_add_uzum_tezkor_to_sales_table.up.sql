@@ -1,0 +1,2 @@
+ALTER TABLE "sales"
+    ADD COLUMN IF NOT EXISTS "uzum_tez_kor" NUMERIC(10, 2) DEFAULT 0;

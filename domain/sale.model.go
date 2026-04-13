@@ -34,6 +34,7 @@ type Sale struct {
 	Payme              float64        `gorm:"payme" json:"payme"`
 	Alif               float64        `gorm:"alif" json:"alif"`
 	Uzum               float64        `gorm:"uzum" json:"uzum"`
+	UzumTezkor	       float64        `gorm:"uzum_tez_kor" json:"uzum_tez_kor"`
 	LoyaltyCard        float64        `gorm:"loyalty_card" json:"loyalty_card"`
 	IsPaid             bool           `gorm:"is_paid" json:"is_paid"`
 	IsCorporate        bool           `gorm:"is_corporate" json:"is_corporate"`
@@ -75,6 +76,7 @@ type SaleQueryParams struct {
 	Payme           bool        `form:"payme"`
 	Alif            bool        `form:"alif"`
 	Uzum            bool        `form:"uzum"`
+	UzumTezKor      bool        `form:"uzum_tez_kor"`
 	IsCorporate     bool        `form:"is_corporate"`
 	Stage           int         `form:"stage"`
 }
@@ -135,6 +137,7 @@ type SaleResponse struct {
 	Payme           float64    `gorm:"payme" json:"payme"`
 	Alif            float64    `gorm:"alif" json:"alif"`
 	Uzum            float64    `gorm:"uzum" json:"uzum"`
+	UzumTezkor      float64    `gorm:"uzum_tez_kor" json:"uzum_tez_kor"`
 	LoyaltyCard     float64    `gorm:"loyalty_card" json:"loyalty_card"`
 	ProductCount    float64    `gorm:"product_count" json:"product_count"`
 	Status          string     `gorm:"status" json:"status"`
@@ -202,6 +205,7 @@ type FinalSale struct {
 	Alif               float64            `gorm:"alif" json:"alif"`
 	LoyaltyCard        float64            `gorm:"loyalty_card" json:"loyalty_card"`
 	Uzum               float64            `gorm:"uzum" json:"uzum"`
+	UzumTezKor		   float64            `gorm:"uzum_tez_kor" json:"uzum_tez_kor"`
 	ReturnAmount       float64            `gorm:"return_amount" json:"return_amount"`
 	LoyaltyCardBarcode string             `gorm:"loyalty_card_barcode" json:"loyalty_card_barcode"`
 	OtpCode            string             `gorm:"otp_code" json:"otp_code"`
@@ -244,15 +248,16 @@ type FinalPaymentType struct {
 
 // Total amount struct
 type SaleTotalAmount struct {
-	TotalAmount   float64 `gorm:"total_amount" json:"total_amount"`
-	CashAmount    float64 `gorm:"cash_amount" json:"cash_amount"`
-	HumoAmount    float64 `gorm:"humo_amount" json:"humo_amount"`
-	UzcardAmount  float64 `gorm:"uzcard_amount" json:"uzcard_amount"`
-	VisaAmount    float64 `gorm:"visa_amount" json:"visa_amount"`
-	ClickAmount   float64 `gorm:"click_amount" json:"click_amount"`
-	PaymeAmount   float64 `gorm:"payme_amount" json:"payme_amount"`
-	UzumAmount    float64 `gorm:"uzum_amount" json:"uzum_amount"`
-	BalanceAmount float64 `gorm:"balance_amount" json:"balance_amount"`
+	TotalAmount      float64 `gorm:"total_amount" json:"total_amount"`
+	CashAmount       float64 `gorm:"cash_amount" json:"cash_amount"`
+	HumoAmount       float64 `gorm:"humo_amount" json:"humo_amount"`
+	UzcardAmount     float64 `gorm:"uzcard_amount" json:"uzcard_amount"`
+	VisaAmount       float64 `gorm:"visa_amount" json:"visa_amount"`
+	ClickAmount      float64 `gorm:"click_amount" json:"click_amount"`
+	PaymeAmount      float64 `gorm:"payme_amount" json:"payme_amount"`
+	UzumAmount       float64 `gorm:"uzum_amount" json:"uzum_amount"`
+	UzumTezKorAmount float64 `gorm:"uzum_tez_kor_amount" json:"uzum_tez_kor_amount"`
+	BalanceAmount    float64 `gorm:"balance_amount" json:"balance_amount"`
 }
 
 // SaleStats structure
@@ -277,6 +282,8 @@ type SaleStats struct {
 	TotalAlifCount      int     `gorm:"total_alif_count" json:"total_alif_count"`
 	TotalUzumSum        float64 `gorm:"total_uzum_sum" json:"total_uzum_sum"`
 	TotalUzumCount      int     `gorm:"total_uzum_count" json:"total_uzum_count"`
+	TotalUzumTezKorSum  float64 `gorm:"total_uzum_tez_kor_sum" json:"total_uzum_tez_kor_sum"`
+	TotalUzumTezKorCount int     `gorm:"total_uzum_tez_kor_count" json:"total_uzum_tez_kor_count"`
 	TotalCashbackSum    float64 `gorm:"total_cashback_sum" json:"total_cashback_sum"`
 	TotalCashbackCount  float64 `gorm:"total_cashback_count" json:"total_cashback_count"`
 	TotalProductCount   int64   `gorm:"total_product_count" json:"total_product_count"`

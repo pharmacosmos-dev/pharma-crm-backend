@@ -51,7 +51,7 @@ const (
 
 // Payment Types slices
 var (
-	PaymentAppTypes = []string{PaymentTypeClick, PaymentTypePayme, PaymentTypeAlif, PaymentTypeUzum}
+	PaymentAppTypes = []string{PaymentTypeClick, PaymentTypePayme, PaymentTypeAlif, PaymentTypeUzum, PaymentTypeUzumTezkor}
 	PaymentTypes    = []string{PaymentTypeCash, PaymentTypeCard, PaymentTypeApp}
 )
 
@@ -167,6 +167,7 @@ const (
 	PaymentTypeClick       = "click"
 	PaymentTypePayme       = "payme"
 	PaymentTypeUzum        = "uzum"
+	PaymentTypeUzumTezkor  = "uzum_tezkor"
 	PaymentTypeAlif        = "alif"
 	PaymentTypeHumo        = "humo"
 	PaymentTypeUzcard      = "uzcard"

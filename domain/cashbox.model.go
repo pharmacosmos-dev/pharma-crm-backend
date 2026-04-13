@@ -134,6 +134,7 @@ type CashboxOperationAmount struct {
 	Click  float64 `gorm:"click" json:"click"`
 	Payme  float64 `gorm:"payme" json:"payme"`
 	Uzum   float64 `gorm:"uzum" json:"uzum"`
+	UzumTezKor float64 `gorm:"uzum_tez_kor" json:"uzum_tez_kor"`
 }
 
 // Cashbox operation shift
