@@ -168,6 +168,7 @@ const (
 	PaymentTypePayme       = "payme"
 	PaymentTypeUzum        = "uzum"
 	PaymentTypeUzumTezkor  = "uzum_tezkor"
+	PaymentTypeOnlineOrder = "online_order"
 	PaymentTypeAlif        = "alif"
 	PaymentTypeHumo        = "humo"
 	PaymentTypeUzcard      = "uzcard"

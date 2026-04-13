@@ -1083,7 +1083,7 @@ func (s *Services) matchingPaymentTypeSum(ctx context.Context, tx *gorm.DB, req 
 		} else if item.Type == constants.PaymentTypeApp && item.AppType == constants.PaymentTypeUzum {
 			req.Uzum = item.Amount
 			req.OtpCode = item.OtpData
-		} else if item.Type == constants.PaymentTypeApp && item.AppType == constants.PaymentTypeUzumTezkor {
+		} else if item.Type == constants.PaymentTypeOnlineOrder && item.AppType == constants.PaymentTypeUzumTezkor {
 			req.UzumTezKor = item.Amount
 			req.OtpCode = item.OtpData
 		} else if item.Type == constants.PaymentTypeLoyaltyCard {
