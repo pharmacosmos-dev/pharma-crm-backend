@@ -1906,6 +1906,8 @@ func (s *Services) GetSalesStats(ctx context.Context, params *domain.SaleQueryPa
 			"COUNT(*) FILTER (WHERE s.alif != 0) AS total_alif_count",
 			"SUM(s.uzum) AS total_uzum_sum",
 			"COUNT(*) FILTER (WHERE s.uzum != 0) AS total_uzum_count",
+			"SUM(s.uzum_tez_kor) AS total_uzum_tez_kor_sum",
+			"COUNT(*) FILTER (WHERE s.uzum_tez_kor != 0) AS total_uzum_tez_kor_count",
 		).Table("sales s").
 		Joins("JOIN stores st ON s.store_id = st.id")
 
@@ -1928,6 +1930,12 @@ func (s *Services) GetSalesStats(ctx context.Context, params *domain.SaleQueryPa
 	}
 	if params.Alif {
 		qb = qb.Where("s.alif > 0")
+	}
+	if params.Uzum {
+		qb = qb.Where("s.uzum > 0")
+	}
+	if params.UzumTezKor {
+		qb = qb.Where("s.uzum_tez_kor > 0")
 	}
 	if params.VendorId != "" {
 		qb = qb.Where("s.employee_id = ?", params.VendorId)
@@ -2020,6 +2028,12 @@ func (s *Services) GetSaleList(ctx context.Context, params *domain.SaleQueryPara
 	if params.Alif {
 		qb = qb.Where("s.alif > 0")
 	}
+	if params.Uzum {
+		qb = qb.Where("s.uzum > 0")
+	}
+	if params.UzumTezKor {
+		qb = qb.Where("s.uzum_tez_kor > 0")
+	}
 	if params.VendorId != "" {
 		qb = qb.Where("s.employee_id = ?", params.VendorId)
 	}
@@ -2085,6 +2099,9 @@ func (s *Services) GetSaleList(ctx context.Context, params *domain.SaleQueryPara
 			"s.payme",
 			"s.alif",
 			"s.uzum",
+			"s.uzum_tez_kor",
+			"s.service_type",
+			"s.vendor_order_id",
 			"s.status",
 			"s.check_url",
 			"s.fiscal_sign",
