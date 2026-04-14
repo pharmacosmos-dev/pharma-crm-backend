@@ -50,6 +50,7 @@ func (s *Services) GetNomenclature(ctx context.Context, storeId string, page, li
 			p.is_marking,
 			p.mxik,
 			p.unit_code,
+			p.requires_prescription,
 			sp.id AS id,
 			sp.retail_price, 
 			sp.unit_quantity, 
@@ -164,6 +165,7 @@ func (s *Services) GetAvailability(ctx context.Context, storeId string, page, li
 		SELECT 
 			sp.id AS store_product_id, 
 			(sp.unit_quantity / p.unit_per_pack) AS quantity
+			p.requeires_prescription
 		FROM store_products sp
 		JOIN products p ON sp.product_id = p.id
 		WHERE sp.store_id = ? AND sp.unit_quantity > 0
