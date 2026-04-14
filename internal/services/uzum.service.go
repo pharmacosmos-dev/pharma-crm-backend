@@ -20,6 +20,7 @@ type ProductWithStore struct {
 	Name          string            `gorm:"name"`
 	Barcode       string            `gorm:"barcode"`
 	Description   string            `gorm:"description"`
+	RequiresPrescription bool       `gorm:"requires_prescription"`
 	ExpiredDate   string            `gorm:"expired_date"`
 	//VendorCountry string            `gorm:"vendor_country"`
 	Vat           int               `gorm:"vat"`
@@ -126,6 +127,7 @@ func (s *Services) GetNomenclature(ctx context.Context, storeId string, page, li
 				ExpiresIn:     p.ExpiredDate,
 				//VendorCountry:,
 			},
+			Retsept: p.RequiresPrescription,
 			Measure: domain.NomenclatureMeasure{
 				Unit:    "GRM",
 				Value:   1000,
@@ -164,7 +166,7 @@ func (s *Services) GetAvailability(ctx context.Context, storeId string, page, li
 	query := `
 		SELECT 
 			sp.id AS store_product_id, 
-			(sp.unit_quantity / p.unit_per_pack) AS quantity
+			(sp.unit_quantity / p.unit_per_pack) AS quantity,
 			p.requeires_prescription
 		FROM store_products sp
 		JOIN products p ON sp.product_id = p.id
