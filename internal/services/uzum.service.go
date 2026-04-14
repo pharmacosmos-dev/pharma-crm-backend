@@ -63,7 +63,7 @@ func (s *Services) GetNomenclature(ctx context.Context, storeId string, page, li
 		FROM products p
 		INNER JOIN store_products sp ON p.id = sp.product_id
 		LEFT JOIN categories c ON p.category_id = c.id
-		WHERE sp.store_id = ? AND sp.unit_quantity/p.unit_per_pack > 0
+		WHERE sp.store_id = ? AND sp.unit_quantity/p.unit_per_pack > 0 AND p.requires_prescription = false
 	`
 	if limit > 0 && page > 0 {
 		query = query + fmt.Sprintf("LIMIT %d OFFSET %d", limit, (page-1)*limit)
@@ -161,16 +161,17 @@ func (s *Services) GetAvailability(ctx context.Context, storeId string, page, li
 	var items []struct {
 		StoreProductId string  `gorm:"column:store_product_id"`
 		Quantity       float64 `gorm:"column:quantity"`
+		Retsept        bool	   `gorm:"column:requires_prescription"`
 	}
 
 	query := `
 		SELECT 
 			sp.id AS store_product_id, 
 			(sp.unit_quantity / p.unit_per_pack) AS quantity,
-			p.requeires_prescription
+			p.requires_prescription  
 		FROM store_products sp
 		JOIN products p ON sp.product_id = p.id
-		WHERE sp.store_id = ? AND sp.unit_quantity > 0
+		WHERE sp.store_id = ? AND sp.unit_quantity > 0 AND p.requires_prescription = false;
 	`
 	if limit > 0 && page > 0 {
 		query = query + fmt.Sprintf("LIMIT %d OFFSET %d", limit, (page-1)*limit)
