@@ -1510,7 +1510,7 @@ func (s *Services) GetSaleOne(ctx context.Context, saleId string) (*domain.SaleR
 		Payme              float64    `gorm:"payme"`
 		Alif               float64    `gorm:"alif"`
 		Uzum               float64    `gorm:"uzum"`
-		UzumTezkor         float64    `gorm:"uzum_tez_kor"`
+		UzumTezKor         float64    `gorm:"uzum_tez_kor"`
 		LoyaltyCard        float64    `gorm:"loyalty_card"`
 		IsDelivered        bool       `gorm:"is_delivered"`
 		TaxFree            bool       `gorm:"tax_free"`
@@ -1630,7 +1630,7 @@ func (s *Services) GetSaleOne(ctx context.Context, saleId string) (*domain.SaleR
 		Payme:              tempSale.Payme,
 		Alif:               tempSale.Alif,
 		Uzum:               tempSale.Uzum,
-		UzumTezkor:         tempSale.UzumTezkor,
+		UzumTezKor:         tempSale.UzumTezKor,
 		LoyaltyCard:        tempSale.LoyaltyCard,
 		Status:             tempSale.Status,
 		Stage:              tempSale.Stage,

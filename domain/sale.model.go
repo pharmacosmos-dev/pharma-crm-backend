@@ -34,7 +34,7 @@ type Sale struct {
 	Payme              float64        `gorm:"payme" json:"payme"`
 	Alif               float64        `gorm:"alif" json:"alif"`
 	Uzum               float64        `gorm:"uzum" json:"uzum"`
-	UzumTezkor	       float64        `gorm:"uzum_tez_kor" json:"uzum_tez_kor"`
+	UzumTezKor        float64         `gorm:"uzum_tez_kor" json:"uzum_tez_kor"`
 	LoyaltyCard        float64        `gorm:"loyalty_card" json:"loyalty_card"`
 	IsPaid             bool           `gorm:"is_paid" json:"is_paid"`
 	IsCorporate        bool           `gorm:"is_corporate" json:"is_corporate"`
@@ -137,7 +137,7 @@ type SaleResponse struct {
 	Payme           float64    `gorm:"payme" json:"payme"`
 	Alif            float64    `gorm:"alif" json:"alif"`
 	Uzum            float64    `gorm:"uzum" json:"uzum"`
-	UzumTezkor      float64    `gorm:"uzum_tez_kor" json:"uzum_tez_kor"`
+	UzumTezKor      float64    `gorm:"uzum_tez_kor" json:"uzum_tez_kor"`
 	LoyaltyCard     float64    `gorm:"loyalty_card" json:"loyalty_card"`
 	ProductCount    float64    `gorm:"product_count" json:"product_count"`
 	Status          string     `gorm:"status" json:"status"`
