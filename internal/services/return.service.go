@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"math"
 	"net/http"
 	"strings"
 	"time"
@@ -234,6 +235,84 @@ func (s *Services) UpdateReturnDetailQuantity(ctx context.Context, req *domain.R
 
 	return nil
 
+}
+
+// UpdateTransferDetailByUnit updates transfer detail quantity using dona (unit) count
+// with math.Round to handle fractional pack counts (e.g. 1.3333, 1.5, 1.6667)
+func (s *Services) UpdateTransferDetailByUnit(ctx context.Context, req *domain.ReturnAddProduct, userId string) error {
+	var detail struct {
+		ProductId     string  `gorm:"product_id"`
+		UnitPerPack   float64 `gorm:"unit_per_pack"`
+		ReceivedCount float64 `gorm:"received_count"`
+		ExpectedCount float64 `gorm:"expected_count"`
+		ScannedCount  float64 `gorm:"scanned_count"`
+	}
+	err := s.db.WithContext(ctx).Raw(`
+	SELECT
+		td.received_count,
+		td.expected_count,
+		td.scanned_count,
+		p.id AS product_id,
+		p.unit_per_pack
+	FROM transfer_details td
+	JOIN products p ON td.product_id = p.id
+	WHERE td.id = ?;
+	`, req.Id).Scan(&detail).Error
+	if err != nil {
+		s.log.Errorf("could not get transfer detail(%s): %v", req.Id, err)
+		return domain.InternalServerError
+	}
+
+	if req.ScannedUnit == nil {
+		return errors.New("invalid.quantity")
+	}
+
+	receivedDona := math.Round(detail.ReceivedCount * detail.UnitPerPack)
+	scannedDona := math.Round(detail.ScannedCount * detail.UnitPerPack)
+	newTotalDona := scannedDona + float64(*req.ScannedUnit)
+
+	if newTotalDona > receivedDona {
+		return errors.New("invalid.quantity")
+	}
+
+	updateField := "expected_count"
+	switch req.Status {
+	case "checking":
+		updateField = "accepted_count"
+		expectedDona := math.Round(detail.ExpectedCount * detail.UnitPerPack)
+		if newTotalDona > expectedDona {
+			return errors.New("invalid.quantity")
+		}
+	case "get":
+		updateField = "scanned_count"
+		expectedDona := math.Round(detail.ExpectedCount * detail.UnitPerPack)
+		if newTotalDona > expectedDona {
+			return errors.New("invalid.quantity")
+		}
+	}
+
+	quantity := newTotalDona / detail.UnitPerPack
+
+	err = s.db.WithContext(ctx).Exec(fmt.Sprintf(`
+	UPDATE transfer_details
+	SET %s = ?, updated_at = NOW()
+	WHERE id = ? AND transfer_id = ?;`, updateField),
+		quantity, req.Id, req.TransferId).Error
+	if err != nil {
+		s.log.Errorf("could not update transfer detail by unit: %v", err)
+		return domain.InternalServerError
+	}
+
+	go s.SaveTransferLog(&domain.TransferLog{
+		TransferId:       req.TransferId,
+		UserId:           userId,
+		TransferDetailId: req.Id,
+		ProductId:        detail.ProductId,
+		TransferType:     constants.TransferTypeMove,
+		Quantity:         *req.ScannedUnit,
+	})
+
+	return nil
 }
 
 func (s *Services) UpdateReturnByBarcode(ctx context.Context, req *domain.TransferBarcodeRequest, user *domain.EmployeeClaims) error {

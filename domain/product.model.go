@@ -498,6 +498,15 @@ type MovementUnitsResponse struct {
 	Diff                float64 `gorm:"diff" json:"diff"`
 }
 
+type MovementUnitsByDateParam struct {
+	StoreId   string      `form:"store_id"`
+	CompanyId string      `form:"company_id"`
+	FromDate  *CustomTime `form:"from_date"`
+	ToDate    *CustomTime `form:"to_date"`
+	Limit     int         `form:"limit"`
+	Offset    int         `form:"offset"`
+}
+
 type ProductByImportParam struct {
 	ProductId       string   `form:"product_id"`
 	StoreId         string   `form:"store_id"`

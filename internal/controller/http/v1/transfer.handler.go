@@ -42,6 +42,7 @@ func (h *TransferHandler) TransferRoutes(r *gin.RouterGroup) {
 		transfer.GET("/logs/:transfer_id", h.GetTransferLogs)
 		transfer.GET("/export-nakladnoy", h.ExportTransferNakladnoyPDF)
 		transfer.PATCH("/:id/add-product-by-barcode", h.AddProductByBarcode)
+		transfer.PATCH("/:id/add-product-by-barcode-unit", h.AddProductByBarcodeUnit)
 		transfer.PUT("/update-by-barcode/:id", h.UpdateByBarcode)
 		transfer.PUT("/edit-status-to-checking/:id", h.EditStatusToChecking)
 		transfer.DELETE("/:id", h.DeleteTransfer)
@@ -385,6 +386,52 @@ func (h *TransferHandler) AddProductByBarcode(c *gin.Context) {
 	request.TransferId = id
 
 	err := h.service.UpdateReturnDetailQuantity(ctx, &request, user.UserId, constants.TransferTypeMove)
+	if err != nil {
+		handleServiceResponse(c, nil, err)
+		return
+	}
+
+	handleResponse(c, OK, "ADDED")
+}
+
+// AddProductByBarcodeUnit godoc
+// @Summary Add product by barcode using unit (dona) count
+// @Description Handles fractional pack counts (e.g. 1.3333, 1.5 уп) by accepting dona count
+// @Tags Transfer
+// @Security     BearerAuth
+// @Accept 	json
+// @Produce json
+// @Param 	id 	path string true "Transfer ID"
+// @Param 	body body domain.ReturnAddProduct true "Add product by barcode unit"
+// @Success 200 {object} v1.Response
+// @Failure 400 {object} v1.Response
+// @Failure 500 {object} v1.Response
+// @Router /transfer/{id}/add-product-by-barcode-unit [PATCH]
+func (h *TransferHandler) AddProductByBarcodeUnit(c *gin.Context) {
+	user := h.service.GetSignedUser(c)
+	if user.UserId == "" {
+		handleServiceResponse(c, nil, domain.UnauthorizedError)
+		return
+	}
+
+	id := c.Param("id")
+	if id == "" {
+		handleServiceResponse(c, nil, domain.InvalidQueryError)
+		return
+	}
+
+	var request domain.ReturnAddProduct
+	if err := c.ShouldBindJSON(&request); err != nil {
+		handleServiceResponse(c, nil, domain.InvalidRequestBodyError)
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
+	defer cancel()
+
+	request.TransferId = id
+
+	err := h.service.UpdateTransferDetailByUnit(ctx, &request, user.UserId)
 	if err != nil {
 		handleServiceResponse(c, nil, err)
 		return

@@ -82,6 +82,8 @@ func (h *ProductHandler) ProductRoutes(r *gin.RouterGroup) {
 		product.GET("/:id/dashboard", h.SingleProductDashboard)
 		product.GET("/movement-units", h.GetMovementUnits)
 		product.GET("/movement-units-export", h.ExportMovementUnits)
+		product.GET("/movement-units-by-date", h.GetMovementUnitsByDate)
+		product.GET("/movement-units-by-date-export", h.ExportMovementUnitsByDate)
 		product.PUT("/update-ostatok/:store_product_id", h.UpdateOstatok)
 		product.POST("/barcode/upsert", h.CreateOrUpdateBarcodes)
 		product.GET("/:id/barcodes", h.GetProductBarcodes)
@@ -2922,6 +2924,136 @@ func (h *ProductHandler) ExportMovementUnits(c *gin.Context) {
 	}
 
 	saveExcelToUploads(c, f, *h.log, "product-full-movements")
+}
+
+// GetMovementUnitsByDate godoc
+// @Summary Get product movement units filtered by date range
+// @Tags products
+// @Security BearerAuth
+// @Produce json
+// @Param store_id  query string false "store_id"
+// @Param from_date query string false "from_date (RFC3339 e.g. 2026-01-01T00:00:00+05:00)"
+// @Param to_date   query string false "to_date   (RFC3339 e.g. 2026-01-31T23:59:59+05:00)"
+// @Param limit     query int    false "Limit"
+// @Param offset    query int    false "Offset"
+// @Success 200 {object} v1.Response
+// @Failure 400 {object} v1.Response
+// @Failure 500 {object} v1.Response
+// @Router /product/movement-units-by-date [GET]
+func (h *ProductHandler) GetMovementUnitsByDate(c *gin.Context) {
+	user := h.service.GetSignedUser(c)
+	if user.UserId == "" {
+		handleServiceResponse(c, nil, domain.UnauthorizedError)
+		return
+	}
+
+	var params domain.MovementUnitsByDateParam
+	if err := c.ShouldBindQuery(&params); err != nil {
+		handleServiceResponse(c, BadRequest, domain.InvalidQueryError)
+		return
+	}
+
+	if !helper.IsAdmin(user) {
+		if user.StoreId != "" {
+			params.StoreId = user.StoreId
+		}
+		params.CompanyId = user.CompanyId
+	}
+
+	params.Limit, params.Offset = defaultLimitOffset(params.Limit, params.Offset)
+
+	ctx, cancel := context.WithTimeout(context.Background(), time.Minute*2)
+	defer cancel()
+
+	res, err := h.service.GetProductMovementUnitsByDate(ctx, &params)
+	if err != nil {
+		handleServiceResponse(c, nil, err)
+		return
+	}
+
+	handleResponse(c, OK, res)
+}
+
+// ExportMovementUnitsByDate godoc
+// @Summary Export product movement units by date range to Excel
+// @Tags products
+// @Security BearerAuth
+// @Produce json
+// @Param store_id  query string false "store_id"
+// @Param from_date query string false "from_date (RFC3339 e.g. 2026-01-01T00:00:00+05:00)"
+// @Param to_date   query string false "to_date   (RFC3339 e.g. 2026-01-31T23:59:59+05:00)"
+// @Param limit     query int    false "Limit"
+// @Param offset    query int    false "Offset"
+// @Success 200 {object} v1.Response
+// @Failure 400 {object} v1.Response
+// @Failure 500 {object} v1.Response
+// @Router /product/movement-units-by-date-export [GET]
+func (h *ProductHandler) ExportMovementUnitsByDate(c *gin.Context) {
+	user := h.service.GetSignedUser(c)
+	if user.UserId == "" {
+		handleServiceResponse(c, nil, domain.UnauthorizedError)
+		return
+	}
+
+	var params domain.MovementUnitsByDateParam
+	if err := c.ShouldBindQuery(&params); err != nil {
+		handleServiceResponse(c, BadRequest, domain.InvalidQueryError)
+		return
+	}
+
+	if !helper.IsAdmin(user) {
+		if user.StoreId != "" {
+			params.StoreId = user.StoreId
+		}
+		params.CompanyId = user.CompanyId
+	}
+
+	params.Limit, params.Offset = defaultLimitOffset(params.Limit, params.Offset)
+
+	ctx, cancel := context.WithTimeout(context.Background(), time.Minute*2)
+	defer cancel()
+
+	res, err := h.service.GetProductMovementUnitsByDate(ctx, &params)
+	if err != nil {
+		handleServiceResponse(c, nil, err)
+		return
+	}
+
+	f := excelize.NewFile()
+	sheetName := "List1"
+	f.SetSheetName("Sheet1", sheetName)
+
+	headers := []string{
+		"Товары ID", "По-Импорт-ID", "Наименования", "№",
+		"Остаток", "Импорт Кол-во", "Продано Кол-во",
+		"Возврат От клиент Кол-во", "Возврат склад Кол-во",
+		"Трансфер-In", "Трансфер-Out", "Фиксированное Кол-во", "Разница"}
+
+	err = setExcelHeaders(f, sheetName, headers)
+	if err != nil {
+		h.log.Errorf("Failed to create style: %v", err)
+		handleServiceResponse(c, nil, domain.InternalServerError)
+		return
+	}
+
+	for i, product := range res {
+		row := strconv.Itoa(i + 2)
+		f.SetCellValue(sheetName, "A"+row, product.ProductId)
+		f.SetCellValue(sheetName, "B"+row, product.StoreProductId)
+		f.SetCellValue(sheetName, "C"+row, product.Name)
+		f.SetCellValue(sheetName, "D"+row, product.UnitPerPack)
+		f.SetCellValue(sheetName, "E"+row, product.UnitQuantity)
+		f.SetCellValue(sheetName, "F"+row, product.ImportQuantity)
+		f.SetCellValue(sheetName, "G"+row, product.SoldQuantity)
+		f.SetCellValue(sheetName, "H"+row, product.ReturnedQuantity)
+		f.SetCellValue(sheetName, "I"+row, product.VozvratQuantity)
+		f.SetCellValue(sheetName, "J"+row, product.TransferInQuantity)
+		f.SetCellValue(sheetName, "K"+row, product.TransferOutQuantity)
+		f.SetCellValue(sheetName, "L"+row, product.CorrectQuantity)
+		f.SetCellValue(sheetName, "M"+row, product.Diff)
+	}
+
+	saveExcelToUploads(c, f, *h.log, "product-full-movements-by-date")
 }
 
 // UpdateOstatok godoc
