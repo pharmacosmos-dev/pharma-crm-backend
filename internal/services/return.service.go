@@ -263,16 +263,21 @@ func (s *Services) UpdateTransferDetailByUnit(ctx context.Context, req *domain.R
 		return domain.InternalServerError
 	}
 
-	if req.ScannedUnit == nil {
-		return errors.New("invalid.quantity")
-	}
-
 	receivedDona := math.Round(detail.ReceivedCount * detail.UnitPerPack)
-	scannedDona := math.Round(detail.ScannedCount * detail.UnitPerPack)
-	newTotalDona := scannedDona + float64(*req.ScannedUnit)
 
-	if newTotalDona > receivedDona {
-		return errors.New("invalid.quantity")
+	// if scanned_unit not provided, use full received_count
+	var newTotalDona float64
+	var logQuantity int
+	if req.ScannedUnit == nil {
+		newTotalDona = receivedDona
+		logQuantity = int(receivedDona)
+	} else {
+		scannedDona := math.Round(detail.ScannedCount * detail.UnitPerPack)
+		newTotalDona = scannedDona + float64(*req.ScannedUnit)
+		logQuantity = *req.ScannedUnit
+		if newTotalDona > receivedDona {
+			return errors.New("invalid.quantity")
+		}
 	}
 
 	updateField := "expected_count"
@@ -280,13 +285,13 @@ func (s *Services) UpdateTransferDetailByUnit(ctx context.Context, req *domain.R
 	case "checking":
 		updateField = "accepted_count"
 		expectedDona := math.Round(detail.ExpectedCount * detail.UnitPerPack)
-		if newTotalDona > expectedDona {
+		if req.ScannedUnit != nil && newTotalDona > expectedDona {
 			return errors.New("invalid.quantity")
 		}
 	case "get":
 		updateField = "scanned_count"
 		expectedDona := math.Round(detail.ExpectedCount * detail.UnitPerPack)
-		if newTotalDona > expectedDona {
+		if req.ScannedUnit != nil && newTotalDona > expectedDona {
 			return errors.New("invalid.quantity")
 		}
 	}
@@ -309,7 +314,7 @@ func (s *Services) UpdateTransferDetailByUnit(ctx context.Context, req *domain.R
 		TransferDetailId: req.Id,
 		ProductId:        detail.ProductId,
 		TransferType:     constants.TransferTypeMove,
-		Quantity:         *req.ScannedUnit,
+		Quantity:         logQuantity,
 	})
 
 	return nil
