@@ -15108,6 +15108,142 @@ const docTemplate = `{
                 }
             }
         },
+        "/product/movement-units-by-date": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "products"
+                ],
+                "summary": "Get product movement units filtered by date range",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "store_id",
+                        "name": "store_id",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "from_date (RFC3339 e.g. 2026-01-01T00:00:00+05:00)",
+                        "name": "from_date",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "to_date   (RFC3339 e.g. 2026-01-31T23:59:59+05:00)",
+                        "name": "to_date",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Limit",
+                        "name": "limit",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Offset",
+                        "name": "offset",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/product/movement-units-by-date-export": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "products"
+                ],
+                "summary": "Export product movement units by date range to Excel",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "store_id",
+                        "name": "store_id",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "from_date (RFC3339 e.g. 2026-01-01T00:00:00+05:00)",
+                        "name": "from_date",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "to_date   (RFC3339 e.g. 2026-01-31T23:59:59+05:00)",
+                        "name": "to_date",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Limit",
+                        "name": "limit",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Offset",
+                        "name": "offset",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    }
+                }
+            }
+        },
         "/product/movement-units-export": {
             "get": {
                 "security": [
@@ -26562,6 +26698,64 @@ const docTemplate = `{
                 }
             }
         },
+        "/transfer/{id}/add-product-by-barcode-unit": {
+            "patch": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Handles fractional pack counts (e.g. 1.3333, 1.5 уп) by accepting dona count",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Transfer"
+                ],
+                "summary": "Add product by barcode using unit (dona) count",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Transfer ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Add product by barcode unit",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/domain.ReturnAddProduct"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    }
+                }
+            }
+        },
         "/unit-types": {
             "post": {
                 "security": [
@@ -28523,35 +28717,6 @@ const docTemplate = `{
                 }
             }
         },
-        "domain.CashBox": {
-            "type": "object",
-            "properties": {
-                "created_at": {
-                    "type": "string"
-                },
-                "id": {
-                    "type": "string"
-                },
-                "is_enable": {
-                    "type": "boolean"
-                },
-                "is_open": {
-                    "type": "boolean"
-                },
-                "name": {
-                    "type": "string"
-                },
-                "store": {
-                    "$ref": "#/definitions/domain.Store"
-                },
-                "store_id": {
-                    "type": "string"
-                },
-                "updated_at": {
-                    "type": "string"
-                }
-            }
-        },
         "domain.CashBoxRequest": {
             "type": "object",
             "properties": {
@@ -28698,50 +28863,6 @@ const docTemplate = `{
                 },
                 "is_open": {
                     "type": "boolean"
-                }
-            }
-        },
-        "domain.Company": {
-            "type": "object",
-            "properties": {
-                "city": {
-                    "type": "string"
-                },
-                "company_inn": {
-                    "type": "string"
-                },
-                "company_mfo": {
-                    "type": "string"
-                },
-                "country": {
-                    "type": "string"
-                },
-                "created_at": {
-                    "type": "string"
-                },
-                "email": {
-                    "type": "string"
-                },
-                "id": {
-                    "type": "string"
-                },
-                "legal_address": {
-                    "type": "string"
-                },
-                "legal_name": {
-                    "type": "string"
-                },
-                "name": {
-                    "type": "string"
-                },
-                "phone": {
-                    "type": "string"
-                },
-                "postal_code": {
-                    "type": "string"
-                },
-                "updated_at": {
-                    "type": "string"
                 }
             }
         },
@@ -29006,112 +29127,6 @@ const docTemplate = `{
                 }
             }
         },
-        "domain.Employee": {
-            "type": "object",
-            "properties": {
-                "birthdate": {
-                    "type": "string"
-                },
-                "cashbox": {
-                    "$ref": "#/definitions/domain.EmployeeCashbox"
-                },
-                "company": {
-                    "$ref": "#/definitions/domain.Company"
-                },
-                "company_id": {
-                    "type": "string"
-                },
-                "created_at": {
-                    "type": "string"
-                },
-                "email": {
-                    "type": "string"
-                },
-                "first_name": {
-                    "type": "string"
-                },
-                "full_name": {
-                    "type": "string"
-                },
-                "gender": {
-                    "type": "string"
-                },
-                "id": {
-                    "type": "string"
-                },
-                "language": {
-                    "type": "string"
-                },
-                "last_name": {
-                    "type": "string"
-                },
-                "password": {
-                    "type": "string"
-                },
-                "permissions": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/domain.Permission"
-                    }
-                },
-                "phone": {
-                    "type": "string"
-                },
-                "photo": {
-                    "type": "string"
-                },
-                "position": {
-                    "type": "string"
-                },
-                "public_id": {
-                    "type": "integer"
-                },
-                "role_type": {
-                    "type": "string"
-                },
-                "roles": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/domain.Role"
-                    }
-                },
-                "status": {
-                    "type": "string"
-                },
-                "store": {
-                    "$ref": "#/definitions/domain.Store"
-                },
-                "store_id": {
-                    "type": "string"
-                },
-                "updated_at": {
-                    "type": "string"
-                }
-            }
-        },
-        "domain.EmployeeCashbox": {
-            "type": "object",
-            "properties": {
-                "cashbox_operation_id": {
-                    "type": "string"
-                },
-                "created_at": {
-                    "type": "string"
-                },
-                "id": {
-                    "type": "string"
-                },
-                "name": {
-                    "type": "string"
-                },
-                "operation_id": {
-                    "type": "integer"
-                },
-                "updated_at": {
-                    "type": "string"
-                }
-            }
-        },
         "domain.EmployeeRequest": {
             "type": "object",
             "required": [
@@ -29157,6 +29172,7 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "position": {
+                    "description": "StoreIds  pq.StringArray ` + "`" + `gorm:\"type:text[];column:store_ids\" json:\"store_ids\"` + "`" + `",
                     "type": "string"
                 },
                 "role_ids": {
@@ -29278,7 +29294,7 @@ const docTemplate = `{
                 },
                 "app_type": {
                     "type": "string",
-                    "example": "click|payme|uzum"
+                    "example": "click|payme|uzum|uzum_tezkor"
                 },
                 "otp_data": {
                     "type": "string"
@@ -29377,6 +29393,9 @@ const docTemplate = `{
                     "type": "number"
                 },
                 "uzum": {
+                    "type": "number"
+                },
+                "uzum_tez_kor": {
                     "type": "number"
                 }
             }
@@ -29880,6 +29899,9 @@ const docTemplate = `{
                 "price": {
                     "type": "number"
                 },
+                "requiredPrescription": {
+                    "type": "boolean"
+                },
                 "serviceCodesUz": {
                     "$ref": "#/definitions/domain.NomenclatureServiceCodes"
                 },
@@ -30311,53 +30333,6 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "status": {
-                    "type": "string"
-                }
-            }
-        },
-        "domain.Permission": {
-            "type": "object",
-            "properties": {
-                "children": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/domain.Permission"
-                    }
-                },
-                "created_at": {
-                    "type": "string"
-                },
-                "description": {
-                    "type": "string"
-                },
-                "id": {
-                    "type": "string"
-                },
-                "is_active": {
-                    "type": "boolean"
-                },
-                "key": {
-                    "type": "string"
-                },
-                "method": {
-                    "type": "array",
-                    "items": {
-                        "type": "string"
-                    }
-                },
-                "name": {
-                    "type": "string"
-                },
-                "parent_id": {
-                    "type": "string"
-                },
-                "route": {
-                    "type": "string"
-                },
-                "type": {
-                    "type": "string"
-                },
-                "updated_at": {
                     "type": "string"
                 }
             }
@@ -30846,32 +30821,6 @@ const docTemplate = `{
                 }
             }
         },
-        "domain.Role": {
-            "type": "object",
-            "properties": {
-                "created_at": {
-                    "type": "string"
-                },
-                "description": {
-                    "type": "string"
-                },
-                "id": {
-                    "type": "string"
-                },
-                "name": {
-                    "type": "string"
-                },
-                "permission_count": {
-                    "type": "integer"
-                },
-                "public_id": {
-                    "type": "integer"
-                },
-                "updated_at": {
-                    "type": "string"
-                }
-            }
-        },
         "domain.RolePermissionReq": {
             "type": "object",
             "properties": {
@@ -31049,36 +30998,7 @@ const docTemplate = `{
             }
         },
         "domain.Shift": {
-            "type": "object",
-            "properties": {
-                "cash_box": {
-                    "$ref": "#/definitions/domain.CashBox"
-                },
-                "cash_box_id": {
-                    "type": "string"
-                },
-                "created_at": {
-                    "type": "string"
-                },
-                "from_employee": {
-                    "$ref": "#/definitions/domain.Employee"
-                },
-                "from_employee_id": {
-                    "type": "string"
-                },
-                "id": {
-                    "type": "string"
-                },
-                "to_employee": {
-                    "$ref": "#/definitions/domain.Employee"
-                },
-                "to_employee_id": {
-                    "type": "string"
-                },
-                "updated_at": {
-                    "type": "string"
-                }
-            }
+            "type": "object"
         },
         "domain.ShiftRequest": {
             "type": "object",
@@ -31093,68 +31013,6 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "to_employee_id": {
-                    "type": "string"
-                }
-            }
-        },
-        "domain.Store": {
-            "type": "object",
-            "properties": {
-                "address": {
-                    "type": "string"
-                },
-                "average_target_sales": {
-                    "type": "number"
-                },
-                "cash_box_count": {
-                    "type": "integer"
-                },
-                "company_id": {
-                    "type": "string"
-                },
-                "contact": {
-                    "type": "string"
-                },
-                "created_at": {
-                    "type": "string"
-                },
-                "detailed_name": {
-                    "type": "string"
-                },
-                "employee_count": {
-                    "type": "integer"
-                },
-                "id": {
-                    "type": "string"
-                },
-                "inn": {
-                    "type": "string"
-                },
-                "is_fullday": {
-                    "type": "boolean"
-                },
-                "location": {
-                    "type": "string"
-                },
-                "name": {
-                    "type": "string"
-                },
-                "phone": {
-                    "type": "string"
-                },
-                "store_code": {
-                    "type": "integer"
-                },
-                "terminal_ids": {
-                    "type": "array",
-                    "items": {
-                        "type": "string"
-                    }
-                },
-                "updated_at": {
-                    "type": "string"
-                },
-                "work_hours": {
                     "type": "string"
                 }
             }

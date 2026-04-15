@@ -163,25 +163,6 @@ definitions:
       unit_quantity:
         type: integer
     type: object
-  domain.CashBox:
-    properties:
-      created_at:
-        type: string
-      id:
-        type: string
-      is_enable:
-        type: boolean
-      is_open:
-        type: boolean
-      name:
-        type: string
-      store:
-        $ref: '#/definitions/domain.Store'
-      store_id:
-        type: string
-      updated_at:
-        type: string
-    type: object
   domain.CashBoxRequest:
     properties:
       is_enable:
@@ -278,35 +259,6 @@ definitions:
         type: boolean
       is_open:
         type: boolean
-    type: object
-  domain.Company:
-    properties:
-      city:
-        type: string
-      company_inn:
-        type: string
-      company_mfo:
-        type: string
-      country:
-        type: string
-      created_at:
-        type: string
-      email:
-        type: string
-      id:
-        type: string
-      legal_address:
-        type: string
-      legal_name:
-        type: string
-      name:
-        type: string
-      phone:
-        type: string
-      postal_code:
-        type: string
-      updated_at:
-        type: string
     type: object
   domain.CompanyRequest:
     properties:
@@ -480,76 +432,6 @@ definitions:
       store_id:
         type: string
     type: object
-  domain.Employee:
-    properties:
-      birthdate:
-        type: string
-      cashbox:
-        $ref: '#/definitions/domain.EmployeeCashbox'
-      company:
-        $ref: '#/definitions/domain.Company'
-      company_id:
-        type: string
-      created_at:
-        type: string
-      email:
-        type: string
-      first_name:
-        type: string
-      full_name:
-        type: string
-      gender:
-        type: string
-      id:
-        type: string
-      language:
-        type: string
-      last_name:
-        type: string
-      password:
-        type: string
-      permissions:
-        items:
-          $ref: '#/definitions/domain.Permission'
-        type: array
-      phone:
-        type: string
-      photo:
-        type: string
-      position:
-        type: string
-      public_id:
-        type: integer
-      role_type:
-        type: string
-      roles:
-        items:
-          $ref: '#/definitions/domain.Role'
-        type: array
-      status:
-        type: string
-      store:
-        $ref: '#/definitions/domain.Store'
-      store_id:
-        type: string
-      updated_at:
-        type: string
-    type: object
-  domain.EmployeeCashbox:
-    properties:
-      cashbox_operation_id:
-        type: string
-      created_at:
-        type: string
-      id:
-        type: string
-      name:
-        type: string
-      operation_id:
-        type: integer
-      updated_at:
-        type: string
-    type: object
   domain.EmployeeRequest:
     properties:
       birthdate:
@@ -578,6 +460,8 @@ definitions:
       phone:
         type: string
       position:
+        description: StoreIds  pq.StringArray `gorm:"type:text[];column:store_ids"
+          json:"store_ids"`
         type: string
       role_ids:
         items:
@@ -662,7 +546,7 @@ definitions:
       amount:
         type: number
       app_type:
-        example: click|payme|uzum
+        example: click|payme|uzum|uzum_tezkor
         type: string
       otp_data:
         type: string
@@ -729,6 +613,8 @@ definitions:
       uzcard:
         type: number
       uzum:
+        type: number
+      uzum_tez_kor:
         type: number
     type: object
   domain.FinanceCategoryRequest:
@@ -1058,6 +944,8 @@ definitions:
         type: number
       price:
         type: number
+      requiredPrescription:
+        type: boolean
       serviceCodesUz:
         $ref: '#/definitions/domain.NomenclatureServiceCodes'
       sortOrder:
@@ -1341,37 +1229,6 @@ definitions:
       id:
         type: string
       status:
-        type: string
-    type: object
-  domain.Permission:
-    properties:
-      children:
-        items:
-          $ref: '#/definitions/domain.Permission'
-        type: array
-      created_at:
-        type: string
-      description:
-        type: string
-      id:
-        type: string
-      is_active:
-        type: boolean
-      key:
-        type: string
-      method:
-        items:
-          type: string
-        type: array
-      name:
-        type: string
-      parent_id:
-        type: string
-      route:
-        type: string
-      type:
-        type: string
-      updated_at:
         type: string
     type: object
   domain.PermissionRequest:
@@ -1697,23 +1554,6 @@ definitions:
       store_id:
         type: string
     type: object
-  domain.Role:
-    properties:
-      created_at:
-        type: string
-      description:
-        type: string
-      id:
-        type: string
-      name:
-        type: string
-      permission_count:
-        type: integer
-      public_id:
-        type: integer
-      updated_at:
-        type: string
-    type: object
   domain.RolePermissionReq:
     properties:
       children_ids:
@@ -1829,25 +1669,6 @@ definitions:
         type: string
     type: object
   domain.Shift:
-    properties:
-      cash_box:
-        $ref: '#/definitions/domain.CashBox'
-      cash_box_id:
-        type: string
-      created_at:
-        type: string
-      from_employee:
-        $ref: '#/definitions/domain.Employee'
-      from_employee_id:
-        type: string
-      id:
-        type: string
-      to_employee:
-        $ref: '#/definitions/domain.Employee'
-      to_employee_id:
-        type: string
-      updated_at:
-        type: string
     type: object
   domain.ShiftRequest:
     properties:
@@ -1858,47 +1679,6 @@ definitions:
       password:
         type: string
       to_employee_id:
-        type: string
-    type: object
-  domain.Store:
-    properties:
-      address:
-        type: string
-      average_target_sales:
-        type: number
-      cash_box_count:
-        type: integer
-      company_id:
-        type: string
-      contact:
-        type: string
-      created_at:
-        type: string
-      detailed_name:
-        type: string
-      employee_count:
-        type: integer
-      id:
-        type: string
-      inn:
-        type: string
-      is_fullday:
-        type: boolean
-      location:
-        type: string
-      name:
-        type: string
-      phone:
-        type: string
-      store_code:
-        type: integer
-      terminal_ids:
-        items:
-          type: string
-        type: array
-      updated_at:
-        type: string
-      work_hours:
         type: string
     type: object
   domain.StoreProductBarcodeRequest:
@@ -12308,6 +12088,92 @@ paths:
       summary: Get a product
       tags:
       - products
+  /product/movement-units-by-date:
+    get:
+      parameters:
+      - description: store_id
+        in: query
+        name: store_id
+        type: string
+      - description: from_date (RFC3339 e.g. 2026-01-01T00:00:00+05:00)
+        in: query
+        name: from_date
+        type: string
+      - description: to_date   (RFC3339 e.g. 2026-01-31T23:59:59+05:00)
+        in: query
+        name: to_date
+        type: string
+      - description: Limit
+        in: query
+        name: limit
+        type: integer
+      - description: Offset
+        in: query
+        name: offset
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Get product movement units filtered by date range
+      tags:
+      - products
+  /product/movement-units-by-date-export:
+    get:
+      parameters:
+      - description: store_id
+        in: query
+        name: store_id
+        type: string
+      - description: from_date (RFC3339 e.g. 2026-01-01T00:00:00+05:00)
+        in: query
+        name: from_date
+        type: string
+      - description: to_date   (RFC3339 e.g. 2026-01-31T23:59:59+05:00)
+        in: query
+        name: to_date
+        type: string
+      - description: Limit
+        in: query
+        name: limit
+        type: integer
+      - description: Offset
+        in: query
+        name: offset
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Export product movement units by date range to Excel
+      tags:
+      - products
   /product/movement-units-export:
     get:
       consumes:
@@ -18860,6 +18726,44 @@ paths:
       security:
       - BearerAuth: []
       summary: Add product by barcode
+      tags:
+      - Transfer
+  /transfer/{id}/add-product-by-barcode-unit:
+    patch:
+      consumes:
+      - application/json
+      description: Handles fractional pack counts (e.g. 1.3333, 1.5 уп) by accepting
+        dona count
+      parameters:
+      - description: Transfer ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Add product by barcode unit
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/domain.ReturnAddProduct'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Add product by barcode using unit (dona) count
       tags:
       - Transfer
   /transfer/cancel/{id}:
