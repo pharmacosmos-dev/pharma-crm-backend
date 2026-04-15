@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"math"
 	"net/http"
 	"time"
 
@@ -573,7 +574,8 @@ func (s *Services) SendTransfer(ctx context.Context, transferId string, userId s
 	}
 
 	for _, detail := range details {
-		if (detail.ExpectedCount * detail.UnitPerPack) > detail.UnitQuantity {
+		expectedDona := math.Round(detail.ExpectedCount * detail.UnitPerPack)
+		if expectedDona > detail.UnitQuantity {
 			_ = tx.Rollback()
 			return domain.NewNotAdditionError(http.StatusConflict, map[string]any{
 				"available_quantity": (detail.UnitQuantity / detail.UnitPerPack),
@@ -584,7 +586,7 @@ func (s *Services) SendTransfer(ctx context.Context, transferId string, userId s
 		// if scanned count is 0, skip the update
 		err = tx.WithContext(ctx).
 			Exec(`UPDATE store_products SET unit_quantity = unit_quantity - ?, updated_at = NOW() WHERE id = ?`,
-				detail.ExpectedCount*float64(detail.UnitPerPack), detail.StoreProductId).Error
+				expectedDona, detail.StoreProductId).Error
 		if err != nil {
 			_ = tx.Rollback()
 			s.log.Errorf("could not update store product pack quantity: %v", err)
