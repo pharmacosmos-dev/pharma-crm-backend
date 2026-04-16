@@ -724,7 +724,7 @@ func (s *Services) SendTransferToOnec(ctx context.Context, transferId string) er
 func (s *Services) CheckAcceptedCount(ctx context.Context, transferId string) error {
 	var count int64
 	err := s.db.WithContext(ctx).Table("transfer_details").
-		Where("transfer_id = ? AND accepted_count IS NULL AND expected_count > 0", transferId).
+		Where("transfer_id = ? AND accepted_count IS NULL", transferId).
 		Count(&count).Error
 
 	if err != nil {
@@ -825,13 +825,12 @@ func (s *Services) ConfirmTransfer(ctx context.Context, transferId string, userI
 	`
 	var dataOnec domain.TransferData1C
 	for _, item := range res {
-		// return unscanned product to store (use math.Round to get whole dona count)
-		returnDona := math.Round((item.ExpectedCount - item.AcceptedCount) * float64(item.UnitPerPack))
+		// return unscanned product to store
 		err = tx.WithContext(ctx).Exec(`
 		UPDATE store_products 
 		SET unit_quantity = unit_quantity + ?
 		WHERE id = ?;`,
-			returnDona,
+			(item.ExpectedCount-item.AcceptedCount)*float64(item.UnitPerPack),
 			item.StoreProductId).Error
 		if err != nil {
 			_ = tx.Rollback()
@@ -839,14 +838,11 @@ func (s *Services) ConfirmTransfer(ctx context.Context, transferId string, userI
 			return domain.InternalServerError
 		}
 
-		// use math.Round to get whole dona count for accepted quantity
-		acceptedDona := math.Round(item.AcceptedCount * float64(item.UnitPerPack))
-
 		// execute query
 		err = tx.WithContext(ctx).Exec(query2,
 			item.ProductId,
 			transfer.ToStoreId,
-			acceptedDona,
+			(item.AcceptedCount * float64(item.UnitPerPack)),
 			item.RetailPriceVat,
 			item.SupplyPriceVat,
 			12,
@@ -915,7 +911,7 @@ func (s *Services) ConfirmTransfer(ctx context.Context, transferId string, userI
 		// send inventory products data to 1C
 		go s.DoRequestOnec(context.Background(), dataOnec, constants.OnecPathPerekit)
 		// if err != nil {
-		// 	s.log.Errorf("could not send transfer to onec: %v", err)
+		//    s.log.Errorf("could not send transfer to onec: %v", err)
 		// }
 	}
 	return nil
