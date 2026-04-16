@@ -724,7 +724,7 @@ func (s *Services) SendTransferToOnec(ctx context.Context, transferId string) er
 func (s *Services) CheckAcceptedCount(ctx context.Context, transferId string) error {
 	var count int64
 	err := s.db.WithContext(ctx).Table("transfer_details").
-		Where("transfer_id = ? AND accepted_count IS NULL", transferId).
+		Where("transfer_id = ? AND accepted_count IS NULL AND expected_count > 0", transferId).
 		Count(&count).Error
 
 	if err != nil {
