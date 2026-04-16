@@ -2884,15 +2884,15 @@ func (h *ProductHandler) ExportAllProductsDashboard(c *gin.Context) {
 	f.SetSheetName("Sheet1", sheet)
 
 	headers := []string{
-		"Mahsulot ID", "Mahsulot nomi", "Qadoqdagi miqdor",
-		"Qoldiq (dona)", "Sotuv (dona)", "Sotuv (summa)",
-		"Qaytarma sotuv (dona)", "Qaytarma sotuv (summa)",
-		"Kirim (dona)", "Kirim (summa)",
-		"Skladdga qaytarma (dona)", "Skladdga qaytarma (summa)",
-		"Transfer chiqim (dona)", "Transfer chiqim (summa)",
-		"Transfer kirim (dona)", "Transfer kirim (summa)",
-		"Inventarizatsiya + (dona)", "Inventarizatsiya + (summa)",
-		"Inventarizatsiya - (dona)", "Inventarizatsiya - (summa)",
+		"ID товара", "Наименование товара", "Количество в упаковке",
+		"Остаток (шт)", "Продажи (шт)", "Продажи (сумма)",
+		"Возврат продаж (шт)", "Возврат продаж (сумма)",
+		"Поступление (шт)", "Поступление (сумма)",
+		"Возврат на склад (шт)", "Возврат на склад (сумма)",
+		"Трансфер (расход) (шт)", "Трансфер (расход) (сумма)",
+		"Трансфер (приход) (шт)", "Трансфер (приход) (сумма)",
+		"Инвентаризация + (шт)", "Инвентаризация + (сумма)",
+		"Инвентаризация - (шт)", "Инвентаризация - (сумма)",
 	}
 
 	if err := setExcelHeaders(f, sheet, headers); err != nil {
