@@ -18766,6 +18766,38 @@ paths:
       summary: Add product by barcode using unit (dona) count
       tags:
       - Transfer
+  /transfer/accept-all/{id}:
+    post:
+      consumes:
+      - application/json
+      description: Sets scanned_count and accepted_count = expected_count for all
+        details. Use before /confirm to skip manual barcode scanning.
+      parameters:
+      - description: Transfer ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Accept all products in transfer (bulk)
+      tags:
+      - Transfer
   /transfer/cancel/{id}:
     post:
       consumes:
@@ -19072,6 +19104,42 @@ paths:
       security:
       - BearerAuth: []
       summary: Get Transfer Logs
+      tags:
+      - Transfer
+  /transfer/send-all/{id}:
+    post:
+      consumes:
+      - application/json
+      description: Sets expected_count = received_count (dona-rounded) for all details,
+        then sends. Handles fractional pack counts (1.5, 1.6666, etc.).
+      parameters:
+      - description: Transfer ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "409":
+          description: Insufficient stock
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Send all products in transfer (bulk)
       tags:
       - Transfer
   /transfer/send/{id}:
