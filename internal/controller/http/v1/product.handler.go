@@ -80,6 +80,8 @@ func (h *ProductHandler) ProductRoutes(r *gin.RouterGroup) {
 		product.POST("/photo-alert/list", h.ListProductPhotoAlert)
 		product.DELETE("/photo-alert/:id", h.DeleteProductPhotoAlert)
 		product.GET("/:id/dashboard", h.SingleProductDashboard)
+		product.GET("/all-dashboard", h.AllProductsDashboard)
+		product.GET("/all-dashboard-export", h.ExportAllProductsDashboard)
 		product.GET("/movement-units", h.GetMovementUnits)
 		product.GET("/movement-units-export", h.ExportMovementUnits)
 		product.GET("/movement-units-by-date", h.GetMovementUnitsByDate)
@@ -2785,6 +2787,144 @@ func (h *ProductHandler) SingleProductDashboard(c *gin.Context) {
 	}
 
 	handleResponse(c, OK, resp)
+}
+
+// AllProductsDashboard godoc
+// @Summary      Get all products dashboard
+// @Description  Returns dashboard metrics (sales, imports, transfers, inventory) for every product, filtered by store/company/date
+// @Tags         products
+// @Security     BearerAuth
+// @Accept       json
+// @Produce      json
+// @Param        store_id    query  string  false  "Store ID"
+// @Param        company_id  query  string  false  "Company ID"
+// @Param        start_date  query  string  false  "Start date (YYYY-MM-DD)"
+// @Param        end_date    query  string  false  "End date (YYYY-MM-DD)"
+// @Success      200  {object}  v1.Response
+// @Failure      400  {object}  v1.Response
+// @Failure      500  {object}  v1.Response
+// @Router       /product/all-dashboard [get]
+func (h *ProductHandler) AllProductsDashboard(c *gin.Context) {
+	user := h.service.GetSignedUser(c)
+	if user.UserId == "" {
+		handleServiceResponse(c, nil, domain.UnauthorizedError)
+		return
+	}
+
+	var params domain.ProductQueryParam
+	if err := c.ShouldBindQuery(&params); err != nil {
+		handleServiceResponse(c, BadRequest, domain.InvalidQueryError)
+		return
+	}
+
+	if !helper.IsAdmin(user) {
+		params.CompanyId = user.CompanyId
+		if user.StoreId != "" {
+			params.StoreId = user.StoreId
+		}
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), time.Minute*3)
+	defer cancel()
+
+	resp, err := h.service.GetAllProductsDashboard(ctx, &params)
+	if err != nil {
+		handleServiceResponse(c, InternalError, err)
+		return
+	}
+
+	handleResponse(c, OK, resp)
+}
+
+// ExportAllProductsDashboard godoc
+// @Summary      Export all products dashboard to Excel
+// @Description  Downloads an Excel file with dashboard metrics for every product
+// @Tags         products
+// @Security     BearerAuth
+// @Produce      application/octet-stream
+// @Param        store_id    query  string  false  "Store ID"
+// @Param        company_id  query  string  false  "Company ID"
+// @Param        start_date  query  string  false  "Start date (YYYY-MM-DD)"
+// @Param        end_date    query  string  false  "End date (YYYY-MM-DD)"
+// @Success      200  {file}    binary
+// @Failure      400  {object}  v1.Response
+// @Failure      500  {object}  v1.Response
+// @Router       /product/all-dashboard-export [get]
+func (h *ProductHandler) ExportAllProductsDashboard(c *gin.Context) {
+	user := h.service.GetSignedUser(c)
+	if user.UserId == "" {
+		handleServiceResponse(c, nil, domain.UnauthorizedError)
+		return
+	}
+
+	var params domain.ProductQueryParam
+	if err := c.ShouldBindQuery(&params); err != nil {
+		handleServiceResponse(c, BadRequest, domain.InvalidQueryError)
+		return
+	}
+
+	if !helper.IsAdmin(user) {
+		params.CompanyId = user.CompanyId
+		if user.StoreId != "" {
+			params.StoreId = user.StoreId
+		}
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), time.Minute*3)
+	defer cancel()
+
+	data, err := h.service.GetAllProductsDashboard(ctx, &params)
+	if err != nil {
+		handleServiceResponse(c, InternalError, err)
+		return
+	}
+
+	f := excelize.NewFile()
+	sheet := "Dashboard"
+	f.SetSheetName("Sheet1", sheet)
+
+	headers := []string{
+		"Mahsulot ID", "Mahsulot nomi", "Qadoqdagi miqdor",
+		"Qoldiq (dona)", "Sotuv (dona)", "Sotuv (summa)",
+		"Qaytarma sotuv (dona)", "Qaytarma sotuv (summa)",
+		"Kirim (dona)", "Kirim (summa)",
+		"Skladdga qaytarma (dona)", "Skladdga qaytarma (summa)",
+		"Transfer chiqim (dona)", "Transfer chiqim (summa)",
+		"Transfer kirim (dona)", "Transfer kirim (summa)",
+		"Inventarizatsiya + (dona)", "Inventarizatsiya + (summa)",
+		"Inventarizatsiya - (dona)", "Inventarizatsiya - (summa)",
+	}
+
+	if err := setExcelHeaders(f, sheet, headers); err != nil {
+		h.log.Errorf("excel header style error: %v", err)
+		handleServiceResponse(c, nil, domain.InternalServerError)
+		return
+	}
+
+	cols := []string{
+		"A", "B", "C", "D", "E", "F", "G", "H", "I", "J",
+		"K", "L", "M", "N", "O", "P", "Q", "R", "S", "T",
+	}
+
+	for i, item := range data {
+		row := strconv.Itoa(i + 2)
+		values := []any{
+			item.ProductId, item.ProductName, item.UnitPerPack,
+			item.UnitQuantity, item.SaleCount, item.SaleAmount,
+			item.ReturnSaleCount, item.ReturnSaleAmount,
+			item.ImportCount, item.ImportAmount,
+			item.ReturnToSkladCount, item.ReturnToSkladAmount,
+			item.TransferOutCount, item.TransferOutAmount,
+			item.TransferInCount, item.TransferInAmount,
+			item.InventoryPlusCount, item.InventoryPlusAmount,
+			item.InventoryMinusCount, item.InventoryMinusAmount,
+		}
+		for j, val := range values {
+			f.SetCellValue(sheet, cols[j]+row, val)
+		}
+	}
+
+	saveExcelToUploads(c, f, *h.log, "all-products-dashboard")
 }
 
 // Get godoc

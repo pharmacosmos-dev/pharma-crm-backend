@@ -11093,6 +11093,89 @@ paths:
       summary: Export product movements to Excel
       tags:
       - products
+  /product/all-dashboard:
+    get:
+      consumes:
+      - application/json
+      description: Returns dashboard metrics (sales, imports, transfers, inventory)
+        for every product, filtered by store/company/date
+      parameters:
+      - description: Store ID
+        in: query
+        name: store_id
+        type: string
+      - description: Company ID
+        in: query
+        name: company_id
+        type: string
+      - description: Start date (YYYY-MM-DD)
+        in: query
+        name: start_date
+        type: string
+      - description: End date (YYYY-MM-DD)
+        in: query
+        name: end_date
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Get all products dashboard
+      tags:
+      - products
+  /product/all-dashboard-export:
+    get:
+      description: Downloads an Excel file with dashboard metrics for every product
+      parameters:
+      - description: Store ID
+        in: query
+        name: store_id
+        type: string
+      - description: Company ID
+        in: query
+        name: company_id
+        type: string
+      - description: Start date (YYYY-MM-DD)
+        in: query
+        name: start_date
+        type: string
+      - description: End date (YYYY-MM-DD)
+        in: query
+        name: end_date
+        type: string
+      produces:
+      - application/octet-stream
+      responses:
+        "200":
+          description: OK
+          schema:
+            type: file
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Export all products dashboard to Excel
+      tags:
+      - products
   /product/attach-barcode:
     post:
       consumes:

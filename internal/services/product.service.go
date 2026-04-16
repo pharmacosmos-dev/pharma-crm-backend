@@ -1951,6 +1951,320 @@ LEFT JOIN imventory_quantity imq ON true
 	return res, nil
 }
 
+// GetAllProductsDashboard — berilgan filtr (store, company, sana) bo'yicha
+// barcha store_product lar uchun dashboard ma'lumotlarini qaytaradi.
+func (s *Services) GetAllProductsDashboard(ctx context.Context, params *domain.ProductQueryParam) ([]domain.MultiProductDashboardItem, error) {
+	var res []domain.MultiProductDashboardItem
+
+	// var_data: store/company filtrga qarab tegishli productlarni oladi.
+	// Qo'shimcha filtrlar (store/company) quyida %s orqali joylashtiriladi.
+	baseQuery := `
+WITH var_data AS (
+    SELECT DISTINCT
+        p.id          AS product_id,
+        p.name        AS product_name,
+        p.unit_per_pack
+    FROM products p
+    JOIN store_products sp ON sp.product_id = p.id
+    JOIN stores st         ON st.id = sp.store_id
+    WHERE 1 = 1
+        %s
+),
+import_data AS (
+    SELECT
+        vd.product_id,
+        (SUM(imd.accepted_count) * vd.unit_per_pack)::INTEGER    AS import_count,
+        SUM(imd.accepted_count * imd.retail_price_vat)            AS import_amount
+    FROM imports im
+        JOIN stores s      ON im.store_id = s.id
+        JOIN import_details imd ON im.id = imd.import_id
+        JOIN var_data vd   ON imd.product_id = vd.product_id
+    WHERE im.entry_type = 1 AND im.status = 'completed'
+        %s
+    GROUP BY vd.product_id, vd.unit_per_pack
+),
+sales_data AS (
+    SELECT
+        vd.product_id,
+        SUM(ci.unit_quantity)::INTEGER * (-1)  AS sale_count,
+        SUM(ci.total_price * (-1))             AS sale_amount
+    FROM sales sa
+        JOIN stores st     ON st.id = sa.store_id
+        JOIN cart_items ci ON ci.sale_id = sa.id
+        JOIN store_products sp ON sp.id = ci.store_product_id
+        JOIN var_data vd   ON sp.product_id = vd.product_id
+    WHERE sa.stage IN (9, 11) AND sa.sale_type = 'SALE'
+        %s
+    GROUP BY vd.product_id
+),
+return_sales_data AS (
+    SELECT
+        vd.product_id,
+        SUM(ci.unit_quantity)::INTEGER         AS return_sale_count,
+        SUM(sa.total_amount * (-1))            AS return_sale_amount
+    FROM sales sa
+        JOIN stores st     ON st.id = sa.store_id
+        JOIN cart_items ci ON ci.sale_id = sa.id
+        JOIN store_products sp ON sp.id = ci.store_product_id
+        JOIN var_data vd   ON sp.product_id = vd.product_id
+    WHERE sa.stage IN (9, 11) AND sa.sale_type = 'RETURN'
+        %s
+    GROUP BY vd.product_id
+),
+vozvrat_data AS (
+    SELECT
+        vd.product_id,
+        (SUM(td.accepted_count) * vd.unit_per_pack)::INTEGER * (-1)            AS return_to_sklad_count,
+        ROUND(SUM((td.accepted_count / vd.unit_per_pack) * td.retail_price), 2) * (-1) AS return_to_sklad_amount
+    FROM transfer_details td
+        JOIN transfers tr ON td.transfer_id = tr.id
+        JOIN var_data vd  ON td.product_id = vd.product_id
+        JOIN stores s     ON s.id = tr.from_store_id
+    WHERE (tr.status = 'completed' OR tr.status = 'sent-to-1c') AND tr.entry_type = 2
+        %s
+    GROUP BY vd.product_id, vd.unit_per_pack
+),
+transfer_data AS (
+    SELECT
+        vd.product_id,
+        (SUM(td.accepted_count) %s * vd.unit_per_pack)::INTEGER * (-1) AS transfer_out_count,
+        SUM(td.accepted_count * td.retail_price * (-1)) %s              AS transfer_out_amount,
+        (SUM(td.accepted_count) %s * vd.unit_per_pack)::INTEGER         AS transfer_in_count,
+        SUM(td.accepted_count * td.retail_price) %s                     AS transfer_in_amount
+    FROM transfer_details td
+        JOIN transfers tr ON td.transfer_id = tr.id
+        JOIN var_data vd  ON td.product_id = vd.product_id
+        JOIN stores fs    ON fs.id = tr.from_store_id
+        JOIN stores ts    ON ts.id = tr.to_store_id
+    WHERE (tr.status = 'completed' OR tr.status = 'sent-to-1c') AND tr.entry_type = 1
+        %s
+    GROUP BY vd.product_id, vd.unit_per_pack
+),
+product_quantity AS (
+    SELECT
+        sp.product_id,
+        SUM(sp.unit_quantity)::INTEGER AS unit_quantity
+    FROM store_products sp
+    JOIN var_data vd ON vd.product_id = sp.product_id
+    WHERE 1 = 1
+        %s
+    GROUP BY sp.product_id
+),
+inventory_quantity AS (
+    SELECT
+        vd.product_id,
+        (SUM(CASE WHEN imd.scanned_count - imd.received_count > 0 THEN imd.scanned_count - imd.received_count ELSE 0 END))::INTEGER AS inventory_plus_count,
+        (SUM(CASE WHEN imd.scanned_count - imd.received_count < 0 THEN imd.scanned_count - imd.received_count ELSE 0 END))::INTEGER AS inventory_minus_count,
+        ROUND(SUM(CASE WHEN imd.scanned_count - imd.received_count > 0 THEN imd.retail_price_vat * ((imd.scanned_count - imd.received_count) / vd.unit_per_pack) ELSE 0 END), 2) AS inventory_plus_amount,
+        ROUND(SUM(CASE WHEN imd.scanned_count - imd.received_count < 0 THEN imd.retail_price_vat * ((imd.scanned_count - imd.received_count) / vd.unit_per_pack) ELSE 0 END), 2) AS inventory_minus_amount
+    FROM import_details imd
+    JOIN imports im    ON im.id = imd.import_id
+    JOIN var_data vd   ON imd.product_id = vd.product_id
+    LEFT JOIN stores s ON s.id = im.store_id
+    WHERE im.entry_type = 2 AND im.status = 'completed'
+        %s
+    GROUP BY vd.product_id
+)
+SELECT
+    vd.product_id,
+    vd.product_name,
+    vd.unit_per_pack,
+    COALESCE(pq.unit_quantity,         0) AS unit_quantity,
+    COALESCE(sd.sale_count,            0) AS sale_count,
+    COALESCE(sd.sale_amount,           0) AS sale_amount,
+    COALESCE(rsd.return_sale_count,    0) AS return_sale_count,
+    COALESCE(rsd.return_sale_amount,   0) AS return_sale_amount,
+    COALESCE(id.import_count,          0) AS import_count,
+    COALESCE(id.import_amount,         0) AS import_amount,
+    COALESCE(voz.return_to_sklad_count,  0) AS return_to_sklad_count,
+    COALESCE(voz.return_to_sklad_amount, 0) AS return_to_sklad_amount,
+    COALESCE(td.transfer_out_count,    0) AS transfer_out_count,
+    COALESCE(td.transfer_out_amount,   0) AS transfer_out_amount,
+    COALESCE(td.transfer_in_count,     0) AS transfer_in_count,
+    COALESCE(td.transfer_in_amount,    0) AS transfer_in_amount,
+    COALESCE(iq.inventory_plus_count,  0) AS inventory_plus_count,
+    COALESCE(iq.inventory_minus_count, 0) AS inventory_minus_count,
+    COALESCE(iq.inventory_plus_amount, 0) AS inventory_plus_amount,
+    COALESCE(iq.inventory_minus_amount,0) AS inventory_minus_amount
+FROM var_data vd
+LEFT JOIN product_quantity    pq  ON pq.product_id  = vd.product_id
+LEFT JOIN import_data         id  ON id.product_id  = vd.product_id
+LEFT JOIN sales_data          sd  ON sd.product_id  = vd.product_id
+LEFT JOIN return_sales_data   rsd ON rsd.product_id = vd.product_id
+LEFT JOIN vozvrat_data        voz ON voz.product_id = vd.product_id
+LEFT JOIN transfer_data       td  ON td.product_id  = vd.product_id
+LEFT JOIN inventory_quantity  iq  ON iq.product_id  = vd.product_id
+ORDER BY vd.product_name
+`
+
+	// ---------- vaqt filtrlari ----------
+	var (
+		importTimeCond    string
+		saleTimeCond      string
+		transferTimeCond  string
+		inventoryTimeCond string
+		timeArgsPerCTE    []any
+	)
+
+	if params.StartDate != nil && !params.StartDate.GetTime().IsZero() {
+		startUTC := params.StartDate.UTC()
+		importTimeCond += " AND im.created_at >= ?"
+		saleTimeCond += " AND sa.completed_at >= ?"
+		transferTimeCond += " AND tr.created_at >= ?"
+		inventoryTimeCond += " AND im.created_at >= ?"
+		timeArgsPerCTE = append(timeArgsPerCTE, startUTC)
+	}
+
+	if params.EndDate != nil && !params.EndDate.GetTime().IsZero() {
+		endUTC := params.EndDate.UTC()
+		importTimeCond += " AND im.created_at <= ?"
+		saleTimeCond += " AND sa.completed_at <= ?"
+		transferTimeCond += " AND tr.created_at <= ?"
+		inventoryTimeCond += " AND im.created_at <= ?"
+		timeArgsPerCTE = append(timeArgsPerCTE, endUTC)
+	}
+
+	// ---------- store/company filtrlari ----------
+	var (
+		query string
+		args  []any
+	)
+
+	switch {
+	// hech qanday filtr yo'q
+	case params.StoreId == "" && params.CompanyId == "":
+		query = fmt.Sprintf(baseQuery,
+			"",               // 1: var_data store/company filtr
+			importTimeCond,   // 2: import_data
+			saleTimeCond,     // 3: sales_data
+			saleTimeCond,     // 4: return_sales_data
+			transferTimeCond, // 5: vozvrat_data
+			"", "", "", "",   // 6-9: transfer FILTER clauses
+			transferTimeCond,  // 10: transfer_data WHERE
+			"",                // 11: product_quantity
+			inventoryTimeCond, // 12: inventory_quantity
+		)
+		args = append(args, timeArgsPerCTE...) // import_data
+		args = append(args, timeArgsPerCTE...) // sales_data
+		args = append(args, timeArgsPerCTE...) // return_sales_data
+		args = append(args, timeArgsPerCTE...) // vozvrat_data
+		args = append(args, timeArgsPerCTE...) // transfer_data WHERE
+		args = append(args, timeArgsPerCTE...) // inventory_quantity
+
+	// faqat store filtr
+	case params.StoreId != "" && params.CompanyId == "":
+		query = fmt.Sprintf(baseQuery,
+			"AND sp.store_id = ?",                                                          // 1: var_data
+			"AND im.store_id = ?"+importTimeCond,                                           // 2: import_data
+			"AND sa.store_id = ?"+saleTimeCond,                                             // 3: sales_data
+			"AND sa.store_id = ?"+saleTimeCond,                                             // 4: return_sales_data
+			"AND tr.from_store_id = ?"+transferTimeCond,                                    // 5: vozvrat_data
+			"FILTER (WHERE tr.from_store_id = ?)",                                          // 6: transfer out agg
+			"FILTER (WHERE tr.from_store_id = ?)",                                          // 7: transfer out amount agg
+			"FILTER (WHERE tr.to_store_id = ?)",                                            // 8: transfer in agg
+			"FILTER (WHERE tr.to_store_id = ?)",                                            // 9: transfer in amount agg
+			"AND (tr.from_store_id = ? OR tr.to_store_id = ?)"+transferTimeCond,            // 10: transfer_data WHERE
+			"AND sp.store_id = ?",                                                          // 11: product_quantity
+			"AND s.id = ?"+inventoryTimeCond,                                               // 12: inventory_quantity
+		)
+		args = append(args, params.StoreId)                  // var_data
+		args = append(args, params.StoreId)                  // import_data store
+		args = append(args, timeArgsPerCTE...)               // import_data time
+		args = append(args, params.StoreId)                  // sales_data store
+		args = append(args, timeArgsPerCTE...)               // sales_data time
+		args = append(args, params.StoreId)                  // return_sales_data store
+		args = append(args, timeArgsPerCTE...)               // return_sales_data time
+		args = append(args, params.StoreId)                  // vozvrat_data store
+		args = append(args, timeArgsPerCTE...)               // vozvrat_data time
+		args = append(args, params.StoreId)                  // transfer FILTER 6
+		args = append(args, params.StoreId)                  // transfer FILTER 7
+		args = append(args, params.StoreId)                  // transfer FILTER 8
+		args = append(args, params.StoreId)                  // transfer FILTER 9
+		args = append(args, params.StoreId, params.StoreId)  // transfer WHERE
+		args = append(args, timeArgsPerCTE...)               // transfer_data time
+		args = append(args, params.StoreId)                  // product_quantity
+		args = append(args, params.StoreId)                  // inventory_quantity
+		args = append(args, timeArgsPerCTE...)               // inventory_quantity time
+
+	// faqat company filtr
+	case params.StoreId == "" && params.CompanyId != "":
+		query = fmt.Sprintf(baseQuery,
+			"AND st.company_id = ?",                                                                // 1: var_data
+			"AND s.company_id = ?"+importTimeCond,                                                  // 2: import_data
+			"AND st.company_id = ?"+saleTimeCond,                                                   // 3: sales_data
+			"AND st.company_id = ?"+saleTimeCond,                                                   // 4: return_sales_data
+			"AND s.company_id = ?"+transferTimeCond,                                                // 5: vozvrat_data
+			"FILTER (WHERE fs.company_id = ?)",                                                     // 6
+			"FILTER (WHERE fs.company_id = ?)",                                                     // 7
+			"FILTER (WHERE ts.company_id = ?)",                                                     // 8
+			"FILTER (WHERE ts.company_id = ?)",                                                     // 9
+			"AND (fs.company_id = ? OR ts.company_id = ?)"+transferTimeCond,                        // 10: transfer_data WHERE
+			"",                                                                                     // 11: product_quantity (var_data already filtered by company)
+			"AND s.company_id = ?"+inventoryTimeCond,                                               // 12: inventory_quantity
+		)
+		args = append(args, params.CompanyId)                    // var_data
+		args = append(args, params.CompanyId)                    // import_data company
+		args = append(args, timeArgsPerCTE...)                   // import_data time
+		args = append(args, params.CompanyId)                    // sales_data company
+		args = append(args, timeArgsPerCTE...)                   // sales_data time
+		args = append(args, params.CompanyId)                    // return_sales_data company
+		args = append(args, timeArgsPerCTE...)                   // return_sales_data time
+		args = append(args, params.CompanyId)                    // vozvrat_data company
+		args = append(args, timeArgsPerCTE...)                   // vozvrat_data time
+		args = append(args, params.CompanyId)                    // transfer FILTER 6
+		args = append(args, params.CompanyId)                    // transfer FILTER 7
+		args = append(args, params.CompanyId)                    // transfer FILTER 8
+		args = append(args, params.CompanyId)                    // transfer FILTER 9
+		args = append(args, params.CompanyId, params.CompanyId)  // transfer WHERE
+		args = append(args, timeArgsPerCTE...)                   // transfer_data time
+		// product_quantity — no extra arg (var_data already filtered)
+		args = append(args, params.CompanyId)                    // inventory_quantity
+		args = append(args, timeArgsPerCTE...)                   // inventory_quantity time
+
+	// ham store ham company
+	default:
+		query = fmt.Sprintf(baseQuery,
+			"AND sp.store_id = ? AND st.company_id = ?",                                                   // 1: var_data
+			"AND im.store_id = ? AND s.company_id = ?"+importTimeCond,                                     // 2: import_data
+			"AND sa.store_id = ? AND st.company_id = ?"+saleTimeCond,                                      // 3: sales_data
+			"AND sa.store_id = ? AND st.company_id = ?"+saleTimeCond,                                      // 4: return_sales_data
+			"AND tr.from_store_id = ? AND s.company_id = ?"+transferTimeCond,                              // 5: vozvrat_data
+			"FILTER (WHERE tr.from_store_id = ?)",                                                         // 6
+			"FILTER (WHERE tr.from_store_id = ?)",                                                         // 7
+			"FILTER (WHERE tr.to_store_id = ?)",                                                           // 8
+			"FILTER (WHERE tr.to_store_id = ?)",                                                           // 9
+			"AND (tr.from_store_id = ? OR tr.to_store_id = ?)"+transferTimeCond,                           // 10: transfer_data WHERE
+			"AND sp.store_id = ?",                                                                         // 11: product_quantity
+			"AND s.id = ?"+inventoryTimeCond,                                                              // 12: inventory_quantity
+		)
+		args = append(args, params.StoreId, params.CompanyId)   // var_data
+		args = append(args, params.StoreId, params.CompanyId)   // import_data
+		args = append(args, timeArgsPerCTE...)                   // import_data time
+		args = append(args, params.StoreId, params.CompanyId)   // sales_data
+		args = append(args, timeArgsPerCTE...)                   // sales_data time
+		args = append(args, params.StoreId, params.CompanyId)   // return_sales_data
+		args = append(args, timeArgsPerCTE...)                   // return_sales_data time
+		args = append(args, params.StoreId, params.CompanyId)   // vozvrat_data
+		args = append(args, timeArgsPerCTE...)                   // vozvrat_data time
+		args = append(args, params.StoreId)                      // transfer FILTER 6
+		args = append(args, params.StoreId)                      // transfer FILTER 7
+		args = append(args, params.StoreId)                      // transfer FILTER 8
+		args = append(args, params.StoreId)                      // transfer FILTER 9
+		args = append(args, params.StoreId, params.StoreId)      // transfer WHERE
+		args = append(args, timeArgsPerCTE...)                   // transfer_data time
+		args = append(args, params.StoreId)                      // product_quantity
+		args = append(args, params.StoreId)                      // inventory_quantity
+		args = append(args, timeArgsPerCTE...)                   // inventory_quantity time
+	}
+
+	err := s.db.WithContext(ctx).Raw(query, args...).Scan(&res).Error
+	if err != nil {
+		s.log.Errorf("could not get all products dashboard: %v", err)
+		return nil, err
+	}
+	return res, nil
+}
+
 // region Update
 
 func (s *Services) UpdateProductIsMarking(req *domain.UpdateIsMarking) error {
@@ -2348,10 +2662,10 @@ func (s *Services) GetProductMovementUnitsByDate(ctx context.Context, params *do
 	fromDate := "1970-01-01 00:00:00"
 	toDate := "2099-12-31 23:59:59"
 	if params.FromDate != nil {
-		fromDate = params.FromDate.GetString()
+		fromDate = params.FromDate.ToUTC().GetString()
 	}
 	if params.ToDate != nil {
-		toDate = params.ToDate.GetString()
+		toDate = params.ToDate.ToUTC().GetString()
 	}
 
 	query := `
