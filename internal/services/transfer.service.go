@@ -574,8 +574,7 @@ func (s *Services) SendTransfer(ctx context.Context, transferId string, userId s
 	}
 
 	for _, detail := range details {
-		expectedDona := math.Round(detail.ExpectedCount * detail.UnitPerPack)
-		if expectedDona > detail.UnitQuantity {
+		if (detail.ExpectedCount * detail.UnitPerPack) > detail.UnitQuantity {
 			_ = tx.Rollback()
 			return domain.NewNotAdditionError(http.StatusConflict, map[string]any{
 				"available_quantity": (detail.UnitQuantity / detail.UnitPerPack),
@@ -586,7 +585,7 @@ func (s *Services) SendTransfer(ctx context.Context, transferId string, userId s
 		// if scanned count is 0, skip the update
 		err = tx.WithContext(ctx).
 			Exec(`UPDATE store_products SET unit_quantity = unit_quantity - ?, updated_at = NOW() WHERE id = ?`,
-				expectedDona, detail.StoreProductId).Error
+				detail.ExpectedCount*float64(detail.UnitPerPack), detail.StoreProductId).Error
 		if err != nil {
 			_ = tx.Rollback()
 			s.log.Errorf("could not update store product pack quantity: %v", err)
@@ -826,12 +825,13 @@ func (s *Services) ConfirmTransfer(ctx context.Context, transferId string, userI
 	`
 	var dataOnec domain.TransferData1C
 	for _, item := range res {
-		// return unscanned product to store
+		// return unscanned product to store (use math.Round to get whole dona count)
+		returnDona := math.Round((item.ExpectedCount - item.AcceptedCount) * float64(item.UnitPerPack))
 		err = tx.WithContext(ctx).Exec(`
 		UPDATE store_products 
 		SET unit_quantity = unit_quantity + ?
 		WHERE id = ?;`,
-			(item.ExpectedCount-item.AcceptedCount)*float64(item.UnitPerPack),
+			returnDona,
 			item.StoreProductId).Error
 		if err != nil {
 			_ = tx.Rollback()
@@ -839,11 +839,14 @@ func (s *Services) ConfirmTransfer(ctx context.Context, transferId string, userI
 			return domain.InternalServerError
 		}
 
+		// use math.Round to get whole dona count for accepted quantity
+		acceptedDona := math.Round(item.AcceptedCount * float64(item.UnitPerPack))
+
 		// execute query
 		err = tx.WithContext(ctx).Exec(query2,
 			item.ProductId,
 			transfer.ToStoreId,
-			(item.AcceptedCount * float64(item.UnitPerPack)),
+			acceptedDona,
 			item.RetailPriceVat,
 			item.SupplyPriceVat,
 			12,
@@ -914,6 +917,136 @@ func (s *Services) ConfirmTransfer(ctx context.Context, transferId string, userI
 		// if err != nil {
 		// 	s.log.Errorf("could not send transfer to onec: %v", err)
 		// }
+	}
+	return nil
+}
+
+// SendTransferAll sets expected_count for all details (dona-based) and sends the transfer in one step.
+// Handles fractional received_count values (e.g. 1.5, 1.6666) by rounding to nearest whole dona.
+func (s *Services) SendTransferAll(ctx context.Context, transferId string, userId string) error {
+	tx := s.db.Begin()
+	defer func() {
+		if r := recover(); r != nil {
+			_ = tx.Rollback()
+		}
+	}()
+
+	var transfer domain.Transfer
+	err := tx.WithContext(ctx).First(&transfer, "id = ?", transferId).Error
+	if err != nil {
+		_ = tx.Rollback()
+		s.log.Errorf("could not get transfer: %v", err)
+		return domain.InternalServerError
+	}
+
+	if transfer.Status == constants.GeneralStatusSent {
+		_ = tx.Rollback()
+		return domain.AlreadySentError
+	}
+
+	// Set expected_count = ROUND(received_count * unit_per_pack) / unit_per_pack
+	// for all details where expected_count = 0 and received_count > 0.
+	// ROUND converts fractional dona counts (e.g. 1.5*10=15, 1.6666*6=10) to whole donas.
+	err = tx.WithContext(ctx).Exec(`
+		UPDATE transfer_details td
+		SET expected_count = ROUND(td.received_count * p.unit_per_pack) / p.unit_per_pack,
+		    updated_at      = NOW()
+		FROM products p
+		WHERE td.product_id  = p.id
+		  AND td.transfer_id = ?
+		  AND td.expected_count = 0
+		  AND td.received_count > 0;
+	`, transferId).Error
+	if err != nil {
+		_ = tx.Rollback()
+		s.log.Errorf("could not set expected_count for transfer details: %v", err)
+		return domain.InternalServerError
+	}
+
+	// Update transfer status to sent
+	err = tx.WithContext(ctx).Exec(
+		`UPDATE transfers SET status = ?, updated_by = ? WHERE id = ?`,
+		constants.GeneralStatusSent, userId, transferId,
+	).Error
+	if err != nil {
+		_ = tx.Rollback()
+		s.log.Errorf("could not update transfer status: %v", err)
+		return domain.InternalServerError
+	}
+
+	// Fetch all details with expected_count > 0 along with current stock
+	var details []struct {
+		Id             string  `gorm:"id"`
+		StoreProductId string  `gorm:"store_product_id"`
+		Name           string  `gorm:"name"`
+		UnitPerPack    float64 `gorm:"unit_per_pack"`
+		ExpectedCount  float64 `gorm:"expected_count"`
+		UnitQuantity   float64 `gorm:"unit_quantity"`
+	}
+	err = tx.WithContext(ctx).Raw(`
+		SELECT
+			td.id,
+			td.store_product_id,
+			td.expected_count,
+			p.name,
+			p.unit_per_pack,
+			sp.unit_quantity
+		FROM transfer_details td
+		JOIN products p        ON td.product_id       = p.id
+		JOIN store_products sp ON td.store_product_id = sp.id
+		WHERE td.transfer_id = ? AND td.expected_count > 0;
+	`, transferId).Scan(&details).Error
+	if err != nil {
+		_ = tx.Rollback()
+		s.log.Errorf("could not fetch transfer details: %v", err)
+		return domain.InternalServerError
+	}
+
+	// Validate stock and lock inventory at source store
+	for _, detail := range details {
+		expectedDona := math.Round(detail.ExpectedCount * detail.UnitPerPack)
+		if expectedDona > detail.UnitQuantity {
+			_ = tx.Rollback()
+			return domain.NewNotAdditionError(http.StatusConflict, map[string]any{
+				"available_quantity": detail.UnitQuantity / detail.UnitPerPack,
+				"name":               detail.Name,
+			})
+		}
+		err = tx.WithContext(ctx).Exec(
+			`UPDATE store_products SET unit_quantity = unit_quantity - ?, updated_at = NOW() WHERE id = ?`,
+			expectedDona, detail.StoreProductId,
+		).Error
+		if err != nil {
+			_ = tx.Rollback()
+			s.log.Errorf("could not lock inventory for store_product(%s): %v", detail.StoreProductId, err)
+			return domain.InternalServerError
+		}
+	}
+
+	if err = tx.Commit().Error; err != nil {
+		s.log.Errorf("could not commit send-all transfer transaction: %v", err)
+		return domain.InternalServerError
+	}
+
+	go s.deleteNotInsertedTransferDetails(transferId)
+	return nil
+}
+
+// AcceptAllTransferDetails sets scanned_count and accepted_count equal to expected_count
+// for all details of a transfer. Used when Store B wants to accept everything
+// without manual barcode scanning (bulk accept).
+func (s *Services) AcceptAllTransferDetails(ctx context.Context, transferId string) error {
+	err := s.db.WithContext(ctx).Exec(`
+		UPDATE transfer_details
+		SET scanned_count  = expected_count,
+		    accepted_count = expected_count,
+		    updated_at     = NOW()
+		WHERE transfer_id   = ?
+		  AND expected_count > 0;
+	`, transferId).Error
+	if err != nil {
+		s.log.Errorf("could not accept all transfer details for transfer(%s): %v", transferId, err)
+		return domain.InternalServerError
 	}
 	return nil
 }

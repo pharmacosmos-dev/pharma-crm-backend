@@ -32,6 +32,8 @@ func (h *TransferHandler) TransferRoutes(r *gin.RouterGroup) {
 	{
 		transfer.POST("", h.Create)
 		transfer.POST("/send/:id", h.Send)
+		transfer.POST("/send-all/:id", h.SendAll)
+		transfer.POST("/accept-all/:id", h.AcceptAll)
 		transfer.POST("/confirm/:id", h.Confirm)
 		transfer.POST("/send1c/:id", h.SendOnec)
 		transfer.POST("/cancel/:id", h.Cancel)
@@ -485,6 +487,89 @@ func (h *TransferHandler) UpdateByBarcode(c *gin.Context) {
 	}
 
 	handleResponse(c, OK, "UPDATED")
+}
+
+// SendAll godoc
+// @Summary Send all products in transfer (bulk)
+// @Description Sets expected_count = received_count (dona-rounded) for all details, then sends. Handles fractional pack counts (1.5, 1.6666, etc.).
+// @Tags Transfer
+// @Security BearerAuth
+// @Accept json
+// @Produce json
+// @Param id path string true "Transfer ID"
+// @Success 200 {object} v1.Response
+// @Failure 400 {object} v1.Response
+// @Failure 409 {object} v1.Response "Insufficient stock"
+// @Failure 500 {object} v1.Response
+// @Router /transfer/send-all/{id} [POST]
+func (h *TransferHandler) SendAll(c *gin.Context) {
+	user := h.service.GetSignedUser(c)
+	if user.UserId == "" {
+		handleServiceResponse(c, nil, domain.UnauthorizedError)
+		return
+	}
+
+	id := c.Param("id")
+	if id == "" {
+		handleServiceResponse(c, nil, domain.InvalidQueryError)
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(c.Request.Context(), constants.DefaultContextTimeout)
+	defer cancel()
+
+	mu := h.getTransferLock(id)
+	mu.Lock()
+	defer mu.Unlock()
+
+	err := h.service.SendTransferAll(ctx, id, user.UserId)
+	if err != nil {
+		if notAddErr, ok := err.(*domain.NotAdditionError); ok {
+			handleResponse(c, CONFLICT, notAddErr.Data)
+			return
+		}
+		handleServiceResponse(c, InternalError, err)
+		return
+	}
+
+	handleResponse(c, OK, "SENT")
+}
+
+// AcceptAll godoc
+// @Summary Accept all products in transfer (bulk)
+// @Description Sets scanned_count and accepted_count = expected_count for all details. Use before /confirm to skip manual barcode scanning.
+// @Tags Transfer
+// @Security BearerAuth
+// @Accept json
+// @Produce json
+// @Param id path string true "Transfer ID"
+// @Success 200 {object} v1.Response
+// @Failure 400 {object} v1.Response
+// @Failure 500 {object} v1.Response
+// @Router /transfer/accept-all/{id} [POST]
+func (h *TransferHandler) AcceptAll(c *gin.Context) {
+	user := h.service.GetSignedUser(c)
+	if user.UserId == "" {
+		handleServiceResponse(c, nil, domain.UnauthorizedError)
+		return
+	}
+
+	id := c.Param("id")
+	if id == "" {
+		handleServiceResponse(c, nil, domain.InvalidQueryError)
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(c.Request.Context(), constants.DefaultContextTimeout)
+	defer cancel()
+
+	err := h.service.AcceptAllTransferDetails(ctx, id)
+	if err != nil {
+		handleServiceResponse(c, InternalError, err)
+		return
+	}
+
+	handleResponse(c, OK, "ACCEPTED")
 }
 
 // send Transfer
