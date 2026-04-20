@@ -319,8 +319,8 @@ func (s *Services) FinalizeSale(ctx context.Context, req *domain.FinalSale) (*do
 		return res, nil
 	}
 
-	// check payment types
-	if len(req.PaymentTypes) == 0 {
+	// check payment types (not required if payment already processed)
+	if len(req.PaymentTypes) == 0 && sale.Stage < constants.SaleStagePayFinished {
 		_ = tx.Rollback()
 		return nil, domain.PaymentTypeRequiredError
 	}
@@ -753,10 +753,26 @@ func (s *Services) EposResult(ctx context.Context, req *domain.EposResponseReque
 		
 
 	} else {
-		fiscal, err = s.getFiscalDataBySaleId(ctx, sale.Id)
-		if err != nil {
-		_ = tx.Rollback()
-		return nil, err
+		// Save OFD data if we have fresh fiscal from EPOS (retry scenario)
+		if fiscal.FiscalSign != "" {
+			req.Status = 1
+			_ = s.SaveEposResponse(ctx, req)
+			ofdUpdates := map[string]any{
+				"fiscal_sign":    fiscal.FiscalSign,
+				"check_url":      fiscal.QrCodeUrl,
+				"is_sent_to_tax": true,
+				"updated_at":     time.Now(),
+			}
+			if err = s.updateSaleFields(ctx, tx, sale.Id, ofdUpdates); err != nil {
+				_ = tx.Rollback()
+				return nil, err
+			}
+		} else {
+			fiscal, err = s.getFiscalDataBySaleId(ctx, sale.Id)
+			if err != nil {
+				_ = tx.Rollback()
+				return nil, err
+			}
 		}
 	}
 
