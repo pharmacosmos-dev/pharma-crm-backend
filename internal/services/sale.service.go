@@ -325,16 +325,16 @@ func (s *Services) FinalizeSale(ctx context.Context, req *domain.FinalSale) (*do
 		return nil, domain.PaymentTypeRequiredError
 	}
 
-	// check sale amount and validate payment types
-	var customerBalance float64 = 0.00
-	if sale.Customer != nil {
-		customerBalance = sale.Customer.Balance
-	}
-	// check sale amount and validate payment types (now with locked cart items)
-	req, err = s.matchingPaymentTypeSum(ctx, tx, req, customerBalance)
-	if err != nil {
-		_ = tx.Rollback()
-		return nil, err
+	if sale.Stage < constants.SaleStagePayFinished {
+		var customerBalance float64 = 0.00
+		if sale.Customer != nil {
+			customerBalance = sale.Customer.Balance
+		}
+		req, err = s.matchingPaymentTypeSum(ctx, tx, req, customerBalance)
+		if err != nil {
+			_ = tx.Rollback()
+			return nil, err
+		}
 	}
 
 	// validate product quantities (now with locked cart items)
