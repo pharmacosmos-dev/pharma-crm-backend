@@ -319,22 +319,22 @@ func (s *Services) FinalizeSale(ctx context.Context, req *domain.FinalSale) (*do
 		return res, nil
 	}
 
-	// check payment types (not required if payment already processed)
-	if len(req.PaymentTypes) == 0 && sale.Stage < constants.SaleStagePayFinished {
+	// check payment types
+	if len(req.PaymentTypes) == 0 {
 		_ = tx.Rollback()
 		return nil, domain.PaymentTypeRequiredError
 	}
 
-	if sale.Stage < constants.SaleStagePayFinished {
-		var customerBalance float64 = 0.00
-		if sale.Customer != nil {
-			customerBalance = sale.Customer.Balance
-		}
-		req, err = s.matchingPaymentTypeSum(ctx, tx, req, customerBalance)
-		if err != nil {
-			_ = tx.Rollback()
-			return nil, err
-		}
+	// check sale amount and validate payment types
+	var customerBalance float64 = 0.00
+	if sale.Customer != nil {
+		customerBalance = sale.Customer.Balance
+	}
+	// check sale amount and validate payment types (now with locked cart items)
+	req, err = s.matchingPaymentTypeSum(ctx, tx, req, customerBalance)
+	if err != nil {
+		_ = tx.Rollback()
+		return nil, err
 	}
 
 	// validate product quantities (now with locked cart items)
@@ -753,26 +753,10 @@ func (s *Services) EposResult(ctx context.Context, req *domain.EposResponseReque
 		
 
 	} else {
-		// Save OFD data if we have fresh fiscal from EPOS (retry scenario)
-		if fiscal.FiscalSign != "" {
-			req.Status = 1
-			_ = s.SaveEposResponse(ctx, req)
-			ofdUpdates := map[string]any{
-				"fiscal_sign":    fiscal.FiscalSign,
-				"check_url":      fiscal.QrCodeUrl,
-				"is_sent_to_tax": true,
-				"updated_at":     time.Now(),
-			}
-			if err = s.updateSaleFields(ctx, tx, sale.Id, ofdUpdates); err != nil {
-				_ = tx.Rollback()
-				return nil, err
-			}
-		} else {
-			fiscal, err = s.getFiscalDataBySaleId(ctx, sale.Id)
-			if err != nil {
-				_ = tx.Rollback()
-				return nil, err
-			}
+		fiscal, err = s.getFiscalDataBySaleId(ctx, sale.Id)
+		if err != nil {
+		_ = tx.Rollback()
+		return nil, err
 		}
 	}
 
