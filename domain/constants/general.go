@@ -277,6 +277,7 @@ const (
 	ActionCardsRemove             = "cards.remove"
 	ActionCreateReceipt           = "receipts.create"
 	ActionPayReceipt              = "receipts.pay"
+	ActionCheckReceipt            = "receipts.check"
 	ActionSetFiscalData           = "receipts.set_fiscal_data"
 	ActionCancelReceipt           = "receipts.cancel"
 	ActionConfirmHold             = "receipts.confirm_hold"
@@ -308,6 +309,11 @@ const (
 	PaymeTransactionStateFinished             = 2
 	PaymeTransactionStateCancelled            = -1
 	PaymeTransactionStateCancelledAfterFinish = -2
+)
+
+const (
+	PaymeReceiptStatePaid      = 4  // Чек оплачен
+	PaymeReceiptStateCancelled = 50 // Чек отменен
 )
 
 const (

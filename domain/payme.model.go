@@ -161,6 +161,7 @@ type ReceiptCreateResponseDto struct {
 		PayTime     int    `json:"pay_time"`
 		CancelTime  int    `json:"cancel_time"`
 		Stage       int    `json:"stage"`
+		State       int    `json:"state"`
 		Type        int    `json:"type"`
 		External    bool   `json:"external"`
 		Operation   int    `json:"operation"`
@@ -170,6 +171,17 @@ type ReceiptCreateResponseDto struct {
 		Currency    int    `json:"currency"`
 		Commission  int    `json:"commission"`
 	} `json:"receipt"`
+}
+
+// region Receipt Check
+
+type ReceiptCheckRequestDto struct {
+	Id string `json:"id"`
+}
+
+// receipts.check response: {"result": {"state": 4}}
+type ReceiptCheckResponseDto struct {
+	State int `json:"state"`
 }
 
 // endregion

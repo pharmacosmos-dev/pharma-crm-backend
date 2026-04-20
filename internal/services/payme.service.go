@@ -137,11 +137,10 @@ func (s *Services) PayReceipt(
 	}
 
 	var response *http.Response
-	if err := s.PaymeRequest(
-		&response, s.cfg.PaymeApiUrl, jsonBytes, token,
-	); err != nil {
-		s.log.Errorf("could not send pay receipt request: %v", err)
-		return result.Result, domain.InternalServerError
+	payErr := s.PaymeRequest(&response, s.cfg.PaymeApiUrl, jsonBytes, token)
+	if payErr != nil {
+		s.log.Errorf("could not send pay receipt request: %v", payErr)
+		return s.checkReceiptAfterPayFailure(ctx, data.Id, sale, token, payErr)
 	}
 	defer utils.Close(response.Body, s.log)
 
@@ -150,10 +149,93 @@ func (s *Services) PayReceipt(
 	_ = s.updatePaymeRequestInDb(ctx, payload.Id, bytes, constants.ActionPayReceipt)
 	if err != nil {
 		s.log.Errorf("could not decode pay receipt response: %v", err)
-		return result.Result, err
+		if isPaymeBusinessError(err) {
+			return result.Result, err
+		}
+		return s.checkReceiptAfterPayFailure(ctx, data.Id, sale, token, err)
 	}
 
 	return result.Result, nil
+}
+
+func isPaymeBusinessError(err error) bool {
+	switch err {
+	case domain.IncorrectOTPError,
+		domain.OTPExpiredError,
+		domain.CardNotFoundError,
+		domain.IncorrectCardExpiryDateError,
+		domain.InsufficientFunds,
+		domain.PaymeNotOperationalError:
+		return true
+	}
+	return false
+}
+
+func (s *Services) checkReceiptAfterPayFailure(
+	ctx context.Context,
+	receiptId string,
+	sale domain.Sale,
+	token string,
+	originalErr error,
+) (domain.ReceiptCreateResponseDto, error) {
+	var empty domain.ReceiptCreateResponseDto
+	s.log.Infof("receipts.pay failed for sale %s, checking via receipts.check", sale.Id)
+
+	state, err := s.CheckReceipt(ctx, receiptId, sale, token)
+	if err != nil {
+		s.log.Errorf("receipts.check also failed for sale %s: %v", sale.Id, err)
+		return empty, originalErr
+	}
+
+	// state=4 → Payme da to'lov muvaffaqiyatli bajarilgan
+	if state == constants.PaymeReceiptStatePaid {
+		s.log.Infof("receipts.check confirmed payment success for sale %s (receipt: %s, state: %d)", sale.Id, receiptId, state)
+		return empty, nil
+	}
+
+	s.log.Warnf("receipts.check: receipt not paid for sale %s, state=%d", sale.Id, state)
+	return empty, originalErr
+}
+
+func (s *Services) CheckReceipt(
+	ctx context.Context,
+	receiptId string,
+	sale domain.Sale,
+	token string,
+) (int, error) {
+	var result domain.PaymeResponseWrapper[domain.ReceiptCheckResponseDto]
+
+	payload, err := s.newPaymePayloadWrapper(
+		ctx,
+		constants.ActionCheckReceipt,
+		sale.Id,
+		domain.ReceiptCheckRequestDto{Id: receiptId},
+	)
+	if err != nil {
+		return 0, domain.InternalServerError
+	}
+
+	jsonBytes, err := json.Marshal(payload)
+	if err != nil {
+		s.log.Errorf("could not marshal check receipt payload: %v", err)
+		return 0, domain.InternalServerError
+	}
+
+	var response *http.Response
+	if err := s.PaymeRequest(&response, s.cfg.PaymeApiUrl, jsonBytes, token); err != nil {
+		s.log.Errorf("could not send check receipt request: %v", err)
+		return 0, domain.InternalServerError
+	}
+	defer utils.Close(response.Body, s.log)
+
+	result, bytes, err := DecodePaymeResponse[domain.ReceiptCheckResponseDto](response.Body)
+	_ = s.updatePaymeRequestInDb(ctx, payload.Id, bytes, constants.ActionCheckReceipt)
+	if err != nil {
+		s.log.Errorf("could not decode check receipt response: %v", err)
+		return 0, err
+	}
+
+	return result.Result.State, nil
 }
 
 func (s *Services) CancelReceipt(
