@@ -2327,6 +2327,7 @@ func (s *Services) GetPendingSales(ctx context.Context, params *domain.SaleQuery
 			"customers.full_name as customer_name",
 			"customers.phone AS customer_phone",
 			"cash_boxes.name AS cash_box_name",
+			"(SELECT COUNT(*) FROM cart_items ci WHERE ci.sale_id = s.id) AS product_count",
 		).
 		Where("s.stage IN (?)", []int{constants.SaleStageOfdWaiting, constants.SaleStageOfdSent, constants.SaleStagePayWaiting, constants.SaleStagePayFinished}).
 		Limit(params.Limit).
