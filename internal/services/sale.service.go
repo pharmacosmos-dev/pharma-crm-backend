@@ -2232,7 +2232,8 @@ func (s *Services) GetPendingSales(ctx context.Context, params *domain.SaleQuery
 		Joins("LEFT JOIN customers ON s.customer_id = customers.id")
 
 	// filters
-	qb = qb.Where("s.stage IN (?)", []int{constants.SaleStageOfdWaiting, constants.SaleStageOfdSent, constants.SaleStagePayWaiting, constants.SaleStagePayFinished})
+	qb = qb.Where("s.stage IN (?)", []int{constants.SaleStageOfdWaiting, constants.SaleStageOfdSent, constants.SaleStagePayWaiting, constants.SaleStagePayFinished}).
+		Where("EXISTS (SELECT 1 FROM cart_items ci WHERE ci.sale_id = s.id)")
 
 	if params.Cash {
 		qb = qb.Where("s.cash > 0")
