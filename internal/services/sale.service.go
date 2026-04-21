@@ -2232,7 +2232,7 @@ func (s *Services) GetPendingSales(ctx context.Context, params *domain.SaleQuery
 		Joins("LEFT JOIN customers ON s.customer_id = customers.id")
 
 	// filters
-	qb = qb.Where("s.status = ?", constants.GeneralStatusPending)
+	qb = qb.Where("s.stage IN (?)", []int{constants.SaleStageOfdWaiting, constants.SaleStageOfdSent, constants.SaleStagePayWaiting, constants.SaleStagePayFinished})
 
 	if params.Cash {
 		qb = qb.Where("s.cash > 0")
@@ -2304,6 +2304,7 @@ func (s *Services) GetPendingSales(ctx context.Context, params *domain.SaleQuery
 			"s.sale_number",
 			"s.sale_type",
 			"s.type",
+			"s.stage",
 			"s.total_amount",
 			"s.return_amount",
 			"s.total_discount",
@@ -2327,6 +2328,7 @@ func (s *Services) GetPendingSales(ctx context.Context, params *domain.SaleQuery
 			"customers.phone AS customer_phone",
 			"cash_boxes.name AS cash_box_name",
 		).
+		Where("s.stage IN (?)", []int{constants.SaleStageOfdWaiting, constants.SaleStageOfdSent, constants.SaleStagePayWaiting, constants.SaleStagePayFinished}).
 		Limit(params.Limit).
 		Offset(params.Offset).
 		Order("s.created_at DESC").
