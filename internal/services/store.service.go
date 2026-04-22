@@ -93,8 +93,7 @@ func (s *Services) GetStores(ctx context.Context, params *domain.StoreQueryParam
 	}
 
 	if params.IsFranchise != nil {
-		qb = qb.Joins("JOIN companies ON companies.id = stores.company_id").
-			Where("companies.is_franchise = ?", *params.IsFranchise)
+		qb = qb.Where("stores.company_id IN (SELECT id FROM companies WHERE is_franchise = ?)", *params.IsFranchise)
 	}
 
 	totalCount := int64(0)
