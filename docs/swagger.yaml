@@ -18557,6 +18557,10 @@ paths:
         in: query
         name: product_id
         type: string
+      - description: is_franchise
+        in: query
+        name: is_franchise
+        type: boolean
       produces:
       - application/json
       responses:

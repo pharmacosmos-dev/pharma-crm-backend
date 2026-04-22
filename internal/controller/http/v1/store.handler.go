@@ -120,6 +120,7 @@ func (h *StoreHandler) Get(c *gin.Context) {
 // @Param offset query int false "Offset"
 // @Param search query string false "Search"
 // @Param product_id query string false "Product ID"
+// @Param is_franchise query bool false "is_franchise"
 // @Success 200 {object} v1.Response
 // @Failure 400 {object} v1.Response
 // @Failure 500 {object} v1.Response

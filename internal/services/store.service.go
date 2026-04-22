@@ -92,6 +92,11 @@ func (s *Services) GetStores(ctx context.Context, params *domain.StoreQueryParam
 		qb = qb.Where("stores.company_id = ?", params.CompanyId)
 	}
 
+	if params.IsFranchise != nil {
+		qb = qb.Joins("JOIN companies ON companies.id = stores.company_id").
+			Where("companies.is_franchise = ?", *params.IsFranchise)
+	}
+
 	totalCount := int64(0)
 	if err := qb.Count(&totalCount).Error; err != nil {
 		s.log.Errorf("could not count stores: %v", err)

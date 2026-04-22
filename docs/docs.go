@@ -25623,6 +25623,12 @@ const docTemplate = `{
                         "description": "Product ID",
                         "name": "product_id",
                         "in": "query"
+                    },
+                    {
+                        "type": "boolean",
+                        "description": "is_franchise",
+                        "name": "is_franchise",
+                        "in": "query"
                     }
                 ],
                 "responses": {
