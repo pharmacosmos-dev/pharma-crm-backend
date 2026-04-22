@@ -124,7 +124,8 @@ func (s *Services) CreateReturnSale(ctx context.Context, req *domain.SaleReturnR
 		total_price,
 		discount_type,
 		discount_value,
-		discount_amount
+		discount_amount,
+		markings
 		)
 	SELECT
 		?,
@@ -135,7 +136,8 @@ func (s *Services) CreateReturnSale(ctx context.Context, req *domain.SaleReturnR
 		ci.total_price,
 		ci.discount_type,
 		ci.discount_value,
-		ci.discount_amount
+		ci.discount_amount,
+		ci.markings
 	FROM cart_items ci
 	WHERE ci.sale_id = ? AND ci.store_product_id = ?;
 	`
