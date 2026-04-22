@@ -53,7 +53,7 @@ func (s *Services) GetNomenclature(ctx context.Context, storeId string, page, li
 			p.unit_code,
 			p.requires_prescription,
 			sp.id AS id,
-			sp.retail_price, 
+			COALESCE(osp.retail_price, sp.retail_price) AS retail_price,
 			sp.unit_quantity, 
 			sp.vat,
 			sp.expire_date AS expired_date,
@@ -62,6 +62,10 @@ func (s *Services) GetNomenclature(ctx context.Context, storeId string, page, li
 			c.name as category_name
 		FROM products p
 		INNER JOIN store_products sp ON p.id = sp.product_id
+		LEFT JOIN online_store_products osp
+			ON osp.product_id = p.id
+			AND osp.store_id = sp.store_id
+			AND osp.type = 'uzum'
 		LEFT JOIN categories c ON p.category_id = c.id
 		WHERE sp.store_id = ? AND sp.unit_quantity/p.unit_per_pack > 0 AND p.requires_prescription = false
 	`

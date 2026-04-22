@@ -2,35 +2,33 @@ package services
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/pharma-crm-backend/domain"
 )
 
-func (s *Services) UpsertOnlineStoreProducts(ctx context.Context, req *domain.UpsertOnlineStoreProductsRequest) error {
-	if len(req.Products) == 0 {
-		return fmt.Errorf("products list is empty")
+// CreateOnlineStoreProducts — store_products dan ko'chirib online_store_products ga yozadi.
+// Allaqachon mavjud bo'lganlarni o'zgartirmaydi.
+func (s *Services) CreateOnlineStoreProducts(ctx context.Context, storeId, platformType string, createdBy *string) error {
+	err := s.db.WithContext(ctx).Exec(`
+		INSERT INTO online_store_products (store_id, product_id, type, retail_price, supply_price, old_supply_price, created_by)
+		SELECT DISTINCT ON (product_id)
+			store_id,
+			product_id,
+			?,
+			retail_price,
+			supply_price,
+			supply_price,
+			?
+		FROM store_products
+		WHERE store_id = ?
+		  AND (pack_quantity > 0 OR unit_quantity > 0)
+		ORDER BY product_id, unit_quantity DESC
+		ON CONFLICT (store_id, product_id, type) DO NOTHING
+	`, platformType, createdBy, storeId).Error
+	if err != nil {
+		s.log.Errorf("failed to create online_store_products for store=%s type=%s: %v", storeId, platformType, err)
+		return err
 	}
-
-	for _, item := range req.Products {
-		err := s.db.WithContext(ctx).Exec(`
-			INSERT INTO online_store_products (store_id, product_id, type, retail_price, supply_price, old_supply_price, created_by, updated_at)
-			VALUES (?, ?, ?, ?, ?, ?, ?, NOW())
-			ON CONFLICT (store_id, product_id, type)
-			DO UPDATE SET
-				retail_price    = EXCLUDED.retail_price,
-				supply_price    = EXCLUDED.supply_price,
-				old_supply_price = EXCLUDED.old_supply_price,
-				updated_at      = NOW()
-		`, req.StoreId, item.ProductId, req.Type,
-			item.RetailPrice, item.SupplyPrice, item.OldSupplyPrice, req.CreatedBy,
-		).Error
-		if err != nil {
-			s.log.Errorf("failed to upsert online_store_product product_id=%s: %v", item.ProductId, err)
-			return err
-		}
-	}
-
 	return nil
 }
 

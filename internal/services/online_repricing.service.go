@@ -32,24 +32,31 @@ func (s *Services)  CreateOnlineRepricing(ctx context.Context, req *domain.Onlin
 
 	// Auto-populate details: all products from store_products.
 	// old_retail_price = online price if exists, else store_products price.
+	// Detail ga store_products dan oladi, online_store_products da mavjud bo'lsa old_price sifatida ishlatadi
 	err = tx.Exec(`
 		INSERT INTO online_price_revaluation_details
-			(online_price_revaluation_id, product_id, old_retail_price, new_retail_price, old_supply_price)
+			(online_price_revaluation_id, store_id, product_id, old_retail_price, new_retail_price, old_supply_price)
 		SELECT
 			?,
+			sp.store_id,
 			sp.product_id,
 			COALESCE(osp.retail_price, sp.retail_price),
-			COALESCE(osp.retail_price, sp.retail_price),
+			0,
 			COALESCE(osp.supply_price, sp.supply_price)
-		FROM store_products sp
+		FROM (
+			SELECT DISTINCT ON (product_id)
+				product_id, store_id, retail_price, supply_price
+			FROM store_products
+			WHERE store_id = ?
+			  AND (pack_quantity > 0 OR unit_quantity > 0)
+			ORDER BY product_id, unit_quantity DESC
+		) sp
 		LEFT JOIN online_store_products osp
 			ON osp.product_id = sp.product_id
 			AND osp.store_id = sp.store_id
 			AND osp.type = ?
-		WHERE sp.store_id = ?
-		  AND (sp.pack_quantity > 0 OR sp.unit_quantity > 0)
 		ON CONFLICT (online_price_revaluation_id, product_id) DO NOTHING`,
-		res.Id, req.PlatformType, req.StoreId,
+		res.Id, req.StoreId, req.PlatformType,
 	).Error
 	if err != nil {
 		_ = tx.Rollback()
@@ -122,6 +129,7 @@ func (s *Services) GetOnlineRepricingDetailList(ctx context.Context, repricingId
 		SELECT
 			d.id,
 			d.online_price_revaluation_id,
+			d.store_id,
 			d.product_id,
 			d.old_retail_price,
 			d.new_retail_price,
@@ -171,8 +179,9 @@ func (s *Services) ConfirmOnlineRepricing(ctx context.Context, repricingId int, 
 		}
 	}()
 
-	var rev domain.OnlinePriceRevaluation
-	if err := tx.First(&rev, "id = ?", repricingId).Error; err != nil {
+	var storeId, platformType string
+	if err := tx.Raw(`SELECT store_id, platform_type FROM online_price_revaluations WHERE id = ?`, repricingId).
+		Row().Scan(&storeId, &platformType); err != nil {
 		_ = tx.Rollback()
 		s.log.Errorf("online repricing %d not found: %v", repricingId, err)
 		return domain.InternalServerError
@@ -187,6 +196,16 @@ func (s *Services) ConfirmOnlineRepricing(ctx context.Context, repricingId int, 
 	).Error; err != nil {
 		_ = tx.Rollback()
 		s.log.Errorf("could not update online repricing status: %v", err)
+		return domain.InternalServerError
+	}
+
+	// Delete details where price was not changed (new_retail_price = 0)
+	if err := tx.Exec(
+		`DELETE FROM online_price_revaluation_details WHERE new_retail_price = 0 AND online_price_revaluation_id = ?`,
+		repricingId,
+	).Error; err != nil {
+		_ = tx.Rollback()
+		s.log.Errorf("could not delete unchanged online repricing details: %v", err)
 		return domain.InternalServerError
 	}
 
@@ -208,7 +227,7 @@ func (s *Services) ConfirmOnlineRepricing(ctx context.Context, repricingId int, 
 			retail_price     = EXCLUDED.retail_price,
 			old_supply_price = online_store_products.supply_price,
 			updated_at       = NOW()`,
-		rev.StoreId, rev.PlatformType, repricingId,
+		storeId, platformType, repricingId,
 	).Error; err != nil {
 		_ = tx.Rollback()
 		s.log.Errorf("could not upsert online_store_products on confirm: %v", err)
@@ -225,6 +244,7 @@ func (s *Services) ConfirmOnlineRepricing(ctx context.Context, repricingId int, 
 
 // CancelOnlineRepricing marks the session canceled.
 func (s *Services) CancelOnlineRepricing(ctx context.Context, repricingId int, updatedBy string) error {
+	
 	err := s.db.WithContext(ctx).Exec(`
 		UPDATE online_price_revaluations
 		SET status = ?, updated_by = ?, updated_at = NOW()

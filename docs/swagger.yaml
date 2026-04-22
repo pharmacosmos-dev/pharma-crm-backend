@@ -1188,6 +1188,17 @@ definitions:
       order_id:
         type: integer
     type: object
+  domain.OnlineRepricingRequest:
+    properties:
+      created_by:
+        type: string
+      name:
+        type: string
+      platform_type:
+        type: string
+      store_id:
+        type: string
+    type: object
   domain.PaymentServiceRequest:
     properties:
       cashbox_id:
@@ -1874,6 +1885,13 @@ definitions:
         type: number
       store_product_id:
         type: string
+    type: object
+  domain.UpdateOnlineDetailPrice:
+    properties:
+      id:
+        type: string
+      new_retail_price:
+        type: number
     type: object
   domain.UpdateOnlineSale:
     properties:
@@ -9121,6 +9139,186 @@ paths:
       summary: List Store Products
       tags:
       - Noor API
+  /online-repricing:
+    get:
+      parameters:
+      - description: Store ID
+        in: query
+        name: store_id
+        type: string
+      - description: Platform type
+        in: query
+        name: platform_type
+        type: string
+      - description: Status
+        in: query
+        name: status
+        type: string
+      - description: Limit
+        in: query
+        name: limit
+        type: integer
+      - description: Offset
+        in: query
+        name: offset
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: List online repricing sessions
+      tags:
+      - Online Repricing
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Request body
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/domain.OnlineRepricingRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Create online repricing session
+      tags:
+      - Online Repricing
+  /online-repricing/{id}/cancel:
+    post:
+      parameters:
+      - description: Repricing ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Cancel online repricing session
+      tags:
+      - Online Repricing
+  /online-repricing/{id}/confirm:
+    post:
+      parameters:
+      - description: Repricing ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Confirm online repricing — applies prices to online_store_products
+      tags:
+      - Online Repricing
+  /online-repricing/{id}/details:
+    get:
+      parameters:
+      - description: Repricing ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: Search
+        in: query
+        name: search
+        type: string
+      - description: Limit
+        in: query
+        name: limit
+        type: integer
+      - description: Offset
+        in: query
+        name: offset
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: List product details of a repricing session
+      tags:
+      - Online Repricing
+  /online-repricing/detail/{detail_id}:
+    put:
+      consumes:
+      - application/json
+      parameters:
+      - description: Detail UUID
+        in: path
+        name: detail_id
+        required: true
+        type: string
+      - description: New price
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/domain.UpdateOnlineDetailPrice'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Update new_retail_price for a detail row
+      tags:
+      - Online Repricing
+  /online-store-products:
+    get:
+      parameters:
+      - description: Store ID
+        in: query
+        name: store_id
+        type: string
+      - description: Platform type (uzum, yandex_eda, ...)
+        in: query
+        name: type
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: List online store products (current platform prices)
+      tags:
+      - Online Store Products
   /ostatok:
     get:
       consumes:

@@ -34,6 +34,12 @@ type UpsertOnlineStoreProductsRequest struct {
 	CreatedBy *string                  `json:"created_by"`
 }
 
+type CreateOnlineStoreProductsRequest struct {
+	StoreId      string  `json:"store_id"`
+	PlatformType string  `json:"platform_type"`
+	CreatedBy    *string `json:"created_by"`
+}
+
 type OnlineStoreProductQueryParam struct {
 	StoreId string `form:"store_id"`
 	Type    string `form:"type"`

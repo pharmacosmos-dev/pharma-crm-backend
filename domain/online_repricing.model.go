@@ -25,6 +25,7 @@ func (OnlinePriceRevaluation) TableName() string {
 type OnlinePriceRevalutionDetail struct {
 	Id                       string     `gorm:"id" json:"id"`
 	OnlinePriceRevaluationId int        `gorm:"online_price_revaluation_id" json:"online_price_revaluation_id"`
+	StoreId                  string     `gorm:"store_id" json:"store_id"`
 	ProductId                string     `gorm:"product_id" json:"product_id"`
 	OldRetailPrice           float64    `gorm:"old_retail_price" json:"old_retail_price"`
 	NewRetailPrice           float64    `gorm:"new_retail_price" json:"new_retail_price"`
