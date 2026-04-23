@@ -234,9 +234,11 @@ type ProductData struct {
 	Vat          int               `gorm:"vat" json:"vat"`
 	Markup       float64           `gorm:"markup" json:"markup"`
 	VatPrice     float64           `gorm:"vat_price" json:"vat_price"`
-	MarkupPrice          float64           `gorm:"markup_price" json:"markup_price"`
-	Sum                  float64           `gorm:"sum" json:"sum"`
-	RequiresPrescription bool              `gorm:"requires_prescription" json:"requires_prescription"`
+	MarkupPrice          float64   `gorm:"markup_price" json:"markup_price"`
+	Sum                  float64   `gorm:"sum" json:"sum"`
+	RequiresPrescription bool      `gorm:"requires_prescription" json:"requires_prescription"`
+    Country              string    `gorm:"country" json:"country"`
+    IsReturn             bool      `gorm:"is_return" json:"is_return"` 
 }
 
 // product response structure for arzon apteka
