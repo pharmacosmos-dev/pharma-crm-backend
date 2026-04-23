@@ -49,6 +49,9 @@ type ProductRequestOnecDto struct {
 	Ikpu                string   `gorm:"ikpu" json:"ikpu" validate:"omitempty,len=min=14,max=255"`
 	Mar                 bool     `gorm:"mar" json:"mar"`
 	Markirovka          []string `gorm:"-" json:"markirovka"`
+	Country              string   `gorm:"country" json:"country" validate:"required,min=1,max=255"`
+	Is_return            bool     `gorm:"is_return" json:"is_return"`
+	RequiresPrescription bool     `gorm:"requires_prescription" json:"requires_prescription"`
 }
 
 type RequestOnec struct {

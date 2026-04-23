@@ -141,13 +141,19 @@ func (s *Services) createOrGetProductAndImportDetails(
 			producer_id, 
 			mxik, 
 			is_marking,
-			company_id
+			company_id,
+			country,
+			is_return,
+			requires_prescription
 			)
-		VALUES (?, ?, ?, ?, ?, ?, ?)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 		ON CONFLICT (material_code) DO UPDATE
 		SET
 			producer_id = EXCLUDED.producer_id,
-			is_marking = EXCLUDED.is_marking
+			is_marking = EXCLUDED.is_marking,
+			country = EXCLUDED.country,
+			is_return = EXCLUDED.is_return,
+			requires_prescription = EXCLUDED.requires_prescription.
 		RETURNING id`,
 			products[i].MaterialCode,
 			products[i].Name,
@@ -156,6 +162,9 @@ func (s *Services) createOrGetProductAndImportDetails(
 			products[i].Ikpu,
 			products[i].Mar,
 			companyId,
+			products[i].Country,
+			products[i].Is_return,
+			products[i].RequiresPrescription,
 		).Scan(&productId).Error
 		if err != nil {
 			s.log.Errorf("could not creating new product on importing: %v", err)
@@ -201,14 +210,17 @@ func (s *Services) createOrGetProductAndImportDetails(
 			expire_date, 
 			series_number, 
 			sum_vat, 
-			marking
+			marking,
+			country,
+			is_return,
+			requires_prescription
 			) 
 			VALUES(
 				?, ?, ?, 
 				?, ?, ?, 
 				?, ?, ?, 
 				?, ?, ?, 
-				?, ?) 
+				?, ?, ?, ?, ?) 
 			RETURNING id`,
 			productId,
 			importId,
@@ -224,6 +236,9 @@ func (s *Services) createOrGetProductAndImportDetails(
 			products[i].ProductSeriesNumber,
 			products[i].SumVat,
 			utils.StringArray(products[i].Markirovka),
+			products[i].Country,
+			products[i].Is_return,
+			products[i].RequiresPrescription,
 		).Scan(&id).Error
 		if err != nil {
 			s.log.Errorf("could not create import_details on importing: %v", err)

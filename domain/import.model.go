@@ -59,40 +59,43 @@ type ImportRequest struct {
 
 // ImportDetail structure
 type ImportDetail struct {
-	Id                string                             `gorm:"id" json:"id"`
-	ImportId          string                             `gorm:"import_id" json:"import_id"`
-	ProductId         string                             `gorm:"product_id" json:"product_id"`
-	ReceivedCount     float64                            `gorm:"received_count" json:"received_count"`
-	AcceptedCount     float64                            `gorm:"accepted_count" json:"accepted_count"`
-	ScannedCount      float64                            `gorm:"scanned_count" json:"scanned_count"`
-	SupplyPrice       float64                            `gorm:"supply_price" json:"supply_price"`
-	SupplyPriceVat    float64                            `gorm:"supply_price_vat" json:"supply_price_vat"`
-	RetailPrice       float64                            `gorm:"retail_price" json:"retail_price"`
-	RetailPriceVat    float64                            `gorm:"retail_price_vat" json:"retail_price_vat"`
-	UnitName          string                             `gorm:"unit_name" json:"unit_name"`
-	ReceivedAmount    float64                            `gorm:"received_amount" json:"received_amount"`
-	ReceivedAmountVat float64                            `gorm:"received_amount_vat" json:"received_amount_vat"`
-	AcceptedAmount    float64                            `gorm:"accepted_amount" json:"accepted_amount"`
-	AcceptedAmountVat float64                            `gorm:"accepted_amount_vat" json:"accepted_amount_vat"`
-	SeriesNumber      string                             `gorm:"series_number" json:"series_number"`
-	ExpireDate        *time.Time                         `gorm:"expire_date" json:"expire_date"`
-	Vat               int                                `gorm:"vat" json:"vat"`
-	VatSum            float64                            `gorm:"vat_sum" json:"vat_sum"`
-	SumVat            float64                            `gorm:"sum_vat" json:"sum_vat"`
-	UnitPerPack       int                                `gorm:"unit_per_pack" json:"unit_per_pack"`
-	ProducerName      string                             `gorm:"producer_name" json:"producer_name"`
-	ProducerCode      string                             `gorm:"producer_code" json:"producer_code"`
-	ProductName       string                             `gorm:"product_name" json:"product_name,omitempty"`
-	Barcode           string                             `gorm:"barcode" json:"barcode,omitempty"`
-	MaterialCode      int                                `gorm:"material_code" json:"material_code,omitempty"`
-	CreatedAt         *time.Time                         `gorm:"created_at" json:"created_at"`
-	UpdatedAt         *time.Time                         `gorm:"updated_at" json:"updated_at"`
-	ImportedAt        *time.Time                         `gorm:"imported_at" json:"imported_at"`
-	Mxik              string                             `gorm:"mxik" json:"mxik"`
-	UnitCode          string                             `gorm:"unit_code" json:"unit_code"`
-	UnitLabel         string                             `gorm:"unit_label" json:"unit_label"`
-	IsMarking         bool                               `gorm:"is_marking" json:"is_marking"`
-	Product           NullStruct[ProductForImportDetail] `gorm:"-" json:"product"`
+	Id                  string                             `gorm:"id" json:"id"`
+	ImportId            string                             `gorm:"import_id" json:"import_id"`
+	ProductId           string                             `gorm:"product_id" json:"product_id"`
+	ReceivedCount       float64                            `gorm:"received_count" json:"received_count"`
+	AcceptedCount       float64                            `gorm:"accepted_count" json:"accepted_count"`
+	ScannedCount        float64                            `gorm:"scanned_count" json:"scanned_count"`
+	SupplyPrice         float64                            `gorm:"supply_price" json:"supply_price"`
+	SupplyPriceVat      float64                            `gorm:"supply_price_vat" json:"supply_price_vat"`
+	RetailPrice         float64                            `gorm:"retail_price" json:"retail_price"`
+	RetailPriceVat      float64                            `gorm:"retail_price_vat" json:"retail_price_vat"`
+	UnitName            string                             `gorm:"unit_name" json:"unit_name"`
+	ReceivedAmount      float64                            `gorm:"received_amount" json:"received_amount"`
+	ReceivedAmountVat   float64                            `gorm:"received_amount_vat" json:"received_amount_vat"`
+	AcceptedAmount      float64                            `gorm:"accepted_amount" json:"accepted_amount"`
+	AcceptedAmountVat   float64                            `gorm:"accepted_amount_vat" json:"accepted_amount_vat"`
+	SeriesNumber        string                             `gorm:"series_number" json:"series_number"`
+	ExpireDate          *time.Time                         `gorm:"expire_date" json:"expire_date"`
+	Vat                 int                                `gorm:"vat" json:"vat"`
+	VatSum              float64                            `gorm:"vat_sum" json:"vat_sum"`
+	SumVat              float64                            `gorm:"sum_vat" json:"sum_vat"`
+	UnitPerPack         int                                `gorm:"unit_per_pack" json:"unit_per_pack"`
+	ProducerName        string                             `gorm:"producer_name" json:"producer_name"`
+	ProducerCode        string                             `gorm:"producer_code" json:"producer_code"`
+	ProductName         string                             `gorm:"product_name" json:"product_name,omitempty"`
+	Barcode             string                             `gorm:"barcode" json:"barcode,omitempty"`
+	MaterialCode        int                                `gorm:"material_code" json:"material_code,omitempty"`
+	CreatedAt           *time.Time                         `gorm:"created_at" json:"created_at"`
+	UpdatedAt           *time.Time                         `gorm:"updated_at" json:"updated_at"`
+	ImportedAt          *time.Time                         `gorm:"imported_at" json:"imported_at"`
+	Mxik                 string                             `gorm:"mxik" json:"mxik"`
+	UnitCode             string                             `gorm:"unit_code" json:"unit_code"`
+	UnitLabel            string                             `gorm:"unit_label" json:"unit_label"`
+	IsMarking            bool                               `gorm:"is_marking" json:"is_marking"`
+	Country              string                             `gorm:"country" json:"country"`
+	IsReturn             bool                               `gorm:"is_return" json:"is_return"`
+	RequiresPrescription bool                               `gorm:"requires_prescription" json:"requires_prescription"`
+	Product              NullStruct[ProductForImportDetail] `gorm:"-" json:"product"`
 	Import            NullStruct[ImportForImportDetail]  `gorm:"-" json:"import"`
 	StoreProductId    string                             `gorm:"store_product_id" json:"store_product_id"`
 }
