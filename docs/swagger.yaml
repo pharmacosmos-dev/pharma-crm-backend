@@ -1374,11 +1374,17 @@ definitions:
         maxLength: 255
         minLength: 0
         type: string
+      country:
+        maxLength: 255
+        minLength: 1
+        type: string
       expire_date:
         type: string
       ikpu:
         maxLength: 255
         type: string
+      is_return:
+        type: boolean
       manufacturer:
         maxLength: 255
         minLength: 1
@@ -1402,6 +1408,8 @@ definitions:
       quantity:
         minimum: 0
         type: number
+      requires_prescription:
+        type: boolean
       retail_price:
         type: number
       retail_price_vat:
@@ -1422,6 +1430,7 @@ definitions:
         type: number
     required:
     - barcode
+    - country
     - expire_date
     - manufacturer
     - material_code

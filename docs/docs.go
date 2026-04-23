@@ -31081,6 +31081,7 @@ const docTemplate = `{
             "type": "object",
             "required": [
                 "barcode",
+                "country",
                 "expire_date",
                 "manufacturer",
                 "material_code",
@@ -31095,12 +31096,20 @@ const docTemplate = `{
                     "maxLength": 255,
                     "minLength": 0
                 },
+                "country": {
+                    "type": "string",
+                    "maxLength": 255,
+                    "minLength": 1
+                },
                 "expire_date": {
                     "type": "string"
                 },
                 "ikpu": {
                     "type": "string",
                     "maxLength": 255
+                },
+                "is_return": {
+                    "type": "boolean"
                 },
                 "manufacturer": {
                     "type": "string",
@@ -31133,6 +31142,9 @@ const docTemplate = `{
                 "quantity": {
                     "type": "number",
                     "minimum": 0
+                },
+                "requires_prescription": {
+                    "type": "boolean"
                 },
                 "retail_price": {
                     "type": "number"
