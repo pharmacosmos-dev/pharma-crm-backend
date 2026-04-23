@@ -153,7 +153,7 @@ func (s *Services) createOrGetProductAndImportDetails(
 			is_marking = EXCLUDED.is_marking,
 			country = EXCLUDED.country,
 			is_return = EXCLUDED.is_return,
-			requires_prescription = EXCLUDED.requires_prescription.
+			requires_prescription = EXCLUDED.requires_prescription
 		RETURNING id`,
 			products[i].MaterialCode,
 			products[i].Name,
