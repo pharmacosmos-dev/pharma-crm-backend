@@ -173,6 +173,7 @@ type ProductQueryParam struct {
 	RetailPriceTo   float64     `form:"retail_price_to"`
 	Status          string      `form:"status"`
 	NoBarcode       bool        `form:"no_barcode"`
+	IsReturn		*bool      `form:"is_return"`
 	Order           string      `form:"order"`
 	Category        int         `form:"category"`
 	ExpiryFrom      string      `form:"expiry_from"`

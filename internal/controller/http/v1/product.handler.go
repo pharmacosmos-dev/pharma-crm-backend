@@ -176,6 +176,7 @@ func (h *ProductHandler) Get(c *gin.Context) {
 // @Param category_id query string false "Category ID"
 // @Param producer_id query string false "Producer ID"
 // @Param no_barcode query bool false "No Barcode"
+// @Param is_return query bool false "Filter by is_return (true=only returns, false=only non-returns, omit=all)"
 // @Param order query string false "Order by (+name || -name || +expire_date || -expire_date)"
 // @Success 200 {object} v1.Response
 // @Failure 400 {object} v1.Response
@@ -216,7 +217,7 @@ func (h *ProductHandler) List(c *gin.Context) {
 	// 		}
 	// 		params.CompanyId = user.CompanyId
 
-	// 	// admin -> filter yo‘q (hammasi)
+	// 	// admin -> filter yo’q (hammasi)
 	// }
 
 	if !helper.IsAdmin(user) {

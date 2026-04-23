@@ -333,6 +333,9 @@ func (s *Services) GetProducts(ctx context.Context, params *domain.ProductQueryP
 	if params.CategoryId != "" {
 		qb = qb.Where("p.category_id = ?", params.CategoryId)
 	}
+	if params.IsReturn != nil {
+		qb = qb.Where("p.is_return = ?", *params.IsReturn)
+	}
 
 	var totalCount int64
 	if err := qb.Count(&totalCount).Error; err != nil {
@@ -367,6 +370,8 @@ func (s *Services) GetProducts(ctx context.Context, params *domain.ProductQueryP
 		"p.mxik",
 		"p.unit_code",
 		"p.unit_label",
+		"p.requires_prescription",
+		"p.is_return",
 		"p.created_at",
 		"p.updated_at",
 
