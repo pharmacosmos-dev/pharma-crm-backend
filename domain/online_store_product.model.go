@@ -2,45 +2,37 @@ package domain
 
 import "time"
 
+// Append-only history — har bir narx o'zgarishi yangi row
 type OnlineStoreProduct struct {
-	Id             string     `gorm:"id" json:"id"`
-	StoreId        string     `gorm:"store_id" json:"store_id"`
-	ProductId      string     `gorm:"product_id" json:"product_id"`
-	Type           string     `gorm:"type" json:"type"`
-	RetailPrice    float64    `gorm:"retail_price" json:"retail_price"`
-	SupplyPrice    float64    `gorm:"supply_price" json:"supply_price"`
-	OldSupplyPrice float64    `gorm:"old_supply_price" json:"old_supply_price"`
-	CreatedBy      *string    `gorm:"created_by" json:"created_by"`
-	CreatedAt      *time.Time `gorm:"created_at" json:"created_at"`
-	UpdatedAt      *time.Time `gorm:"updated_at" json:"updated_at"`
+	Id           string     `gorm:"id" json:"id"`
+	ProductId    string     `gorm:"product_id" json:"product_id"`
+	MaterialCode string     `gorm:"material_code" json:"material_code"`
+	Type         string     `gorm:"type" json:"type"`
+	RetailPrice  float64    `gorm:"retail_price" json:"retail_price"`
+	CreatedBy    *string    `gorm:"created_by" json:"created_by"`
+	CreatedAt    *time.Time `gorm:"created_at" json:"created_at"`
 }
 
 func (OnlineStoreProduct) TableName() string {
 	return "online_store_products"
 }
 
-type OnlineStoreProductItem struct {
-	ProductId      string  `json:"product_id"`
-	RetailPrice    float64 `json:"retail_price"`
-	SupplyPrice    float64 `json:"supply_price"`
-	OldSupplyPrice float64 `json:"old_supply_price"`
+// 1C dan keluvchi narx item
+type UzumTezKorProductRepriceItem struct {
+	MaterialCode string  `json:"material_code"`
+	RetailPrice  float64 `json:"retail_price"`
 }
 
-// Admin bulk upsert uchun
-type UpsertOnlineStoreProductsRequest struct {
-	StoreId   string                   `json:"store_id"`
-	Type      string                   `json:"type"` // "uzum", "yandex_eda", etc.
-	Products  []OnlineStoreProductItem `json:"products"`
-	CreatedBy *string                  `json:"created_by"`
+// 1C request — faqat items, type, created_by token dan olinadi
+type UzumTezkorProductRepriceFromOnecRequest struct {
+	Items []UzumTezKorProductRepriceItem `json:"items"`
 }
 
-type CreateOnlineStoreProductsRequest struct {
-	StoreId      string  `json:"store_id"`
-	PlatformType string  `json:"platform_type"`
-	CreatedBy    *string `json:"created_by"`
-}
-
-type OnlineStoreProductQueryParam struct {
-	StoreId string `form:"store_id"`
-	Type    string `form:"type"`
+// CRM list uchun query param
+type UzumTezkorProductQueryParam struct {
+	Type         string `form:"type"`
+	ProductId    string `form:"product_id"`
+	MaterialCode string `form:"material_code"`
+	Limit        int    `form:"limit"`
+	Offset       int    `form:"offset"`
 }

@@ -32,6 +32,7 @@ func (h *ProductOnecHandler) ProductOnecRoutes(r *gin.RouterGroup) {
 		onec.POST("/token-asil-belgi", h.GetToken)
 		onec.POST("/max-price-changing", h.CreateMaxPriceChanging)
 		onec.POST("/barcode/create-or-update", h.CreateOrUpdateBarcodes)
+		onec.POST("/uzumtezkor/repricing-products", h.InsertFromOnec)
 	}
 	r.POST("/generate-token", h.GenerateOnecToken)
 }
@@ -610,5 +611,44 @@ func (h *ProductOnecHandler) CreateOrUpdateBarcodes(c *gin.Context) {
 	}
 
 	handleResponse(c, OK, "SUCCESS")
+}
+
+
+// RepriceForUzumTezkor godoc
+// @Summary		Insert uzumtezkor products prices from 1C
+// @Description	Save uzumtezkor products price insert data from 1C
+// @Tags		1C Api
+// @Security	BearerAuth
+// @Accept		json
+// @Produce		json
+// @Param		body body domain.UzumTezkorProductRepriceFromOnecRequest true "1C price items"
+// @Success		200 {object} v1.Response
+// @Router		/v1/uzumtezkor/repricing-products [post]
+func (h *ProductOnecHandler) InsertFromOnec(c *gin.Context) {
+	user := h.service.GetSignedUser(c)
+	if user.UserId == "" {
+		handleServiceResponse(c, nil, domain.UnauthorizedError)
+		return
+	}
+
+	var req domain.UzumTezkorProductRepriceFromOnecRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		handleResponse(c, BadRequest, err.Error())
+		return
+	}
+	if len(req.Items) == 0 {
+		handleResponse(c, BadRequest, "items is empty")
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
+	defer cancel()
+
+	if err := h.service.InsertOnlinePricesFromOnec(ctx, &req, user.UserId); err != nil {
+		handleServiceResponse(c, nil, err)
+		return
+	}
+
+	handleResponse(c, OK, "CREATED")
 }
 

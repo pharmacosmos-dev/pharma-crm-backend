@@ -62,10 +62,14 @@ func (s *Services) GetNomenclature(ctx context.Context, storeId string, page, li
 			c.name as category_name
 		FROM products p
 		INNER JOIN store_products sp ON p.id = sp.product_id
-		LEFT JOIN online_store_products osp
-			ON osp.product_id = p.id
-			AND osp.store_id = sp.store_id
-			AND osp.type = 'uzum'
+		LEFT JOIN LATERAL (
+			SELECT retail_price
+			FROM online_store_products
+			WHERE product_id = p.id
+			  AND type = 'uzum'
+			ORDER BY created_at DESC
+			LIMIT 1
+		) osp ON true
 		LEFT JOIN categories c ON p.category_id = c.id
 		WHERE sp.store_id = ? AND sp.unit_quantity/p.unit_per_pack > 0 AND p.requires_prescription = false
 	`

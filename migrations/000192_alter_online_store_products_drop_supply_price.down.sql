@@ -1,0 +1,1 @@
+ALTER TABLE online_store_products ADD COLUMN IF NOT EXISTS supply_price NUMERIC(10, 2) NOT NULL DEFAULT 0;
