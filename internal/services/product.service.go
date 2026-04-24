@@ -433,6 +433,7 @@ func (s *Services) GetProductsByStores(ctx context.Context, params *domain.Produ
 		Table("stores s").
 		Joins("JOIN store_products sp ON s.id = sp.store_id").
 		Joins("JOIN products p ON sp.product_id = p.id").
+		Where("sp.unit_quantity > 0").
 		Group("s.id, s.name, p.id, p.name").
 		Order("s.name, p.name")
 	var res []domain.ProductData
