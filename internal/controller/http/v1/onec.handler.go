@@ -623,7 +623,7 @@ func (h *ProductOnecHandler) CreateOrUpdateBarcodes(c *gin.Context) {
 // @Produce		json
 // @Param		body body domain.UzumTezkorProductRepriceFromOnecRequest true "1C price items"
 // @Success		200 {object} v1.Response
-// @Router		/v1/uzumtezkor/repricing-products [post]
+// @Router		/product1c/uzumtezkor/repricing-products [post]
 func (h *ProductOnecHandler) InsertFromOnec(c *gin.Context) {
 	user := h.service.GetSignedUser(c)
 	if user.UserId == "" {

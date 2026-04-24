@@ -1,0 +1,2 @@
+ALTER TABLE online_store_products RENAME TO online_products_price;
+ALTER INDEX IF EXISTS idx_osp_product_store_type_created RENAME TO idx_opp_product_store_type_created;

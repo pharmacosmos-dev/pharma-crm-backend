@@ -26,8 +26,8 @@ func (h *UzumTezkorProductHandler) UzumTezkorProductRoutes(r *gin.RouterGroup) {
 
 
 // List godoc
-// @Summary		List online store product price history (CRM)
-// @Tags		Online Store Products
+// @Summary		List UzumTezkor product price history (CRM)
+// @Tags		UzumTezkor Products
 // @Security	BearerAuth
 // @Produce		json
 // @Param		type          query string false "Platform type (uzum, yandex_eda)"
@@ -48,7 +48,7 @@ func (h *UzumTezkorProductHandler) List(c *gin.Context) {
 	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
 	defer cancel()
 
-	result, total, err := h.service.GetOnlineStoreProducts(ctx, &params)
+	result, total, err := h.service.GetOnlineProducts(ctx, &params)
 	if err != nil {
 		handleServiceResponse(c, nil, err)
 		return

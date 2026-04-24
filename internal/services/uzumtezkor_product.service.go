@@ -23,7 +23,7 @@ func (s *Services) InsertOnlinePricesFromOnec(ctx context.Context, req *domain.U
 
 	for _, item := range req.Items {
 		err := tx.Exec(`
-			INSERT INTO online_store_products (product_id, material_code, type, retail_price, created_by)
+			INSERT INTO online_products_price (product_id, material_code, type, retail_price, created_by)
 			SELECT p.id, ?, 'uzum', ?, ?
 			FROM products p
 			WHERE p.material_code::text = ?
@@ -48,12 +48,12 @@ func (s *Services) InsertOnlinePricesFromOnec(ctx context.Context, req *domain.U
 	return nil
 }
 
-// GetOnlineStoreProducts — CRM uchun narx tarixi
-func (s *Services) GetOnlineStoreProducts(ctx context.Context, params *domain.UzumTezkorProductQueryParam) ([]domain.OnlineStoreProduct, int64, error) {
-	var result []domain.OnlineStoreProduct
+// GetOnlineProducts — CRM uchun narx tarixi
+func (s *Services) GetOnlineProducts(ctx context.Context, params *domain.UzumTezkorProductQueryParam) ([]domain.OnlineProductsPrice, int64, error) {
+	var result []domain.OnlineProductsPrice
 	var total int64
 
-	q := s.db.WithContext(ctx).Table("online_store_products")
+	q := s.db.WithContext(ctx).Table("online_products_price")
 
 	if params.Type != "" {
 		q = q.Where("type = ?", params.Type)
@@ -66,14 +66,14 @@ func (s *Services) GetOnlineStoreProducts(ctx context.Context, params *domain.Uz
 	}
 
 	if err := q.Count(&total).Error; err != nil {
-		s.log.Errorf("failed to count online_store_products: %v", err)
+		s.log.Errorf("failed to count online_products_price: %v", err)
 		return nil, 0, domain.InternalServerError
 	}
 
 	if err := q.Order("created_at DESC").
 		Limit(params.Limit).Offset(params.Offset).
 		Find(&result).Error; err != nil {
-		s.log.Errorf("failed to get online_store_products: %v", err)
+		s.log.Errorf("failed to get online_products_price: %v", err)
 		return nil, 0, domain.InternalServerError
 	}
 

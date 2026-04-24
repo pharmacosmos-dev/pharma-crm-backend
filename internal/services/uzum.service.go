@@ -64,7 +64,7 @@ func (s *Services) GetNomenclature(ctx context.Context, storeId string, page, li
 		INNER JOIN store_products sp ON p.id = sp.product_id
 		LEFT JOIN LATERAL (
 			SELECT retail_price
-			FROM online_store_products
+			FROM online_products_price
 			WHERE product_id = p.id
 			  AND type = 'uzum'
 			ORDER BY created_at DESC

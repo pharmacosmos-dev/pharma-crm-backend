@@ -11070,298 +11070,6 @@ const docTemplate = `{
                 }
             }
         },
-        "/online-repricing": {
-            "get": {
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "Online Repricing"
-                ],
-                "summary": "List online repricing sessions",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Store ID",
-                        "name": "store_id",
-                        "in": "query"
-                    },
-                    {
-                        "type": "string",
-                        "description": "Platform type",
-                        "name": "platform_type",
-                        "in": "query"
-                    },
-                    {
-                        "type": "string",
-                        "description": "Status",
-                        "name": "status",
-                        "in": "query"
-                    },
-                    {
-                        "type": "integer",
-                        "description": "Limit",
-                        "name": "limit",
-                        "in": "query"
-                    },
-                    {
-                        "type": "integer",
-                        "description": "Offset",
-                        "name": "offset",
-                        "in": "query"
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/v1.Response"
-                        }
-                    }
-                }
-            },
-            "post": {
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ],
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "Online Repricing"
-                ],
-                "summary": "Create online repricing session",
-                "parameters": [
-                    {
-                        "description": "Request body",
-                        "name": "body",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/domain.OnlineRepricingRequest"
-                        }
-                    }
-                ],
-                "responses": {
-                    "201": {
-                        "description": "Created",
-                        "schema": {
-                            "$ref": "#/definitions/v1.Response"
-                        }
-                    }
-                }
-            }
-        },
-        "/online-repricing/detail/{detail_id}": {
-            "put": {
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ],
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "Online Repricing"
-                ],
-                "summary": "Update new_retail_price for a detail row",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Detail UUID",
-                        "name": "detail_id",
-                        "in": "path",
-                        "required": true
-                    },
-                    {
-                        "description": "New price",
-                        "name": "body",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/domain.UpdateOnlineDetailPrice"
-                        }
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/v1.Response"
-                        }
-                    }
-                }
-            }
-        },
-        "/online-repricing/{id}/cancel": {
-            "post": {
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "Online Repricing"
-                ],
-                "summary": "Cancel online repricing session",
-                "parameters": [
-                    {
-                        "type": "integer",
-                        "description": "Repricing ID",
-                        "name": "id",
-                        "in": "path",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/v1.Response"
-                        }
-                    }
-                }
-            }
-        },
-        "/online-repricing/{id}/confirm": {
-            "post": {
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "Online Repricing"
-                ],
-                "summary": "Confirm online repricing — applies prices to online_store_products",
-                "parameters": [
-                    {
-                        "type": "integer",
-                        "description": "Repricing ID",
-                        "name": "id",
-                        "in": "path",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/v1.Response"
-                        }
-                    }
-                }
-            }
-        },
-        "/online-repricing/{id}/details": {
-            "get": {
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "Online Repricing"
-                ],
-                "summary": "List product details of a repricing session",
-                "parameters": [
-                    {
-                        "type": "integer",
-                        "description": "Repricing ID",
-                        "name": "id",
-                        "in": "path",
-                        "required": true
-                    },
-                    {
-                        "type": "string",
-                        "description": "Search",
-                        "name": "search",
-                        "in": "query"
-                    },
-                    {
-                        "type": "integer",
-                        "description": "Limit",
-                        "name": "limit",
-                        "in": "query"
-                    },
-                    {
-                        "type": "integer",
-                        "description": "Offset",
-                        "name": "offset",
-                        "in": "query"
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/v1.Response"
-                        }
-                    }
-                }
-            }
-        },
-        "/online-store-products": {
-            "get": {
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "Online Store Products"
-                ],
-                "summary": "List online store products (current platform prices)",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Store ID",
-                        "name": "store_id",
-                        "in": "query"
-                    },
-                    {
-                        "type": "string",
-                        "description": "Platform type (uzum, yandex_eda, ...)",
-                        "name": "type",
-                        "in": "query"
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/v1.Response"
-                        }
-                    }
-                }
-            }
-        },
         "/ostatok": {
             "get": {
                 "security": [
@@ -17724,6 +17432,45 @@ const docTemplate = `{
                     },
                     "500": {
                         "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/product1c/uzumtezkor/repricing-products": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Save uzumtezkor products price insert data from 1C",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "1C Api"
+                ],
+                "summary": "Insert uzumtezkor products prices from 1C",
+                "parameters": [
+                    {
+                        "description": "1C price items",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/domain.UzumTezkorProductRepriceFromOnecRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
                         "schema": {
                             "$ref": "#/definitions/v1.Response"
                         }
@@ -28446,6 +28193,62 @@ const docTemplate = `{
                 }
             }
         },
+        "/v1/uzumtezkor-products/list": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "UzumTezkor Products"
+                ],
+                "summary": "List UzumTezkor product price history (CRM)",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Platform type (uzum, yandex_eda)",
+                        "name": "type",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Product ID",
+                        "name": "product_id",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Material code",
+                        "name": "material_code",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Limit",
+                        "name": "limit",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Offset",
+                        "name": "offset",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    }
+                }
+            }
+        },
         "/write-off": {
             "post": {
                 "security": [
@@ -30858,23 +30661,6 @@ const docTemplate = `{
                 }
             }
         },
-        "domain.OnlineRepricingRequest": {
-            "type": "object",
-            "properties": {
-                "created_by": {
-                    "type": "string"
-                },
-                "name": {
-                    "type": "string"
-                },
-                "platform_type": {
-                    "type": "string"
-                },
-                "store_id": {
-                    "type": "string"
-                }
-            }
-        },
         "domain.PaymentServiceRequest": {
             "type": "object",
             "properties": {
@@ -31926,17 +31712,6 @@ const docTemplate = `{
                 }
             }
         },
-        "domain.UpdateOnlineDetailPrice": {
-            "type": "object",
-            "properties": {
-                "id": {
-                    "type": "string"
-                },
-                "new_retail_price": {
-                    "type": "number"
-                }
-            }
-        },
         "domain.UpdateOnlineSale": {
             "type": "object",
             "required": [
@@ -32244,6 +32019,28 @@ const docTemplate = `{
                 },
                 "updatedAt": {
                     "type": "string"
+                }
+            }
+        },
+        "domain.UzumTezKorProductRepriceItem": {
+            "type": "object",
+            "properties": {
+                "material_code": {
+                    "type": "string"
+                },
+                "retail_price": {
+                    "type": "number"
+                }
+            }
+        },
+        "domain.UzumTezkorProductRepriceFromOnecRequest": {
+            "type": "object",
+            "properties": {
+                "items": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/domain.UzumTezKorProductRepriceItem"
+                    }
                 }
             }
         },

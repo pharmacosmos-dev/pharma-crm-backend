@@ -3,7 +3,7 @@ package domain
 import "time"
 
 // Append-only history — har bir narx o'zgarishi yangi row
-type OnlineStoreProduct struct {
+type OnlineProductsPrice struct {
 	Id           string     `gorm:"id" json:"id"`
 	ProductId    string     `gorm:"product_id" json:"product_id"`
 	MaterialCode string     `gorm:"material_code" json:"material_code"`
@@ -13,8 +13,8 @@ type OnlineStoreProduct struct {
 	CreatedAt    *time.Time `gorm:"created_at" json:"created_at"`
 }
 
-func (OnlineStoreProduct) TableName() string {
-	return "online_store_products"
+func (OnlineProductsPrice) TableName() string {
+	return "online_products_price"
 }
 
 // 1C dan keluvchi narx item
