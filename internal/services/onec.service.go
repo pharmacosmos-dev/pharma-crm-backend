@@ -173,17 +173,19 @@ func (s *Services) createOrGetProductAndImportDetails(
 		err = tx.WithContext(ctx).Exec(`
     		INSERT INTO product_barcodes (
 				product_id, 
-				barcode, 
+				barcode,
+				mxik, 
 				status
 				)
     		SELECT 
-				?, ?, ?
+				?, ?, ?, ?
     		WHERE NOT EXISTS (
     		    SELECT 1 FROM product_barcodes 
     		    WHERE product_id = ? AND barcode = ? AND status = ?
     		)
 		`, productId,
 			products[i].Barcode,
+			products[i].Ikpu,
 			constants.GeneralStatusCompleted,
 			productId,
 			products[i].Barcode,
