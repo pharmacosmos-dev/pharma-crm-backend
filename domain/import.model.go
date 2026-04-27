@@ -92,7 +92,6 @@ type ImportDetail struct {
 	UnitCode             string                             `gorm:"unit_code" json:"unit_code"`
 	UnitLabel            string                             `gorm:"unit_label" json:"unit_label"`
 	IsMarking            bool                               `gorm:"is_marking" json:"is_marking"`
-	Country              string                             `gorm:"country" json:"country"`
 	IsReturn             bool                               `gorm:"is_return" json:"is_return"`
 	RequiresPrescription bool                               `gorm:"requires_prescription" json:"requires_prescription"`
 	Product              NullStruct[ProductForImportDetail] `gorm:"-" json:"product"`

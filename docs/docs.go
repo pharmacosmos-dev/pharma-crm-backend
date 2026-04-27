@@ -7802,7 +7802,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Update requires_prescription from excel",
+                "description": "Update is_return from excel",
                 "consumes": [
                     "multipart/form-data"
                 ],
@@ -7812,7 +7812,7 @@ const docTemplate = `{
                 "tags": [
                     "helper"
                 ],
-                "summary": "Upload requires prescription update excel",
+                "summary": "Upload return product update excel",
                 "parameters": [
                     {
                         "type": "file",
@@ -7964,6 +7964,55 @@ const docTemplate = `{
                     {
                         "type": "file",
                         "description": "Excel file (.xlsx) containing product barcodes",
+                        "name": "file",
+                        "in": "formData",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/helper/upload-product-country": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Update country information from excel",
+                "consumes": [
+                    "multipart/form-data"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "helper"
+                ],
+                "summary": "Upload Country update excel",
+                "parameters": [
+                    {
+                        "type": "file",
+                        "description": "Excel file (.xlsx)",
                         "name": "file",
                         "in": "formData",
                         "required": true

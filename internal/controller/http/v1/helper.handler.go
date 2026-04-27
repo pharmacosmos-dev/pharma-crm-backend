@@ -51,6 +51,7 @@ func (h *HelperHandler) HelperRoutes(r *gin.RouterGroup) {
 		helper.POST("/upload-store-terminals", h.UploadTerminalIDs)
 		helper.POST("/upload-requires-prescription", h.UploadRequiresPrescription)
 		helper.POST("/upload-is-return", h.UploadIsReturn)
+		helper.POST("/upload-product-country", h.UploadProductCountry)
 		// helper.POST("/upload-category", h.UploadCategory)
 		// helper.POST("/upload-customer", h.UploadCustomer)
 		// helper.POST("/upload-import", h.UploadImport)
@@ -2566,8 +2567,8 @@ func (h *HelperHandler) UploadRequiresPrescription(c *gin.Context) {
 }
 
 // UploadIsReturn godoc
-// @Summary Upload requires prescription update excel
-// @Description Update requires_prescription from excel
+// @Summary Upload return product update excel
+// @Description Update is_return from excel
 // @Tags helper
 // @Security BearerAuth
 // @Accept multipart/form-data
@@ -2637,6 +2638,107 @@ func (h *HelperHandler) UploadIsReturn(c *gin.Context) {
 
 		if result.Error != nil {
 			h.log.Warnf("Failed to update product is_return for material_code %v: %v", materialCode, result.Error)
+			continue
+		}
+
+		if result.RowsAffected > 0 {
+			updated++
+		}
+	}
+
+	if err := tx.Commit().Error; err != nil {
+		handleResponse(c, InternalError, err.Error())
+		return
+	}
+
+	handleResponse(c, OK, gin.H{
+		"updated": updated,
+	})
+}
+
+
+// UploadCountry godoc
+// @Summary Upload Country update excel
+// @Description Update country information from excel
+// @Tags helper
+// @Security BearerAuth
+// @Accept multipart/form-data
+// @Produce json
+// @Param file formData file true "Excel file (.xlsx)"
+// @Success 200 {object} v1.Response
+// @Failure 400 {object} v1.Response
+// @Failure 500 {object} v1.Response
+// @Router /helper/upload-product-country [POST]
+func (h *HelperHandler) UploadProductCountry(c *gin.Context) {
+	var file domain.File
+	if err := c.ShouldBind(&file); err != nil {
+		handleResponse(c, BadRequest, err.Error())
+		return
+	}
+
+	ext := filepath.Ext(file.File.Filename)
+	if ext != ".xlsx" && ext != ".xls" {
+		handleResponse(c, BadRequest, "Unsupported file format")
+		return
+	}
+
+	newFilename := uuid.New().String() + ext
+	savePath := filepath.Join("uploads", newFilename)
+
+	if err := c.SaveUploadedFile(file.File, savePath); err != nil {
+		handleResponse(c, InternalError, "Failed to save file")
+		return
+	}
+	defer os.Remove(savePath)
+
+	xlsx, err := excelize.OpenFile(savePath)
+	if err != nil {
+		handleResponse(c, BadRequest, "Failed to open Excel file")
+		return
+	}
+	defer xlsx.Close()
+
+	sheetName := xlsx.GetSheetName(0)
+	rows, err := xlsx.GetRows(sheetName)
+	if err != nil {
+		handleResponse(c, InternalError, "Failed to get rows")
+		return
+	}
+
+	tx := h.db.Begin()
+	updated := 0
+
+	for _, row := range rows[1:] { // Skip header
+		if len(row) <= 1 {
+			continue
+		}
+
+		materialCode := parseIntComma(row[0])
+		countryName := strings.TrimSpace(row[1])
+		if materialCode == 0 || countryName == "" {
+			continue
+		}
+
+		var countryId string
+		if err := tx.Raw(`
+			INSERT INTO countries (name)
+			VALUES (?)
+			ON CONFLICT (name) DO UPDATE SET name = EXCLUDED.name
+			RETURNING id
+		`, countryName).Scan(&countryId).Error; err != nil {
+			h.log.Warnf("Failed to find/create country %q: %v", countryName, err)
+			continue
+		}
+
+		result := tx.Exec(`
+			UPDATE products
+			SET country_id = ?,
+			    updated_at = now()
+			WHERE material_code = ?
+		`, countryId, materialCode)
+
+		if result.Error != nil {
+			h.log.Warnf("Failed to update country_id for material_code %d: %v", materialCode, result.Error)
 			continue
 		}
 

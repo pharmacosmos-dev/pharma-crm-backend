@@ -46,7 +46,8 @@ type Product struct {
 	Markings        []string             `gorm:"-" json:"markings"`
 	Categories           []Category           `gorm:"-" json:"categories"`
 	RequiresPrescription bool                 `gorm:"requires_prescription" json:"requires_prescription"`
-	Country              string               `gorm:"country" json:"country"`
+	CountryId            *string              `gorm:"country_id" json:"country_id"`
+	Country              NullStruct[Country]  `gorm:"-" json:"country"`
 	IsReturn             bool                 `gorm:"is_return" json:"is_return"`
 }
 
@@ -238,8 +239,9 @@ type ProductData struct {
 	MarkupPrice          float64   `gorm:"markup_price" json:"markup_price"`
 	Sum                  float64   `gorm:"sum" json:"sum"`
 	RequiresPrescription bool      `gorm:"requires_prescription" json:"requires_prescription"`
-    Country              string    `gorm:"country" json:"country"`
-    IsReturn             bool      `gorm:"is_return" json:"is_return"` 
+	//CountryId            *string   `gorm:"country_id" json:"country_id"`
+	Country              string    `gorm:"country" json:"country"`
+	IsReturn             bool      `gorm:"is_return" json:"is_return"`
 }
 
 // product response structure for arzon apteka

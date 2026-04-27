@@ -115,6 +115,21 @@ func (s *Services) createNewImportOnImportingOnec(ctx context.Context, tx *gorm.
 	return importId, nil
 }
 
+func (s *Services) findOrCreateCountry(ctx context.Context, tx *gorm.DB, name string) (string, error) {
+	var countryId string
+	err := tx.WithContext(ctx).Raw(`
+		INSERT INTO countries (name)
+		VALUES (?)
+		ON CONFLICT (name) DO UPDATE SET name = EXCLUDED.name
+		RETURNING id
+	`, name).Scan(&countryId).Error
+	if err != nil {
+		s.log.Errorf("could not find or create country: %v", err)
+		return "", domain.InternalServerError
+	}
+	return countryId, nil
+}
+
 func (s *Services) createOrGetProductAndImportDetails(
 	ctx context.Context,
 	tx *gorm.DB,
@@ -130,6 +145,13 @@ func (s *Services) createOrGetProductAndImportDetails(
 			s.log.Errorf("could not get producer by code on importing: %v", err)
 			return domain.InternalServerError
 		}
+
+		// find or create country, get its id
+		countryId, err := s.findOrCreateCountry(ctx, tx, products[i].Country)
+		if err != nil {
+			return err
+		}
+
 		// create product id
 		productId := uuid.New().String()
 		// create or update product
@@ -142,7 +164,7 @@ func (s *Services) createOrGetProductAndImportDetails(
 			mxik, 
 			is_marking,
 			company_id,
-			country,
+			country_id,
 			is_return,
 			requires_prescription
 			)
@@ -151,7 +173,7 @@ func (s *Services) createOrGetProductAndImportDetails(
 		SET
 			producer_id = EXCLUDED.producer_id,
 			is_marking = EXCLUDED.is_marking,
-			country = EXCLUDED.country,
+			country_id = EXCLUDED.country_id,
 			is_return = EXCLUDED.is_return,
 			requires_prescription = EXCLUDED.requires_prescription
 		RETURNING id`,
@@ -162,7 +184,7 @@ func (s *Services) createOrGetProductAndImportDetails(
 			products[i].Ikpu,
 			products[i].Mar,
 			companyId,
-			products[i].Country,
+			countryId,
 			products[i].Is_return,
 			products[i].RequiresPrescription,
 		).Scan(&productId).Error
@@ -213,7 +235,6 @@ func (s *Services) createOrGetProductAndImportDetails(
 			series_number, 
 			sum_vat, 
 			marking,
-			country,
 			is_return,
 			requires_prescription
 			) 
@@ -222,7 +243,7 @@ func (s *Services) createOrGetProductAndImportDetails(
 				?, ?, ?, 
 				?, ?, ?, 
 				?, ?, ?, 
-				?, ?, ?, ?, ?) 
+				?, ?, ?, ?) 
 			RETURNING id`,
 			productId,
 			importId,
@@ -238,7 +259,6 @@ func (s *Services) createOrGetProductAndImportDetails(
 			products[i].ProductSeriesNumber,
 			products[i].SumVat,
 			utils.StringArray(products[i].Markirovka),
-			products[i].Country,
 			products[i].Is_return,
 			products[i].RequiresPrescription,
 		).Scan(&id).Error

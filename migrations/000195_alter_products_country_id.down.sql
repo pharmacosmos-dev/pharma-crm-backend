@@ -1,0 +1,4 @@
+ALTER TABLE products ADD COLUMN IF NOT EXISTS country VARCHAR(255);
+
+
+ALTER TABLE products DROP COLUMN IF EXISTS country_id;

@@ -22,7 +22,7 @@ type ProductWithStore struct {
 	Description   string            `gorm:"description"`
 	RequiresPrescription bool       `gorm:"requires_prescription"`
 	ExpiredDate   string            `gorm:"expired_date"`
-	//VendorCountry string            `gorm:"vendor_country"`
+	Country       string            `gorm:"vendor_country"`
 	Vat           int               `gorm:"vat"`
 	Photos        utils.StringArray `gorm:"type:text[]"`
 	UnitPerPack   int               `gorm:"unit_per_pack"`
@@ -59,7 +59,8 @@ func (s *Services) GetNomenclature(ctx context.Context, storeId string, page, li
 			sp.expire_date AS expired_date,
 			sp.store_id,
 			c.id as category_id, 
-			c.name as category_name
+			c.name as category_name,
+			COALESCE(cnt.name, '') AS country
 		FROM products p
 		INNER JOIN store_products sp ON p.id = sp.product_id
 		LEFT JOIN LATERAL (
@@ -71,6 +72,7 @@ func (s *Services) GetNomenclature(ctx context.Context, storeId string, page, li
 			LIMIT 1
 		) osp ON true
 		LEFT JOIN categories c ON p.category_id = c.id
+		LEFT JOIN countries cnt ON p.country_id = cnt.id
 		WHERE sp.store_id = ? AND sp.unit_quantity/p.unit_per_pack > 0 AND p.requires_prescription = false
 	`
 	if limit > 0 && page > 0 {
@@ -133,7 +135,7 @@ func (s *Services) GetNomenclature(ctx context.Context, storeId string, page, li
 			Description: domain.NomenclatureDescription{
 				General:       p.Description,
 				ExpiresIn:     p.ExpiredDate,
-				//VendorCountry:,
+				VendorCountry: p.Country,
 			},
 			Retsept: p.RequiresPrescription,
 			Measure: domain.NomenclatureMeasure{

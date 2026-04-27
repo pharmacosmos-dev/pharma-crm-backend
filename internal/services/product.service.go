@@ -298,7 +298,8 @@ func (s *Services) GetProducts(ctx context.Context, params *domain.ProductQueryP
 		Joins("LEFT JOIN producers pr ON p.producer_id = pr.id").
 		Joins("LEFT JOIN categories c ON p.category_id = c.id").
 		Joins("LEFT JOIN product_barcodes pb ON p.id = pb.product_id AND pb.status = ?", constants.GeneralStatusCompleted).
-		Group("p.id, pr.id, c.id, sp_agg.total_quantity, sp_agg.min_expire_date, sp_agg.supply_price, sp_agg.retail_price")
+		Joins("LEFT JOIN countries cnt ON p.country_id = cnt.id").
+		Group("p.id, pr.id, c.id, cnt.name, sp_agg.total_quantity, sp_agg.min_expire_date, sp_agg.supply_price, sp_agg.retail_price")
 
 	if params.ProducerId != "" {
 		qb = qb.Where("p.producer_id = ?", params.ProducerId)
@@ -378,6 +379,7 @@ func (s *Services) GetProducts(ctx context.Context, params *domain.ProductQueryP
 		"pr.name AS manufacturer",
 		"ARRAY_AGG(pb.barcode) FILTER (WHERE pb.barcode IS NOT NULL) AS barcodes",
 		"c.name AS category_name",
+		"COALESCE(cnt.name, '') AS country",
 
 		"COALESCE(sp_agg.total_quantity, 0) AS unit_quantity",
 		"sp_agg.min_expire_date AS expire_date",
@@ -424,6 +426,8 @@ func (s *Services) GetProductsByStores(ctx context.Context, params *domain.Produ
 			"p.name",
 			"p.barcode",
 			"p.unit_per_pack",
+			"p.country_id",
+			"COALESCE(cnt.name, '') AS country",
 
 			"SUM(sp.unit_quantity) AS unit_quantity",
 			"MAX(sp.supply_price) AS supply_price",
@@ -433,8 +437,9 @@ func (s *Services) GetProductsByStores(ctx context.Context, params *domain.Produ
 		Table("stores s").
 		Joins("JOIN store_products sp ON s.id = sp.store_id").
 		Joins("JOIN products p ON sp.product_id = p.id").
+		Joins("LEFT JOIN countries cnt ON p.country_id = cnt.id").
 		Where("sp.unit_quantity > 0").
-		Group("s.id, s.name, p.id, p.name").
+		Group("s.id, s.name, p.id, p.name, p.country_id, cnt.name").
 		Order("s.name, p.name")
 	var res []domain.ProductData
 	err := qb.Limit(params.Limit).Offset(params.Offset).Find(&res).Error
