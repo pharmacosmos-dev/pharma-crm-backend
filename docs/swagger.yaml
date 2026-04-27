@@ -7402,6 +7402,37 @@ paths:
       summary: Upload package code excel
       tags:
       - helper
+  /helper/upload-uzum-tezkor-price:
+    post:
+      consumes:
+      - multipart/form-data
+      description: Update UzumTezkor product price from excel
+      parameters:
+      - description: Excel file (.xlsx)
+        in: formData
+        name: file
+        required: true
+        type: file
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Upload UzumTezkor product price update excel
+      tags:
+      - helper
   /import:
     post:
       consumes:

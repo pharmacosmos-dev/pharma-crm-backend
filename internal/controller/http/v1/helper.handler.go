@@ -52,6 +52,7 @@ func (h *HelperHandler) HelperRoutes(r *gin.RouterGroup) {
 		helper.POST("/upload-requires-prescription", h.UploadRequiresPrescription)
 		helper.POST("/upload-is-return", h.UploadIsReturn)
 		helper.POST("/upload-product-country", h.UploadProductCountry)
+		helper.POST("/upload-uzum-tezkor-price", h.UploadUzumTezkorPrice)
 		// helper.POST("/upload-category", h.UploadCategory)
 		// helper.POST("/upload-customer", h.UploadCustomer)
 		// helper.POST("/upload-import", h.UploadImport)
@@ -2756,3 +2757,100 @@ func (h *HelperHandler) UploadProductCountry(c *gin.Context) {
 		"updated": updated,
 	})
 }
+
+// UploadUzumTezkorProductPrice godoc
+// @Summary Upload UzumTezkor product price update excel
+// @Description Update UzumTezkor product price from excel
+// @Tags helper
+// @Security BearerAuth
+// @Accept multipart/form-data
+// @Produce json
+// @Param file formData file true "Excel file (.xlsx)"
+// @Success 200 {object} v1.Response
+// @Failure 400 {object} v1.Response
+// @Failure 500 {object} v1.Response
+// @Router /helper/upload-uzum-tezkor-price [POST]
+func (h *HelperHandler) UploadUzumTezkorPrice(c *gin.Context) {
+	var file domain.File
+	if err := c.ShouldBind(&file); err != nil {
+		handleResponse(c, BadRequest, err.Error())
+		return
+	}
+
+	ext := filepath.Ext(file.File.Filename)
+	if ext != ".xlsx" && ext != ".xls" {
+		handleResponse(c, BadRequest, "Unsupported file format")
+		return
+	}
+
+	newFilename := uuid.New().String() + ext
+	savePath := filepath.Join("uploads", newFilename)
+	if err := c.SaveUploadedFile(file.File, savePath); err != nil {
+		handleResponse(c, InternalError, "Failed to save file")
+		return
+	}
+	defer os.Remove(savePath)
+
+	xlsx, err := excelize.OpenFile(savePath)
+	if err != nil {
+		handleResponse(c, BadRequest, "Failed to open Excel file")
+		return
+	}
+	defer xlsx.Close()
+
+	sheetName := xlsx.GetSheetName(0)
+	rows, err := xlsx.GetRows(sheetName)
+	if err != nil {
+		handleResponse(c, InternalError, "Failed to get rows")
+		return
+	}
+
+	inserted := 0
+	skipped := 0
+
+	for _, row := range rows[1:] { // Skip header
+		if len(row) <= 1 {
+			continue
+		}
+
+		productName := strings.TrimSpace(row[0])
+		priceStr := strings.ReplaceAll(strings.TrimSpace(row[1]), ",", "")
+		price := cast.ToFloat64(priceStr)
+		if productName == "" || price <= 0 {
+			skipped++
+			continue
+		}
+
+		var product struct {
+			Id           string `gorm:"id"`
+			MaterialCode int    `gorm:"material_code"`
+		}
+		if err := h.db.Raw(`
+			SELECT id, material_code FROM products
+			WHERE name ILIKE ?
+			LIMIT 1
+		`, productName).Scan(&product).Error; err != nil || product.Id == "" {
+			h.log.Warnf("Product not found by name %q, skipping", productName)
+			skipped++
+			continue
+		}
+
+		if err := h.db.Exec(`
+			INSERT INTO online_products_price (product_id, material_code, retail_price, type, created_at)
+			VALUES (?, ?, ?, 'uzum', NOW())
+		`, product.Id, cast.ToString(product.MaterialCode), price).Error; err != nil {
+			h.log.Warnf("Failed to insert uzum price for product %q: %v", productName, err)
+			skipped++
+			continue
+		}
+
+		inserted++
+	}
+
+	handleResponse(c, OK, gin.H{
+		"inserted": inserted,
+		"skipped":  skipped,
+	})
+}
+
+
