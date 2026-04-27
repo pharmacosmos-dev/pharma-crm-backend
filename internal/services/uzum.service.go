@@ -329,12 +329,20 @@ func (s *Services) getAndCheckUzumOrderItems(
 		sp.product_id,
 		sp.unit_quantity,
 		sp.unit_quantity / p.unit_per_pack AS quantity,
-		sp.retail_price AS unit_price,
-		sp.retail_price * (sp.unit_quantity / p.unit_per_pack) AS total_price,
+		COALESCE(osp.retail_price, sp.retail_price) AS unit_price,
+		COALESCE(osp.retail_price, sp.retail_price) * (sp.unit_quantity / p.unit_per_pack) AS total_price,
 		p.name,
 		p.unit_per_pack
 	FROM store_products sp
 		JOIN products p ON sp.product_id = p.id
+		LEFT JOIN LATERAL (
+			SELECT retail_price
+			FROM online_products_price
+			WHERE product_id = sp.product_id
+			  AND type = 'uzum'
+			ORDER BY created_at DESC
+			LIMIT 1
+		) osp ON true
 	WHERE sp.store_id = ? AND sp.id IN (?);`
 
 	err := s.db.WithContext(ctx).Raw(query, saleId, storeId, ids).Scan(&items).Error
