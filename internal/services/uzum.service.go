@@ -63,7 +63,7 @@ func (s *Services) GetNomenclature(ctx context.Context, storeId string, page, li
 			COALESCE(cnt.name, '') AS country
 		FROM products p
 		INNER JOIN store_products sp ON p.id = sp.product_id
-		LEFT JOIN LATERAL (
+		JOIN LATERAL (
 			SELECT retail_price
 			FROM online_products_price
 			WHERE product_id = p.id
