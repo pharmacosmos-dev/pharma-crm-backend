@@ -122,6 +122,7 @@ func (s *Services) GetNomenclature(ctx context.Context, storeId string, page, li
 		// Build item
 		item := domain.NomenclatureItem{
 			Id:         p.Id,
+			ProductId:  p.ProductId,
 			Name:       p.Name,
 			CategoryId: categoryId,
 			Barcode: domain.NomenclatureBarcode{

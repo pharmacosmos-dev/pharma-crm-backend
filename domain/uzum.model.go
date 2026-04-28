@@ -20,6 +20,7 @@ type NomenclatureCategory struct {
 // NomenclatureItem represents a product in the nomenclature
 type NomenclatureItem struct {
 	Id             string                    `json:"id"`
+	ProductId      string                         `json:"productId,omitempty"`
 	Name           string                    `json:"name"`
 	CategoryId     string                    `json:"categoryId"`
 	Barcode        NomenclatureBarcode       `json:"barcode"`
