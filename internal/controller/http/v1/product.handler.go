@@ -2661,7 +2661,7 @@ func (h *ProductHandler) productListExport(f *excelize.File, res []domain.Produc
 	f.SetSheetName("Sheet1", sheetName)
 
 	// Headerlar
-	headers := []string{"Аптека", "Код", "Наименования", "Штрих-код", "Кол-во", "Срок годности", "Цена прихода", "Cумма прихода", "Цена продажа", "Сумма продажа", "Производитель"}
+	headers := []string{"Аптека", "Код", "Наименования", "Штрих-код", "Кол-во", "Срок годности", "Цена прихода", "Cумма прихода", "Цена продажа", "Сумма продажа", "Производитель", "Страна"}
 
 	err := setExcelHeaders(f, sheetName, headers)
 	if err != nil {
@@ -2686,7 +2686,8 @@ func (h *ProductHandler) productListExport(f *excelize.File, res []domain.Produc
 		f.SetCellValue(sheetName, "H"+row, math.Round(((product.SupplyPrice/float64(product.UnitPerPack))*float64(product.UnitQuantity))*100)/100)
 		f.SetCellValue(sheetName, "I"+row, product.RetailPrice)
 		f.SetCellValue(sheetName, "J"+row, math.Round(((product.RetailPrice/float64(product.UnitPerPack))*float64(product.UnitQuantity))*100)/100)
-		f.SetCellValue(sheetName, "J"+row, product.Manufacturer)
+		f.SetCellValue(sheetName, "K"+row, product.Manufacturer)
+		f.SetCellValue(sheetName, "L"+row, product.Country)
 	}
 	return f, nil
 }

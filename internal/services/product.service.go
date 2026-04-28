@@ -428,6 +428,7 @@ func (s *Services) GetProductsByStores(ctx context.Context, params *domain.Produ
 			"p.unit_per_pack",
 			"p.country_id",
 			"COALESCE(cnt.name, '') AS country",
+			"COALESCE(pr.name, '') AS manufacturer",
 
 			"SUM(sp.unit_quantity) AS unit_quantity",
 			"MAX(sp.supply_price) AS supply_price",
@@ -438,8 +439,9 @@ func (s *Services) GetProductsByStores(ctx context.Context, params *domain.Produ
 		Joins("JOIN store_products sp ON s.id = sp.store_id").
 		Joins("JOIN products p ON sp.product_id = p.id").
 		Joins("LEFT JOIN countries cnt ON p.country_id = cnt.id").
+		Joins("LEFT JOIN producers pr ON p.producer_id = pr.id").
 		Where("sp.unit_quantity > 0").
-		Group("s.id, s.name, p.id, p.name, p.country_id, cnt.name").
+		Group("s.id, s.name, p.id, p.name, p.country_id, cnt.name, pr.name").
 		Order("s.name, p.name")
 	var res []domain.ProductData
 	err := qb.Limit(params.Limit).Offset(params.Offset).Find(&res).Error
