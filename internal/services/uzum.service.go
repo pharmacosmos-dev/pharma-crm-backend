@@ -1,4 +1,4 @@
-package services
+﻿package services
 
 import (
 	"context"
@@ -43,7 +43,7 @@ func (s *Services) GetNomenclature(ctx context.Context, storeId string, page, li
 	query := `
 		SELECT 
 			p.id AS product_id,
-	    	p.name, 
+			p.name, 
 			p.barcode, 
 			p.description, 
 			p.photos, 
@@ -61,8 +61,13 @@ func (s *Services) GetNomenclature(ctx context.Context, storeId string, page, li
 			c.id as category_id, 
 			c.name as category_name,
 			COALESCE(cnt.name, '') AS country
-		FROM products p
-		INNER JOIN store_products sp ON p.id = sp.product_id
+		FROM (
+			SELECT DISTINCT ON (product_id) *
+			FROM store_products
+			WHERE store_id = ?
+			ORDER BY product_id, unit_quantity DESC
+		) sp
+		INNER JOIN products p ON p.id = sp.product_id
 		JOIN LATERAL (
 			SELECT retail_price
 			FROM online_products_price
@@ -73,7 +78,7 @@ func (s *Services) GetNomenclature(ctx context.Context, storeId string, page, li
 		) osp ON true
 		LEFT JOIN categories c ON p.category_id = c.id
 		LEFT JOIN countries cnt ON p.country_id = cnt.id
-		WHERE sp.store_id = ? AND sp.unit_quantity/p.unit_per_pack > 0 AND p.requires_prescription = false
+		WHERE sp.unit_quantity / p.unit_per_pack > 0 AND p.requires_prescription = false
 	`
 	if limit > 0 && page > 0 {
 		query = query + fmt.Sprintf("LIMIT %d OFFSET %d", limit, (page-1)*limit)
@@ -121,8 +126,7 @@ func (s *Services) GetNomenclature(ctx context.Context, storeId string, page, li
 
 		// Build item
 		item := domain.NomenclatureItem{
-			Id:         p.Id,
-			ProductId:  p.ProductId,
+			Id:         p.ProductId,
 			Name:       p.Name,
 			CategoryId: categoryId,
 			Barcode: domain.NomenclatureBarcode{
@@ -176,11 +180,17 @@ func (s *Services) GetAvailability(ctx context.Context, storeId string, page, li
 
 	query := `
 		SELECT 
-			sp.id AS store_product_id, 
-			(sp.unit_quantity / p.unit_per_pack) AS quantity
-		FROM store_products sp
+			p.id AS store_product_id, 
+			SUM(sp.unit_quantity) / p.unit_per_pack AS quantity
+		FROM (
+			SELECT DISTINCT ON (product_id) *
+			FROM store_products
+			WHERE store_id = ?
+			ORDER BY product_id, unit_quantity DESC
+		) sp
 		JOIN products p ON sp.product_id = p.id
-		WHERE sp.store_id = ? AND sp.unit_quantity > 0 AND p.requires_prescription = false
+		WHERE sp.unit_quantity > 0 AND p.requires_prescription = false
+		GROUP BY p.id, p.unit_per_pack
 	`
 	if limit > 0 && page > 0 {
 		query = query + fmt.Sprintf("LIMIT %d OFFSET %d", limit, (page-1)*limit)
@@ -334,7 +344,12 @@ func (s *Services) getAndCheckUzumOrderItems(
 		COALESCE(osp.retail_price, sp.retail_price) * (sp.unit_quantity / p.unit_per_pack) AS total_price,
 		p.name,
 		p.unit_per_pack
-	FROM store_products sp
+	FROM (
+		SELECT DISTINCT ON (product_id) *
+		FROM store_products
+		WHERE store_id = ?
+		ORDER BY product_id, unit_quantity DESC
+	) sp
 		JOIN products p ON sp.product_id = p.id
 		LEFT JOIN LATERAL (
 			SELECT retail_price
@@ -344,7 +359,7 @@ func (s *Services) getAndCheckUzumOrderItems(
 			ORDER BY created_at DESC
 			LIMIT 1
 		) osp ON true
-	WHERE sp.store_id = ? AND sp.id IN (?);`
+	WHERE sp.product_id IN (?);`
 
 	err := s.db.WithContext(ctx).Raw(query, saleId, storeId, ids).Scan(&items).Error
 	if err != nil {
@@ -353,7 +368,7 @@ func (s *Services) getAndCheckUzumOrderItems(
 
 	itemsMap := make(map[string]*tmp)
 	for i := range items {
-		itemsMap[items[i].StoreProductId] = &items[i]
+		itemsMap[items[i].ProductId] = &items[i]
 	}
 
 	var requestItems []domain.CartItemOnlineRequest
@@ -370,7 +385,7 @@ func (s *Services) getAndCheckUzumOrderItems(
 		}
 
 		requestItems = append(requestItems, domain.CartItemOnlineRequest{
-			StoreProductId: item.Id,
+			StoreProductId: itemsMap[item.Id].StoreProductId,
 			SaleId:         saleId,
 			Quantity:       0,
 			UnitQuantity:   int(item.Quantity) * itemsMap[item.Id].UnitPerPack,
@@ -401,7 +416,7 @@ func (s *Services) GetUzumOrder(ctx context.Context, orderId string) (*domain.Uz
 
 	// Get cart items with product names in a single query
 	type orderItemRow struct {
-		StoreProductId string  `gorm:"store_product_id"`
+		ProductId      string  `gorm:"product_id"`
 		ProductName    string  `gorm:"product_name"`
 		UnitPrice      float64 `gorm:"unit_price"`
 		Quantity       float64 `gorm:"quantity"`
@@ -411,7 +426,7 @@ func (s *Services) GetUzumOrder(ctx context.Context, orderId string) (*domain.Uz
 	var rows []orderItemRow
 	err = s.db.WithContext(ctx).Raw(`
 		SELECT 
-			ci.store_product_id,
+			ci.product_id,
 			p.name AS product_name,
 			ci.unit_price,
 			ci.unit_quantity / p.unit_per_pack AS quantity,
@@ -428,7 +443,7 @@ func (s *Services) GetUzumOrder(ctx context.Context, orderId string) (*domain.Uz
 	items := make([]domain.UzumOrderItemResponse, 0, len(rows))
 	for _, row := range rows {
 		items = append(items, domain.UzumOrderItemResponse{
-			Id:            row.StoreProductId,
+			Id:            row.ProductId,
 			Name:          row.ProductName,
 			Price:         row.UnitPrice,
 			Quantity:      row.Quantity,
