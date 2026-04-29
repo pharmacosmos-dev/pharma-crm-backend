@@ -829,9 +829,9 @@ func (s *Services) GetBonusProductsReportStats(ctx context.Context, params *doma
 		filter += " AND e.store_id IN (?)"
 		args = append(args, params.StoreIds)
 	}
-	if params.CompanyId != "" {
-		filter += " AND p.company_id = ? "
-		args = append(args, params.CompanyId)
+	if len(params.CompanyIds) > 0 {
+		filter += " AND p.company_id IN (?) "
+		args = append(args, params.CompanyIds)
 	}
 	filter += " AND (eb.created_at + interval '5 hours') BETWEEN ? AND ?"
 	args = append(args, startTime, endTime)
