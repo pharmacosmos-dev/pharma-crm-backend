@@ -156,6 +156,10 @@ type DashboardPaymentDto struct {
 	UzumCount     int     `gorm:"uzum_count" json:"uzum_count"`
 	UzumPrevius   float64 `gorm:"uzum_previus" json:"uzum_previus"`
 	UzumPercent   float64 `gorm:"uzum_percent" json:"uzum_percent"`
+	UzumTezkor    float64 `gorm:"uzum_tezkor" json:"uzum_tezkor"`
+	UzumTezkorCount   int `gorm:"uzum_tezkor_count" json:"uzum_tezkor_count"`
+	UzumTezkorPrevius float64 `gorm:"uzum_tezkor_previus" json:"uzum_tezkor_previus"`
+	UzumTezkorPercent float64 `gorm:"uzum_tezkor_percent" json:"uzum_tezkor_percent"`
 }
 
 // Dashboard transactions structure
