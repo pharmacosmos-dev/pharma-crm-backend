@@ -735,11 +735,11 @@ func (s *Services) GetBonusProductsReport(ctx context.Context, params *domain.Re
 	}
 
 	if params.StartDate != nil && !params.StartDate.GetTime().IsZero() {
-		qb = qb.Where("eb.created_at >= ?", params.StartDate.UTC())
+		qb = qb.Where("(eb.created_at + interval '5 hours') >= ?", params.StartDate.UTC())
 	}
 
 	if params.EndDate != nil && !params.EndDate.GetTime().IsZero() {
-		qb = qb.Where("eb.created_at <= ?", params.EndDate.UTC())
+		qb = qb.Where("(eb.created_at + interval '5 hours') <= ?", params.EndDate.UTC())
 	}
 
 	if len(params.CompanyIds) > 0 {
@@ -832,6 +832,9 @@ func (s *Services) GetBonusProductsReportStats(ctx context.Context, params *doma
 	if len(params.CompanyIds) > 0 {
 		filter += " AND p.company_id IN (?) "
 		args = append(args, params.CompanyIds)
+	} else if params.CompanyId != "" {
+		filter += " AND p.company_id = ? "
+		args = append(args, params.CompanyId)
 	}
 	filter += " AND (eb.created_at + interval '5 hours') BETWEEN ? AND ?"
 	args = append(args, startTime, endTime)
