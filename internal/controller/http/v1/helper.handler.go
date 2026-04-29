@@ -2524,46 +2524,62 @@ func (h *HelperHandler) UploadRequiresPrescription(c *gin.Context) {
 		return
 	}
 
-	tx := h.db.Begin()
-	updated := 0
+	var materialCodes []int
+	skipped := 0
+	total := len(rows)
 
-	for _, row := range rows[1:] { // Skip header
-		if len(row) <= 2 {
+	for _, row := range rows {
+		if len(row) < 1 {
+			skipped++
 			continue
 		}
 
-		materialCode := parseIntComma(row[1])
-		requiresPrescriptionStr := strings.TrimSpace(row[2])
-		requiresPrescription := false
-		if strings.EqualFold(requiresPrescriptionStr, "Да") {
-			requiresPrescription = true
-		}
-
-		// Update products
-		result := tx.Exec(`
-			UPDATE products
-			SET requires_prescription = ?, 
-			    updated_at = now()
-			WHERE material_code = ?
-		`, requiresPrescription, materialCode)
-
-		if result.Error != nil {
-			h.log.Warnf("Failed to update product requires_prescription for material_code %v: %v", materialCode, result.Error)
+		f, err := strconv.ParseFloat(strings.TrimSpace(row[0]), 64)
+		if err != nil || f == 0 {
+			skipped++
 			continue
 		}
+		materialCode := int(f)
 
-		if result.RowsAffected > 0 {
-			updated++
-		}
+		materialCodes = append(materialCodes, materialCode)
 	}
 
-	if err := tx.Commit().Error; err != nil {
-		handleResponse(c, InternalError, err.Error())
+	if len(materialCodes) == 0 {
+		handleResponse(c, OK, gin.H{"updated": 0, "skipped": skipped})
 		return
 	}
 
+	result := h.db.Exec(`
+		UPDATE products
+		SET requires_prescription = true,
+		    updated_at = now()
+		WHERE material_code = ANY(?)
+	`, pq.Array(materialCodes))
+
+	if result.Error != nil {
+		handleResponse(c, InternalError, result.Error.Error())
+		return
+	}
+
+	var foundCodes []int
+	h.db.Raw(`SELECT DISTINCT material_code FROM products WHERE material_code = ANY(?)`, pq.Array(materialCodes)).Scan(&foundCodes)
+
+	foundSet := make(map[int]bool, len(foundCodes))
+	for _, c := range foundCodes {
+		foundSet[c] = true
+	}
+	var notFound []int
+	for _, mc := range materialCodes {
+		if !foundSet[mc] {
+			notFound = append(notFound, mc)
+		}
+	}
+
 	handleResponse(c, OK, gin.H{
-		"updated": updated,
+		"total":     total,
+		"updated":   result.RowsAffected,
+		"skipped":   skipped,
+		"not_found": notFound,
 	})
 }
 
