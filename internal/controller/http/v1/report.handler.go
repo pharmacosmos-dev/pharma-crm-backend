@@ -1426,8 +1426,9 @@ func (h *ReportHandler) BonusProductsExportExcel(c *gin.Context) {
 	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
 	defer cancel()
 
-	// get limit offset with checking default
-	params.Limit, params.Offset = defaultLimitOffset(params.Limit, params.Offset)
+	// export all records — no pagination
+	params.Limit = 100000
+	params.Offset = 0
 	// get bonus products data
 	res, _, err := h.service.GetBonusProductsReport(ctx, &params)
 	if err != nil {
@@ -1440,7 +1441,7 @@ func (h *ReportHandler) BonusProductsExportExcel(c *gin.Context) {
 	sheet := "BonusProducts"
 	f.SetSheetName("Sheet1", sheet)
 	// set headers
-	headers := []string{"ID", "Название", "Количество", "Общая количество", "Сумма бонуса"}
+	headers := []string{"№", "Название", "Количество", "Сумма бонуса"}
 	err = setExcelHeaders(f, sheet, headers)
 	if err != nil {
 		h.log.Error("Failed to create style:", err)
@@ -1450,11 +1451,16 @@ func (h *ReportHandler) BonusProductsExportExcel(c *gin.Context) {
 
 	for i, val := range res {
 		row := strconv.Itoa(i + 2)
+		var countStr string
+		if val.UnitQuantity > 0 {
+			countStr = fmt.Sprintf("%.0f(%.0f/%.0f)", val.Count, val.UnitQuantity, val.UnitPerPack)
+		} else {
+			countStr = fmt.Sprintf("%.0f уп", val.Count)
+		}
 		f.SetCellValue(sheet, "A"+row, i+1)
 		f.SetCellValue(sheet, "B"+row, val.Name)
-		f.SetCellValue(sheet, "C"+row, val.Count)
-		f.SetCellValue(sheet, "D"+row, val.TotalCount)
-		f.SetCellValue(sheet, "E"+row, val.BonusAmount)
+		f.SetCellValue(sheet, "C"+row, countStr)
+		f.SetCellValue(sheet, "D"+row, val.BonusAmount)
 	}
 
 	saveExcelToUploads(c, f, *h.log, "Bonus_products")
