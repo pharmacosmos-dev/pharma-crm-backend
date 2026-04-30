@@ -31,12 +31,14 @@ func (h *TransferHandler) TransferRoutes(r *gin.RouterGroup) {
 	transfer := r.Group("/transfer")
 	{
 		transfer.POST("", h.Create)
+		transfer.POST("/bulk", h.BulkTransfer)
 		transfer.POST("/send/:id", h.Send)
 		transfer.POST("/send-all/:id", h.SendAll)
 		transfer.POST("/accept-all/:id", h.AcceptAll)
 		transfer.POST("/confirm/:id", h.Confirm)
 		transfer.POST("/send1c/:id", h.SendOnec)
 		transfer.POST("/cancel/:id", h.Cancel)
+		transfer.GET("/onec-preview/:id", h.OnecPayloadPreview)
 		transfer.GET("/:id", h.Get)
 		transfer.GET("/list", h.List)
 		transfer.GET("/list-status", h.TransferStats)
@@ -1122,6 +1124,76 @@ func (h *TransferHandler) DeleteTransfer(c *gin.Context) {
 		return
 	}
 	handleResponse(c, OK, "transfer.delete.success")
+}
+
+// BulkTransfer godoc
+// @Summary Bulk Transfer - move all products from one store to another in one step
+// @Description Creates transfer, auto-sends, auto-accepts and auto-confirms in one API call. All products from source store are moved to destination store immediately.
+// @Tags Transfer
+// @Security BearerAuth
+// @Accept json
+// @Produce json
+// @Param body body domain.TransferRequest true "Transfer request"
+// @Success 201 {object} v1.Response
+// @Failure 400 {object} v1.Response
+// @Failure 500 {object} v1.Response
+// @Router /transfer/bulk [POST]
+func (h *TransferHandler) BulkTransfer(c *gin.Context) {
+	user := h.service.GetSignedUser(c)
+	if user.UserId == "" {
+		handleServiceResponse(c, nil, domain.UnauthorizedError)
+		return
+	}
+
+	var request domain.TransferRequest
+	if err := c.ShouldBindJSON(&request); err != nil {
+		handleServiceResponse(c, BadRequest, domain.InvalidRequestBodyError)
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(c.Request.Context(), constants.DefaultContextTimeout)
+	defer cancel()
+
+	request.CreatedBy = user.UserId
+
+	err := h.service.BulkTransfer(ctx, &request, user.UserId)
+	if err != nil {
+		handleServiceResponse(c, nil, err)
+		return
+	}
+
+	handleResponse(c, CREATED, "CREATED")
+}
+
+// OnecPayloadPreview godoc
+// @Summary Preview 1C payload for a transfer (debug)
+// @Description Returns the exact JSON that would be sent to 1C without actually sending it
+// @Tags Transfer
+// @Security BearerAuth
+// @Accept json
+// @Produce json
+// @Param id path string true "Transfer ID"
+// @Success 200 {object} v1.Response
+// @Failure 404 {object} v1.Response
+// @Failure 500 {object} v1.Response
+// @Router /transfer/onec-preview/{id} [GET]
+func (h *TransferHandler) OnecPayloadPreview(c *gin.Context) {
+	id := c.Param("id")
+	if id == "" {
+		handleServiceResponse(c, BadRequest, domain.InvalidQueryError)
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(c.Request.Context(), constants.DefaultContextTimeout)
+	defer cancel()
+
+	res, err := h.service.OnecPayloadPreview(ctx, id)
+	if err != nil {
+		handleServiceResponse(c, nil, err)
+		return
+	}
+
+	handleResponse(c, OK, res)
 }
 
 // lock order for parallel request

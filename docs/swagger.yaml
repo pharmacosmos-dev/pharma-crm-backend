@@ -19030,6 +19030,41 @@ paths:
       summary: Accept all products in transfer (bulk)
       tags:
       - Transfer
+  /transfer/bulk:
+    post:
+      consumes:
+      - application/json
+      description: Creates transfer, auto-sends, auto-accepts and auto-confirms in
+        one API call. All products from source store are moved to destination store
+        immediately.
+      parameters:
+      - description: Transfer request
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/domain.TransferRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Bulk Transfer - move all products from one store to another in one
+        step
+      tags:
+      - Transfer
   /transfer/cancel/{id}:
     post:
       consumes:
@@ -19336,6 +19371,38 @@ paths:
       security:
       - BearerAuth: []
       summary: Get Transfer Logs
+      tags:
+      - Transfer
+  /transfer/onec-preview/{id}:
+    get:
+      consumes:
+      - application/json
+      description: Returns the exact JSON that would be sent to 1C without actually
+        sending it
+      parameters:
+      - description: Transfer ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Preview 1C payload for a transfer (debug)
       tags:
       - Transfer
   /transfer/send-all/{id}:

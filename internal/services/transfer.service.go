@@ -2,6 +2,7 @@ package services
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"math"
@@ -1193,6 +1194,272 @@ func (s *Services) DeleteTransfer(transferId string) error {
 	}
 
 	return nil
+}
+
+// BulkTransfer creates a transfer and immediately moves all products from
+// source store to destination store in one transaction (create + send + accept + confirm).
+func (s *Services) BulkTransfer(ctx context.Context, req *domain.TransferRequest, userId string) error {
+	tx := s.db.Begin()
+	defer func() {
+		if r := recover(); r != nil {
+			_ = tx.Rollback()
+		}
+	}()
+
+	// 1. Create transfer with status = completed
+	var transferId string
+	err := tx.WithContext(ctx).Raw(`
+		INSERT INTO transfers (from_store_id, to_store_id, name, created_by, status, updated_by, accepted_by, accepted_at)
+		VALUES (?, ?, ?, ?, ?, ?, ?, NOW())
+		RETURNING id`,
+		req.FromStoreId, req.ToStoreId, req.Name, userId,
+		constants.GeneralStatusCompleted, userId, userId,
+	).Scan(&transferId).Error
+	if err != nil {
+		_ = tx.Rollback()
+		s.log.Errorf("bulk transfer: create transfer: %v", err)
+		return domain.InternalServerError
+	}
+
+	// 2. Insert all source store products as transfer_details
+	//    received = expected = scanned = accepted = unit_quantity / unit_per_pack
+	err = tx.WithContext(ctx).Exec(`
+		INSERT INTO transfer_details (
+			transfer_id, store_product_id, product_id,
+			received_count, expected_count, scanned_count, accepted_count,
+			supply_price, retail_price, expire_date, serial_number
+		)
+		SELECT
+			?,
+			sp.id,
+			sp.product_id,
+			sp.unit_quantity::numeric / p.unit_per_pack,
+			sp.unit_quantity::numeric / p.unit_per_pack,
+			sp.unit_quantity::numeric / p.unit_per_pack,
+			sp.unit_quantity::numeric / p.unit_per_pack,
+			sp.supply_price,
+			sp.retail_price,
+			sp.expire_date,
+			sp.serial_number
+		FROM store_products sp
+		JOIN products p ON sp.product_id = p.id
+		WHERE sp.store_id = ? AND sp.unit_quantity > 0
+	`, transferId, req.FromStoreId).Error
+	if err != nil {
+		_ = tx.Rollback()
+		s.log.Errorf("bulk transfer: insert transfer_details: %v", err)
+		return domain.InternalServerError
+	}
+
+	// 3. Deduct all transferred products from source store
+	err = tx.WithContext(ctx).Exec(`
+		UPDATE store_products SET unit_quantity = 0, updated_at = NOW()
+		WHERE id IN (SELECT store_product_id FROM transfer_details WHERE transfer_id = ?)
+	`, transferId).Error
+	if err != nil {
+		_ = tx.Rollback()
+		s.log.Errorf("bulk transfer: deduct from source store: %v", err)
+		return domain.InternalServerError
+	}
+
+	// 4. Insert transferred products into destination store
+	err = tx.WithContext(ctx).Exec(`
+		INSERT INTO store_products (
+			product_id, store_id, unit_quantity,
+			retail_price, supply_price, vat,
+			expire_date, vat_price, serial_number, import_detail_id
+		)
+		SELECT
+			td.product_id,
+			?,
+			ROUND(td.accepted_count * p.unit_per_pack),
+			td.retail_price,
+			td.supply_price,
+			12,
+			td.expire_date,
+			(td.retail_price * 12) / 112,
+			td.serial_number,
+			td.id
+		FROM transfer_details td
+		JOIN products p ON td.product_id = p.id
+		WHERE td.transfer_id = ?
+	`, req.ToStoreId, transferId).Error
+	if err != nil {
+		_ = tx.Rollback()
+		s.log.Errorf("bulk transfer: insert to destination store: %v", err)
+		return domain.InternalServerError
+	}
+
+	if err = tx.Commit().Error; err != nil {
+		s.log.Errorf("bulk transfer: commit: %v", err)
+		return domain.InternalServerError
+	}
+
+	if s.cfg.OnecApiUrl != "test" {
+		go func() {
+			var transfer domain.Transfer
+			if err := s.db.First(&transfer, "id = ?", transferId).Error; err != nil {
+				s.log.Errorf("bulk transfer 1C: get transfer: %v", err)
+				return
+			}
+
+			var details []domain.TransferDetail
+			if err := s.db.Raw(`
+				SELECT
+					td.id,
+					td.transfer_id,
+					td.product_id,
+					td.store_product_id,
+					td.accepted_count,
+					td.expire_date,
+					td.serial_number,
+					td.supply_price AS supply_price_vat,
+					td.retail_price AS retail_price_vat,
+					td.created_at,
+					td.updated_at,
+					p.unit_per_pack,
+					COALESCE(p.name, '') AS product_name,
+					p.material_code,
+					p.barcode,
+					COALESCE(pr.code, '') AS producer_code,
+					COALESCE(idt.retail_price, 0.00) AS retail_price,
+					COALESCE(idt.supply_price, 0.00) AS supply_price
+				FROM transfer_details td
+				JOIN products p ON p.id = td.product_id
+				LEFT JOIN producers pr ON pr.id = p.producer_id
+				LEFT JOIN store_products sp ON sp.id = td.store_product_id
+				LEFT JOIN import_details idt ON idt.id = sp.import_detail_id
+				WHERE td.transfer_id = ? AND td.accepted_count > 0
+			`, transferId).Scan(&details).Error; err != nil {
+				s.log.Errorf("bulk transfer 1C: get details: %v", err)
+				return
+			}
+
+			var toStore, fromStore domain.Store
+			if err := s.db.First(&toStore, "id = ?", req.ToStoreId).Error; err != nil {
+				s.log.Errorf("bulk transfer 1C: get toStore: %v", err)
+				return
+			}
+			if err := s.db.First(&fromStore, "id = ?", req.FromStoreId).Error; err != nil {
+				s.log.Errorf("bulk transfer 1C: get fromStore: %v", err)
+				return
+			}
+
+			var dataOnec domain.TransferData1C
+			for _, v := range details {
+				dataOnec.Товары = append(dataOnec.Товары, domain.TransferProduct1C{
+					MaterialCode:        v.MaterialCode,
+					Name:                v.ProductName,
+					Barcode:             v.Barcode,
+					Manufacturer:        v.ProducerCode,
+					ProductSeriesNumber: v.SerialNumber,
+					ExpireDate:          v.ExpireDate,
+					Quantity:            v.AcceptedCount,
+					RetailPrice:         v.RetailPrice,
+					RetailPriceVat:      v.RetailPriceVat,
+					SupplyPrice:         v.SupplyPrice,
+					SupplyPriceVat:      v.SupplyPriceVat,
+					Sum:                 v.AcceptedCount * v.RetailPrice,
+					SumVat:              v.AcceptedCount * v.RetailPriceVat,
+				})
+			}
+
+			dataOnec.Dok.DocumentDate = transfer.UpdatedAt.Format(time.RFC3339)
+			dataOnec.Dok.DocumentNumber = "NP-" + cast.ToString(transfer.PublicId)
+			dataOnec.Apteka.Name = toStore.Name
+			dataOnec.Apteka.StoreCode = toStore.StoreCode
+			dataOnec.AptekaOtkud.Name = fromStore.Name
+			dataOnec.AptekaOtkud.StoreCode = fromStore.StoreCode
+
+			if logBytes, err := json.Marshal(dataOnec); err == nil {
+				s.log.Infof("bulk transfer 1C payload: %s", string(logBytes))
+			}
+
+			if err := s.DoRequestOnec(context.Background(), dataOnec, constants.OnecPathPerekit); err != nil {
+				s.log.Errorf("bulk transfer 1C: send: %v", err)
+			}
+		}()
+	}
+
+	return nil
+}
+
+// OnecPayloadPreview builds and returns the 1C payload for a transfer without sending it.
+func (s *Services) OnecPayloadPreview(ctx context.Context, transferId string) (*domain.TransferData1C, error) {
+	var transfer domain.Transfer
+	if err := s.db.WithContext(ctx).First(&transfer, "id = ?", transferId).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, domain.NotFoundError
+		}
+		return nil, domain.InternalServerError
+	}
+
+	var details []domain.TransferDetail
+	if err := s.db.WithContext(ctx).Raw(`
+		SELECT
+			td.id,
+			td.transfer_id,
+			td.product_id,
+			td.store_product_id,
+			td.accepted_count,
+			td.expire_date,
+			td.serial_number,
+			td.supply_price AS supply_price_vat,
+			td.retail_price AS retail_price_vat,
+			td.created_at,
+			td.updated_at,
+			p.unit_per_pack,
+			COALESCE(p.name, '') AS product_name,
+			p.material_code,
+			p.barcode,
+			COALESCE(pr.code, '') AS producer_code,
+			COALESCE(idt.retail_price, 0.00) AS retail_price,
+			COALESCE(idt.supply_price, 0.00) AS supply_price
+		FROM transfer_details td
+		JOIN products p ON p.id = td.product_id
+		LEFT JOIN producers pr ON pr.id = p.producer_id
+		LEFT JOIN store_products sp ON sp.id = td.store_product_id
+		LEFT JOIN import_details idt ON idt.id = sp.import_detail_id
+		WHERE td.transfer_id = ? AND td.accepted_count > 0
+	`, transferId).Scan(&details).Error; err != nil {
+		return nil, domain.InternalServerError
+	}
+
+	var toStore, fromStore domain.Store
+	if err := s.db.WithContext(ctx).First(&toStore, "id = ?", transfer.ToStoreId).Error; err != nil {
+		return nil, domain.InternalServerError
+	}
+	if err := s.db.WithContext(ctx).First(&fromStore, "id = ?", transfer.FromStoreId).Error; err != nil {
+		return nil, domain.InternalServerError
+	}
+
+	var dataOnec domain.TransferData1C
+	for _, v := range details {
+		dataOnec.Товары = append(dataOnec.Товары, domain.TransferProduct1C{
+			MaterialCode:        v.MaterialCode,
+			Name:                v.ProductName,
+			Barcode:             v.Barcode,
+			Manufacturer:        v.ProducerCode,
+			ProductSeriesNumber: v.SerialNumber,
+			ExpireDate:          v.ExpireDate,
+			Quantity:            v.AcceptedCount,
+			RetailPrice:         v.RetailPrice,
+			RetailPriceVat:      v.RetailPriceVat,
+			SupplyPrice:         v.SupplyPrice,
+			SupplyPriceVat:      v.SupplyPriceVat,
+			Sum:                 v.AcceptedCount * v.RetailPrice,
+			SumVat:              v.AcceptedCount * v.RetailPriceVat,
+		})
+	}
+
+	dataOnec.Dok.DocumentDate = transfer.UpdatedAt.Format(time.RFC3339)
+	dataOnec.Dok.DocumentNumber = "NP-" + cast.ToString(transfer.PublicId)
+	dataOnec.Apteka.Name = toStore.Name
+	dataOnec.Apteka.StoreCode = toStore.StoreCode
+	dataOnec.AptekaOtkud.Name = fromStore.Name
+	dataOnec.AptekaOtkud.StoreCode = fromStore.StoreCode
+
+	return &dataOnec, nil
 }
 
 func (s *Services) SaveTransferLog(req *domain.TransferLog) {
