@@ -735,11 +735,11 @@ func (s *Services) GetBonusProductsReport(ctx context.Context, params *domain.Re
 	}
 
 	if params.StartDate != nil && !params.StartDate.GetTime().IsZero() {
-		qb = qb.Where("(eb.created_at + interval '5 hours') >= ?", params.StartDate.UTC())
+		qb = qb.Where("eb.created_at >= ?", params.StartDate.UTC())
 	}
 
 	if params.EndDate != nil && !params.EndDate.GetTime().IsZero() {
-		qb = qb.Where("(eb.created_at + interval '5 hours') <= ?", params.EndDate.UTC())
+		qb = qb.Where("eb.created_at <= ?", params.EndDate.UTC())
 	}
 
 	if len(params.CompanyIds) > 0 {
@@ -836,7 +836,7 @@ func (s *Services) GetBonusProductsReportStats(ctx context.Context, params *doma
 		filter += " AND p.company_id = ? "
 		args = append(args, params.CompanyId)
 	}
-	filter += " AND (eb.created_at + interval '5 hours') BETWEEN ? AND ?"
+	filter += " AND eb.created_at BETWEEN ? AND ?"
 	args = append(args, startTime, endTime)
 
 	group := " GROUP BY p.id, p.unit_per_pack ) AS curr"
@@ -860,7 +860,7 @@ func (s *Services) GetBonusProductsReportStats(ctx context.Context, params *doma
 		prevFilter += " AND e.store_id IN (?)"
 		args = append(args, params.StoreIds)
 	}
-	prevFilter += " AND (eb.created_at + interval '5 hours') BETWEEN ? AND ?"
+	prevFilter += " AND eb.created_at BETWEEN ? AND ?"
 	args = append(args, beforeStart, beforeEnd)
 
 	query += prevJoin + prevFilter + " GROUP BY p.id ) AS prev ON curr.id = prev.id"
