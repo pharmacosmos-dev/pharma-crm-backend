@@ -3492,7 +3492,7 @@ func (h *ProductHandler) DeleteProductBarcode(c *gin.Context) {
 // @Success 200 {file} file "Excel file"
 // @Failure 400 {object} v1.Response
 // @Failure 500 {object} v1.Response
-// @Router /helper/export-products-by-import [GET]
+// @Router /product/export-products-by-import [GET]
 func (h *ProductHandler) ExportProductsByImport(c *gin.Context) {
 	user := h.service.GetSignedUser(c)
 	if user.UserId == "" {
