@@ -92,6 +92,7 @@ func (h *ProductHandler) ProductRoutes(r *gin.RouterGroup) {
 		product.PUT("/:id/barcodes", h.UpdateProductBarcode)
 		product.POST("/:id/barcodes", h.CreateProductBarcode)
 		product.DELETE("/:id/barcodes", h.DeleteProductBarcode)
+		product.GET("/export-products-by-import", h.ExportProductsByImport)
 	}
 }
 
@@ -3472,4 +3473,93 @@ func (h *ProductHandler) DeleteProductBarcode(c *gin.Context) {
 	}
 
 	handleResponse(c, OK, "DELETED")
+}
+
+// Export products by import
+// @Summary Export products by import as Excel
+// @Description Export products by import as Excel file
+// @Tags products
+// @Security BearerAuth
+// @Accept json
+// @Produce application/octet-stream
+// @Param search query string false "Search"
+// @Param status query string false "Status"
+// @Param store_id query string false "Store ID"
+// @Param producer_id query string false "Producer ID"
+// @Param no_barcode query bool false "No Barcode"
+// @Param start_date query string false "StartDate"
+// @Param end_date query string false "EndDate"
+// @Success 200 {file} file "Excel file"
+// @Failure 400 {object} v1.Response
+// @Failure 500 {object} v1.Response
+// @Router /helper/export-products-by-import [GET]
+func (h *ProductHandler) ExportProductsByImport(c *gin.Context) {
+	user := h.service.GetSignedUser(c)
+	if user.UserId == "" {
+		handleServiceResponse(c, nil, domain.UnauthorizedError)
+		return
+	}
+
+	var params domain.ProductByImportParam
+	if err := c.ShouldBindQuery(&params); err != nil {
+		handleServiceResponse(c, nil, domain.InvalidQueryError)
+		return
+	}
+
+	if !helper.IsAdmin(user) {
+		if user.StoreId != "" {
+			params.StoreId = user.StoreId
+		}
+		params.CompanyId = user.CompanyId
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
+	defer cancel()
+
+	res, _, err := h.service.GetProductsByImport(ctx, &params)
+	if err != nil {
+		handleServiceResponse(c, nil, err)
+		return
+	}
+
+	f := excelize.NewFile()
+	sheetName := "List1"
+	f.SetSheetName("Sheet1", sheetName)
+
+	headers := []string{
+		"Код", "Наименование", "Аптека", "Производитель",
+		"Кол-во", "Штрихкод", "Серийный номер", "Срок годности",
+		"ИКПУ", "Код.Уп", "Наз.Уп", "Маркировка",
+		"Цена поставки", "Цена продажи",
+	}
+	err = setExcelHeaders(f, sheetName, headers)
+	if err != nil {
+		h.log.Errorf("could not create excel style: %v", err)
+		handleServiceResponse(c, nil, domain.InternalServerError)
+		return
+	}
+
+	for i, product := range res {
+		row := strconv.Itoa(i + 2)
+		expireDate := ""
+		if product.ExpireDate != nil {
+			expireDate = product.ExpireDate.Format("02.01.2006")
+		}
+		f.SetCellValue(sheetName, "A"+row, product.MaterialCode)
+		f.SetCellValue(sheetName, "B"+row, product.Name)
+		f.SetCellValue(sheetName, "C"+row, product.StoreName)
+		f.SetCellValue(sheetName, "D"+row, product.ProducerName)
+		f.SetCellValue(sheetName, "E"+row, math.Round(float64(product.UQuantity)/float64(product.UnitPerPack)))
+		f.SetCellValue(sheetName, "F"+row, product.Barcode)
+		f.SetCellValue(sheetName, "G"+row, product.SerialNumber)
+		f.SetCellValue(sheetName, "H"+row, expireDate)
+		f.SetCellValue(sheetName, "I"+row, product.Mxik)
+		f.SetCellValue(sheetName, "J"+row, product.UnitCode)
+		f.SetCellValue(sheetName, "K"+row, product.UnitLabel)
+		f.SetCellValue(sheetName, "L"+row, product.IsMarking)
+		f.SetCellValue(sheetName, "M"+row, product.SupplyPrice)
+		f.SetCellValue(sheetName, "N"+row, product.RetailPrice)
+	}
+
+	saveExcelToUploads(c, f, *h.log, "products_by_import")
 }

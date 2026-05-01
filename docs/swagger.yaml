@@ -6705,6 +6705,60 @@ paths:
       summary: transmit request to epos
       tags:
       - helper
+  /helper/export-products-by-import:
+    get:
+      consumes:
+      - application/json
+      description: Export products by import as Excel file
+      parameters:
+      - description: Search
+        in: query
+        name: search
+        type: string
+      - description: Status
+        in: query
+        name: status
+        type: string
+      - description: Store ID
+        in: query
+        name: store_id
+        type: string
+      - description: Producer ID
+        in: query
+        name: producer_id
+        type: string
+      - description: No Barcode
+        in: query
+        name: no_barcode
+        type: boolean
+      - description: StartDate
+        in: query
+        name: start_date
+        type: string
+      - description: EndDate
+        in: query
+        name: end_date
+        type: string
+      produces:
+      - application/octet-stream
+      responses:
+        "200":
+          description: Excel file
+          schema:
+            type: file
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Export products by import as Excel
+      tags:
+      - products
   /helper/fix-product-quantity:
     post:
       consumes:
