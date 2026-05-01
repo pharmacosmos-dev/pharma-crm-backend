@@ -1884,6 +1884,18 @@ definitions:
       store_product_id:
         type: string
     type: object
+  domain.UpdateOnlineOrderRequest:
+    properties:
+      is_online_order:
+        type: boolean
+      store_ids:
+        items:
+          type: string
+        minItems: 1
+        type: array
+    required:
+    - store_ids
+    type: object
   domain.UpdateOnlineSale:
     properties:
       online_status:
@@ -18606,6 +18618,38 @@ paths:
       security:
       - BearerAuth: []
       summary: Get a store
+      tags:
+      - stores
+  /store/online-order:
+    put:
+      consumes:
+      - application/json
+      description: Set is_online_order field for given store IDs
+      parameters:
+      - description: Store IDs and online order flag
+        in: body
+        name: input
+        required: true
+        schema:
+          $ref: '#/definitions/domain.UpdateOnlineOrderRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Update online order status for multiple stores
       tags:
       - stores
   /tag:

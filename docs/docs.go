@@ -25675,6 +25675,57 @@ const docTemplate = `{
                 }
             }
         },
+        "/store/online-order": {
+            "put": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Set is_online_order field for given store IDs",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "stores"
+                ],
+                "summary": "Update online order status for multiple stores",
+                "parameters": [
+                    {
+                        "description": "Store IDs and online order flag",
+                        "name": "input",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/domain.UpdateOnlineOrderRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    }
+                }
+            }
+        },
         "/store/{id}": {
             "get": {
                 "security": [
@@ -32029,6 +32080,24 @@ const docTemplate = `{
                 },
                 "store_product_id": {
                     "type": "string"
+                }
+            }
+        },
+        "domain.UpdateOnlineOrderRequest": {
+            "type": "object",
+            "required": [
+                "store_ids"
+            ],
+            "properties": {
+                "is_online_order": {
+                    "type": "boolean"
+                },
+                "store_ids": {
+                    "type": "array",
+                    "minItems": 1,
+                    "items": {
+                        "type": "string"
+                    }
                 }
             }
         },

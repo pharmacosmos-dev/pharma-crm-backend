@@ -35,6 +35,7 @@ func (h *StoreHandler) StoreRoutes(r *gin.RouterGroup) {
 		store.GET("/list", h.FetchStores)
 		store.GET("/export-excel", h.ExportExcel)
 		store.PUT("/:id", h.Update)
+		store.PUT("/online-order", h.UpdateOnlineOrder)
 		store.DELETE("/:id", h.Delete)
 	}
 }
@@ -333,6 +334,46 @@ func (h *StoreHandler) Update(c *gin.Context) {
 		return
 	}
 	handleResponse(c, OK, body)
+}
+
+// UpdateOnlineOrder godoc
+// @Summary Update online order status for multiple stores
+// @Description Set is_online_order field for given store IDs
+// @Tags stores
+// @Security     BearerAuth
+// @Accept json
+// @Produce json
+// @Param input body domain.UpdateOnlineOrderRequest true "Store IDs and online order flag"
+// @Success 200 {object} v1.Response
+// @Failure 400 {object} v1.Response
+// @Failure 500 {object} v1.Response
+// @Router /store/online-order [put]
+func (h *StoreHandler) UpdateOnlineOrder(c *gin.Context) {
+	user := h.service.GetSignedUser(c)
+	if user.UserId == "" {
+		handleServiceResponse(c, UNAUTHORIZED, domain.UnauthorizedError)
+		return
+	}
+
+	var body domain.UpdateOnlineOrderRequest
+	if err := c.ShouldBindJSON(&body); err != nil {
+		h.log.Errorf("could not bind update online order request body: %v", err)
+		handleServiceResponse(c, BadRequest, domain.InvalidRequestBodyError)
+		return
+	}
+
+	err := h.db.
+		WithContext(c.Request.Context()).
+		Model(&domain.Store{}).
+		Where("id IN ?", body.StoreIds).
+		Update("is_online_order", body.IsOnlineOrder).Error
+	if err != nil {
+		h.log.Errorf("could not update is_online_order for stores: %v", err)
+		handleServiceResponse(c, InternalError, domain.InternalServerError)
+		return
+	}
+
+	handleResponse(c, OK, "updated")
 }
 
 // Delete godoc

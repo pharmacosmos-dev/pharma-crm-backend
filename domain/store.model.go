@@ -21,10 +21,11 @@ type Store struct {
 	Address             string     `gorm:"address" json:"address"`
 	Location            string     `gorm:"location" json:"location"`
 	WorkHours           string     `gorm:"work_hours" json:"work_hours"`
-	IsFullday           bool       `gorm:"is_fullday" json:"is_fullday"`
-	AverageTargetSales  float64    `gorm:"column:average_target_sales" json:"average_target_sales"`
-	CreatedAt           *time.Time `gorm:"created_at" json:"created_at"`
-	UpdatedAt           *time.Time `gorm:"updated_at" json:"updated_at"`
+	IsFullday           bool           `gorm:"is_fullday" json:"is_fullday"`
+	AverageTargetSales  float64        `gorm:"column:average_target_sales" json:"average_target_sales"`
+	IsOnlineOrder       bool           `gorm:"column:is_online_order" json:"is_online_order"`
+	CreatedAt           *time.Time     `gorm:"created_at" json:"created_at"`
+	UpdatedAt           *time.Time     `gorm:"updated_at" json:"updated_at"`
 	TerminalID          pq.StringArray `gorm:"type:varchar(255)[];column:terminal_id" json:"terminal_ids" swaggertype:"array,string"`
 }
 
@@ -85,6 +86,11 @@ type StoreUpdateRequest struct {
 	IsFullday     bool    `gorm:"is_fullday" json:"is_fullday"`
 	UpdatedBy     string  `gorm:"updated_by" json:"-"`
 	TerminalID    pq.StringArray `gorm:"type:varchar(255)[];column:terminal_id" json:"terminal_ids" swaggertype:"array,string"`
+}
+
+type UpdateOnlineOrderRequest struct {
+	StoreIds      []string `json:"store_ids" binding:"required,min=1"`
+	IsOnlineOrder bool     `json:"is_online_order"`
 }
 
 type StoreQueryParams struct {

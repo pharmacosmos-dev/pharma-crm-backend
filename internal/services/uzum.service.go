@@ -604,7 +604,7 @@ func (s *Services) GetRestaurants(ctx context.Context, limit, page int) ([]domai
 			"created_at",
 			"updated_at",
 		).
-		Where("is_active = true")
+		Where("is_active = true AND is_online_order = true")
 
 	totalCount := int64(0)
 	if err := qb.Count(&totalCount).Error; err != nil {
