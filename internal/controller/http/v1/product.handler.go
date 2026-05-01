@@ -3513,6 +3513,8 @@ func (h *ProductHandler) ExportProductsByImport(c *gin.Context) {
 		params.CompanyId = user.CompanyId
 	}
 
+	params.Limit, params.Offset = defaultLimitOffset(params.Limit, params.Offset)
+
 	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
 	defer cancel()
 
