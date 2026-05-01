@@ -3489,6 +3489,8 @@ func (h *ProductHandler) DeleteProductBarcode(c *gin.Context) {
 // @Param no_barcode query bool false "No Barcode"
 // @Param start_date query string false "StartDate"
 // @Param end_date query string false "EndDate"
+// @Param limit           query int    false "Limit"
+// @Param offset          query int    false "Offset"
 // @Success 200 {file} file "Excel file"
 // @Failure 400 {object} v1.Response
 // @Failure 500 {object} v1.Response

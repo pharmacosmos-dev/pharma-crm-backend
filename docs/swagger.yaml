@@ -11797,6 +11797,14 @@ paths:
         in: query
         name: end_date
         type: string
+      - description: Limit
+        in: query
+        name: limit
+        type: integer
+      - description: Offset
+        in: query
+        name: offset
+        type: integer
       produces:
       - application/octet-stream
       responses:

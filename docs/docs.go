@@ -14625,6 +14625,18 @@ const docTemplate = `{
                         "description": "EndDate",
                         "name": "end_date",
                         "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Limit",
+                        "name": "limit",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Offset",
+                        "name": "offset",
+                        "in": "query"
                     }
                 ],
                 "responses": {
