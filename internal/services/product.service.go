@@ -1546,6 +1546,21 @@ func (s *Services) GetProductsByImport(ctx context.Context, params *domain.Produ
 	if params.ImportId != "" {
 		qb = qb.Where("imd.import_id = ?", params.ImportId)
 	}
+
+	startDate := params.StartDate
+	endDate := params.EndDate
+	if startDate == "" && endDate == "" {
+		now := time.Now()
+		startDate = now.AddDate(0, -6, 0).Format("2006-01-02")
+		endDate = now.Format("2006-01-02")
+	}
+	if startDate != "" {
+		qb = qb.Where("sp.created_at >= ?", startDate)
+	}
+	if endDate != "" {
+		qb = qb.Where("sp.created_at <= ?", endDate)
+	}
+
 	var totalCount int64
 	if err := qb.Count(&totalCount).Error; err != nil {
 		s.log.Errorf("could not get total_count in get_products_by_import: %v", err)
