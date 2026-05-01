@@ -476,12 +476,16 @@ func (h *StoreTargetHandler) UpdateEmployeeTarget(c *gin.Context) {
 }
 
 // Summary godoc
-// @Summary      Current Month Store Targets Summary
-// @Description  Get total amount, total sales, and store count for current month
+// @Summary      Store Targets Summary
+// @Description  Get total amount and total sales for given month/year (defaults to current month/year)
 // @Tags         store-target
 // @Security     BearerAuth
 // @Accept       json
 // @Produce      json
+// @Param        year         query  int     false  "Year (example: 2026)"
+// @Param        month        query  int     false  "Month (1-12)"
+// @Param        is_franchise query  bool    false  "Filter by franchise stores"
+// @Param        is_pharma    query  bool    false  "Filter by pharma stores"
 // @Success      200 {object} domain.StoreTargetSummary
 // @Failure      400 {object} v1.Response
 // @Failure      500 {object} v1.Response
@@ -522,7 +526,7 @@ func (h *StoreTargetHandler) Summary(c *gin.Context) {
 		companyIds, _ = h.service.GetCompanyIds(ctx, false)
 	}
 
-	summary, err := h.service.GetCurrentMonthStoreTargetsSummary(ctx, companyIds, storeId)
+	summary, err := h.service.GetCurrentMonthStoreTargetsSummary(ctx, companyIds, storeId, params.Year, params.Month)
 	if err != nil {
 		handleServiceResponse(c, nil, err)
 		return

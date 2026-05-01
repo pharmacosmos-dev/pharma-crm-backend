@@ -732,10 +732,14 @@ func (s *Services) AutoCreateMonthlyStoreTargets() {
 		currentYear, currentMonth, created, len(prevTargets))
 }
 
-func (s *Services) GetCurrentMonthStoreTargetsSummary(ctx context.Context, companyIds []string, storeId string) (*domain.StoreTargetSummary, error) {
+func (s *Services) GetCurrentMonthStoreTargetsSummary(ctx context.Context, companyIds []string, storeId string, year, month int) (*domain.StoreTargetSummary, error) {
 	now := time.Now()
-	year := now.Year()
-	month := int(now.Month())
+	if year == 0 {
+		year = now.Year()
+	}
+	if month == 0 {
+		month = int(now.Month())
+	}
 
 	type result struct {
 		TotalAmount float64 `json:"total_target_amount"`

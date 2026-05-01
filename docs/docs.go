@@ -25210,7 +25210,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Get total amount, total sales, and store count for current month",
+                "description": "Get total amount and total sales for given month/year (defaults to current month/year)",
                 "consumes": [
                     "application/json"
                 ],
@@ -25220,7 +25220,33 @@ const docTemplate = `{
                 "tags": [
                     "store-target"
                 ],
-                "summary": "Current Month Store Targets Summary",
+                "summary": "Store Targets Summary",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Year (example: 2026)",
+                        "name": "year",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Month (1-12)",
+                        "name": "month",
+                        "in": "query"
+                    },
+                    {
+                        "type": "boolean",
+                        "description": "Filter by franchise stores",
+                        "name": "is_franchise",
+                        "in": "query"
+                    },
+                    {
+                        "type": "boolean",
+                        "description": "Filter by pharma stores",
+                        "name": "is_pharma",
+                        "in": "query"
+                    }
+                ],
                 "responses": {
                     "200": {
                         "description": "OK",

@@ -18322,7 +18322,25 @@ paths:
     get:
       consumes:
       - application/json
-      description: Get total amount, total sales, and store count for current month
+      description: Get total amount and total sales for given month/year (defaults
+        to current month/year)
+      parameters:
+      - description: 'Year (example: 2026)'
+        in: query
+        name: year
+        type: integer
+      - description: Month (1-12)
+        in: query
+        name: month
+        type: integer
+      - description: Filter by franchise stores
+        in: query
+        name: is_franchise
+        type: boolean
+      - description: Filter by pharma stores
+        in: query
+        name: is_pharma
+        type: boolean
       produces:
       - application/json
       responses:
@@ -18340,7 +18358,7 @@ paths:
             $ref: '#/definitions/v1.Response'
       security:
       - BearerAuth: []
-      summary: Current Month Store Targets Summary
+      summary: Store Targets Summary
       tags:
       - store-target
   /store/{id}:
