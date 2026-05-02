@@ -361,9 +361,13 @@ func (s *Services) RepricingDetailList(repricingID int, param *domain.QueryParam
 		(prd.new_retail_price - prd.old_retail_price) AS price_difference,
 		p.name, p.barcode,
 		COALESCE(p.max_price, 0) AS max_price,
+		COALESCE(sp.pack_quantity, 0) AS pack_quantity,
+		COALESCE(sp.unit_quantity, 0) AS unit_quantity,
+		COALESCE(sp.small_quantity, 0) AS small_quantity,
 		COUNT(*) OVER() AS total_count
 	FROM price_revalution_details prd
 	JOIN products p ON prd.product_id = p.id
+	LEFT JOIN store_products sp ON prd.store_product_id = sp.id
 	WHERE prd.price_revalution_id = ?
 	`
 	args = append(args, param.Limit, param.Offset)
