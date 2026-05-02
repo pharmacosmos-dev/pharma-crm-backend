@@ -54,6 +54,7 @@ func (h *HelperHandler) HelperRoutes(r *gin.RouterGroup) {
 		helper.POST("/upload-product-country", h.UploadProductCountry)
 		helper.POST("/upload-uzum-tezkor-price", h.UploadUzumTezkorPrice)
 		helper.POST("/check-online-price-by-ids", h.CheckOnlinePriceByIds)
+		helper.POST("/check-products-by-material-code", h.CheckProductsByMaterialCode)
 		// helper.POST("/upload-category", h.UploadCategory)
 		// helper.POST("/upload-customer", h.UploadCustomer)
 		// helper.POST("/upload-import", h.UploadImport)
@@ -2850,6 +2851,95 @@ func (h *HelperHandler) CheckOnlinePriceByIds(c *gin.Context) {
 	})
 }
 
+// CheckProductsByMaterialCode godoc
+// @Summary      Excel orqali material_code bo'yicha mahsulotlarni tekshirish
+// @Description  Excel fayldan material_code larni o'qib, products jadvalidan material_code va name ni qaytaradi
+// @Tags         helper
+// @Security     BearerAuth
+// @Accept       multipart/form-data
+// @Produce      json
+// @Param        file formData file true "Excel file — A ustuni: material_code"
+// @Success      200 {object} v1.Response
+// @Failure      400 {object} v1.Response
+// @Failure      500 {object} v1.Response
+// @Router       /helper/check-products-by-material-code [post]
+func (h *HelperHandler) CheckProductsByMaterialCode(c *gin.Context) {
+	var file domain.File
+	if err := c.ShouldBind(&file); err != nil {
+		handleResponse(c, BadRequest, err.Error())
+		return
+	}
+
+	ext := filepath.Ext(file.File.Filename)
+	if ext != ".xlsx" && ext != ".xls" {
+		handleResponse(c, BadRequest, "Unsupported file format")
+		return
+	}
+
+	newFilename := uuid.New().String() + ext
+	savePath := filepath.Join("uploads", newFilename)
+	if err := c.SaveUploadedFile(file.File, savePath); err != nil {
+		handleResponse(c, InternalError, "Failed to save file")
+		return
+	}
+	defer os.Remove(savePath)
+
+	xlsx, err := excelize.OpenFile(savePath)
+	if err != nil {
+		handleResponse(c, BadRequest, "Failed to open Excel file")
+		return
+	}
+	defer xlsx.Close()
+
+	sheetName := xlsx.GetSheetName(0)
+	rows, err := xlsx.GetRows(sheetName)
+	if err != nil {
+		handleResponse(c, InternalError, "Failed to get rows")
+		return
+	}
+
+	type ProductRow struct {
+		MaterialCode int    `gorm:"column:material_code"`
+		Name         string `gorm:"column:name"`
+	}
+
+	var results []ProductRow
+
+	for _, row := range rows[1:] { // Skip header
+		if len(row) == 0 {
+			continue
+		}
+		id := strings.TrimSpace(row[0])
+		if id == "" {
+			continue
+		}
+
+		var p ProductRow
+		res := h.db.Table("products").
+			Select("material_code, name").
+			Where("id = ?", id).
+			First(&p)
+		if res.Error != nil {
+			continue
+		}
+
+		results = append(results, p)
+	}
+
+	// Build output Excel
+	out := excelize.NewFile()
+	outSheet := "Sheet1"
+	out.SetCellValue(outSheet, "A1", "material_code")
+	out.SetCellValue(outSheet, "B1", "name")
+
+	for i, r := range results {
+		rowNum := i + 2
+		out.SetCellValue(outSheet, fmt.Sprintf("A%d", rowNum), r.MaterialCode)
+		out.SetCellValue(outSheet, fmt.Sprintf("B%d", rowNum), r.Name)
+	}
+
+	saveExcelToUploads(c, out, *h.log, "products_by_material_code")
+}
 
 // UploadUzumTezkorProductPrice godoc
 // @Summary Upload UzumTezkor product price update excel

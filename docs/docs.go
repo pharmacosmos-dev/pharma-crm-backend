@@ -7148,6 +7148,55 @@ const docTemplate = `{
                 }
             }
         },
+        "/helper/check-products-by-material-code": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Excel fayldan material_code larni o'qib, products jadvalidan material_code va name ni qaytaradi",
+                "consumes": [
+                    "multipart/form-data"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "helper"
+                ],
+                "summary": "Excel orqali material_code bo'yicha mahsulotlarni tekshirish",
+                "parameters": [
+                    {
+                        "type": "file",
+                        "description": "Excel file — A ustuni: material_code",
+                        "name": "file",
+                        "in": "formData",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    }
+                }
+            }
+        },
         "/helper/delete-not-photos": {
             "delete": {
                 "security": [
