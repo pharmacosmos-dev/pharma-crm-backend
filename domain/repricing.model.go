@@ -14,7 +14,7 @@ type PriceRevalution struct {
 	Count               float64    `gorm:"count" json:"count"`
 	TotalOldRetailPrice  float64    `gorm:"total_old_retail_price" json:"total_old_retail_price"`
 	TotalNewRetailPrice  float64    `gorm:"total_new_retail_price" json:"total_new_retail_price"`
-	TotalPriceDifference float64    `gorm:"-" json:"total_price_difference"`
+	TotalPriceDifference float64    `gorm:"total_price_difference" json:"total_price_difference"`
 	CreatedAt           *time.Time `gorm:"created_at" json:"created_at"`
 	UpdatedAt           *time.Time `gorm:"updated_at" json:"updated_at"`
 	CreatedBy           *Employee  `gorm:"foreignKey:CreatedByID" json:"created_by"`
