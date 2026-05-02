@@ -2,6 +2,7 @@ package services
 
 import (
 	"context"
+	"fmt"
 	"strings"
 
 	"github.com/pharma-crm-backend/domain"
@@ -361,9 +362,11 @@ func (s *Services) RepricingDetailList(repricingID int, param *domain.QueryParam
 		(prd.new_retail_price - prd.old_retail_price) AS price_difference,
 		p.name, p.barcode,
 		COALESCE(p.max_price, 0) AS max_price,
-		COALESCE(sp.pack_quantity, 0) AS pack_quantity,
-		COALESCE(sp.unit_quantity, 0) AS unit_quantity,
+		COALESCE(sp.unit_quantity / NULLIF(p.unit_per_pack, 0), 0) AS pack_quantity,
+		COALESCE(sp.unit_quantity % NULLIF(p.unit_per_pack, 0), 0) AS unit_quantity,
+		COALESCE(sp.unit_quantity, 0) AS u_quantity,
 		COALESCE(sp.small_quantity, 0) AS small_quantity,
+		COALESCE(p.unit_per_pack, 1) AS unit_per_pack,
 		COUNT(*) OVER() AS total_count
 	FROM price_revalution_details prd
 	JOIN products p ON prd.product_id = p.id
@@ -383,6 +386,17 @@ func (s *Services) RepricingDetailList(repricingID int, param *domain.QueryParam
 	// get total count
 	if len(res) > 0 {
 		totalCount = res[0].TotalCount
+	}
+
+	for i := range res {
+		if res[i].UQuantity%res[i].UnitPerPack > 0 {
+			res[i].Quantity = fmt.Sprintf("%d (%d/%d)",
+				res[i].UQuantity/res[i].UnitPerPack,
+				res[i].UQuantity%res[i].UnitPerPack,
+				res[i].UnitPerPack)
+		} else {
+			res[i].Quantity = fmt.Sprintf("%d", res[i].UQuantity/res[i].UnitPerPack)
+		}
 	}
 
 	return res, totalCount, nil

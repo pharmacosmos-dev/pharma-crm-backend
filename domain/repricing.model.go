@@ -62,7 +62,10 @@ type PriceRevalutionDetail struct {
 	MaxPrice          float64    `gorm:"max_price" json:"max_price"`
 	PackQuantity       int        `gorm:"pack_quantity" json:"pack_quantity"`
 	UnitQuantity       int        `gorm:"unit_quantity" json:"unit_quantity"`
+	UQuantity          int        `gorm:"u_quantity" json:"-"`
 	SmallQuantity      int        `gorm:"small_quantity" json:"small_quantity"`
+	UnitPerPack        int        `gorm:"unit_per_pack" json:"unit_per_pack"`
+	Quantity           string     `gorm:"-" json:"quantity"`
 	StoreProductCount  int        `gorm:"store_product_count" json:"store_product_count"`
 	TotalCount         int64      `gorm:"total_count" json:"-"`
 }
