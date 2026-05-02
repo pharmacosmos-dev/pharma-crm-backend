@@ -223,7 +223,8 @@ func (s *Services) GetRepricingList(ctx context.Context, params *domain.QueryPar
 		Select(`price_revalutions.*, 
 						COUNT(prd.store_product_id) AS count,
 						SUM(prd.old_retail_price) AS total_old_retail_price,
-						SUM(prd.new_retail_price) AS total_new_retail_price
+						SUM(prd.new_retail_price) AS total_new_retail_price,
+						SUM(prd.new_retail_price - prd.old_retail_price) AS total_price_difference
 		`).Joins("LEFT JOIN price_revalution_details prd ON price_revalutions.id = prd.price_revalution_id").
 		Group("price_revalutions.id")
 
@@ -359,7 +360,7 @@ func (s *Services) RepricingDetailList(repricingID int, param *domain.QueryParam
             ELSE ((prd.new_retail_price - prd.old_supply_price) / prd.old_supply_price) * 100
           END, 0
         ) AS new_markup,
-		(prd.new_retail_price - prd.old_retail_price) AS price_difference,
+		(prd.new_retail_price - prd.old_retail_price) * COALESCE(sp.unit_quantity / NULLIF(p.unit_per_pack, 0), 0) AS price_difference,
 		p.name, p.barcode,
 		COALESCE(p.max_price, 0) AS max_price,
 		COALESCE(sp.unit_quantity / NULLIF(p.unit_per_pack, 0), 0) AS pack_quantity,

@@ -979,7 +979,7 @@ func (s *Services) GetImportDetailsByLastUpdated(ctx context.Context, params *do
 // send request to 1C for answering import details
 func (s *Services) DoRequestOnec(ctx context.Context, data any, url string) error {
 	client := &http.Client{
-		Timeout: 5 * time.Minute,
+		Timeout: 120 * time.Second,
 	}
 
 	buf := bytes.Buffer{}
