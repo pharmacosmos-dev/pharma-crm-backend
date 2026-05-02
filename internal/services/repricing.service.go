@@ -358,6 +358,7 @@ func (s *Services) RepricingDetailList(repricingID int, param *domain.QueryParam
             ELSE ((prd.new_retail_price - prd.old_supply_price) / prd.old_supply_price) * 100
           END, 0
         ) AS new_markup,
+		(prd.new_retail_price - prd.old_retail_price) AS price_difference,
 		p.name, p.barcode,
 		COALESCE(p.max_price, 0) AS max_price,
 		COUNT(*) OVER() AS total_count
