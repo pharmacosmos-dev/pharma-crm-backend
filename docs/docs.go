@@ -7099,6 +7099,55 @@ const docTemplate = `{
                 }
             }
         },
+        "/helper/check-online-price-by-ids": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Excel fayldan product_id larni o'qib, online_products_price jadvalida mavjud va mavjud emaslarini qaytaradi",
+                "consumes": [
+                    "multipart/form-data"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "helper"
+                ],
+                "summary": "Check online_products_price existence by product IDs from Excel",
+                "parameters": [
+                    {
+                        "type": "file",
+                        "description": "Excel file — A ustuni: product_id",
+                        "name": "file",
+                        "in": "formData",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    }
+                }
+            }
+        },
         "/helper/delete-not-photos": {
             "delete": {
                 "security": [

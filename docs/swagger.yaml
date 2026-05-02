@@ -6661,6 +6661,38 @@ paths:
       summary: attach category to products
       tags:
       - helper
+  /helper/check-online-price-by-ids:
+    post:
+      consumes:
+      - multipart/form-data
+      description: Excel fayldan product_id larni o'qib, online_products_price jadvalida
+        mavjud va mavjud emaslarini qaytaradi
+      parameters:
+      - description: 'Excel file — A ustuni: product_id'
+        in: formData
+        name: file
+        required: true
+        type: file
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Check online_products_price existence by product IDs from Excel
+      tags:
+      - helper
   /helper/delete-not-photos:
     delete:
       consumes:

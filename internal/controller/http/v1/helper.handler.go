@@ -53,6 +53,7 @@ func (h *HelperHandler) HelperRoutes(r *gin.RouterGroup) {
 		helper.POST("/upload-is-return", h.UploadIsReturn)
 		helper.POST("/upload-product-country", h.UploadProductCountry)
 		helper.POST("/upload-uzum-tezkor-price", h.UploadUzumTezkorPrice)
+		helper.POST("/check-online-price-by-ids", h.CheckOnlinePriceByIds)
 		// helper.POST("/upload-category", h.UploadCategory)
 		// helper.POST("/upload-customer", h.UploadCustomer)
 		// helper.POST("/upload-import", h.UploadImport)
@@ -2773,6 +2774,82 @@ func (h *HelperHandler) UploadProductCountry(c *gin.Context) {
 		"updated": updated,
 	})
 }
+
+// CheckOnlinePriceByIds godoc
+// @Summary      Check online_products_price existence by product IDs from Excel
+// @Description  Excel fayldan product_id larni o'qib, online_products_price jadvalida mavjud va mavjud emaslarini qaytaradi
+// @Tags         helper
+// @Security     BearerAuth
+// @Accept       multipart/form-data
+// @Produce      json
+// @Param        file formData file true "Excel file — A ustuni: product_id"
+// @Success      200 {object} v1.Response
+// @Failure      400 {object} v1.Response
+// @Failure      500 {object} v1.Response
+// @Router       /helper/check-online-price-by-ids [post]
+func (h *HelperHandler) CheckOnlinePriceByIds(c *gin.Context) {
+	var file domain.File
+	if err := c.ShouldBind(&file); err != nil {
+		handleResponse(c, BadRequest, err.Error())
+		return
+	}
+
+	ext := filepath.Ext(file.File.Filename)
+	if ext != ".xlsx" && ext != ".xls" {
+		handleResponse(c, BadRequest, "Unsupported file format")
+		return
+	}
+
+	newFilename := uuid.New().String() + ext
+	savePath := filepath.Join("uploads", newFilename)
+	if err := c.SaveUploadedFile(file.File, savePath); err != nil {
+		handleResponse(c, InternalError, "Failed to save file")
+		return
+	}
+	defer os.Remove(savePath)
+
+	xlsx, err := excelize.OpenFile(savePath)
+	if err != nil {
+		handleResponse(c, BadRequest, "Failed to open Excel file")
+		return
+	}
+	defer xlsx.Close()
+
+	sheetName := xlsx.GetSheetName(0)
+	rows, err := xlsx.GetRows(sheetName)
+	if err != nil {
+		handleResponse(c, InternalError, "Failed to get rows")
+		return
+	}
+
+	found := 0
+	notFound := 0
+
+	for _, row := range rows[1:] { // Skip header
+		if len(row) == 0 {
+			continue
+		}
+		id := strings.TrimSpace(row[0])
+		if id == "" {
+			continue
+		}
+
+		var count int64
+		h.db.Table("online_products_price").Where("product_id = ?", id).Count(&count)
+		if count > 0 {
+			found++
+		} else {
+			notFound++
+		}
+	}
+
+	handleResponse(c, OK, gin.H{
+		"found":     found,
+		"not_found": notFound,
+		"total":     found + notFound,
+	})
+}
+
 
 // UploadUzumTezkorProductPrice godoc
 // @Summary Upload UzumTezkor product price update excel
