@@ -129,8 +129,8 @@ type StoreReportStats struct {
 	TotalAlifCount      int     `gorm:"total_alif_count" json:"total_alif_count"`
 	TotalUzumCount      int     `gorm:"total_uzum_count" json:"total_uzum_count"`
 	TotalUzumSum        float64 `gorm:"total_uzum_sum" json:"total_uzum_sum"`
-	TotalUzumTezkorCount int     `gorm:"total_uzum_tez_kor_count" json:"total_uzum_tez_kor_count"`
-	TotalUzumTezkorSum  float64 `gorm:"total_uzum_tez_kor_sum" json:"total_uzum_tez_kor_sum"`
+	TotalUzumTezKorCount int     `gorm:"total_uzum_tez_kor_count" json:"total_uzum_tez_kor_count"`
+    TotalUzumTezKorSum  float64 `gorm:"total_uzum_tez_kor_sum" json:"total_uzum_tez_kor_sum"`
 	TotalCashbackSum    float64 `gorm:"total_cashback_sum" json:"total_cashback_sum"`
 	TotalCashbackCount  float64 `gorm:"total_cashback_count" json:"total_cashback_count"`
 	TotalProductCount   int64   `gorm:"total_product_count" json:"total_product_count"`
