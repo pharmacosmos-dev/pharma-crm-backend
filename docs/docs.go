@@ -9,7 +9,6 @@ const docTemplate = `{
     "info": {
         "description": "{{escape .Description}}",
         "title": "{{.Title}}",
-        "termsOfService": "http://swagger.io/terms/",
         "contact": {},
         "version": "{{.Version}}"
     },
@@ -17410,6 +17409,69 @@ const docTemplate = `{
                 }
             }
         },
+        "/product1c/create-and-send-onec": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Creates transfer, sets expected_count per product (capped at available stock), deducts from source store — all in one transaction. Response contains unfulfilled products with material_code and remaining count.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "1C Api"
+                ],
+                "summary": "Create and send transfer in one step (1C integration)",
+                "parameters": [
+                    {
+                        "description": "1C transfer request",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/domain.OnecTransferRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/v1.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/domain.OnecTransferResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    }
+                }
+            }
+        },
         "/product1c/list": {
             "get": {
                 "security": [
@@ -31055,6 +31117,71 @@ const docTemplate = `{
                     "items": {
                         "$ref": "#/definitions/domain.OnecProductRepricing"
                     }
+                }
+            }
+        },
+        "domain.OnecTransferProduct": {
+            "type": "object",
+            "properties": {
+                "barcode": {
+                    "type": "string"
+                },
+                "count": {
+                    "type": "number"
+                }
+            }
+        },
+        "domain.OnecTransferRequest": {
+            "type": "object",
+            "properties": {
+                "from_store_id": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "products": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/domain.OnecTransferProduct"
+                    }
+                },
+                "to_store_id": {
+                    "type": "string"
+                }
+            }
+        },
+        "domain.OnecTransferResponse": {
+            "type": "object",
+            "properties": {
+                "transfer_id": {
+                    "type": "string"
+                },
+                "unfulfilled": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/domain.OnecTransferUnfulfilled"
+                    }
+                }
+            }
+        },
+        "domain.OnecTransferUnfulfilled": {
+            "type": "object",
+            "properties": {
+                "accepted": {
+                    "type": "number"
+                },
+                "material_code": {
+                    "type": "integer"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "remaining": {
+                    "type": "number"
+                },
+                "requested": {
+                    "type": "number"
                 }
             }
         },

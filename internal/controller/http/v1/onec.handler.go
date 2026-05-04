@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"strconv"
+	"sync"
 
 	"github.com/gin-gonic/gin"
 	"github.com/pharma-crm-backend/domain"
@@ -33,6 +34,7 @@ func (h *ProductOnecHandler) ProductOnecRoutes(r *gin.RouterGroup) {
 		onec.POST("/max-price-changing", h.CreateMaxPriceChanging)
 		onec.POST("/barcode/create-or-update", h.CreateOrUpdateBarcodes)
 		onec.POST("/uzumtezkor/repricing-products", h.InsertFromOnec)
+		onec.POST("/transfer/create-and-send", h.CreateAndSendForOnec)
 	}
 	r.POST("/generate-token", h.GenerateOnecToken)
 }
@@ -530,7 +532,6 @@ func (h *ProductOnecHandler) GenerateOnecToken(c *gin.Context) {
 	handleResponse(c, OK, token)
 }
 
-
 // CreatePriceChanged godoc
 // @Summary Create product price changing
 // @Description Save product price changing data from 1C
@@ -613,7 +614,6 @@ func (h *ProductOnecHandler) CreateOrUpdateBarcodes(c *gin.Context) {
 	handleResponse(c, OK, "SUCCESS")
 }
 
-
 // RepriceForUzumTezkor godoc
 // @Summary		Insert uzumtezkor products prices from 1C
 // @Description	Save uzumtezkor products price insert data from 1C
@@ -652,3 +652,44 @@ func (h *ProductOnecHandler) InsertFromOnec(c *gin.Context) {
 	handleResponse(c, OK, "CREATED")
 }
 
+// CreateAndSendTransfer godoc
+// @Summary Create and send transfer in one step (1C integration)
+// @Description Creates transfer, sets expected_count per product (capped at available stock), deducts from source store — all in one transaction. Response contains unfulfilled products with material_code and remaining count.
+// @Tags 1C Api
+// @Security BearerAuth
+// @Accept json
+// @Produce json
+// @Param body body domain.OnecTransferRequest true "1C transfer request"
+// @Success 200 {object} v1.Response{data=domain.OnecTransferResponse}
+// @Failure 400 {object} v1.Response
+// @Failure 500 {object} v1.Response
+// @Router /product1c/create-and-send-onec [POST]
+func (h *ProductOnecHandler) CreateAndSendForOnec(c *gin.Context) {
+	user := h.service.GetSignedUser(c)
+	if user.UserId == "" {
+		handleServiceResponse(c, nil, domain.UnauthorizedError)
+		return
+	}
+
+	var request domain.OnecTransferRequest
+	if err := c.ShouldBindJSON(&request); err != nil {
+		handleServiceResponse(c, BadRequest, domain.InvalidRequestBodyError)
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(c.Request.Context(), constants.DefaultContextTimeout)
+	defer cancel()
+
+	lock, _ := h.ordersToMutexes.LoadOrStore(request.FromStoreId+request.ToStoreId, &sync.Mutex{})
+	mu := lock.(*sync.Mutex)
+	mu.Lock()
+	defer mu.Unlock()
+
+	res, err := h.service.CreateAndSendTransferForOnec(ctx, &request, user.UserId)
+	if err != nil {
+		handleServiceResponse(c, nil, err)
+		return
+	}
+
+	handleResponse(c, OK, res)
+}

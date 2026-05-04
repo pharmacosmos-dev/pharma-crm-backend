@@ -150,3 +150,30 @@ type EmployeeTransferLog struct {
 	Id       string `gorm:"id" json:"id"`
 	FullName string `gorm:"full_name" json:"full_name"`
 }
+
+
+type OnecTransferProduct struct {
+  Barcode string  `json:"barcode"`
+  Count   float64 `json:"count"`
+}
+
+type OnecTransferRequest struct {
+  Name        string               `json:"name"`
+  FromStoreId string               `json:"from_store_id"`
+  ToStoreId   string               `json:"to_store_id"`
+  Products    []OnecTransferProduct `json:"products"`
+}
+
+type OnecTransferUnfulfilled struct {
+  MaterialCode int     `json:"material_code"`
+  Name         string  `json:"name"`
+  Requested    float64 `json:"requested"`
+  Accepted     float64 `json:"accepted"`
+  Remaining    float64 `json:"remaining"`
+}
+
+type OnecTransferResponse struct {
+  TransferId  string                    `json:"transfer_id"`
+  Unfulfilled []OnecTransferUnfulfilled `json:"unfulfilled"`
+}
+

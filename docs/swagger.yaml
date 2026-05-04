@@ -1,4 +1,3 @@
-basePath: /v1
 definitions:
   domain.AddDiscountCard:
     properties:
@@ -1140,6 +1139,48 @@ definitions:
           $ref: '#/definitions/domain.OnecProductRepricing'
         type: array
     type: object
+  domain.OnecTransferProduct:
+    properties:
+      barcode:
+        type: string
+      count:
+        type: number
+    type: object
+  domain.OnecTransferRequest:
+    properties:
+      from_store_id:
+        type: string
+      name:
+        type: string
+      products:
+        items:
+          $ref: '#/definitions/domain.OnecTransferProduct'
+        type: array
+      to_store_id:
+        type: string
+    type: object
+  domain.OnecTransferResponse:
+    properties:
+      transfer_id:
+        type: string
+      unfulfilled:
+        items:
+          $ref: '#/definitions/domain.OnecTransferUnfulfilled'
+        type: array
+    type: object
+  domain.OnecTransferUnfulfilled:
+    properties:
+      accepted:
+        type: number
+      material_code:
+        type: integer
+      name:
+        type: string
+      remaining:
+        type: number
+      requested:
+        type: number
+    type: object
   domain.OnecUpdateQuantityRequest:
     properties:
       Dok:
@@ -2146,10 +2187,6 @@ definitions:
     type: object
 info:
   contact: {}
-  description: This is a sample server caller server.
-  termsOfService: http://swagger.io/terms/
-  title: Pharma API docs
-  version: "1.0"
 paths:
   /auto-order:
     post:
@@ -13233,6 +13270,45 @@ paths:
       security:
       - BearerAuth: []
       summary: Upsert product barcodes and material codes
+      tags:
+      - 1C Api
+  /product1c/create-and-send-onec:
+    post:
+      consumes:
+      - application/json
+      description: Creates transfer, sets expected_count per product (capped at available
+        stock), deducts from source store — all in one transaction. Response contains
+        unfulfilled products with material_code and remaining count.
+      parameters:
+      - description: 1C transfer request
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/domain.OnecTransferRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/v1.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/domain.OnecTransferResponse'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Create and send transfer in one step (1C integration)
       tags:
       - 1C Api
   /product1c/list:
