@@ -663,7 +663,7 @@ func (h *ProductOnecHandler) InsertFromOnec(c *gin.Context) {
 // @Success 200 {object} v1.Response{data=domain.OnecTransferResponse}
 // @Failure 400 {object} v1.Response
 // @Failure 500 {object} v1.Response
-// @Router /product1c/transfer/create-and-send-onec [POST]
+// @Router /product1c/transfer/create-and-send [POST]
 func (h *ProductOnecHandler) CreateAndSendForOnec(c *gin.Context) {
 	user := h.service.GetSignedUser(c)
 	if user.UserId == "" {

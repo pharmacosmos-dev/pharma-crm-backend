@@ -13479,7 +13479,7 @@ paths:
       summary: Save Asil Belgi Token
       tags:
       - 1C Api
-  /product1c/transfer/create-and-send-onec:
+  /product1c/transfer/create-and-send:
     post:
       consumes:
       - application/json

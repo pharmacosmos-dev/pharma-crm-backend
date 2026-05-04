@@ -17731,7 +17731,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/product1c/transfer/create-and-send-onec": {
+        "/product1c/transfer/create-and-send": {
             "post": {
                 "security": [
                     {
