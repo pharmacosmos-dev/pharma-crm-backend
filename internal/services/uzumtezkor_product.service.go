@@ -14,6 +14,11 @@ func (s *Services) InsertOnlinePricesFromOnec(ctx context.Context, req *domain.U
 		return fmt.Errorf("items list is empty")
 	}
 
+	var createdByVal interface{}
+	if createdBy != "" {
+		createdByVal = createdBy
+	}
+
 	tx := s.db.WithContext(ctx).Begin()
 	defer func() {
 		if r := recover(); r != nil {
@@ -30,7 +35,7 @@ func (s *Services) InsertOnlinePricesFromOnec(ctx context.Context, req *domain.U
 			LIMIT 1`,
 			item.MaterialCode,
 			item.RetailPrice,
-			createdBy,
+			createdByVal,
 			item.MaterialCode,
 		).Error
 		if err != nil {

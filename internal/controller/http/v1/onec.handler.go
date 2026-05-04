@@ -639,7 +639,7 @@ func (h *ProductOnecHandler) InsertFromOnec(c *gin.Context) {
 	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
 	defer cancel()
 
-	if err := h.service.InsertOnlinePricesFromOnec(ctx, &req, "user_1c"); err != nil {
+	if err := h.service.InsertOnlinePricesFromOnec(ctx, &req, ""); err != nil {
 		handleServiceResponse(c, nil, err)
 		return
 	}
@@ -674,7 +674,7 @@ func (h *ProductOnecHandler) CreateAndSendForOnec(c *gin.Context) {
 	mu.Lock()
 	defer mu.Unlock()
 
-	res, err := h.service.CreateAndSendTransferForOnec(ctx, &request, "user_1c")
+	res, err := h.service.CreateAndSendTransferForOnec(ctx, &request, "")
 	if err != nil {
 		handleServiceResponse(c, nil, err)
 		return

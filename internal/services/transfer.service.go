@@ -1535,12 +1535,16 @@ func (s *Services) CreateAndSendTransferForOnec(ctx context.Context, req *domain
 	}()
 
 	// 1. Create transfer record
+	var createdBy interface{}
+	if userId != "" {
+		createdBy = userId
+	}
 	var transferId string
 	err := tx.WithContext(ctx).Raw(`
     INSERT INTO transfers (from_store_id, to_store_id, name, created_by)
     VALUES (?, ?, ?, ?)
     RETURNING id`,
-		req.FromStoreId, req.ToStoreId, req.Name, userId,
+		req.FromStoreId, req.ToStoreId, req.Name, createdBy,
 	).Scan(&transferId).Error
 	if err != nil {
 		_ = tx.Rollback()
