@@ -1003,6 +1003,7 @@ func (s *Services) DoRequestOnec(ctx context.Context, data any, url string) erro
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Accept", "application/json")
 	if s.cfg.OnecApiUrl != "test" {
+		s.log.Infof("sending 1C request: POST %s%s", s.cfg.OnecApiUrl, url)
 		// Execute request
 		response, err := client.Do(req)
 		if err != nil {
@@ -1013,12 +1014,17 @@ func (s *Services) DoRequestOnec(ctx context.Context, data any, url string) erro
 		defer response.Body.Close()
 
 		// var info map[string]any
-		_, err = io.ReadAll(response.Body)
+		respBody, err := io.ReadAll(response.Body)
 		if err != nil {
 			s.log.Errorf("could not decode response: %v", err)
 			return err
 		}
 
+		s.log.Infof("1C response status: %d, body: %s", response.StatusCode, string(respBody))
+
+		if response.StatusCode < 200 || response.StatusCode >= 300 {
+			return fmt.Errorf("1C returned non-success status %d: %s", response.StatusCode, string(respBody))
+		}
 	}
 	return nil
 }
