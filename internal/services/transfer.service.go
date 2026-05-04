@@ -1524,8 +1524,9 @@ func (s *Services) GetTransferLogs(ctx context.Context, params *domain.ReturnDet
 }
 
 
-// CreateAndSendTransferForOnec creates a transfer, sets expected quantities per product (capped at
-// available stock), deducts from source store, and returns any unfulfilled products in one transaction.
+// CreateAndSendTransferForOnec creates a transfer from 1C in one step.
+// For each requested product (material_code + count), finds matching store_products
+// FIFO by expire_date, inserts transfer_details, deducts stock, and returns unfulfilled products.
 func (s *Services) CreateAndSendTransferForOnec(ctx context.Context, req *domain.OnecTransferRequest, userId string) (*domain.OnecTransferResponse, error) {
 	tx := s.db.Begin()
 	defer func() {
@@ -1541,9 +1542,9 @@ func (s *Services) CreateAndSendTransferForOnec(ctx context.Context, req *domain
 	}
 	var transferId string
 	err := tx.WithContext(ctx).Raw(`
-    INSERT INTO transfers (from_store_id, to_store_id, name, created_by)
-    VALUES (?, ?, ?, ?)
-    RETURNING id`,
+		INSERT INTO transfers (from_store_id, to_store_id, name, created_by)
+		VALUES (?, ?, ?, ?)
+		RETURNING id`,
 		req.FromStoreId, req.ToStoreId, req.Name, createdBy,
 	).Scan(&transferId).Error
 	if err != nil {
@@ -1552,94 +1553,92 @@ func (s *Services) CreateAndSendTransferForOnec(ctx context.Context, req *domain
 		return nil, domain.InternalServerError
 	}
 
-	// 2. Insert all source-store products as transfer_details
-	detailsResult := tx.WithContext(ctx).Exec(`
-    INSERT INTO transfer_details (
-      transfer_id, store_product_id, product_id, received_count,
-      supply_price, retail_price, expire_date, serial_number
-    ) SELECT
-      ?,
-      sp.id,
-      sp.product_id,
-      sp.unit_quantity::numeric / p.unit_per_pack,
-      sp.supply_price,
-      sp.retail_price,
-      sp.expire_date,
-      sp.serial_number
-    FROM store_products sp
-    JOIN products p ON sp.product_id = p.id
-    WHERE sp.store_id = ? AND sp.unit_quantity::numeric / p.unit_per_pack > 0`,
-		transferId, req.FromStoreId)
-	if detailsResult.Error != nil {
-		_ = tx.Rollback()
-		s.log.Errorf("onec transfer: insert details: %v", detailsResult.Error)
-		return nil, domain.InternalServerError
-	}
-	s.log.Infof("onec transfer: inserted %d transfer_details for store %s", detailsResult.RowsAffected, req.FromStoreId)
-
-	// 3. Barcha transfer_details ni bir marta olamiz, keyin material_code bo'yicha Go kodida moslashtirish
-	var allRows []struct {
-		Id            string  `gorm:"column:id"`
-		ReceivedCount float64 `gorm:"column:received_count"`
-		MaterialCode  int     `gorm:"column:material_code"`
-		Name          string  `gorm:"column:name"`
-	}
-	err = tx.WithContext(ctx).Raw(`
-		SELECT td.id, td.received_count, p.material_code, p.name
-		FROM transfer_details td
-		JOIN products p ON td.product_id = p.id
-		WHERE td.transfer_id = ?
-		ORDER BY td.expire_date ASC NULLS LAST`,
-		transferId).Scan(&allRows).Error
-	if err != nil {
-		_ = tx.Rollback()
-		s.log.Errorf("onec transfer: fetch all details: %v", err)
-		return nil, domain.InternalServerError
-	}
-
-	// material_code -> rows index
-	mcRows := make(map[int][]int)
-	for i, row := range allRows {
-		mcRows[row.MaterialCode] = append(mcRows[row.MaterialCode], i)
-	}
-
+	// 2. For each requested product: find stock FIFO, insert transfer_detail, deduct store
 	var unfulfilled []domain.OnecTransferUnfulfilled
 
 	for _, product := range req.Products {
-		indices := mcRows[product.MaterialCode]
-		remaining := product.Count
+		var stockRows []struct {
+			StoreProductId string     `gorm:"column:store_product_id"`
+			ProductId      string     `gorm:"column:product_id"`
+			Available      float64    `gorm:"column:available"`
+			SupplyPrice    float64    `gorm:"column:supply_price"`
+			RetailPrice    float64    `gorm:"column:retail_price"`
+			ExpireDate     *time.Time `gorm:"column:expire_date"`
+			SerialNumber   string     `gorm:"column:serial_number"`
+			UnitPerPack    float64    `gorm:"column:unit_per_pack"`
+			Name           string     `gorm:"column:name"`
+		}
+		err = tx.WithContext(ctx).Raw(`
+			SELECT
+				sp.id            AS store_product_id,
+				sp.product_id,
+				sp.unit_quantity::numeric / p.unit_per_pack AS available,
+				sp.supply_price,
+				sp.retail_price,
+				sp.expire_date,
+				sp.serial_number,
+				p.unit_per_pack,
+				p.name
+			FROM store_products sp
+			JOIN products p ON sp.product_id = p.id
+			WHERE sp.store_id = ? AND p.material_code = ? AND sp.unit_quantity > 0
+			ORDER BY sp.expire_date ASC NULLS LAST`,
+			req.FromStoreId, product.MaterialCode).Scan(&stockRows).Error
+		if err != nil {
+			_ = tx.Rollback()
+			s.log.Errorf("onec transfer: fetch stock for material_code=%d: %v", product.MaterialCode, err)
+			return nil, domain.InternalServerError
+		}
 
-		for _, idx := range indices {
+		productName := fmt.Sprintf("%d", product.MaterialCode)
+		if len(stockRows) > 0 {
+			productName = stockRows[0].Name
+		}
+
+		remaining := product.Count
+		for _, stock := range stockRows {
 			if remaining <= 0 {
 				break
 			}
-			row := allRows[idx]
 			toSet := remaining
-			if toSet > row.ReceivedCount {
-				toSet = row.ReceivedCount
+			if toSet > stock.Available {
+				toSet = stock.Available
 			}
-			// scanned_count = expected_count so SendTransferToOnec can find these rows later
+
 			err = tx.WithContext(ctx).Exec(`
-				UPDATE transfer_details
-				SET expected_count = ?, scanned_count = ?, updated_at = NOW()
-				WHERE id = ?`,
-				toSet, toSet, row.Id).Error
+				INSERT INTO transfer_details (
+					transfer_id, store_product_id, product_id,
+					received_count, expected_count, scanned_count,
+					supply_price, retail_price, expire_date, serial_number
+				) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+				transferId, stock.StoreProductId, stock.ProductId,
+				stock.Available, toSet, toSet,
+				stock.SupplyPrice, stock.RetailPrice, stock.ExpireDate, stock.SerialNumber,
+			).Error
 			if err != nil {
 				_ = tx.Rollback()
-				s.log.Errorf("onec transfer: set expected_count for detail %s: %v", row.Id, err)
+				s.log.Errorf("onec transfer: insert detail for material_code=%d: %v", product.MaterialCode, err)
 				return nil, domain.InternalServerError
 			}
+
+			err = tx.WithContext(ctx).Exec(`
+				UPDATE store_products
+				SET unit_quantity = unit_quantity - ?, updated_at = NOW()
+				WHERE id = ?`,
+				toSet*stock.UnitPerPack, stock.StoreProductId).Error
+			if err != nil {
+				_ = tx.Rollback()
+				s.log.Errorf("onec transfer: deduct store_product %s: %v", stock.StoreProductId, err)
+				return nil, domain.InternalServerError
+			}
+
 			remaining -= toSet
 		}
 
 		if remaining > 0 {
-			name := fmt.Sprintf("%d", product.MaterialCode)
-			if len(indices) > 0 {
-				name = allRows[indices[0]].Name
-			}
 			unfulfilled = append(unfulfilled, domain.OnecTransferUnfulfilled{
 				MaterialCode: product.MaterialCode,
-				Name:         name,
+				Name:         productName,
 				Requested:    product.Count,
 				Accepted:     product.Count - remaining,
 				Remaining:    remaining,
@@ -1647,9 +1646,9 @@ func (s *Services) CreateAndSendTransferForOnec(ctx context.Context, req *domain
 		}
 	}
 
-	// 4. Update transfer status to sent
+	// 3. Update transfer status to sent
 	err = tx.WithContext(ctx).Exec(`
-    UPDATE transfers SET status = ?, updated_by = ? WHERE id = ?`,
+		UPDATE transfers SET status = ?, updated_by = ? WHERE id = ?`,
 		constants.GeneralStatusSent, createdBy, transferId).Error
 	if err != nil {
 		_ = tx.Rollback()
@@ -1657,42 +1656,10 @@ func (s *Services) CreateAndSendTransferForOnec(ctx context.Context, req *domain
 		return nil, domain.InternalServerError
 	}
 
-	// 5. Deduct expected quantities from source store
-	var details []struct {
-		StoreProductId string  `gorm:"column:store_product_id"`
-		ExpectedCount  float64 `gorm:"column:expected_count"`
-		UnitPerPack    float64 `gorm:"column:unit_per_pack"`
-	}
-	err = tx.WithContext(ctx).Raw(`
-    SELECT td.store_product_id, td.expected_count, p.unit_per_pack
-    FROM transfer_details td
-    JOIN products p ON td.product_id = p.id
-    WHERE td.transfer_id = ? AND td.expected_count > 0`,
-		transferId).Scan(&details).Error
-	if err != nil {
-		_ = tx.Rollback()
-		s.log.Errorf("onec transfer: fetch details for deduction: %v", err)
-		return nil, domain.InternalServerError
-	}
-
-	for _, d := range details {
-		err = tx.WithContext(ctx).Exec(`
-      UPDATE store_products SET unit_quantity = unit_quantity - ?, updated_at = NOW()
-      WHERE id = ?`,
-			d.ExpectedCount*d.UnitPerPack, d.StoreProductId).Error
-		if err != nil {
-			_ = tx.Rollback()
-			s.log.Errorf("onec transfer: deduct store_product %s: %v", d.StoreProductId, err)
-			return nil, domain.InternalServerError
-		}
-	}
-
 	if err = tx.Commit().Error; err != nil {
 		s.log.Errorf("onec transfer: commit: %v", err)
 		return nil, domain.InternalServerError
 	}
-
-	go s.deleteNotInsertedTransferDetails(transferId)
 
 	return &domain.OnecTransferResponse{
 		TransferId:  transferId,
