@@ -1003,7 +1003,7 @@ func (s *Services) DoRequestOnec(ctx context.Context, data any, url string) erro
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Accept", "application/json")
 	if s.cfg.OnecApiUrl != "test" {
-		s.log.Infof("sending 1C request: POST %s%s", s.cfg.OnecApiUrl, url)
+		s.log.Infof("sending 1C request: POST %s%s, body: %s", s.cfg.OnecApiUrl, url, buf.String())
 		// Execute request
 		response, err := client.Do(req)
 		if err != nil {
