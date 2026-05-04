@@ -101,7 +101,7 @@ type StoreAmount struct {
 	Payme          float64    `gorm:"payme" json:"payme"`
 	Alif           float64    `gorm:"alif" json:"alif"`
 	Uzum           float64    `gorm:"uzum" json:"uzum"`
-	UzumTezkor     float64    `gorm:"uzum_tez_kor" json:"uzum_tez_kor"`
+	UzumTezKor     float64    `gorm:"column:uzum_tez_kor" json:"uzum_tez_kor"`
 	ReturnAmount   float64    `gorm:"return_amount" json:"return_amount"`
 	TotalAmount    float64    `gorm:"total_amount" json:"total_amount"`
 	DiscountAmount float64    `gorm:"discount_amount" json:"discount_amount"`
