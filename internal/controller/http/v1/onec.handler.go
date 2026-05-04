@@ -625,11 +625,6 @@ func (h *ProductOnecHandler) CreateOrUpdateBarcodes(c *gin.Context) {
 // @Success		200 {object} v1.Response
 // @Router		/product1c/uzumtezkor/repricing-products [post]
 func (h *ProductOnecHandler) InsertFromOnec(c *gin.Context) {
-	user := h.service.GetSignedUser(c)
-	if user.UserId == "" {
-		handleServiceResponse(c, nil, domain.UnauthorizedError)
-		return
-	}
 
 	var req domain.UzumTezkorProductRepriceFromOnecRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -644,7 +639,7 @@ func (h *ProductOnecHandler) InsertFromOnec(c *gin.Context) {
 	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
 	defer cancel()
 
-	if err := h.service.InsertOnlinePricesFromOnec(ctx, &req, user.UserId); err != nil {
+	if err := h.service.InsertOnlinePricesFromOnec(ctx, &req, "user_1c"); err != nil {
 		handleServiceResponse(c, nil, err)
 		return
 	}
@@ -665,12 +660,6 @@ func (h *ProductOnecHandler) InsertFromOnec(c *gin.Context) {
 // @Failure 500 {object} v1.Response
 // @Router /product1c/transfer/create-and-send [POST]
 func (h *ProductOnecHandler) CreateAndSendForOnec(c *gin.Context) {
-	user := h.service.GetSignedUser(c)
-	if user.UserId == "" {
-		handleServiceResponse(c, nil, domain.UnauthorizedError)
-		return
-	}
-
 	var request domain.OnecTransferRequest
 	if err := c.ShouldBindJSON(&request); err != nil {
 		handleServiceResponse(c, BadRequest, domain.InvalidRequestBodyError)
@@ -685,7 +674,7 @@ func (h *ProductOnecHandler) CreateAndSendForOnec(c *gin.Context) {
 	mu.Lock()
 	defer mu.Unlock()
 
-	res, err := h.service.CreateAndSendTransferForOnec(ctx, &request, user.UserId)
+	res, err := h.service.CreateAndSendTransferForOnec(ctx, &request, "user_1c")
 	if err != nil {
 		handleServiceResponse(c, nil, err)
 		return
