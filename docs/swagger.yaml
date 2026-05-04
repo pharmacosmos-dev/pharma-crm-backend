@@ -20940,4 +20940,11 @@ paths:
       summary: Get Write-Off summary stats
       tags:
       - Write-Off
+securityDefinitions:
+  BasicAuth:
+    type: basic
+  BearerAuth:
+    in: header
+    name: Authorization
+    type: apiKey
 swagger: "2.0"
