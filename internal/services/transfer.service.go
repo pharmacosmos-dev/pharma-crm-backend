@@ -1652,7 +1652,7 @@ func (s *Services) CreateAndSendTransferForOnec(ctx context.Context, req *domain
 	// 4. Update transfer status to sent
 	err = tx.WithContext(ctx).Exec(`
     UPDATE transfers SET status = ?, updated_by = ? WHERE id = ?`,
-		constants.GeneralStatusSent, userId, transferId).Error
+		constants.GeneralStatusSent, createdBy, transferId).Error
 	if err != nil {
 		_ = tx.Rollback()
 		s.log.Errorf("onec transfer: update status: %v", err)
