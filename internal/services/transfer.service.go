@@ -1553,7 +1553,7 @@ func (s *Services) CreateAndSendTransferForOnec(ctx context.Context, req *domain
 	}
 
 	// 2. Insert all source-store products as transfer_details
-	err = tx.WithContext(ctx).Exec(`
+	detailsResult := tx.WithContext(ctx).Exec(`
     INSERT INTO transfer_details (
       transfer_id, store_product_id, product_id, received_count,
       supply_price, retail_price, expire_date, serial_number
@@ -1568,13 +1568,14 @@ func (s *Services) CreateAndSendTransferForOnec(ctx context.Context, req *domain
       sp.serial_number
     FROM store_products sp
     JOIN products p ON sp.product_id = p.id
-    WHERE sp.store_id = ? AND sp.unit_quantity / p.unit_per_pack > 0`,
-		transferId, req.FromStoreId).Error
-	if err != nil {
+    WHERE sp.store_id = ? AND sp.unit_quantity::numeric / p.unit_per_pack > 0`,
+		transferId, req.FromStoreId)
+	if detailsResult.Error != nil {
 		_ = tx.Rollback()
-		s.log.Errorf("onec transfer: insert details: %v", err)
+		s.log.Errorf("onec transfer: insert details: %v", detailsResult.Error)
 		return nil, domain.InternalServerError
 	}
+	s.log.Infof("onec transfer: inserted %d transfer_details for store %s", detailsResult.RowsAffected, req.FromStoreId)
 
 	// 3. Barcha transfer_details ni bir marta olamiz, keyin material_code bo'yicha Go kodida moslashtirish
 	var allRows []struct {
