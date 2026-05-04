@@ -7197,55 +7197,6 @@ const docTemplate = `{
                 }
             }
         },
-        "/helper/convert-material-code-to-id": {
-            "post": {
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ],
-                "description": "Excel fayldan material_code larni o'qib, products jadvalidan id topib, yangi Excel qaytaradi. A=id, B=name, C=Страна, D=Срок годности",
-                "consumes": [
-                    "multipart/form-data"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "helper"
-                ],
-                "summary": "Excel A ustunidagi material_code larni product id ga aylantirish",
-                "parameters": [
-                    {
-                        "type": "file",
-                        "description": "Excel file — A: material_code, B: name, C: Страна, D: Срок годности",
-                        "name": "file",
-                        "in": "formData",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/v1.Response"
-                        }
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "$ref": "#/definitions/v1.Response"
-                        }
-                    },
-                    "500": {
-                        "description": "Internal Server Error",
-                        "schema": {
-                            "$ref": "#/definitions/v1.Response"
-                        }
-                    }
-                }
-            }
-        },
         "/helper/delete-not-photos": {
             "delete": {
                 "security": [

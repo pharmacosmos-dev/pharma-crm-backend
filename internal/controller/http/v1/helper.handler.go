@@ -55,7 +55,6 @@ func (h *HelperHandler) HelperRoutes(r *gin.RouterGroup) {
 		helper.POST("/upload-uzum-tezkor-price", h.UploadUzumTezkorPrice)
 		helper.POST("/check-online-price-by-ids", h.CheckOnlinePriceByIds)
 		helper.POST("/check-products-by-material-code", h.CheckProductsByMaterialCode)
-		helper.POST("/convert-material-code-to-id", h.ConvertMaterialCodeToId)
 		// helper.POST("/upload-category", h.UploadCategory)
 		// helper.POST("/upload-customer", h.UploadCustomer)
 		// helper.POST("/upload-import", h.UploadImport)
@@ -3035,101 +3034,6 @@ func (h *HelperHandler) UploadUzumTezkorPrice(c *gin.Context) {
 		"inserted": inserted,
 		"skipped":  skipped,
 	})
-}
-
-// ConvertMaterialCodeToId godoc
-// @Summary      Excel A ustunidagi material_code larni product id ga aylantirish
-// @Description  Excel fayldan material_code larni o'qib, products jadvalidan id topib, yangi Excel qaytaradi. A=id, B=name, C=Страна, D=Срок годности
-// @Tags         helper
-// @Security     BearerAuth
-// @Accept       multipart/form-data
-// @Produce      json
-// @Param        file formData file true "Excel file — A: material_code, B: name, C: Страна, D: Срок годности"
-// @Success      200 {object} v1.Response
-// @Failure      400 {object} v1.Response
-// @Failure      500 {object} v1.Response
-// @Router       /helper/convert-material-code-to-id [post]
-func (h *HelperHandler) ConvertMaterialCodeToId(c *gin.Context) {
-	var file domain.File
-	if err := c.ShouldBind(&file); err != nil {
-		handleResponse(c, BadRequest, err.Error())
-		return
-	}
-
-	ext := filepath.Ext(file.File.Filename)
-	if ext != ".xlsx" && ext != ".xls" {
-		handleResponse(c, BadRequest, "Unsupported file format")
-		return
-	}
-
-	newFilename := uuid.New().String() + ext
-	savePath := filepath.Join("uploads", newFilename)
-	if err := c.SaveUploadedFile(file.File, savePath); err != nil {
-		handleResponse(c, InternalError, "Failed to save file")
-		return
-	}
-	defer os.Remove(savePath)
-
-	xlsx, err := excelize.OpenFile(savePath)
-	if err != nil {
-		handleResponse(c, BadRequest, "Failed to open Excel file")
-		return
-	}
-	defer xlsx.Close()
-
-	sheetName := xlsx.GetSheetName(0)
-	rows, err := xlsx.GetRows(sheetName)
-	if err != nil {
-		handleResponse(c, InternalError, "Failed to get rows")
-		return
-	}
-
-	out := excelize.NewFile()
-	outSheet := "Sheet1"
-	out.SetCellValue(outSheet, "A1", "id")
-	out.SetCellValue(outSheet, "B1", "name")
-	out.SetCellValue(outSheet, "C1", "Страна")
-	out.SetCellValue(outSheet, "D1", "Срок годности")
-
-	rowNum := 2
-	for _, row := range rows[1:] { // Skip header
-		if len(row) == 0 {
-			continue
-		}
-
-		materialCode := parseIntComma(strings.TrimSpace(row[0]))
-		if materialCode == 0 {
-			continue
-		}
-
-		var productID string
-		if err := h.db.Raw(`SELECT id FROM products WHERE material_code = ? LIMIT 1`, materialCode).
-			Scan(&productID).Error; err != nil || productID == "" {
-			h.log.Warnf("Product not found for material_code: %d", materialCode)
-			continue
-		}
-
-		name := ""
-		country := ""
-		expiry := ""
-		if len(row) > 1 {
-			name = row[1]
-		}
-		if len(row) > 2 {
-			country = row[2]
-		}
-		if len(row) > 3 {
-			expiry = row[3]
-		}
-
-		out.SetCellValue(outSheet, fmt.Sprintf("A%d", rowNum), productID)
-		out.SetCellValue(outSheet, fmt.Sprintf("B%d", rowNum), name)
-		out.SetCellValue(outSheet, fmt.Sprintf("C%d", rowNum), country)
-		out.SetCellValue(outSheet, fmt.Sprintf("D%d", rowNum), expiry)
-		rowNum++
-	}
-
-	saveExcelToUploads(c, out, *h.log, "converted_material_code_to_id")
 }
 
 
