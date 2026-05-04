@@ -1576,16 +1576,15 @@ func (s *Services) CreateAndSendTransferForOnec(ctx context.Context, req *domain
 		return nil, domain.InternalServerError
 	}
 
-	// 3. Barcha transfer_details ni bir marta olamiz, keyin barcode bo'yicha Go kodida moslashtirish
+	// 3. Barcha transfer_details ni bir marta olamiz, keyin material_code bo'yicha Go kodida moslashtirish
 	var allRows []struct {
 		Id            string  `gorm:"column:id"`
-		Barcode       string  `gorm:"column:barcode"`
 		ReceivedCount float64 `gorm:"column:received_count"`
 		MaterialCode  int     `gorm:"column:material_code"`
 		Name          string  `gorm:"column:name"`
 	}
 	err = tx.WithContext(ctx).Raw(`
-		SELECT td.id, td.received_count, p.barcode, p.material_code, p.name
+		SELECT td.id, td.received_count, p.material_code, p.name
 		FROM transfer_details td
 		JOIN products p ON td.product_id = p.id
 		WHERE td.transfer_id = ?
@@ -1597,16 +1596,16 @@ func (s *Services) CreateAndSendTransferForOnec(ctx context.Context, req *domain
 		return nil, domain.InternalServerError
 	}
 
-	// barcode -> rows index
-	barcodeRows := make(map[string][]int)
+	// material_code -> rows index
+	mcRows := make(map[int][]int)
 	for i, row := range allRows {
-		barcodeRows[row.Barcode] = append(barcodeRows[row.Barcode], i)
+		mcRows[row.MaterialCode] = append(mcRows[row.MaterialCode], i)
 	}
 
 	var unfulfilled []domain.OnecTransferUnfulfilled
 
 	for _, product := range req.Products {
-		indices := barcodeRows[product.Barcode]
+		indices := mcRows[product.MaterialCode]
 		remaining := product.Count
 
 		for _, idx := range indices {
@@ -1633,14 +1632,12 @@ func (s *Services) CreateAndSendTransferForOnec(ctx context.Context, req *domain
 		}
 
 		if remaining > 0 {
-			materialCode := 0
-			name := product.Barcode
+			name := fmt.Sprintf("%d", product.MaterialCode)
 			if len(indices) > 0 {
-				materialCode = allRows[indices[0]].MaterialCode
 				name = allRows[indices[0]].Name
 			}
 			unfulfilled = append(unfulfilled, domain.OnecTransferUnfulfilled{
-				MaterialCode: materialCode,
+				MaterialCode: product.MaterialCode,
 				Name:         name,
 				Requested:    product.Count,
 				Accepted:     product.Count - remaining,

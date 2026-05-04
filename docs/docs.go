@@ -31124,11 +31124,11 @@ const docTemplate = `{
         "domain.OnecTransferProduct": {
             "type": "object",
             "properties": {
-                "barcode": {
-                    "type": "string"
-                },
                 "count": {
                     "type": "number"
+                },
+                "material_code": {
+                    "type": "integer"
                 }
             }
         },

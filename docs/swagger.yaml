@@ -1142,10 +1142,10 @@ definitions:
     type: object
   domain.OnecTransferProduct:
     properties:
-      barcode:
-        type: string
       count:
         type: number
+      material_code:
+        type: integer
     type: object
   domain.OnecTransferRequest:
     properties:

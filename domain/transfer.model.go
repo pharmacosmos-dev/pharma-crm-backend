@@ -153,8 +153,8 @@ type EmployeeTransferLog struct {
 
 
 type OnecTransferProduct struct {
-  Barcode string  `json:"barcode"`
-  Count   float64 `json:"count"`
+  MaterialCode int     `json:"material_code"`
+  Count        float64 `json:"count"`
 }
 
 type OnecTransferRequest struct {
