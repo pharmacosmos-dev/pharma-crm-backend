@@ -655,10 +655,10 @@ func (h *ProductOnecHandler) InsertFromOnec(c *gin.Context) {
 // CreateAndSendTransfer godoc
 // @Summary Create and send transfer in one step (1C integration)
 // @Description Creates transfer, sets expected_count per product (capped at available stock), deducts from source store — all in one transaction. Response contains unfulfilled products with material_code and remaining count.
-// @Tags 1C Api
-// @Security BearerAuth
-// @Accept json
-// @Produce json
+// @Tags        1C Api
+// @Security    BearerAuth
+// @Accept      json
+// @Produce     json
 // @Param body body domain.OnecTransferRequest true "1C transfer request"
 // @Success 200 {object} v1.Response{data=domain.OnecTransferResponse}
 // @Failure 400 {object} v1.Response

@@ -4,8 +4,8 @@
         "description": "This is a sample server caller server.",
         "title": "Pharma API docs",
         "termsOfService": "http://swagger.io/terms/",
-        "version": "1.0",
-        "contact": {}
+        "contact": {},
+        "version": "1.0"
     },
     "basePath": "/v1",
     "paths": {
