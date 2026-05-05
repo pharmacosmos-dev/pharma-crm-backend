@@ -1570,7 +1570,7 @@ func (s *Services) CreateAndSendTransferForOnec(ctx context.Context, req *domain
 		}
 		err = tx.WithContext(ctx).Raw(`
 			SELECT
-				sp.id            AS store_product_id,
+				sp.id AS store_product_id,
 				sp.product_id,
 				sp.unit_quantity::numeric / p.unit_per_pack AS available,
 				sp.supply_price,
@@ -1588,6 +1588,25 @@ func (s *Services) CreateAndSendTransferForOnec(ctx context.Context, req *domain
 			_ = tx.Rollback()
 			s.log.Errorf("onec transfer: fetch stock for material_code=%d: %v", product.MaterialCode, err)
 			return nil, domain.InternalServerError
+		}
+
+		if len(stockRows) == 0 {
+			var diag struct {
+				InProducts   bool    `gorm:"column:in_products"`
+				InStore      bool    `gorm:"column:in_store"`
+				UnitQuantity float64 `gorm:"column:unit_quantity"`
+			}
+			_ = s.db.WithContext(ctx).Raw(`
+				SELECT
+					EXISTS(SELECT 1 FROM products WHERE material_code = ?) AS in_products,
+					EXISTS(SELECT 1 FROM store_products sp JOIN products p ON sp.product_id = p.id WHERE sp.store_id = ? AND p.material_code = ?) AS in_store,
+					COALESCE((SELECT sp.unit_quantity FROM store_products sp JOIN products p ON sp.product_id = p.id WHERE sp.store_id = ? AND p.material_code = ? LIMIT 1), -1) AS unit_quantity`,
+				product.MaterialCode,
+				req.FromStoreId, product.MaterialCode,
+				req.FromStoreId, product.MaterialCode,
+			).Scan(&diag).Error
+			s.log.Warnf("onec transfer: material_code=%d not found | in_products=%v in_store=%v unit_quantity=%.0f",
+				product.MaterialCode, diag.InProducts, diag.InStore, diag.UnitQuantity)
 		}
 
 		productName := fmt.Sprintf("%d", product.MaterialCode)
