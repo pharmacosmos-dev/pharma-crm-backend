@@ -1523,13 +1523,15 @@ func (s *Services) GetProductsByImport(ctx context.Context, params *domain.Produ
 	}
 
 	if params.CompanyId != "" {
-		qb = qb.Where("sp.company_id = ?", params.CompanyId)
+		qb = qb.Where("st.company_id = ?", params.CompanyId)
 	}
 
 	if params.SearchField != "" {
 		search := fmt.Sprintf("%%%s%%", params.SearchField)
 		if utils.DefineProductSearchQuery(params.SearchField) == "barcode" {
-			qb = qb.Where("p.barcode LIKE ?", search)
+			qb = qb.
+				Joins("LEFT JOIN product_barcodes pb ON p.id = pb.product_id AND pb.status = ?", constants.GeneralStatusCompleted).
+				Where("pb.barcode LIKE ?", search)
 		} else {
 			qb = qb.Where("p.name ILIKE ?", search)
 		}
@@ -1558,7 +1560,7 @@ func (s *Services) GetProductsByImport(ctx context.Context, params *domain.Produ
 		qb = qb.Where("sp.created_at >= ?", startDate)
 	}
 	if endDate != "" {
-		qb = qb.Where("sp.created_at <= ?", endDate)
+		qb = qb.Where("sp.created_at <= ?", endDate+" 23:59:59")
 	}
 
 	var totalCount int64
