@@ -143,9 +143,9 @@ func (s *Services) UpdateReturnDetailQuantity(ctx context.Context, req *domain.R
 		return domain.InternalServerError
 	}
 
-	scannedPack := 0
+	var scannedPackVal float64
 	if req.ScannedPack != nil {
-		scannedPack = *req.ScannedPack
+		scannedPackVal = *req.ScannedPack
 	}
 
 	// transfer log
@@ -155,12 +155,12 @@ func (s *Services) UpdateReturnDetailQuantity(ctx context.Context, req *domain.R
 		TransferDetailId: req.Id,
 		ProductId:        returnDetail.ProductId,
 		TransferType:     transferType,
-		Quantity:         scannedPack,
+		Quantity:         int(scannedPackVal),
 	}
 
 	// update scanned count with pack quantity
 	if req.ScannedPack != nil {
-		if float64(*req.ScannedPack) > returnDetail.ReceivedCount {
+		if *req.ScannedPack > returnDetail.ReceivedCount {
 			return errors.New("invalid.quantity")
 		}
 		updateField := "expected_count"
@@ -169,25 +169,21 @@ func (s *Services) UpdateReturnDetailQuantity(ctx context.Context, req *domain.R
 		case "checking":
 			updateField = "accepted_count"
 			transferLog.Stage = constants.TransferLogStageChecking
-			if float64(*req.ScannedPack) > returnDetail.ExpectedCount {
+			if *req.ScannedPack > returnDetail.ExpectedCount {
 				return errors.New("invalid.quantity")
 			}
 		case "get":
 			updateField = "scanned_count"
 			transferLog.Stage = constants.TransferLogStageSent
-			if float64(*req.ScannedPack) > returnDetail.ExpectedCount {
+			if *req.ScannedPack > returnDetail.ExpectedCount {
 				return errors.New("invalid.quantity")
 			}
 		}
-		// add scanned count by transfer detail id
 		err = s.db.WithContext(ctx).Exec(fmt.Sprintf(`
-		UPDATE 
-			transfer_details
-		SET
-			%s = ?, updated_at = NOW()
-		WHERE id = ? 
-		AND transfer_id = ?;`, updateField),
-			req.ScannedPack, req.Id, req.TransferId).Error
+		UPDATE transfer_details
+		SET %s = ?, updated_at = NOW()
+		WHERE id = ? AND transfer_id = ?;`, updateField),
+			*req.ScannedPack, req.Id, req.TransferId).Error
 		if err != nil {
 			s.log.Errorf("could not update transfer_details: %v", err)
 			return domain.InternalServerError
@@ -196,7 +192,8 @@ func (s *Services) UpdateReturnDetailQuantity(ctx context.Context, req *domain.R
 
 	// update scanned count with unit quantity
 	if req.ScannedUnit != nil {
-		quantity := float64(int(returnDetail.ScannedCount)) + float64(*req.ScannedUnit)/returnDetail.UnitPerPack
+		// returnDetail.ScannedCount ni truncate qilmasdan ishlatamiz
+		quantity := returnDetail.ScannedCount + float64(*req.ScannedUnit)/returnDetail.UnitPerPack
 		if quantity > returnDetail.ReceivedCount {
 			return errors.New("invalid.quantity")
 		}
@@ -215,14 +212,10 @@ func (s *Services) UpdateReturnDetailQuantity(ctx context.Context, req *domain.R
 				return errors.New("invalid.quantity")
 			}
 		}
-		// add scanned count by transfer detail id
 		err = s.db.WithContext(ctx).Exec(fmt.Sprintf(`
-		UPDATE 
-			transfer_details
-		SET
-			%s = ?, updated_at = NOW()
-		WHERE 
-			id = ? AND transfer_id = ?;`, updateField),
+		UPDATE transfer_details
+		SET %s = ?, updated_at = NOW()
+		WHERE id = ? AND transfer_id = ?;`, updateField),
 			quantity, req.Id, req.TransferId).Error
 		if err != nil {
 			s.log.Errorf("could not update transfer detail unit: %v", err)

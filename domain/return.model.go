@@ -121,12 +121,12 @@ type ReturnDetailStatus struct {
 }
 
 type ReturnAddProduct struct {
-	Id          string `gorm:"id" json:"id"`
-	TransferId  string `gorm:"transfer_id" json:"transfer_id"`
-	ScannedPack *int   `gorm:"scanned_pack" json:"scanned_pack"`
-	ScannedUnit *int   `gorm:"scanned_unit" json:"scanned_unit"`
-	Type        string `gorm:"type" json:"type"`
-	Status      string `gorm:"status" json:"status"`
+	Id          string   `gorm:"id" json:"id"`
+	TransferId  string   `gorm:"transfer_id" json:"transfer_id"`
+	ScannedPack *float64 `gorm:"scanned_pack" json:"scanned_pack"`
+	ScannedUnit *int     `gorm:"scanned_unit" json:"scanned_unit"`
+	Type        string   `gorm:"type" json:"type"`
+	Status      string   `gorm:"status" json:"status"`
 }
 
 type ReturnDetail1C struct {
