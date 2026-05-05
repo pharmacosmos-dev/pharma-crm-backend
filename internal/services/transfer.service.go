@@ -578,18 +578,17 @@ func (s *Services) SendTransfer(ctx context.Context, transferId string, userId s
 	}
 
 	for _, detail := range details {
-		if (detail.ExpectedCount * detail.UnitPerPack) > detail.UnitQuantity {
+		deductUnits := math.Round(detail.ExpectedCount * detail.UnitPerPack)
+		if deductUnits > detail.UnitQuantity {
 			_ = tx.Rollback()
 			return domain.NewNotAdditionError(http.StatusConflict, map[string]any{
 				"available_quantity": (detail.UnitQuantity / detail.UnitPerPack),
 				"name":               detail.Name,
 			})
 		}
-		// update store product quantities
-		// if scanned count is 0, skip the update
 		err = tx.WithContext(ctx).
 			Exec(`UPDATE store_products SET unit_quantity = unit_quantity - ?, updated_at = NOW() WHERE id = ?`,
-				detail.ExpectedCount*float64(detail.UnitPerPack), detail.StoreProductId).Error
+				deductUnits, detail.StoreProductId).Error
 		if err != nil {
 			_ = tx.Rollback()
 			s.log.Errorf("could not update store product pack quantity: %v", err)
@@ -834,7 +833,7 @@ func (s *Services) ConfirmTransfer(ctx context.Context, transferId string, userI
 		UPDATE store_products 
 		SET unit_quantity = unit_quantity + ?
 		WHERE id = ?;`,
-			(item.ExpectedCount-item.AcceptedCount)*float64(item.UnitPerPack),
+			math.Round((item.ExpectedCount-item.AcceptedCount)*float64(item.UnitPerPack)),
 			item.StoreProductId).Error
 		if err != nil {
 			_ = tx.Rollback()
@@ -846,7 +845,7 @@ func (s *Services) ConfirmTransfer(ctx context.Context, transferId string, userI
 		err = tx.WithContext(ctx).Exec(query2,
 			item.ProductId,
 			transfer.ToStoreId,
-			(item.AcceptedCount * float64(item.UnitPerPack)),
+			math.Round(item.AcceptedCount * float64(item.UnitPerPack)),
 			item.RetailPriceVat,
 			item.SupplyPriceVat,
 			12,

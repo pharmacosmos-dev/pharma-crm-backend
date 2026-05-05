@@ -126,12 +126,14 @@ func (s *Services) UpdateReturnDetailQuantity(ctx context.Context, req *domain.R
 		ReceivedCount float64 `gorm:"received_count"`
 		ExpectedCount float64 `gorm:"expected_count"`
 		ScannedCount  float64 `gorm:"scanned_count"`
+		AcceptedCount float64 `gorm:"accepted_count"`
 	}
 	err := s.db.WithContext(ctx).Raw(`
 	SELECT
 		td.received_count,
 		td.expected_count,
 		td.scanned_count,
+		td.accepted_count,
 		p.id AS product_id,
 		p.unit_per_pack
 	FROM transfer_details td
@@ -169,7 +171,7 @@ func (s *Services) UpdateReturnDetailQuantity(ctx context.Context, req *domain.R
 		case "checking":
 			updateField = "accepted_count"
 			transferLog.Stage = constants.TransferLogStageChecking
-			if *req.ScannedPack > returnDetail.ExpectedCount {
+			if *req.ScannedPack > returnDetail.ScannedCount {
 				return errors.New("invalid.quantity")
 			}
 		case "get":
@@ -192,23 +194,27 @@ func (s *Services) UpdateReturnDetailQuantity(ctx context.Context, req *domain.R
 
 	// update scanned count with unit quantity
 	if req.ScannedUnit != nil {
-		// returnDetail.ScannedCount ni truncate qilmasdan ishlatamiz
-		quantity := returnDetail.ScannedCount + float64(*req.ScannedUnit)/returnDetail.UnitPerPack
-		if quantity > returnDetail.ReceivedCount {
-			return errors.New("invalid.quantity")
-		}
+		unitQty := float64(*req.ScannedUnit) / returnDetail.UnitPerPack
 		updateField := "expected_count"
+		var quantity float64
 		switch req.Status {
 		case "checking":
 			transferLog.Stage = constants.TransferLogStageChecking
 			updateField = "accepted_count"
-			if quantity > returnDetail.ExpectedCount {
+			quantity = float64(int(returnDetail.AcceptedCount)) + unitQty
+			if quantity > returnDetail.ScannedCount {
 				return errors.New("invalid.quantity")
 			}
 		case "get":
 			transferLog.Stage = constants.TransferLogStageSent
 			updateField = "scanned_count"
+			quantity = float64(int(returnDetail.ScannedCount)) + unitQty
 			if quantity > returnDetail.ExpectedCount {
+				return errors.New("invalid.quantity")
+			}
+		default:
+			quantity = float64(int(returnDetail.ExpectedCount)) + unitQty
+			if quantity > returnDetail.ReceivedCount {
 				return errors.New("invalid.quantity")
 			}
 		}
