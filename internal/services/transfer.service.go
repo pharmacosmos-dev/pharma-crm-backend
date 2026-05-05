@@ -1568,6 +1568,8 @@ func (s *Services) CreateAndSendTransferForOnec(ctx context.Context, req *domain
 			UnitPerPack    float64    `gorm:"column:unit_per_pack"`
 			Name           string     `gorm:"column:name"`
 		}
+		// unit_quantity > 0 filter yo'q: 1C inventory source of truth,
+		// CRM da 0 bo'lsa ham transfer_detail yaratamiz
 		err = tx.WithContext(ctx).Raw(`
 			SELECT
 				sp.id AS store_product_id,
@@ -1581,7 +1583,7 @@ func (s *Services) CreateAndSendTransferForOnec(ctx context.Context, req *domain
 				p.name
 			FROM store_products sp
 			JOIN products p ON sp.product_id = p.id
-			WHERE sp.store_id = ? AND p.material_code = ? AND sp.unit_quantity > 0
+			WHERE sp.store_id = ? AND p.material_code = ?
 			ORDER BY sp.expire_date ASC NULLS LAST`,
 			req.FromStoreId, product.MaterialCode).Scan(&stockRows).Error
 		if err != nil {
@@ -1590,30 +1592,24 @@ func (s *Services) CreateAndSendTransferForOnec(ctx context.Context, req *domain
 			return nil, domain.InternalServerError
 		}
 
-		if len(stockRows) == 0 {
-			var diag struct {
-				InProducts   bool    `gorm:"column:in_products"`
-				InStore      bool    `gorm:"column:in_store"`
-				UnitQuantity float64 `gorm:"column:unit_quantity"`
-			}
-			_ = s.db.WithContext(ctx).Raw(`
-				SELECT
-					EXISTS(SELECT 1 FROM products WHERE material_code = ?) AS in_products,
-					EXISTS(SELECT 1 FROM store_products sp JOIN products p ON sp.product_id = p.id WHERE sp.store_id = ? AND p.material_code = ?) AS in_store,
-					COALESCE((SELECT sp.unit_quantity FROM store_products sp JOIN products p ON sp.product_id = p.id WHERE sp.store_id = ? AND p.material_code = ? LIMIT 1), -1) AS unit_quantity`,
-				product.MaterialCode,
-				req.FromStoreId, product.MaterialCode,
-				req.FromStoreId, product.MaterialCode,
-			).Scan(&diag).Error
-			s.log.Warnf("onec transfer: material_code=%d not found | in_products=%v in_store=%v unit_quantity=%.0f",
-				product.MaterialCode, diag.InProducts, diag.InStore, diag.UnitQuantity)
-		}
-
 		productName := fmt.Sprintf("%d", product.MaterialCode)
 		if len(stockRows) > 0 {
 			productName = stockRows[0].Name
 		}
 
+		if len(stockRows) == 0 {
+			// product bu store da umuman yo'q → unfulfilled
+			unfulfilled = append(unfulfilled, domain.OnecTransferUnfulfilled{
+				MaterialCode: product.MaterialCode,
+				Name:         productName,
+				Requested:    product.Count,
+				Accepted:     0,
+				Remaining:    product.Count,
+			})
+			continue
+		}
+
+		// FIFO: mavjud miqdor qadar qabul qilib, qolganini unfulfilled ga
 		remaining := product.Count
 		for _, stock := range stockRows {
 			if remaining <= 0 {
@@ -1622,6 +1618,9 @@ func (s *Services) CreateAndSendTransferForOnec(ctx context.Context, req *domain
 			toSet := remaining
 			if toSet > stock.Available {
 				toSet = stock.Available
+			}
+			if toSet <= 0 {
+				continue
 			}
 
 			err = tx.WithContext(ctx).Exec(`
