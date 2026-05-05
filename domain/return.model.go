@@ -10,6 +10,7 @@ type Return struct {
 	Name              string     `gorm:"name" json:"name"`
 	Status            string     `gorm:"status" json:"status"`
 	Comment           string     `gorm:"comment" json:"comment"`
+	Is_Auto           bool       `gorm:"is_auto" json:"is_auto"`
 	ReturnCount       float64    `gorm:"return_count" json:"return_count"`
 	ScannedCount      float64    `gorm:"scanned_count" json:"scanned_count"`
 	ExpectedCount     float64    `gorm:"expected_count" json:"expected_count"`
