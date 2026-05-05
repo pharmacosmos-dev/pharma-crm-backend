@@ -1630,7 +1630,7 @@ func (s *Services) CreateAndSendTransferForOnec(ctx context.Context, req *domain
 					supply_price, retail_price, expire_date, serial_number
 				) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 				transferId, stock.StoreProductId, stock.ProductId,
-				stock.Available, toSet, toSet,
+				stock.Available, toSet, 0,
 				stock.SupplyPrice, stock.RetailPrice, stock.ExpireDate, stock.SerialNumber,
 			).Error
 			if err != nil {
