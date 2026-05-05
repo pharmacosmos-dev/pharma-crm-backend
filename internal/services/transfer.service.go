@@ -1583,7 +1583,7 @@ func (s *Services) CreateAndSendTransferForOnec(ctx context.Context, req *domain
 				p.name
 			FROM store_products sp
 			JOIN products p ON sp.product_id = p.id
-			WHERE sp.store_id = ? AND p.material_code = ?
+			WHERE sp.store_id = ? AND p.material_code = ? AND sp.unit_quantity::numeric / p.unit_per_pack > 0
 			ORDER BY sp.expire_date ASC NULLS LAST`,
 			req.FromStoreId, product.MaterialCode).Scan(&stockRows).Error
 		if err != nil {
