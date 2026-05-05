@@ -945,3 +945,158 @@ func (s *Services) CancelReturn(returnId string, userId string) error {
 
 	return nil
 }
+
+// CreateAndSendReturnForOnec creates a return from 1C in one step.
+// For each requested product (material_code + count), finds matching store_products
+// FIFO by expire_date, inserts transfer_details, deducts stock, and returns unfulfilled products.
+func (s *Services) CreateAndSendReturnForOnec(ctx context.Context, req *domain.OnecReturnRequest, userId string) (*domain.OnecReturnResponse, error) {
+	tx := s.db.Begin()
+	defer func() {
+		if r := recover(); r != nil {
+			_ = tx.Rollback()
+		}
+	}()
+
+	var createdBy interface{}
+	if userId != "" {
+		createdBy = userId
+	}
+
+	var returnId string
+	err := tx.WithContext(ctx).Raw(`
+		INSERT INTO transfers (from_store_id, name, created_by, entry_type, is_auto)
+		VALUES (?, ?, ?, 2, TRUE)
+		RETURNING id`,
+		req.StoreId, req.Name, createdBy,
+	).Scan(&returnId).Error
+	if err != nil {
+		_ = tx.Rollback()
+		s.log.Errorf("onec return: create return: %v", err)
+		return nil, domain.InternalServerError
+	}
+
+	var unfulfilled []domain.OnecTransferUnfulfilled
+
+	for _, product := range req.Products {
+		var stockRows []struct {
+			StoreProductId string     `gorm:"column:store_product_id"`
+			ProductId      string     `gorm:"column:product_id"`
+			Available      float64    `gorm:"column:available"`
+			SupplyPrice    float64    `gorm:"column:supply_price"`
+			RetailPrice    float64    `gorm:"column:retail_price"`
+			ExpireDate     *time.Time `gorm:"column:expire_date"`
+			SerialNumber   string     `gorm:"column:serial_number"`
+			UnitPerPack    float64    `gorm:"column:unit_per_pack"`
+			Name           string     `gorm:"column:name"`
+		}
+		err = tx.WithContext(ctx).Raw(`
+			SELECT
+				sp.id AS store_product_id,
+				sp.product_id,
+				sp.unit_quantity::numeric / p.unit_per_pack AS available,
+				sp.supply_price,
+				sp.retail_price,
+				sp.expire_date,
+				sp.serial_number,
+				p.unit_per_pack,
+				p.name
+			FROM store_products sp
+			JOIN products p ON sp.product_id = p.id
+			WHERE sp.store_id = ? AND p.material_code = ? AND sp.unit_quantity::numeric / p.unit_per_pack > 0
+			ORDER BY sp.expire_date ASC NULLS LAST`,
+			req.StoreId, product.MaterialCode).Scan(&stockRows).Error
+		if err != nil {
+			_ = tx.Rollback()
+			s.log.Errorf("onec return: fetch stock for material_code=%d: %v", product.MaterialCode, err)
+			return nil, domain.InternalServerError
+		}
+
+		productName := fmt.Sprintf("%d", product.MaterialCode)
+		if len(stockRows) > 0 {
+			productName = stockRows[0].Name
+		}
+
+		if len(stockRows) == 0 {
+			unfulfilled = append(unfulfilled, domain.OnecTransferUnfulfilled{
+				MaterialCode: product.MaterialCode,
+				Name:         productName,
+				Requested:    product.Count,
+				Accepted:     0,
+				Remaining:    product.Count,
+			})
+			continue
+		}
+
+		remaining := product.Count
+		for _, stock := range stockRows {
+			if remaining <= 0 {
+				break
+			}
+			toSet := remaining
+			if toSet > stock.Available {
+				toSet = stock.Available
+			}
+			if toSet <= 0 {
+				continue
+			}
+
+			err = tx.WithContext(ctx).Exec(`
+				INSERT INTO transfer_details (
+					transfer_id, store_product_id, product_id,
+					received_count, expected_count,
+					supply_price, retail_price, expire_date, serial_number
+				) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+				returnId, stock.StoreProductId, stock.ProductId,
+				stock.Available, toSet,
+				stock.SupplyPrice, stock.RetailPrice, stock.ExpireDate, stock.SerialNumber,
+			).Error
+			if err != nil {
+				_ = tx.Rollback()
+				s.log.Errorf("onec return: insert detail for material_code=%d: %v", product.MaterialCode, err)
+				return nil, domain.InternalServerError
+			}
+
+			err = tx.WithContext(ctx).Exec(`
+				UPDATE store_products
+				SET unit_quantity = unit_quantity - ?, updated_at = NOW()
+				WHERE id = ?`,
+				toSet*stock.UnitPerPack, stock.StoreProductId).Error
+			if err != nil {
+				_ = tx.Rollback()
+				s.log.Errorf("onec return: deduct store_product %s: %v", stock.StoreProductId, err)
+				return nil, domain.InternalServerError
+			}
+
+			remaining -= toSet
+		}
+
+		if remaining > 0 {
+			unfulfilled = append(unfulfilled, domain.OnecTransferUnfulfilled{
+				MaterialCode: product.MaterialCode,
+				Name:         productName,
+				Requested:    product.Count,
+				Accepted:     product.Count - remaining,
+				Remaining:    remaining,
+			})
+		}
+	}
+
+	err = tx.WithContext(ctx).Exec(`
+		UPDATE transfers SET status = ?, updated_by = ? WHERE id = ?`,
+		constants.GeneralStatusSent, createdBy, returnId).Error
+	if err != nil {
+		_ = tx.Rollback()
+		s.log.Errorf("onec return: update status: %v", err)
+		return nil, domain.InternalServerError
+	}
+
+	if err = tx.Commit().Error; err != nil {
+		s.log.Errorf("onec return: commit: %v", err)
+		return nil, domain.InternalServerError
+	}
+
+	return &domain.OnecReturnResponse{
+		ReturnId:    returnId,
+		Unfulfilled: unfulfilled,
+	}, nil
+}

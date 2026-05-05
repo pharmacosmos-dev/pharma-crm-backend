@@ -1140,6 +1140,26 @@ definitions:
           $ref: '#/definitions/domain.OnecProductRepricing'
         type: array
     type: object
+  domain.OnecReturnRequest:
+    properties:
+      name:
+        type: string
+      products:
+        items:
+          $ref: '#/definitions/domain.OnecTransferProduct'
+        type: array
+      store_id:
+        type: string
+    type: object
+  domain.OnecReturnResponse:
+    properties:
+      return_id:
+        type: string
+      unfulfilled:
+        items:
+          $ref: '#/definitions/domain.OnecTransferUnfulfilled'
+        type: array
+    type: object
   domain.OnecTransferProduct:
     properties:
       count:
@@ -13445,6 +13465,45 @@ paths:
       security:
       - BearerAuth: []
       summary: Update retail price by 1C
+      tags:
+      - 1C Api
+  /product1c/return/create-and-send:
+    post:
+      consumes:
+      - application/json
+      description: Creates return, sets expected_count per product (capped at available
+        stock), deducts from store — all in one transaction. Response contains unfulfilled
+        products with material_code and remaining count.
+      parameters:
+      - description: 1C return request
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/domain.OnecReturnRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/v1.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/domain.OnecReturnResponse'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Create and send return in one step (1C integration)
       tags:
       - 1C Api
   /product1c/token-asil-belgi:

@@ -1542,8 +1542,8 @@ func (s *Services) CreateAndSendTransferForOnec(ctx context.Context, req *domain
 	}
 	var transferId string
 	err := tx.WithContext(ctx).Raw(`
-		INSERT INTO transfers (from_store_id, to_store_id, name, created_by)
-		VALUES (?, ?, ?, ?)
+		INSERT INTO transfers (from_store_id, to_store_id, name, created_by, is_auto)
+		VALUES (?, ?, ?, ?, TRUE)
 		RETURNING id`,
 		req.FromStoreId, req.ToStoreId, req.Name, createdBy,
 	).Scan(&transferId).Error
@@ -1592,7 +1592,7 @@ func (s *Services) CreateAndSendTransferForOnec(ctx context.Context, req *domain
 			return nil, domain.InternalServerError
 		}
 
-		productName := fmt.Sprintf("%d", product.MaterialCode)
+		productName := ""
 		if len(stockRows) > 0 {
 			productName = stockRows[0].Name
 		}
@@ -1626,11 +1626,11 @@ func (s *Services) CreateAndSendTransferForOnec(ctx context.Context, req *domain
 			err = tx.WithContext(ctx).Exec(`
 				INSERT INTO transfer_details (
 					transfer_id, store_product_id, product_id,
-					received_count, expected_count, scanned_count,
+					received_count, expected_count,
 					supply_price, retail_price, expire_date, serial_number
-				) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+				) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 				transferId, stock.StoreProductId, stock.ProductId,
-				stock.Available, toSet, 0,
+				stock.Available, toSet,
 				stock.SupplyPrice, stock.RetailPrice, stock.ExpireDate, stock.SerialNumber,
 			).Error
 			if err != nil {

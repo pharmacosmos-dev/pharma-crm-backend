@@ -17673,6 +17673,69 @@
                 }
             }
         },
+        "/product1c/return/create-and-send": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Creates return, sets expected_count per product (capped at available stock), deducts from store — all in one transaction. Response contains unfulfilled products with material_code and remaining count.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "1C Api"
+                ],
+                "summary": "Create and send return in one step (1C integration)",
+                "parameters": [
+                    {
+                        "description": "1C return request",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/domain.OnecReturnRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/v1.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/domain.OnecReturnResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    }
+                }
+            }
+        },
         "/product1c/token-asil-belgi": {
             "post": {
                 "security": [
@@ -31110,6 +31173,37 @@
                     "type": "array",
                     "items": {
                         "$ref": "#/definitions/domain.OnecProductRepricing"
+                    }
+                }
+            }
+        },
+        "domain.OnecReturnRequest": {
+            "type": "object",
+            "properties": {
+                "name": {
+                    "type": "string"
+                },
+                "products": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/domain.OnecTransferProduct"
+                    }
+                },
+                "store_id": {
+                    "type": "string"
+                }
+            }
+        },
+        "domain.OnecReturnResponse": {
+            "type": "object",
+            "properties": {
+                "return_id": {
+                    "type": "string"
+                },
+                "unfulfilled": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/domain.OnecTransferUnfulfilled"
                     }
                 }
             }

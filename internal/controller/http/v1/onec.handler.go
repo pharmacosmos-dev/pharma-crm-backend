@@ -35,6 +35,7 @@ func (h *ProductOnecHandler) ProductOnecRoutes(r *gin.RouterGroup) {
 		onec.POST("/barcode/create-or-update", h.CreateOrUpdateBarcodes)
 		onec.POST("/uzumtezkor/repricing-products", h.InsertFromOnec)
 		onec.POST("/transfer/create-and-send", h.CreateAndSendForOnec)
+		onec.POST("/return/create-and-send", h.CreateAndSendReturnForOnec)
 	}
 	r.POST("/generate-token", h.GenerateOnecToken)
 }
@@ -675,6 +676,37 @@ func (h *ProductOnecHandler) CreateAndSendForOnec(c *gin.Context) {
 	defer mu.Unlock()
 
 	res, err := h.service.CreateAndSendTransferForOnec(ctx, &request, "")
+	if err != nil {
+		handleServiceResponse(c, nil, err)
+		return
+	}
+
+	handleResponse(c, OK, res)
+}
+
+// CreateAndSendReturnForOnec godoc
+// @Summary Create and send return in one step (1C integration)
+// @Description Creates return, sets expected_count per product (capped at available stock), deducts from store — all in one transaction. Response contains unfulfilled products with material_code and remaining count.
+// @Tags        1C Api
+// @Security    BearerAuth
+// @Accept      json
+// @Produce     json
+// @Param body body domain.OnecReturnRequest true "1C return request"
+// @Success 200 {object} v1.Response{data=domain.OnecReturnResponse}
+// @Failure 400 {object} v1.Response
+// @Failure 500 {object} v1.Response
+// @Router /product1c/return/create-and-send [POST]
+func (h *ProductOnecHandler) CreateAndSendReturnForOnec(c *gin.Context) {
+	var request domain.OnecReturnRequest
+	if err := c.ShouldBindJSON(&request); err != nil {
+		handleServiceResponse(c, BadRequest, domain.InvalidRequestBodyError)
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(c.Request.Context(), constants.DefaultContextTimeout)
+	defer cancel()
+
+	res, err := h.service.CreateAndSendReturnForOnec(ctx, &request, "")
 	if err != nil {
 		handleServiceResponse(c, nil, err)
 		return

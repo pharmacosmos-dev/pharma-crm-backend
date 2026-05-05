@@ -21,6 +21,7 @@ type Transfer struct {
 	ReceivedRetailSum float64                      `gorm:"received_retail_sum" json:"received_retail_sum"`
 	AcceptedSupplySum float64                      `gorm:"accepted_supply_sum" json:"accepted_supply_sum"`
 	AcceptedRetailSum float64                      `gorm:"accepted_retail_sum" json:"accepted_retail_sum"`
+	IsAuto            bool                         `gorm:"is_auto" json:"is_auto"`
 	CreatedById       string                       `gorm:"column:created_by" json:"created_by_id"`
 	UpdatedById       string                       `gorm:"column:updated_by" json:"updated_by_id"`
 	AcceptedById      string                       `gorm:"column:accepted_by" json:"accepted_by_id"`
@@ -174,6 +175,17 @@ type OnecTransferUnfulfilled struct {
 
 type OnecTransferResponse struct {
   TransferId  string                    `json:"transfer_id"`
+  Unfulfilled []OnecTransferUnfulfilled `json:"unfulfilled"`
+}
+
+type OnecReturnRequest struct {
+  Name     string               `json:"name"`
+  StoreId  string               `json:"store_id"`
+  Products []OnecTransferProduct `json:"products"`
+}
+
+type OnecReturnResponse struct {
+  ReturnId    string                    `json:"return_id"`
   Unfulfilled []OnecTransferUnfulfilled `json:"unfulfilled"`
 }
 
