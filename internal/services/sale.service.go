@@ -1845,6 +1845,9 @@ func (s *Services) GetSales(ctx context.Context, params *domain.SaleQueryParams,
 	if params.IsCorporate {
 		qb = qb.Where("s.is_corporate = TRUE")
 	}
+	if params.PaymentTypeId != "" {
+		qb = qb.Where("EXISTS (SELECT 1 FROM sale_payments sp WHERE sp.sale_id = s.id AND sp.payment_type_id = ?)", params.PaymentTypeId)
+	}
 
 	// 1) get total count without (LIMIT/OFFSET)
 	if err := qb.Count(&totalCount).Debug().Error; err != nil {
