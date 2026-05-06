@@ -1846,7 +1846,19 @@ func (s *Services) GetSales(ctx context.Context, params *domain.SaleQueryParams,
 		qb = qb.Where("s.is_corporate = TRUE")
 	}
 	if params.PaymentTypeId != "" {
-		qb = qb.Where("EXISTS (SELECT 1 FROM sale_payments sp WHERE sp.sale_id = s.id AND sp.payment_type_id = ?)", params.PaymentTypeId)
+		qb = qb.Where(`EXISTS (
+			SELECT 1 FROM payment_types pt WHERE pt.id = ?
+			AND (
+				(pt.front_name = 'cash' AND s.cash > 0)
+				OR (pt.front_name = 'humo' AND s.humo > 0)
+				OR (pt.front_name = 'uzcard' AND s.uzcard > 0)
+				OR (pt.front_name = 'click' AND s.click > 0)
+				OR (pt.front_name = 'payme' AND s.payme > 0)
+				OR (pt.front_name = 'alif' AND s.alif > 0)
+				OR (pt.front_name = 'uzum' AND s.uzum > 0)
+				OR (pt.front_name = 'uzum_tezkor' AND s.uzum_tez_kor > 0)
+			)
+		)`, params.PaymentTypeId)
 	}
 
 	// 1) get total count without (LIMIT/OFFSET)
