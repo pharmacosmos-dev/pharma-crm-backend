@@ -96,6 +96,7 @@ type UpdateOnlineOrderRequest struct {
 type StoreQueryParams struct {
 	CompanyId    string   `form:"company_id"`
 	CompanyIds   []string `form:"-"`
+	StoreId      string   `form:"-"`
 	Search       string   `form:"search"`
 	IsFranchise  *bool    `form:"is_franchise"`
 	Limit        int      `form:"limit"`

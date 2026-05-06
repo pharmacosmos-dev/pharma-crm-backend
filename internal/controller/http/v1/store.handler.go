@@ -153,6 +153,7 @@ func (h *StoreHandler) FetchStores(c *gin.Context) {
 			params.CompanyId = ""
 		} else {
 			params.CompanyId = user.CompanyId
+			params.StoreId = user.StoreId
 		}
 	}
 
