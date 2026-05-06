@@ -36,6 +36,7 @@ type Customer struct {
 	LoyaltyCardCreatedBy string     `gorm:"loyalty_card_created_by" json:"loyalty_card_created_by"`
 	LoyaltyCardCreatedAt *time.Time `gorm:"loyalty_card_created_at" json:"loyalty_card_created_at"`
 	TelegramChatId       int64      `gorm:"telegram_chat_id" json:"telegram_chat_id"`
+	IsActive             bool       `gorm:"is_active" json:"is_active"`
 }
 
 type DiscountCardWithCustomer struct {

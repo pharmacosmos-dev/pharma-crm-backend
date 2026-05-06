@@ -256,7 +256,8 @@ func (s *Services) GetCustomers(ctx context.Context, params *domain.QueryParam, 
 			"t.name AS t_name",
 		).Table("customers c").
 		Joins("LEFT JOIN stores s ON c.store_id = s.id").
-		Joins("LEFT JOIN tags t ON c.tag_id = t.id")
+		Joins("LEFT JOIN tags t ON c.tag_id = t.id").
+		Where("c.is_active = true")
 
 	if params.Search != "" {
 		if usedInSalePage {
