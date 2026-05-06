@@ -42,6 +42,11 @@ var (
 		Status:      "CREATED",
 		Description: "The request has succeeded, and a new resource has been created as a result.",
 	}
+	Accepted = Status{
+		Code:        202,
+		Status:      "ACCEPTED",
+		Description: "The request has been accepted but not yet completed.",
+	}
 	NoContent = Status{
 		Code:        204,
 		Status:      "NO CONTENT",

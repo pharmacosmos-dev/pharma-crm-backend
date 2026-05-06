@@ -387,10 +387,12 @@ func (s *Services) FinalizeSale(ctx context.Context, req *domain.FinalSale) (*do
 			payCtx, cancel := context.WithTimeout(context.Background(), time.Second*60)
 			defer cancel()
 			err = s.Payment(payCtx, tx, sale, nil)
-			if err != nil {
+			if err != nil && err != domain.PaymePendingError {
 				_ = tx.Rollback()
 				return nil, err
 			}
+			paymentPending := err == domain.PaymePendingError
+
 			updates["cash"] = req.Cash
 			updates["humo"] = req.Humo
 			updates["uzcard"] = req.Uzcard
@@ -403,9 +405,14 @@ func (s *Services) FinalizeSale(ctx context.Context, req *domain.FinalSale) (*do
 			updates["total_amount"] = gorm.Expr("(SELECT COALESCE(SUM(total_price) - SUM(discount_amount), 0) FROM cart_items WHERE sale_id = ?)", req.SaleId)
 			updates["total_discount"] = gorm.Expr("(SELECT COALESCE(SUM(discount_amount), 0) FROM cart_items WHERE sale_id = ?)", req.SaleId)
 			updates["return_amount"] = req.ReturnAmount
-			updates["stage"] = constants.SaleStagePayFinished
 			updates["updated_at"] = time.Now()
 			updates["is_corporate"] = req.IsCorporate
+
+			if paymentPending {
+				updates["stage"] = constants.SaleStageOfdWaiting
+			} else {
+				updates["stage"] = constants.SaleStagePayFinished
+			}
 
 			if req.LoyaltyCardBarcode != "" {
 				if req.LoyaltyCard > 0 {
@@ -423,6 +430,19 @@ func (s *Services) FinalizeSale(ctx context.Context, req *domain.FinalSale) (*do
 			// adding loyalty card payment to sale for minus from customer balance in future
 			if req.LoyaltyCard > 0 {
 				sale.LoyaltyCard = req.LoyaltyCard
+			}
+
+			// Payme timeout: rollback qilmasdan pending sifatida saqlash
+			if paymentPending {
+				if updateErr := s.updateSaleFields(ctx, tx, req.SaleId, updates); updateErr != nil {
+					_ = tx.Rollback()
+					return nil, updateErr
+				}
+				if commitErr := tx.Commit().Error; commitErr != nil {
+					s.log.Errorf("could not commit payme pending sale transaction: %v", commitErr)
+					return nil, domain.InternalServerError
+				}
+				return nil, domain.PaymePendingError
 			}
 		}
 

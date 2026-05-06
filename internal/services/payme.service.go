@@ -137,7 +137,7 @@ func (s *Services) PayReceipt(
 	}
 
 	var response *http.Response
-	payErr := s.PaymeRequest(&response, s.cfg.PaymeApiUrl, jsonBytes, token)
+	payErr := s.PaymePayReceiptRequest(ctx, &response, s.cfg.PaymeApiUrl, jsonBytes, token)
 	if payErr != nil {
 		s.log.Errorf("could not send pay receipt request: %v", payErr)
 		return s.checkReceiptAfterPayFailure(ctx, data.Id, sale, token, payErr)
@@ -184,17 +184,23 @@ func (s *Services) checkReceiptAfterPayFailure(
 	state, err := s.CheckReceipt(ctx, receiptId, sale, token)
 	if err != nil {
 		s.log.Errorf("receipts.check also failed for sale %s: %v", sale.Id, err)
-		return empty, originalErr
+		return empty, domain.PaymePendingError
 	}
 
-	// state=4 → Payme da to'lov muvaffaqiyatli bajarilgan
-	if state == constants.PaymeReceiptStatePaid {
-		s.log.Infof("receipts.check confirmed payment success for sale %s (receipt: %s, state: %d)", sale.Id, receiptId, state)
+	switch state {
+	case constants.PaymeReceiptStatePaid:
+		// to'lov tasdiqlandi
+		s.log.Infof("receipts.check confirmed payment for sale %s (receipt: %s, state: %d)", sale.Id, receiptId, state)
 		return empty, nil
+	case constants.PaymeReceiptStateCancelled, 21:
+		// payme tomonidan bekor qilindi — originalErr qaytariladi, tx rollback bo'ladi
+		s.log.Warnf("receipts.check: receipt cancelled for sale %s, state=%d", sale.Id, state)
+		return empty, originalErr
+	default:
+		// state 0,1,2,3,5... — hali jarayonda, pending sifatida saqlash
+		s.log.Warnf("receipts.check: receipt still processing for sale %s, state=%d, marking as pending", sale.Id, state)
+		return empty, domain.PaymePendingError
 	}
-
-	s.log.Warnf("receipts.check: receipt not paid for sale %s, state=%d", sale.Id, state)
-	return empty, originalErr
 }
 
 func (s *Services) CheckReceipt(

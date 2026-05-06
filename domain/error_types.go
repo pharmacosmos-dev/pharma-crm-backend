@@ -64,7 +64,10 @@ var (
 	DuplicateLoyaltyCardError            = NewError(http.StatusConflict, "duplicate.loyalty.card.error")
 	AlreadyHaveOpenCashboxOperationError = NewError(http.StatusConflict, "already.have.open.cashbox.operation")
 
-	// 424 – Failed Dependency (tashqi tizimga bog‘liq xatolik)
+	// 202 – Accepted (so’rov qabul qilindi, tolov noaniq)
+	PaymePendingError = NewError(http.StatusAccepted, "payme.payment.pending")
+	
+	// 424 – Failed Dependency (tashqi tizimga bog’liq xatolik)
 	DependencyFailedError    = NewError(http.StatusFailedDependency, "dependency.failed")
 	PaymeNotOperationalError = NewError(http.StatusFailedDependency, "payme.not.operational")
 	ClickNotOperationalError = NewError(http.StatusFailedDependency, "click.not.operational")

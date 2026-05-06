@@ -2,6 +2,7 @@ package services
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"io"
 	"net/http"
@@ -21,6 +22,37 @@ func (s *Services) PaymeRequest(res **http.Response, url string, data []byte, to
 	}
 
 	return s.DoRequest(res, http.MethodPost, url, data, headers)
+}
+
+// receipts.pay uchun context timeout bilan (developer tavsiyasi)
+func (s *Services) PaymePayReceiptRequest(ctx context.Context, res **http.Response, url string, data []byte, token string) error {
+	payCtx, cancel := context.WithTimeout(ctx, time.Second*10)
+	defer cancel()
+
+	req, err := http.NewRequestWithContext(payCtx, http.MethodPost, url, bytes.NewReader(data))
+	if err != nil {
+		fmt.Printf("could not construct payme pay receipt request to %s: %v", url, err)
+		return err
+	}
+	req.Header.Set(constants.HeaderContentType, constants.ContentTypeJson)
+	req.Header.Set(constants.HeaderXAuth, token)
+	req.Header.Set(constants.HeaderHost, strings.TrimPrefix(s.cfg.PaymeApiUrl, "https://"))
+	req.Header.Set("Accept", constants.ContentTypeJson)
+
+	client := http.Client{}
+	response, err := client.Do(req)
+	if err != nil {
+		fmt.Printf("payme pay receipt request to %s failed: %v", url, err)
+		return err
+	}
+	*res = response
+
+	if response.StatusCode < http.StatusOK || response.StatusCode >= http.StatusMultipleChoices {
+		errBody, _ := io.ReadAll(response.Body)
+		response.Body.Close()
+		return fmt.Errorf("payme pay receipt: status %d, body: %s", response.StatusCode, string(errBody))
+	}
+	return nil
 }
 
 // click request
