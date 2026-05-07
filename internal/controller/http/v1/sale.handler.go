@@ -221,7 +221,7 @@ func (h *SaleHandler) GetSales(c *gin.Context) {
 		return
 	}
 
-	if user.Role == constants.RoleAccountant {
+	if user.StoreId != "" {
 		limitDate := time.Now().
 			AddDate(0, 0, -14).
 			Truncate(24 * time.Hour)
