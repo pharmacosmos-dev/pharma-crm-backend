@@ -508,6 +508,25 @@ func (h *SaleHandler) GetSalesStats(c *gin.Context) {
 		return
 	}
 
+	if user.StoreId != "" {
+		limitDate := time.Now().
+			AddDate(0, 0, -14).
+			Truncate(24 * time.Hour)
+
+		// time.Time -> domain.CustomTime
+		customLimitDate := domain.CustomTime(limitDate)
+
+		// start_date yuborilmagan bo‘lsa default 14 kun
+		if params.StartDate == nil || params.StartDate.GetTime().IsZero() {
+			params.StartDate = &customLimitDate
+		} else {
+			// agar start_date 14 kundan eski bo‘lsa 14 kunga kesiladi
+			if params.StartDate.GetTime().Before(limitDate) {
+				params.StartDate = &customLimitDate
+			}
+		}
+	}
+
 	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
 	defer cancel()
 
