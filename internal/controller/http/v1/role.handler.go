@@ -519,7 +519,7 @@ func (h *RoleHandler) MultipleDelete(c *gin.Context) {
 
 // ExportRolesExcel godoc
 // @Summary      Export roles with employee count and permissions to Excel
-// @Description  Permissions go down (rows), roles go across (columns). Each cell shows ✓ if the role has that permission.
+// @Description  Permissions go down (rows), employees go across (columns). Excludes "Заведующий аптекой", "Кассир", "Кассир Франшиза".
 // @Tags         roles
 // @Security     BearerAuth
 // @Produce      json
@@ -527,10 +527,11 @@ func (h *RoleHandler) MultipleDelete(c *gin.Context) {
 // @Failure      500  {object}  v1.Response
 // @Router       /role/export-excel [get]
 func (h *RoleHandler) ExportRolesExcel(c *gin.Context) {
-	type roleInfo struct {
-		ID            string
-		Name          string
-		EmployeeCount int64
+	type empInfo struct {
+		ID       string
+		FullName string
+		Phone    string
+		RoleName string
 	}
 	type permInfo struct {
 		ID   string
@@ -544,47 +545,54 @@ func (h *RoleHandler) ExportRolesExcel(c *gin.Context) {
 		return
 	}
 
-	// 1. Barcha rollar va employee soni
-	roleRows, err := sqlDB.QueryContext(c.Request.Context(), `
-		SELECT r.id, r.name, COUNT(DISTINCT er.employee_id) AS employee_count
-		FROM roles r
-		LEFT JOIN employee_roles er ON er.role_id = r.id
+	// 1. Chiqarib tashlanadigan rollar
+	excluded := []interface{}{"Заведующий аптекой", "Кассир", "Кассир Франшиза", "Франшиза Админ"}
+
+	// 2. Qolgan rollardagi xodimlar (ФИО, телефон, роль)
+	empRows, err := sqlDB.QueryContext(c.Request.Context(), `
+		SELECT DISTINCT e.id, e.full_name, e.phone, r.name AS role_name
+		FROM employees e
+		JOIN employee_roles er ON er.employee_id = e.id
+		JOIN roles r ON r.id = er.role_id
 		WHERE r.status = 1
-		GROUP BY r.id, r.name
-		ORDER BY r.name
-	`)
+		  AND e.status = 'active'
+		  AND r.name NOT IN ($1, $2, $3, $4)
+		ORDER BY r.name, e.full_name
+	`, excluded...)
 	if err != nil {
 		h.log.Error(err)
 		handleResponse(c, InternalError, err.Error())
 		return
 	}
-	defer roleRows.Close()
+	defer empRows.Close()
 
-	var roles []roleInfo
-	for roleRows.Next() {
-		var ri roleInfo
-		if err = roleRows.Scan(&ri.ID, &ri.Name, &ri.EmployeeCount); err != nil {
+	var emps []empInfo
+	for empRows.Next() {
+		var ei empInfo
+		if err = empRows.Scan(&ei.ID, &ei.FullName, &ei.Phone, &ei.RoleName); err != nil {
 			h.log.Error(err)
 			handleResponse(c, InternalError, err.Error())
 			return
 		}
-		roles = append(roles, ri)
+		emps = append(emps, ei)
 	}
-	if err = roleRows.Err(); err != nil {
+	if err = empRows.Err(); err != nil {
 		h.log.Error(err)
 		handleResponse(c, InternalError, err.Error())
 		return
 	}
 
-	// 2. Leaf bo'lmagan (o'z child'lari bor) va kamida biror rolga biriktirilgan permission'lar
+	// 3. Qolgan rollarga tegishli permission'lar (parent_id IS NOT NULL)
 	permRows, err := sqlDB.QueryContext(c.Request.Context(), `
 		SELECT DISTINCT p.id, p.name
 		FROM permissions p
 		JOIN role_permissions rp ON rp.permission_id = p.id AND rp.is_active = true
 		JOIN roles r ON r.id = rp.role_id AND r.status = 1
 		WHERE p.parent_id IS NOT NULL
+		  AND p.deleted_at IS NULL
+		  AND r.name NOT IN ($1, $2, $3, $4)
 		ORDER BY p.name
-	`)
+	`, excluded...)
 	if err != nil {
 		h.log.Error(err)
 		handleResponse(c, InternalError, err.Error())
@@ -608,15 +616,15 @@ func (h *RoleHandler) ExportRolesExcel(c *gin.Context) {
 		return
 	}
 
-	// 3. role_id → permission_id to'plami (matrix uchun)
+	// 4. employee_id → permission_id to'plami (rol orqali)
 	mapRows, err := sqlDB.QueryContext(c.Request.Context(), `
-		SELECT rp.role_id, p.id
-		FROM role_permissions rp
-		JOIN permissions p ON p.id = rp.permission_id
-		JOIN roles r ON r.id = rp.role_id AND r.status = 1
-		WHERE rp.is_active = true
-		  AND p.parent_id IS NOT NULL AND p.deleted_at IS NULL
-	`)
+		SELECT DISTINCT er.employee_id, rp.permission_id
+		FROM employee_roles er
+		JOIN role_permissions rp ON rp.role_id = er.role_id AND rp.is_active = true
+		JOIN permissions p ON p.id = rp.permission_id AND p.parent_id IS NOT NULL AND p.deleted_at IS NULL
+		JOIN roles r ON r.id = er.role_id AND r.status = 1
+		WHERE r.name NOT IN ($1, $2, $3, $4)
+	`, excluded...)
 	if err != nil {
 		h.log.Error(err)
 		handleResponse(c, InternalError, err.Error())
@@ -624,19 +632,19 @@ func (h *RoleHandler) ExportRolesExcel(c *gin.Context) {
 	}
 	defer mapRows.Close()
 
-	// rolePermSet[roleID][permID] = true
-	rolePermSet := make(map[string]map[string]bool)
+	// empPermSet[empID][permID] = true
+	empPermSet := make(map[string]map[string]bool)
 	for mapRows.Next() {
-		var roleID, permID string
-		if err = mapRows.Scan(&roleID, &permID); err != nil {
+		var empID, permID string
+		if err = mapRows.Scan(&empID, &permID); err != nil {
 			h.log.Error(err)
 			handleResponse(c, InternalError, err.Error())
 			return
 		}
-		if rolePermSet[roleID] == nil {
-			rolePermSet[roleID] = make(map[string]bool)
+		if empPermSet[empID] == nil {
+			empPermSet[empID] = make(map[string]bool)
 		}
-		rolePermSet[roleID][permID] = true
+		empPermSet[empID][permID] = true
 	}
 	if err = mapRows.Err(); err != nil {
 		h.log.Error(err)
@@ -645,37 +653,42 @@ func (h *RoleHandler) ExportRolesExcel(c *gin.Context) {
 	}
 
 	// --- Excel qurish ---
+	// Tuzilma:
+	//   A1            = "Права доступа"  | B1 = emp1 ФИО  | C1 = emp2 ФИО  | ...
+	//   A2            = "Телефон"        | B2 = emp1 phone | C2 = emp2 phone | ...
+	//   A3            = "Роль"           | B3 = emp1 role  | C3 = emp2 role  | ...
+	//   A4+ = perm name                 | B4 = ✓ or ""   | ...
+
 	f := excelize.NewFile()
-	sheet := "Роли и права"
+	sheet := "Сотрудники и права"
 	f.SetSheetName("Sheet1", sheet)
 
-	headerStyle, err := f.NewStyle(&excelize.Style{
+	headerStyle, _ := f.NewStyle(&excelize.Style{
 		Font:      &excelize.Font{Bold: true, Color: "FFFFFF"},
 		Fill:      excelize.Fill{Type: "pattern", Color: []string{"1F4E79"}, Pattern: 1},
 		Alignment: &excelize.Alignment{Horizontal: "center", Vertical: "center", WrapText: true},
 	})
-	if err != nil {
-		h.log.Error(err)
-		handleResponse(c, InternalError, err.Error())
-		return
-	}
+	subHeaderStyle, _ := f.NewStyle(&excelize.Style{
+		Font:      &excelize.Font{Bold: true, Color: "FFFFFF"},
+		Fill:      excelize.Fill{Type: "pattern", Color: []string{"2E75B6"}, Pattern: 1},
+		Alignment: &excelize.Alignment{Horizontal: "center", Vertical: "center", WrapText: true},
+	})
 	checkStyle, _ := f.NewStyle(&excelize.Style{
 		Alignment: &excelize.Alignment{Horizontal: "center", Vertical: "center"},
 		Font:      &excelize.Font{Color: "375623", Bold: true},
 	})
 	permStyle, _ := f.NewStyle(&excelize.Style{
-		Font:      &excelize.Font{Bold: false},
+		Alignment: &excelize.Alignment{Vertical: "center"},
+	})
+	labelStyle, _ := f.NewStyle(&excelize.Style{
+		Font:      &excelize.Font{Bold: true},
+		Fill:      excelize.Fill{Type: "pattern", Color: []string{"D6E4F0"}, Pattern: 1},
 		Alignment: &excelize.Alignment{Vertical: "center"},
 	})
 
-	// Birinchi qator: A1 = "Права доступа", keyin har bir role ustuni
-	f.SetCellValue(sheet, "A1", "Права доступа")
-	f.SetCellStyle(sheet, "A1", "A1", headerStyle)
-	f.SetColWidth(sheet, "A", "A", 35)
-
+	// idx 0-based → ustun harfi (0=B, 1=C, ...)
 	colLetter := func(idx int) string {
-		// idx 0-based: 0=B, 1=C, ...
-		n := idx + 2 // B=2
+		n := idx + 2
 		result := ""
 		for n > 0 {
 			n--
@@ -685,32 +698,42 @@ func (h *RoleHandler) ExportRolesExcel(c *gin.Context) {
 		return result
 	}
 
-	for i, role := range roles {
+	f.SetColWidth(sheet, "A", "A", 35)
+
+	// A1, A2, A3 — belgilar
+	f.SetCellValue(sheet, "A1", "ФИО")
+	f.SetCellStyle(sheet, "A1", "A1", headerStyle)
+	f.SetCellValue(sheet, "A2", "Телефон")
+	f.SetCellStyle(sheet, "A2", "A2", labelStyle)
+	f.SetCellValue(sheet, "A3", "Роль")
+	f.SetCellStyle(sheet, "A3", "A3", labelStyle)
+
+	// Har bir xodim uchun ustun (1-3 qatorlar)
+	for i, emp := range emps {
 		col := colLetter(i)
-		cell := col + "1"
-		header := fmt.Sprintf("%s\n(%d сотр.)", role.Name, role.EmployeeCount)
-		f.SetCellValue(sheet, cell, header)
-		f.SetCellStyle(sheet, cell, cell, headerStyle)
-		f.SetColWidth(sheet, col, col, 18)
+		f.SetCellValue(sheet, col+"1", emp.FullName)
+		f.SetCellStyle(sheet, col+"1", col+"1", subHeaderStyle)
+		f.SetCellValue(sheet, col+"2", emp.Phone)
+		f.SetCellValue(sheet, col+"3", emp.RoleName)
+		f.SetColWidth(sheet, col, col, 20)
 	}
-	f.SetRowHeight(sheet, 1, 40)
+	f.SetRowHeight(sheet, 1, 35)
 
-	// Keyingi qatorlar: har bir permission bir qator
+	// 4-qatordan permission qatorlari
 	for pi, perm := range perms {
-		row := strconv.Itoa(pi + 2)
-		permCell := "A" + row
-		f.SetCellValue(sheet, permCell, perm.Name)
-		f.SetCellStyle(sheet, permCell, permCell, permStyle)
+		row := strconv.Itoa(pi + 4)
+		f.SetCellValue(sheet, "A"+row, perm.Name)
+		f.SetCellStyle(sheet, "A"+row, "A"+row, permStyle)
 
-		for ri, role := range roles {
-			col := colLetter(ri)
-			cell := col + row
-			if rolePermSet[role.ID][perm.ID] {
-				f.SetCellValue(sheet, cell, "✓")
-				f.SetCellStyle(sheet, cell, cell, checkStyle)
+		for ei, emp := range emps {
+			col := colLetter(ei)
+			if empPermSet[emp.ID][perm.ID] {
+				f.SetCellValue(sheet, col+row, "✓")
+				f.SetCellStyle(sheet, col+row, col+row, checkStyle)
 			}
 		}
 	}
 
-	saveExcelToUploads(c, f, *h.log, "Роли_и_права")
+	saveExcelToUploads(c, f, *h.log, "Сотрудники_и_права")
 }
+

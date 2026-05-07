@@ -22298,7 +22298,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Returns an Excel file listing each role, how many employees have it, and all its permissions",
+                "description": "Permissions go down (rows), employees go across (columns). Excludes \"Заведующий аптекой\", \"Кассир\", \"Кассир Франшиза\".",
                 "produces": [
                     "application/json"
                 ],

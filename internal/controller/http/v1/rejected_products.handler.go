@@ -192,7 +192,7 @@ func (h *RejectedProductsHandler) ExportRejectedProducts(c *gin.Context) {
 	f.SetSheetName("Sheet1", sheet)
 
 	// set headers
-	headers := []string{"ID", "Название продукта", "Количество", "Название магазина", "Создатель"}
+	headers := []string{"ID", "Название продукта", "Количество", "Название магазина", "Создатель", "Дата создания"}
 	err = setExcelHeaders(f, sheet, headers)
 	if err != nil {
 		h.log.Error("Failed to create style:", err)
@@ -208,6 +208,8 @@ func (h *RejectedProductsHandler) ExportRejectedProducts(c *gin.Context) {
 		f.SetCellValue(sheet, "C"+row, val.Count)
 		f.SetCellValue(sheet, "D"+row, val.StoreName)
 		f.SetCellValue(sheet, "E"+row, val.CreatedBy)
+		f.SetCellValue(sheet, "F"+row, val.CreatedAt)
+
 	}
 
 	// save excel
