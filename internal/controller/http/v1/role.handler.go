@@ -3,11 +3,13 @@ package v1
 import (
 	"encoding/json"
 	"fmt"
+	"strconv"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/pharma-crm-backend/domain"
 	"github.com/pharma-crm-backend/pkg/utils"
+	"github.com/xuri/excelize/v2"
 )
 
 type RoleHandler struct {
@@ -26,6 +28,7 @@ func (h *RoleHandler) RoleRoutes(r *gin.RouterGroup) {
 		role.GET("/:id", h.Get)
 		role.GET("/list", h.List)
 		role.GET("/list-with-permissions", h.ListRoleWithPermissions)
+		role.GET("/export-excel", h.ExportRolesExcel)
 		role.PUT("/:id", h.Update)
 		role.DELETE("/:id", h.Delete)
 		role.DELETE("/multiple/delete", h.MultipleDelete)
@@ -512,4 +515,202 @@ func (h *RoleHandler) MultipleDelete(c *gin.Context) {
 	}
 	handleResponse(c, OK, "DELETED")
 
+}
+
+// ExportRolesExcel godoc
+// @Summary      Export roles with employee count and permissions to Excel
+// @Description  Permissions go down (rows), roles go across (columns). Each cell shows ✓ if the role has that permission.
+// @Tags         roles
+// @Security     BearerAuth
+// @Produce      json
+// @Success      200  {object}  v1.Response
+// @Failure      500  {object}  v1.Response
+// @Router       /role/export-excel [get]
+func (h *RoleHandler) ExportRolesExcel(c *gin.Context) {
+	type roleInfo struct {
+		ID            string
+		Name          string
+		EmployeeCount int64
+	}
+	type permInfo struct {
+		ID   string
+		Name string
+	}
+
+	sqlDB, err := h.db.DB()
+	if err != nil {
+		h.log.Error(err)
+		handleResponse(c, InternalError, err.Error())
+		return
+	}
+
+	// 1. Barcha rollar va employee soni
+	roleRows, err := sqlDB.QueryContext(c.Request.Context(), `
+		SELECT r.id, r.name, COUNT(DISTINCT er.employee_id) AS employee_count
+		FROM roles r
+		LEFT JOIN employee_roles er ON er.role_id = r.id
+		WHERE r.status = 1
+		GROUP BY r.id, r.name
+		ORDER BY r.name
+	`)
+	if err != nil {
+		h.log.Error(err)
+		handleResponse(c, InternalError, err.Error())
+		return
+	}
+	defer roleRows.Close()
+
+	var roles []roleInfo
+	for roleRows.Next() {
+		var ri roleInfo
+		if err = roleRows.Scan(&ri.ID, &ri.Name, &ri.EmployeeCount); err != nil {
+			h.log.Error(err)
+			handleResponse(c, InternalError, err.Error())
+			return
+		}
+		roles = append(roles, ri)
+	}
+	if err = roleRows.Err(); err != nil {
+		h.log.Error(err)
+		handleResponse(c, InternalError, err.Error())
+		return
+	}
+
+	// 2. Leaf bo'lmagan (o'z child'lari bor) va kamida biror rolga biriktirilgan permission'lar
+	permRows, err := sqlDB.QueryContext(c.Request.Context(), `
+		SELECT DISTINCT p.id, p.name
+		FROM permissions p
+		JOIN role_permissions rp ON rp.permission_id = p.id AND rp.is_active = true
+		JOIN roles r ON r.id = rp.role_id AND r.status = 1
+		WHERE p.parent_id IS NOT NULL
+		ORDER BY p.name
+	`)
+	if err != nil {
+		h.log.Error(err)
+		handleResponse(c, InternalError, err.Error())
+		return
+	}
+	defer permRows.Close()
+
+	var perms []permInfo
+	for permRows.Next() {
+		var pi permInfo
+		if err = permRows.Scan(&pi.ID, &pi.Name); err != nil {
+			h.log.Error(err)
+			handleResponse(c, InternalError, err.Error())
+			return
+		}
+		perms = append(perms, pi)
+	}
+	if err = permRows.Err(); err != nil {
+		h.log.Error(err)
+		handleResponse(c, InternalError, err.Error())
+		return
+	}
+
+	// 3. role_id → permission_id to'plami (matrix uchun)
+	mapRows, err := sqlDB.QueryContext(c.Request.Context(), `
+		SELECT rp.role_id, p.id
+		FROM role_permissions rp
+		JOIN permissions p ON p.id = rp.permission_id
+		JOIN roles r ON r.id = rp.role_id AND r.status = 1
+		WHERE rp.is_active = true
+		  AND p.parent_id IS NOT NULL AND p.deleted_at IS NULL
+	`)
+	if err != nil {
+		h.log.Error(err)
+		handleResponse(c, InternalError, err.Error())
+		return
+	}
+	defer mapRows.Close()
+
+	// rolePermSet[roleID][permID] = true
+	rolePermSet := make(map[string]map[string]bool)
+	for mapRows.Next() {
+		var roleID, permID string
+		if err = mapRows.Scan(&roleID, &permID); err != nil {
+			h.log.Error(err)
+			handleResponse(c, InternalError, err.Error())
+			return
+		}
+		if rolePermSet[roleID] == nil {
+			rolePermSet[roleID] = make(map[string]bool)
+		}
+		rolePermSet[roleID][permID] = true
+	}
+	if err = mapRows.Err(); err != nil {
+		h.log.Error(err)
+		handleResponse(c, InternalError, err.Error())
+		return
+	}
+
+	// --- Excel qurish ---
+	f := excelize.NewFile()
+	sheet := "Роли и права"
+	f.SetSheetName("Sheet1", sheet)
+
+	headerStyle, err := f.NewStyle(&excelize.Style{
+		Font:      &excelize.Font{Bold: true, Color: "FFFFFF"},
+		Fill:      excelize.Fill{Type: "pattern", Color: []string{"1F4E79"}, Pattern: 1},
+		Alignment: &excelize.Alignment{Horizontal: "center", Vertical: "center", WrapText: true},
+	})
+	if err != nil {
+		h.log.Error(err)
+		handleResponse(c, InternalError, err.Error())
+		return
+	}
+	checkStyle, _ := f.NewStyle(&excelize.Style{
+		Alignment: &excelize.Alignment{Horizontal: "center", Vertical: "center"},
+		Font:      &excelize.Font{Color: "375623", Bold: true},
+	})
+	permStyle, _ := f.NewStyle(&excelize.Style{
+		Font:      &excelize.Font{Bold: false},
+		Alignment: &excelize.Alignment{Vertical: "center"},
+	})
+
+	// Birinchi qator: A1 = "Права доступа", keyin har bir role ustuni
+	f.SetCellValue(sheet, "A1", "Права доступа")
+	f.SetCellStyle(sheet, "A1", "A1", headerStyle)
+	f.SetColWidth(sheet, "A", "A", 35)
+
+	colLetter := func(idx int) string {
+		// idx 0-based: 0=B, 1=C, ...
+		n := idx + 2 // B=2
+		result := ""
+		for n > 0 {
+			n--
+			result = string(rune('A'+n%26)) + result
+			n /= 26
+		}
+		return result
+	}
+
+	for i, role := range roles {
+		col := colLetter(i)
+		cell := col + "1"
+		header := fmt.Sprintf("%s\n(%d сотр.)", role.Name, role.EmployeeCount)
+		f.SetCellValue(sheet, cell, header)
+		f.SetCellStyle(sheet, cell, cell, headerStyle)
+		f.SetColWidth(sheet, col, col, 18)
+	}
+	f.SetRowHeight(sheet, 1, 40)
+
+	// Keyingi qatorlar: har bir permission bir qator
+	for pi, perm := range perms {
+		row := strconv.Itoa(pi + 2)
+		permCell := "A" + row
+		f.SetCellValue(sheet, permCell, perm.Name)
+		f.SetCellStyle(sheet, permCell, permCell, permStyle)
+
+		for ri, role := range roles {
+			col := colLetter(ri)
+			cell := col + row
+			if rolePermSet[role.ID][perm.ID] {
+				f.SetCellValue(sheet, cell, "✓")
+				f.SetCellStyle(sheet, cell, cell, checkStyle)
+			}
+		}
+	}
+
+	saveExcelToUploads(c, f, *h.log, "Роли_и_права")
 }

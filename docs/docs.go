@@ -22291,6 +22291,37 @@ const docTemplate = `{
                 }
             }
         },
+        "/role/export-excel": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Returns an Excel file listing each role, how many employees have it, and all its permissions",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "roles"
+                ],
+                "summary": "Export roles with employee count and permissions to Excel",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    }
+                }
+            }
+        },
         "/role/list": {
             "get": {
                 "security": [
@@ -31874,7 +31905,7 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "scanned_pack": {
-                    "type": "integer"
+                    "type": "number"
                 },
                 "scanned_unit": {
                     "type": "integer"
