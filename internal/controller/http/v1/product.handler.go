@@ -3041,7 +3041,7 @@ func (h *ProductHandler) ExportMovementUnits(c *gin.Context) {
 		"Возврат От клиент Кол-во", "Возврат склад Кол-во",
 		"Трансфер-In", "Трансфер-Out",
 		"Инвентаризация +", "Инвентаризация -",
-		"Посл. инв. Кол-во (упак)", "Посл. инв. Кол-во (дона)",
+		"Посл. инв. Тек. кол-во (упак)", "Посл. инв. Факт. кол-во (упак)",
 		"Фиксированное Кол-во", "Разница"}
 
 	err = setExcelHeaders(f, sheetName, headers)
@@ -3068,7 +3068,7 @@ func (h *ProductHandler) ExportMovementUnits(c *gin.Context) {
 		f.SetCellValue(sheetName, "L"+row, product.InventoryPlusCount)
 		f.SetCellValue(sheetName, "M"+row, product.InventoryMinusCount)
 		f.SetCellValue(sheetName, "N"+row, product.LastInvCurrentQuantity)
-		f.SetCellValue(sheetName, "O"+row, product.LastInvCurrentUnit)
+		f.SetCellValue(sheetName, "O"+row, product.LastInvFactQuantity)
 		f.SetCellValue(sheetName, "P"+row, product.CorrectQuantity)
 		f.SetCellValue(sheetName, "Q"+row, product.Diff)
 	}

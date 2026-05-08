@@ -2649,7 +2649,7 @@ func (s *Services) GetProductMovementUnits(ctx context.Context, params *domain.P
 		SELECT
 			imd.product_id,
 			ROUND(SUM(imd.received_count / p.unit_per_pack), 4) AS last_inv_current_quantity,
-			ROUND(SUM(imd.received_count % p.unit_per_pack), 4) AS last_inv_current_unit
+			ROUND(SUM(imd.scanned_count / p.unit_per_pack), 4) AS last_inv_fact_quantity
 		FROM import_details imd
 			JOIN last_inventory li ON li.id = imd.import_id
 			JOIN products p ON p.id = imd.product_id
@@ -2670,7 +2670,7 @@ func (s *Services) GetProductMovementUnits(ctx context.Context, params *domain.P
 		COALESCE(inv.inventory_plus_count, 0)             AS inventory_plus_count,
 		COALESCE(inv.inventory_minus_count, 0)            AS inventory_minus_count,
 		COALESCE(lid.last_inv_current_quantity, 0)        AS last_inv_current_quantity,
-		COALESCE(lid.last_inv_current_unit, 0)            AS last_inv_current_unit,
+		COALESCE(lid.last_inv_fact_quantity, 0)            AS last_inv_fact_quantity,
 		COALESCE(im.import_count, 0) + COALESCE(rs.return_quantity, 0) + COALESCE(tin.transfer_in_count, 0) +
 		COALESCE(inv.inventory_plus_count, 0) + COALESCE(inv.inventory_minus_count, 0) -
 		COALESCE(s.sold_quantity, 0) - COALESCE(tout.transfer_out_count, 0) - COALESCE(v.vozvrat_count, 0) AS correct_quantity,
