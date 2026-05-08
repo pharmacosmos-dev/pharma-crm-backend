@@ -2563,8 +2563,7 @@ func (s *Services) GetProductMovementUnits(ctx context.Context, params *domain.P
 	WITH import_data AS (
 		SELECT
 			sp.id AS store_product_id,
-			SUM(imd.received_count * p.unit_per_pack) AS received_count,
-			SUM(ROUND(COALESCE(imd.scanned_count * p.unit_per_pack, 0))) AS scanned_count
+			SUM(ROUND(COALESCE(imd.accepted_count * p.unit_per_pack, 0))) AS scanned_count
 		FROM store_products sp
 		JOIN import_details imd ON sp.import_detail_id = imd.id
 		JOIN products p ON p.id = imd.product_id
@@ -2595,8 +2594,7 @@ func (s *Services) GetProductMovementUnits(ctx context.Context, params *domain.P
 	transfer_in AS (
 		SELECT
 			sp.id AS store_product_id,
-			SUM(td.received_count * p.unit_per_pack) AS received_count,
-			SUM(COALESCE(td.scanned_count * p.unit_per_pack, 0)) AS scanned_count
+			SUM(COALESCE(td.accepted_count * p.unit_per_pack, 0)) AS scanned_count
 		FROM store_products sp
 		JOIN transfer_details td ON td.id = sp.import_detail_id
 		JOIN products p ON p.id = td.product_id
