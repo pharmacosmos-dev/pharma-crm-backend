@@ -528,6 +528,8 @@ type MovementUnitsResponse struct {
 	Diff                   float64 `gorm:"diff" json:"diff"`
 	InventoryPlusCount     float64 `gorm:"inventory_plus_count" json:"inventory_plus_count"`
 	InventoryMinusCount    float64 `gorm:"inventory_minus_count" json:"inventory_minus_count"`
+	LastInvCurrentQuantity float64 `gorm:"last_inv_current_quantity" json:"last_inv_current_quantity"`
+	LastInvCurrentUnit     float64 `gorm:"last_inv_current_unit" json:"last_inv_current_unit"`
 }
 
 type MovementUnitsByDateParam struct {

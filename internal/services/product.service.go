@@ -2637,21 +2637,40 @@ func (s *Services) GetProductMovementUnits(ctx context.Context, params *domain.P
 			JOIN imports im ON im.id = imd.import_id
 		WHERE im.store_id = ? AND im.entry_type = 2 AND im.status = 'completed'
 		GROUP BY imd.product_id
+	),
+	last_inventory AS (
+		SELECT id
+		FROM imports
+		WHERE store_id = ? AND entry_type = 2 AND status = 'completed'
+		ORDER BY created_at DESC
+		LIMIT 1
+	),
+	last_inventory_data AS (
+		SELECT
+			imd.product_id,
+			ROUND(SUM(imd.received_count / p.unit_per_pack), 4) AS last_inv_current_quantity,
+			ROUND(SUM(imd.received_count % p.unit_per_pack), 4) AS last_inv_current_unit
+		FROM import_details imd
+			JOIN last_inventory li ON li.id = imd.import_id
+			JOIN products p ON p.id = imd.product_id
+		GROUP BY imd.product_id
 	)
 	SELECT
-		p.id                                        AS product_id,
-		p.material_code                             AS ID,
+		p.id                                              AS product_id,
+		p.material_code                                   AS ID,
 		p.name,
 		p.unit_per_pack,
-		COALESCE(im.import_count, 0)                AS import_quantity,
-		COALESCE(pq.unit_quantity, 0)               AS unit_quantity,
-		COALESCE(s.sold_quantity, 0)                AS sold_quantity,
-		COALESCE(rs.return_quantity, 0)             AS returned_quantity,
-		COALESCE(tin.transfer_in_count, 0)          AS transfer_in_quantity,
-		COALESCE(tout.transfer_out_count, 0)        AS transfer_out_quantity,
-		COALESCE(v.vozvrat_count, 0)                AS vozvrat_quantity,
-		COALESCE(inv.inventory_plus_count, 0)       AS inventory_plus_count,
-		COALESCE(inv.inventory_minus_count, 0)      AS inventory_minus_count,
+		COALESCE(im.import_count, 0)                      AS import_quantity,
+		COALESCE(pq.unit_quantity, 0)                     AS unit_quantity,
+		COALESCE(s.sold_quantity, 0)                      AS sold_quantity,
+		COALESCE(rs.return_quantity, 0)                   AS returned_quantity,
+		COALESCE(tin.transfer_in_count, 0)                AS transfer_in_quantity,
+		COALESCE(tout.transfer_out_count, 0)              AS transfer_out_quantity,
+		COALESCE(v.vozvrat_count, 0)                      AS vozvrat_quantity,
+		COALESCE(inv.inventory_plus_count, 0)             AS inventory_plus_count,
+		COALESCE(inv.inventory_minus_count, 0)            AS inventory_minus_count,
+		COALESCE(lid.last_inv_current_quantity, 0)        AS last_inv_current_quantity,
+		COALESCE(lid.last_inv_current_unit, 0)            AS last_inv_current_unit,
 		COALESCE(im.import_count, 0) + COALESCE(rs.return_quantity, 0) + COALESCE(tin.transfer_in_count, 0) +
 		COALESCE(inv.inventory_plus_count, 0) + COALESCE(inv.inventory_minus_count, 0) -
 		COALESCE(s.sold_quantity, 0) - COALESCE(tout.transfer_out_count, 0) - COALESCE(v.vozvrat_count, 0) AS correct_quantity,
@@ -2668,6 +2687,7 @@ func (s *Services) GetProductMovementUnits(ctx context.Context, params *domain.P
 	LEFT JOIN transfer_out tout ON tout.product_id = p.id
 	LEFT JOIN vozvrat v ON v.product_id = p.id
 	LEFT JOIN inventory_quantity inv ON inv.product_id = p.id
+	LEFT JOIN last_inventory_data lid ON lid.product_id = p.id
 	ORDER BY p.name`
 	if params.Limit > 0 {
 		query += fmt.Sprintf(" LIMIT %d OFFSET %d", params.Limit, params.Offset)
@@ -2684,6 +2704,7 @@ func (s *Services) GetProductMovementUnits(ctx context.Context, params *domain.P
 		params.StoreId, // vozvrat (from_store_id)
 		params.StoreId, // product_quantity
 		params.StoreId, // inventory_quantity
+		params.StoreId, // last_inventory
 	).Scan(&res).Error
 
 	if err != nil {
