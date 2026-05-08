@@ -3045,7 +3045,7 @@ func (h *ProductHandler) ExportMovementUnits(c *gin.Context) {
 		"Фиксированное Кол-во", "Разница",
 		"Разница нет", "Инвер Спросил", "В аптеке есть", "В аптеке нет проблем",
 		"Разница прогр. и потерян.", "Кол-во из-за программы",
-		"Сумма", "Розн. Сумма"}
+		"Сумма", "Розн. Сумма", "Инв. разница сумма"}
 
 	err = setExcelHeaders(f, sheetName, headers)
 	if err != nil {
@@ -3082,6 +3082,7 @@ func (h *ProductHandler) ExportMovementUnits(c *gin.Context) {
 		f.SetCellFormula(sheetName, "W"+row, "S"+row+"-T"+row+"-V"+row)
 		f.SetCellValue(sheetName, "X"+row, product.LastInvRetailPrice)
 		f.SetCellFormula(sheetName, "Y"+row, "W"+row+"*X"+row)
+		f.SetCellValue(sheetName, "Z"+row, product.LastInvDifferenceSum)
 	}
 
 	saveExcelToUploads(c, f, *h.log, "product-full-movements")

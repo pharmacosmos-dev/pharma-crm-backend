@@ -531,6 +531,7 @@ type MovementUnitsResponse struct {
 	LastInvCurrentQuantity float64 `gorm:"last_inv_current_quantity" json:"last_inv_current_quantity"`
 	LastInvFactQuantity    float64 `gorm:"last_inv_fact_quantity" json:"last_inv_fact_quantity"`
 	LastInvRetailPrice     float64 `gorm:"last_inv_retail_price" json:"last_inv_retail_price"`
+	LastInvDifferenceSum   float64 `gorm:"last_inv_difference_sum" json:"last_inv_difference_sum"`
 }
 
 type MovementUnitsByDateParam struct {
