@@ -3039,7 +3039,9 @@ func (h *ProductHandler) ExportMovementUnits(c *gin.Context) {
 		"Товары ID", "По-Импорт-ID", "Наименования", "№",
 		"Остаток", "Импорт Кол-во", "Продано Кол-во",
 		"Возврат От клиент Кол-во", "Возврат склад Кол-во",
-		"Трансфер-In", "Трансфер-Out", "Фиксированное Кол-во", "Разница"}
+		"Трансфер-In", "Трансфер-Out",
+		"Инвентаризация +", "Инвентаризация -",
+		"Фиксированное Кол-во", "Разница"}
 
 	err = setExcelHeaders(f, sheetName, headers)
 	if err != nil {
@@ -3062,8 +3064,10 @@ func (h *ProductHandler) ExportMovementUnits(c *gin.Context) {
 		f.SetCellValue(sheetName, "I"+row, product.VozvratQuantity)
 		f.SetCellValue(sheetName, "J"+row, product.TransferInQuantity)
 		f.SetCellValue(sheetName, "K"+row, product.TransferOutQuantity)
-		f.SetCellValue(sheetName, "L"+row, product.CorrectQuantity)
-		f.SetCellValue(sheetName, "M"+row, product.Diff)
+		f.SetCellValue(sheetName, "L"+row, product.InventoryPlusCount)
+		f.SetCellValue(sheetName, "M"+row, product.InventoryMinusCount)
+		f.SetCellValue(sheetName, "N"+row, product.CorrectQuantity)
+		f.SetCellValue(sheetName, "O"+row, product.Diff)
 	}
 
 	saveExcelToUploads(c, f, *h.log, "product-full-movements")

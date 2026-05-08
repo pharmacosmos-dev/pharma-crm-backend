@@ -524,8 +524,10 @@ type MovementUnitsResponse struct {
 	VozvratQuantity     float64 `gorm:"vozvrat_quantity" json:"vozvrat_quantity"`
 	TransferInQuantity  float64 `gorm:"transfer_in_quantity" json:"transfer_in_quantity"`
 	TransferOutQuantity float64 `gorm:"transfer_out_quantity" json:"transfer_out_quantity"`
-	CorrectQuantity     float64 `gorm:"correct_quantity" json:"correct_quantity"`
-	Diff                float64 `gorm:"diff" json:"diff"`
+	CorrectQuantity        float64 `gorm:"correct_quantity" json:"correct_quantity"`
+	Diff                   float64 `gorm:"diff" json:"diff"`
+	InventoryPlusCount     float64 `gorm:"inventory_plus_count" json:"inventory_plus_count"`
+	InventoryMinusCount    float64 `gorm:"inventory_minus_count" json:"inventory_minus_count"`
 }
 
 type MovementUnitsByDateParam struct {
