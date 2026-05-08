@@ -3042,7 +3042,10 @@ func (h *ProductHandler) ExportMovementUnits(c *gin.Context) {
 		"Трансфер-In", "Трансфер-Out",
 		"Инвентаризация +", "Инвентаризация -",
 		"Посл. инв. Тек. кол-во (упак)", "Посл. инв. Факт. кол-во (упак)",
-		"Фиксированное Кол-во", "Разница"}
+		"Фиксированное Кол-во", "Разница",
+		"Разница нет", "Инвер Спросил", "В аптеке есть", "В аптеке нет проблем",
+		"Разница прогр. и потерян.", "Кол-во из-за программы",
+		"Сумма", "Розн. Сумма"}
 
 	err = setExcelHeaders(f, sheetName, headers)
 	if err != nil {
@@ -3071,6 +3074,14 @@ func (h *ProductHandler) ExportMovementUnits(c *gin.Context) {
 		f.SetCellValue(sheetName, "O"+row, product.LastInvFactQuantity)
 		f.SetCellValue(sheetName, "P"+row, product.CorrectQuantity)
 		f.SetCellValue(sheetName, "Q"+row, product.Diff)
+		f.SetCellFormula(sheetName, "R"+row, "OR(P"+row+"=Q"+row+",Q"+row+"=0)")
+		f.SetCellFormula(sheetName, "S"+row, "N"+row+"*D"+row)
+		f.SetCellFormula(sheetName, "T"+row, "O"+row+"*D"+row)
+		f.SetCellFormula(sheetName, "U"+row, "OR(T"+row+"=S"+row+",T"+row+">S"+row+")")
+		f.SetCellFormula(sheetName, "V"+row, "S"+row+"-T"+row+"+Q"+row)
+		f.SetCellFormula(sheetName, "W"+row, "S"+row+"-T"+row+"-V"+row)
+		f.SetCellValue(sheetName, "X"+row, product.LastInvRetailPrice)
+		f.SetCellFormula(sheetName, "Y"+row, "W"+row+"*X"+row)
 	}
 
 	saveExcelToUploads(c, f, *h.log, "product-full-movements")
