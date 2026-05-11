@@ -2682,8 +2682,23 @@ func (s *Services) GetProductMovementUnits(ctx context.Context, params *domain.P
 		COALESCE(inv.inventory_plus_count, 0) + COALESCE(inv.inventory_minus_count, 0) -
 		COALESCE(s.sold_quantity, 0) - COALESCE(tout.transfer_out_count, 0) - COALESCE(v.vozvrat_count, 0) -
 		COALESCE(pq.unit_quantity, 0) AS diff
-	FROM products p
-	JOIN product_quantity pq ON pq.product_id = p.id
+	FROM (
+		SELECT product_id FROM import_data
+		UNION
+		SELECT product_id FROM sold
+		UNION
+		SELECT product_id FROM return_sales
+		UNION
+		SELECT product_id FROM transfer_in
+		UNION
+		SELECT product_id FROM transfer_out
+		UNION
+		SELECT product_id FROM vozvrat
+		UNION
+		SELECT product_id FROM product_quantity
+	) AS all_products
+	JOIN products p ON p.id = all_products.product_id
+	LEFT JOIN product_quantity pq ON pq.product_id = p.id
 	LEFT JOIN import_data im ON im.product_id = p.id
 	LEFT JOIN sold s ON s.product_id = p.id
 	LEFT JOIN return_sales rs ON rs.product_id = p.id
