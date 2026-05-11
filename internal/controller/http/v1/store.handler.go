@@ -145,13 +145,14 @@ func (h *StoreHandler) FetchStores(c *gin.Context) {
 	ctx, cancel := context.WithTimeout(c.Request.Context(), constants.DefaultContextTimeout)
 	defer cancel()
 
-	// check if employee is not admin or superadmin
 	if !helper.IsAdmin(user) {
-		if user.Role == constants.RoleFranchise {
-			// franchise role: barcha franchise kompaniyalar do'konlarini ko'radi
+		switch user.Role {
+		case constants.RoleFranchise:
 			params.CompanyIds, _ = h.service.GetCompanyIds(ctx, true)
 			params.CompanyId = ""
-		} else {
+		case constants.RoleFranchiseAdmin:
+			params.CompanyId = user.CompanyId
+		default:
 			params.CompanyId = user.CompanyId
 			params.StoreId = user.StoreId
 		}

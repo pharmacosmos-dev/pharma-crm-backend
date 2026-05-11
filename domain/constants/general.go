@@ -237,16 +237,17 @@ const (
 
 // region Roles
 const (
-	RoleAdmin         = "ADMIN"
-	RoleSuperAdmin    = "SUPERADMIN"
-	RoleManager       = "MANAGER"
-	RoleAutoZakaz     = "AUTOZAKAZ"
-	RoleFounder       = "FOUNDER"
-	RoleAccountant    = "ACCOUNTANT"
-	RoleDirector      = "DIRECTOR"
-	RoleCashier       = "CASHIER"
-	RoleHeadOfCashier = "HEADOFCASHIER"
-	RoleFranchise     = "FRANCHISE"
+	RoleAdmin          = "ADMIN"
+	RoleSuperAdmin     = "SUPERADMIN"
+	RoleManager        = "MANAGER"
+	RoleAutoZakaz      = "AUTOZAKAZ"
+	RoleFounder        = "FOUNDER"
+	RoleAccountant     = "ACCOUNTANT"
+	RoleDirector       = "DIRECTOR"
+	RoleCashier        = "CASHIER"
+	RoleHeadOfCashier  = "HEADOFCASHIER"
+	RoleFranchise      = "FRANCHISE"
+	RoleFranchiseAdmin = "FRANCHISE_ADMIN"
 )
 
 // movement type
