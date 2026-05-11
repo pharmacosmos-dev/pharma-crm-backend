@@ -35,7 +35,7 @@ func (h *StoreTargetHandler) StoreTargetRoutes(r *gin.RouterGroup) {
 		target.GET("/employee/list/:store_id", h.EmployeeHistory)
 		target.GET("/employee/my", h.GetMyEmployeeTarget)
 		target.PUT("/employee/:employee_id", h.UpdateEmployeeTarget)
-		//target.GET("/summary", h.Summary)
+		target.GET("/summary", h.Summary)
 		target.POST("/import-excel", h.ImportFromExcel)
 	}
 }
