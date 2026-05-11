@@ -490,50 +490,50 @@ func (h *StoreTargetHandler) UpdateEmployeeTarget(c *gin.Context) {
 // @Failure      400 {object} v1.Response
 // @Failure      500 {object} v1.Response
 // @Router       /store-target/summary [get]
-// func (h *StoreTargetHandler) Summary(c *gin.Context) {
-// 	user := h.service.GetSignedUser(c)
-// 	if user.CompanyId == "" {
-// 		handleResponse(c, BadRequest, "company_id not found for user")
-// 		return
-// 	}
+func (h *StoreTargetHandler) Summary(c *gin.Context) {
+	user := h.service.GetSignedUser(c)
+	if user.CompanyId == "" {
+		handleResponse(c, BadRequest, "company_id not found for user")
+		return
+	}
 
-// 	var params domain.StoreTargetQueryParams
-// 	if err := c.ShouldBindQuery(&params); err != nil {
-// 		handleResponse(c, BadRequest, err.Error())
-// 		return
-// 	}
+	var params domain.StoreTargetQueryParams
+	if err := c.ShouldBindQuery(&params); err != nil {
+		handleResponse(c, BadRequest, err.Error())
+		return
+	}
 
-// 	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
-// 	defer cancel()
+	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
+	defer cancel()
 
-// 	var isAdmin bool
-// 	companyIds := []string{user.CompanyId}
-// 	storeId := ""
+	var isAdmin bool
+	companyIds := []string{user.CompanyId}
+	storeId := ""
 
-// 	if !utils.In(user.Role, constants.StoreTargetViewAll...) {
-// 		if user.StoreId == "" {
-// 			handleResponse(c, BadRequest, "store_id not found for user")
-// 			return
-// 		}
-// 		storeId = user.StoreId
-// 	} else {
-// 		isAdmin = true
-// 	}
+	if !utils.In(user.Role, constants.StoreTargetViewAll...) {
+		if user.StoreId == "" {
+			handleResponse(c, BadRequest, "store_id not found for user")
+			return
+		}
+		storeId = user.StoreId
+	} else {
+		isAdmin = true
+	}
 
-// 	if isAdmin && params.IsFranchise != nil && *params.IsFranchise {
-// 		companyIds, _ = h.service.GetCompanyIds(ctx, true)
-// 	} else if isAdmin && params.IsPharma != nil && *params.IsPharma {
-// 		companyIds, _ = h.service.GetCompanyIds(ctx, false)
-// 	}
+	if isAdmin && params.IsFranchise != nil && *params.IsFranchise {
+		companyIds, _ = h.service.GetCompanyIds(ctx, true)
+	} else if isAdmin && params.IsPharma != nil && *params.IsPharma {
+		companyIds, _ = h.service.GetCompanyIds(ctx, false)
+	}
 
-// 	summary, err := h.service.GetCurrentMonthStoreTargetsSummary(ctx, companyIds, storeId, params.Year, params.Month)
-// 	if err != nil {
-// 		handleServiceResponse(c, nil, err)
-// 		return
-// 	}
+	summary, err := h.service.GetCurrentMonthStoreTargetsSummary(ctx, companyIds, storeId, params.Year, params.Month)
+	if err != nil {
+		handleServiceResponse(c, nil, err)
+		return
+	}
 
-// 	handleResponse(c, OK, summary)
-// }
+	handleResponse(c, OK, summary)
+}
 
 
 // ImportFromExcel godoc
