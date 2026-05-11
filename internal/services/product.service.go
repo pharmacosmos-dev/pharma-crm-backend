@@ -2574,20 +2574,20 @@ func (s *Services) GetProductMovementUnits(ctx context.Context, params *domain.P
 		SELECT
 			sp.product_id,
 			SUM(ci.unit_quantity) AS sold_quantity
-		FROM store_products sp
-			JOIN cart_items ci ON ci.store_product_id = sp.id
-			JOIN sales s ON s.id = ci.sale_id
-		WHERE sp.store_id = ? AND s.stage IN (9, 11) AND s.sale_type = 'SALE'
+		FROM sales s
+			JOIN cart_items ci ON ci.sale_id = s.id
+			JOIN store_products sp ON sp.id = ci.store_product_id
+		WHERE s.store_id = ? AND s.stage IN (9, 11) AND s.sale_type = 'SALE'
 		GROUP BY sp.product_id
 	),
 	return_sales AS (
 		SELECT
 			sp.product_id,
 			SUM(ci.unit_quantity) AS return_quantity
-		FROM store_products sp
-			JOIN cart_items ci ON ci.store_product_id = sp.id
-			JOIN sales s ON s.id = ci.sale_id
-		WHERE sp.store_id = ? AND s.stage IN (9, 11) AND s.sale_type = 'RETURN'
+		FROM sales s
+			JOIN cart_items ci ON ci.sale_id = s.id
+			JOIN store_products sp ON sp.id = ci.store_product_id
+		WHERE s.store_id = ? AND s.stage IN (9, 11) AND s.sale_type = 'RETURN'
 		GROUP BY sp.product_id
 	),
 	transfer_in AS (
@@ -2682,23 +2682,8 @@ func (s *Services) GetProductMovementUnits(ctx context.Context, params *domain.P
 		COALESCE(inv.inventory_plus_count, 0) + COALESCE(inv.inventory_minus_count, 0) -
 		COALESCE(s.sold_quantity, 0) - COALESCE(tout.transfer_out_count, 0) - COALESCE(v.vozvrat_count, 0) -
 		COALESCE(pq.unit_quantity, 0) AS diff
-	FROM (
-		SELECT product_id FROM import_data
-		UNION
-		SELECT product_id FROM sold
-		UNION
-		SELECT product_id FROM return_sales
-		UNION
-		SELECT product_id FROM transfer_in
-		UNION
-		SELECT product_id FROM transfer_out
-		UNION
-		SELECT product_id FROM vozvrat
-		UNION
-		SELECT product_id FROM product_quantity
-	) AS all_products
-	JOIN products p ON p.id = all_products.product_id
-	LEFT JOIN product_quantity pq ON pq.product_id = p.id
+	FROM products p
+	JOIN product_quantity pq ON pq.product_id = p.id
 	LEFT JOIN import_data im ON im.product_id = p.id
 	LEFT JOIN sold s ON s.product_id = p.id
 	LEFT JOIN return_sales rs ON rs.product_id = p.id
