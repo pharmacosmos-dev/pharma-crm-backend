@@ -337,11 +337,18 @@ func (h *StoreTargetHandler) List(c *gin.Context) {
 // @Failure      500 {object} v1.Response
 // @Router       /store-target/employee/list/{store_id} [get]
 func (h *StoreTargetHandler) EmployeeHistory(c *gin.Context) {
+	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
+	defer cancel()
+
 	user := h.service.GetSignedUser(c)
+	if user.UserId == "" {
+		handleServiceResponse(c, nil, domain.UnauthorizedError)
+		return
+	}
 
 	var params domain.EmployeeTargetQueryParams
 	if err := c.ShouldBindQuery(&params); err != nil {
-		handleResponse(c, BadRequest, err.Error())
+		handleServiceResponse(c, BadRequest, domain.InvalidQueryError)
 		return
 	}
 
@@ -349,13 +356,13 @@ func (h *StoreTargetHandler) EmployeeHistory(c *gin.Context) {
 
 	if !utils.In(user.Role, constants.StoreTargetViewAll...) {
 		if user.StoreId == "" {
-			handleResponse(c, BadRequest, "store_id not found for user")
+			handleServiceResponse(c, BadRequest, domain.InvalidQueryError)
 			return
 		}
 		params.StoreId = user.StoreId
 	} else {
 		if pathStoreId == "" {
-			handleResponse(c, BadRequest, "store_id is required")
+			handleServiceResponse(c, BadRequest, domain.InvalidQueryError)
 			return
 		}
 		params.StoreId = pathStoreId
@@ -363,9 +370,6 @@ func (h *StoreTargetHandler) EmployeeHistory(c *gin.Context) {
 
 	params.CompanyId = user.CompanyId
 	params.Limit, params.Offset = defaultLimitOffset(params.Limit, params.Offset)
-
-	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
-	defer cancel()
 
 	results, count, err := h.service.GetEmployeeTargetHistoryByStore(ctx, &params)
 	if err != nil {
