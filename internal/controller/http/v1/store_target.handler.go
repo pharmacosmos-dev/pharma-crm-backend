@@ -377,7 +377,9 @@ func (h *StoreTargetHandler) EmployeeHistory(c *gin.Context) {
 		return
 	}
 
-	handleResponse(c, OK, results, count)
+	data := utils.ListResponse(results, count, params.Limit, params.Offset)
+
+	handleResponse(c, OK, data)
 }
 
 
