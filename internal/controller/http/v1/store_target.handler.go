@@ -355,11 +355,11 @@ func (h *StoreTargetHandler) EmployeeHistory(c *gin.Context) {
 	pathStoreId := c.Param("store_id")
 
 	if !utils.In(user.Role, constants.StoreTargetViewAll...) {
-		if user.StoreId == "" {
-			handleServiceResponse(c, nil, domain.ForbiddinError)
-			return
+		if user.StoreId != "" {
+			params.StoreId = user.StoreId
+		} else {
+			params.StoreId = pathStoreId
 		}
-		params.StoreId = user.StoreId
 	} else {
 		if pathStoreId == "" {
 			handleServiceResponse(c, nil, domain.NotFoundError)
