@@ -489,44 +489,45 @@ func (h *StoreTargetHandler) UpdateEmployeeTarget(c *gin.Context) {
 // @Success      200 {object} domain.StoreTargetSummary
 // @Failure      400 {object} v1.Response
 // @Failure      500 {object} v1.Response
-// @Router       /store-target/summary [get]
+// @Router /store-target/summary [GET]
 func (h *StoreTargetHandler) Summary(c *gin.Context) {
+	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
+	defer cancel()
+
 	user := h.service.GetSignedUser(c)
-	if user.CompanyId == "" {
-		handleResponse(c, BadRequest, "company_id not found for user")
+	if user.UserId == "" {
+		handleServiceResponse(c, nil, domain.UnauthorizedError)
 		return
 	}
 
 	var params domain.StoreTargetQueryParams
 	if err := c.ShouldBindQuery(&params); err != nil {
-		handleResponse(c, BadRequest, err.Error())
+		handleServiceResponse(c, BadRequest, domain.InvalidQueryError)
 		return
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
-	defer cancel()
-
 	var isAdmin bool
-	companyIds := []string{user.CompanyId}
 	storeId := ""
 
 	if !utils.In(user.Role, constants.StoreTargetViewAll...) {
-		if user.StoreId == "" {
-			handleResponse(c, BadRequest, "store_id not found for user")
-			return
+		if user.StoreId != "" {
+			storeId = user.StoreId
 		}
-		storeId = user.StoreId
+		params.CompanyIds = []string{user.CompanyId}
 	} else {
 		isAdmin = true
+		params.CompanyIds = []string{user.CompanyId}
 	}
 
 	if isAdmin && params.IsFranchise != nil && *params.IsFranchise {
-		companyIds, _ = h.service.GetCompanyIds(ctx, true)
+		params.CompanyIds, _ = h.service.GetCompanyIds(ctx, true)
+		storeId = ""
 	} else if isAdmin && params.IsPharma != nil && *params.IsPharma {
-		companyIds, _ = h.service.GetCompanyIds(ctx, false)
+		params.CompanyIds, _ = h.service.GetCompanyIds(ctx, false)
+		storeId = ""
 	}
 
-	summary, err := h.service.GetCurrentMonthStoreTargetsSummary(ctx, companyIds, storeId, params.Year, params.Month)
+	summary, err := h.service.GetCurrentMonthStoreTargetsSummary(ctx, params.CompanyIds, storeId, params.Year, params.Month)
 	if err != nil {
 		handleServiceResponse(c, nil, err)
 		return
