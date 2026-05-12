@@ -348,7 +348,7 @@ func (h *StoreTargetHandler) EmployeeHistory(c *gin.Context) {
 
 	var params domain.EmployeeTargetQueryParams
 	if err := c.ShouldBindQuery(&params); err != nil {
-		handleServiceResponse(c, BadRequest, domain.InvalidQueryError)
+		handleResponse(c, BadRequest, err.Error())
 		return
 	}
 
@@ -356,13 +356,13 @@ func (h *StoreTargetHandler) EmployeeHistory(c *gin.Context) {
 
 	if !utils.In(user.Role, constants.StoreTargetViewAll...) {
 		if user.StoreId == "" {
-			handleServiceResponse(c, BadRequest, domain.InvalidQueryError)
+			handleServiceResponse(c, nil, domain.ForbiddinError)
 			return
 		}
 		params.StoreId = user.StoreId
 	} else {
 		if pathStoreId == "" {
-			handleServiceResponse(c, BadRequest, domain.InvalidQueryError)
+			handleServiceResponse(c, nil, domain.NotFoundError)
 			return
 		}
 		params.StoreId = pathStoreId
