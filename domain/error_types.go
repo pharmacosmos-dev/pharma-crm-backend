@@ -26,6 +26,8 @@ var (
 	IncorrectCardError           = NewError(http.StatusBadRequest, "incorrect.card")
 	AlifInvalidRequestBodyError  = NewError(http.StatusBadRequest, "alif.invalid.request.body")
 	AlifInvalidParametersError   = NewError(http.StatusBadRequest, "alif.invalid.parameters")
+	AlifPaymentRevertedError     = NewError(http.StatusBadRequest, "REVERTED")
+	AlifPaymentDeclinedError     = NewError(http.StatusBadRequest, "DECLINED")
 	UserIdIsRequiredError        = NewError(http.StatusBadRequest, "user.id.is.required")
 	FiscalSignRequiredError      = NewError(http.StatusBadRequest, "fiscal.sign.required")
 

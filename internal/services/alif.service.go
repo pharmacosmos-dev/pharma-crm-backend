@@ -143,7 +143,7 @@ func DecodeAlifResponse[T any](r io.Reader) (domain.AlifResponseWrapper[T], []by
 	case constants.AlifStatusInvalidCard:
 		return result, response, domain.IncorrectCardError
 	case constants.AlifStatusReverted:
-		return result, response, domain.AlreadyCompletedError
+		return result, response, domain.AlifPaymentRevertedError
 	case constants.AlifStatusOtpRequired:
 		return result, response, domain.IncorrectOTPError
 	case constants.AlifStatusBlockedCard:
@@ -159,7 +159,7 @@ func DecodeAlifResponse[T any](r io.Reader) (domain.AlifResponseWrapper[T], []by
 	case constants.AlifStatusPending, constants.AlifStatusPendingReversal:
 		return result, response, domain.DependencyFailedError
 	case constants.AlifStatusDeclined:
-		return result, response, domain.AlreadyCompletedError
+		return result, response, domain.AlifPaymentDeclinedError
 	case constants.AlifStatusUnknownError:
 		return result, response, domain.InternalServerError
 	default:
