@@ -1,0 +1,1171 @@
+// ============================================================
+// PHARMA CRM - Full Database Diagram (74 tables)
+// Import: dbdiagram.io → Import → Import from DBML
+// ============================================================
+
+// ============================================================
+// GROUP: Reference / Catalog
+// ============================================================
+
+Table producers {
+  id uuid [pk, default: `uuid_generate_v4()`]
+  name varchar(255)
+  created_at timestamp [not null, default: `now()`]
+  updated_at timestamp [not null, default: `now()`]
+  deleted_at timestamp
+}
+
+Table brands {
+  id uuid [pk, default: `uuid_generate_v4()`]
+  name varchar(255)
+  logo text
+  is_active boolean [not null, default: true]
+  created_at timestamptz [not null, default: `now()`]
+  updated_at timestamptz [not null, default: `now()`]
+  deleted_at timestamp
+}
+
+Table unit_types {
+  id uuid [pk, default: `uuid_generate_v4()`]
+  unit_name varchar(50) [not null]
+  codename varchar(50)
+  short_name varchar(10)
+  created_at timestamptz [not null, default: `now()`]
+  updated_at timestamptz [not null, default: `now()`]
+  deleted_at timestamp
+}
+
+Table shelves {
+  id uuid [pk, default: `uuid_generate_v4()`]
+  name varchar(255)
+  created_at timestamp [not null, default: `now()`]
+  updated_at timestamp [not null, default: `now()`]
+  deleted_at timestamp
+}
+
+Table suppliers {
+  id uuid [pk, default: `uuid_generate_v4()`]
+  name varchar(255)
+  phone varchar(20)
+  desc text
+  company_legal_name varchar(255)
+  legal_address varchar(255)
+  country varchar(255)
+  zip_code varchar(50)
+  bank_account varchar(100)
+  bank_name varchar(255)
+  bank_tin varchar(255)
+  bank_ibt varchar(255)
+  file_url varchar(1000)
+  is_active boolean [not null, default: true]
+  created_at timestamptz [not null, default: `now()`]
+  updated_at timestamptz [not null, default: `now()`]
+  deleted_at timestamp
+}
+
+Table countries {
+  id uuid [pk, default: `gen_random_uuid()`]
+  name varchar(255) [not null, unique]
+  created_at timestamptz [default: `now()`]
+  updated_at timestamptz [default: `now()`]
+}
+
+Table tax_products {
+  id serial [pk]
+  name_uz varchar(500)
+  name_ru varchar(500)
+  mxik varchar(25)
+  unit_code varchar(15)
+  unit_name varchar(255)
+  unit_count int [default: 1]
+  created_at timestamptz [default: `now()`]
+  updated_at timestamptz [default: `now()`]
+}
+
+Table tags {
+  id uuid [pk, default: `uuid_generate_v4()`]
+  name varchar(255)
+  type varchar(255)
+  status varchar(20)
+  desc text
+  created_at timestamptz [not null, default: `now()`]
+  updated_at timestamptz [not null, default: `now()`]
+  deleted_at timestamp
+}
+
+Table groups {
+  id uuid [pk, default: `uuid_generate_v4()`]
+  name varchar(255)
+  discount_percent int
+  is_public boolean
+  desc text
+  created_at timestamptz [not null, default: `now()`]
+  updated_at timestamptz [not null, default: `now()`]
+  deleted_at timestamp
+}
+
+// ============================================================
+// GROUP: Company & Store
+// ============================================================
+
+Table companies {
+  id uuid [pk, default: `uuid_generate_v4()`]
+  name varchar(255)
+  logo text
+  email varchar(255)
+  phone varchar(20)
+  country varchar(255)
+  city varchar(255)
+  legal_name varchar(255)
+  legal_address varchar(255)
+  postal_code varchar(10)
+  company_inn varchar(55)
+  company_mfo varchar(255)
+  is_franchise boolean [default: false]
+  created_at timestamp [not null, default: `now()`]
+  updated_at timestamp [not null, default: `now()`]
+  deleted_at timestamp
+}
+
+Table stores {
+  id uuid [pk, default: `uuid_generate_v4()`]
+  company_id uuid [ref: > companies.id]
+  store_code int [unique]
+  name varchar(255)
+  location varchar(255)
+  address varchar(255)
+  phone varchar(20)
+  detailed_name varchar(255)
+  is_tax boolean [default: false]
+  work_hours varchar(100)
+  contact_inn varchar(55)
+  landmark varchar(255)
+  terminal_id varchar(100)
+  is_active boolean [not null, default: true]
+  is_fixed boolean [default: false]
+  is_fullday boolean [default: false]
+  oson_send boolean [default: false]
+  is_online_order boolean [default: false]
+  created_at timestamptz [not null, default: `now()`]
+  updated_at timestamptz [not null, default: `now()`]
+  deleted_at timestamp
+}
+
+// ============================================================
+// GROUP: Products
+// ============================================================
+
+Table products {
+  id uuid [pk, default: `uuid_generate_v4()`]
+  brand_id uuid [ref: > brands.id]
+  unit_type_id uuid [ref: > unit_types.id]
+  shelf_id uuid [ref: > shelves.id]
+  producer_id uuid [ref: > producers.id]
+  company_id uuid [ref: > companies.id]
+  country_id uuid [ref: > countries.id]
+  category_id uuid [ref: > categories.id]
+  material_code int [unique]
+  name varchar(255)
+  name_uz varchar(255)
+  name_ru varchar(255)
+  barcode varchar(255)
+  photos "varchar[]"
+  unit_per_pack int [default: 1]
+  blister_count int [default: 1]
+  unit_code varchar(50)
+  unit_name varchar(100)
+  mxik varchar(100)
+  description text
+  is_marking boolean [default: false]
+  is_return boolean [default: true]
+  requires_prescription boolean [default: false]
+  max_price numeric(10,2)
+  status varchar(55) [default: 'active', note: 'active | deleted | inactive']
+  created_at timestamptz [not null, default: `now()`]
+  updated_at timestamptz [not null, default: `now()`]
+  deleted_at timestamp
+}
+
+Table categories {
+  id uuid [pk, default: `uuid_generate_v4()`]
+  category_id uuid [ref: > categories.id]
+  name varchar(255)
+  name_uz varchar(255)
+  name_ru varchar(255)
+  photo varchar(255)
+  product_count int [default: 0]
+  is_active boolean [not null, default: true]
+  created_at timestamptz [not null, default: `now()`]
+  updated_at timestamptz [not null, default: `now()`]
+  deleted_at timestamp
+}
+
+Table category_products {
+  id uuid [pk, default: `uuid_generate_v4()`]
+  category_id uuid [ref: > categories.id]
+  product_id uuid [not null, ref: > products.id]
+  is_open boolean [default: false]
+  created_at timestamp [not null, default: `now()`]
+  updated_at timestamp [not null, default: `now()`]
+
+  indexes {
+    (product_id, category_id) [unique]
+  }
+}
+
+Table product_barcodes {
+  id uuid [pk, default: `uuid_generate_v4()`]
+  product_id uuid [not null, ref: > products.id]
+  old_barcode varchar(50)
+  barcode varchar(50) [not null]
+  store_id uuid [ref: > stores.id]
+  created_by uuid [ref: > employees.id]
+  status varchar(20) [not null, default: 'pending', note: 'pending | completed']
+  is_marking boolean [default: false]
+  created_at timestamptz [not null, default: `now()`]
+  updated_at timestamptz [not null, default: `now()`]
+}
+
+Table product_bonuses {
+  id serial [pk]
+  product_id uuid [ref: > products.id]
+  store_id uuid [ref: > stores.id]
+  company_id uuid [ref: > companies.id]
+  bonus_amount numeric(10,2) [default: 0.00]
+  status int [default: 1, note: '1=active, 0=inactive']
+  start_date date
+  end_date date
+  created_at timestamp [not null, default: `now()`]
+  updated_at timestamp [not null, default: `now()`]
+}
+
+Table product_markings {
+  id uuid [pk, default: `uuid_generate_v4()`]
+  import_detail_id uuid [ref: > import_details.id]
+  product_id uuid [ref: > products.id]
+  store_id uuid [ref: > stores.id]
+  marking varchar(500)
+  status int [default: 0]
+  created_at timestamptz [not null, default: `now()`]
+  updated_at timestamptz [not null, default: `now()`]
+  deleted_at timestamp
+}
+
+Table product_photo_alerts {
+  id uuid [pk, default: `uuid_generate_v4()`]
+  product_id uuid [not null, ref: > products.id]
+  category smallint [not null, note: '1=ml/doza xato, 2=ishlab chiqaruvchi xato, 3=rasm xato']
+  reason text
+  created_by uuid [ref: > employees.id]
+  status varchar(20) [not null, default: 'pending', note: 'pending | completed']
+  resolved_by uuid [ref: > employees.id]
+  resolved_at timestamptz
+  created_at timestamptz [not null, default: `now()`]
+  updated_at timestamptz [not null, default: `now()`]
+}
+
+Table product_movements {
+  id bigserial [pk]
+  product_id uuid [not null, ref: > products.id]
+  store_id uuid [ref: > stores.id]
+  to_store_id uuid [ref: > stores.id]
+  movement_type varchar(50) [not null, note: 'IMPORT|SALE|RETURN_SALE|RETURN_SUPPLIER|TRANSFER_OUT|TRANSFER_IN|INVENTORY|REPRICING']
+  movement_id uuid [not null]
+  display_id bigint [default: 0]
+  prev_quantity int [default: 0]
+  quantity int [default: 0]
+  after_quantity int [default: 0]
+  price numeric(14,2) [default: 0.00]
+  total_price numeric(14,2) [default: 0.00]
+  status smallint [default: 0, note: '0=NEW,1=PENDING,-1=CANCELLED,2=SENDING,3=COMPLETED']
+  movement_date timestamp [not null, default: `now()`]
+  created_at timestamptz [not null, default: `now()`]
+}
+
+Table excluded_products {
+  id uuid [pk, default: `uuid_generate_v4()`]
+  store_id uuid [ref: > stores.id]
+  product_id uuid [not null, ref: > products.id]
+  company_id uuid [ref: > companies.id]
+  created_by uuid [ref: > employees.id]
+  updated_by uuid [ref: > employees.id]
+  created_at timestamp [default: `now()`]
+  updated_at timestamp
+
+  indexes {
+    (store_id, product_id) [unique]
+  }
+}
+
+Table rejected_products {
+  id uuid [pk, default: `uuid_generate_v4()`]
+  product_id uuid [ref: > products.id]
+  product_name varchar(255)
+  store_id uuid [not null, ref: > stores.id]
+  reason text
+  rejected_times numeric(10,2)
+  count numeric(10,2) [default: 1]
+  created_by uuid [ref: > employees.id]
+  updated_by uuid [ref: > employees.id]
+  created_at timestamptz [not null, default: `now()`]
+  updated_at timestamptz [not null, default: `now()`]
+  deleted_at timestamp
+}
+
+Table update_packaging_logs {
+  id uuid [pk, default: `uuid_generate_v4()`]
+  product_id uuid [not null, ref: > products.id]
+  employee_id uuid [not null, ref: > employees.id]
+  old_unit_per_pack int [not null]
+  new_unit_per_pack int [not null]
+  created_at timestamptz [default: `now()`]
+}
+
+// ============================================================
+// GROUP: Store Products
+// ============================================================
+
+Table store_products {
+  id uuid [pk, not null, default: `uuid_generate_v4()`]
+  product_id uuid [ref: > products.id]
+  store_id uuid [ref: > stores.id]
+  company_id uuid [ref: > companies.id]
+  import_detail_id uuid [ref: > import_details.id]
+  pack_quantity int [default: 0]
+  unit_quantity int [default: 0]
+  small_quantity int [default: 0]
+  retail_price numeric(10,2) [default: 0]
+  supply_price numeric(10,2) [default: 0]
+  vat_price numeric(10,2) [default: 0]
+  bonus_percent int [default: 0]
+  vat int [default: 0]
+  markup int [default: 0]
+  expire_date date
+  serial_number varchar(255)
+  mxik_unit_code varchar(50)
+  barcode varchar(255)
+  created_at timestamptz [not null, default: `now()`]
+  updated_at timestamptz [not null, default: `now()`]
+}
+
+Table store_product_thresholds {
+  id serial [pk]
+  store_id uuid [not null, ref: > stores.id]
+  product_id uuid [not null, ref: > products.id]
+  kvant int [default: 1]
+  min_quantity numeric(10,2) [not null, default: 0]
+  max_quantity numeric(10,2) [not null, default: 0]
+  is_active boolean [not null, default: true]
+  created_at timestamp [default: `now()`]
+  updated_at timestamp [default: `now()`]
+
+  indexes {
+    (store_id, product_id) [unique]
+  }
+}
+
+Table store_product_stocks {
+  id bigserial [pk]
+  store_id uuid [ref: > stores.id]
+  product_id uuid [ref: > products.id]
+  unit_quantity bigint [default: 0]
+  min_price decimal(10,2) [default: 0.00]
+  max_price decimal(10,2) [default: 0.00]
+  created_at timestamp [not null, default: `now()`]
+  updated_at timestamp [not null, default: `now()`]
+
+  indexes {
+    (store_id, product_id) [unique]
+  }
+}
+
+Table online_products_price {
+  id uuid [pk, not null, default: `uuid_generate_v4()`]
+  store_id uuid [ref: > stores.id]
+  product_id uuid [not null, ref: > products.id]
+  type varchar(50) [not null, note: 'uzum | yandex_eda | ...']
+  retail_price numeric(10,2) [not null, default: 0]
+  supply_price numeric(10,2) [not null, default: 0]
+  material_code varchar(100)
+  created_by uuid [ref: > employees.id]
+  created_at timestamptz [not null, default: `now()`]
+}
+
+// ============================================================
+// GROUP: Employees & Roles
+// ============================================================
+
+Table employees {
+  id uuid [pk, default: `uuid_generate_v4()`]
+  public_id int [not null]
+  store_id uuid [ref: > stores.id]
+  company_id uuid [ref: > companies.id]
+  first_name varchar(255)
+  last_name varchar(255)
+  full_name varchar(255)
+  phone varchar(20)
+  email varchar(255)
+  password varchar(500)
+  language varchar(10)
+  photo varchar(1000)
+  position varchar(100)
+  store_ids "uuid[]"
+  is_active boolean [not null, default: true]
+  gender varchar(20)
+  status varchar(20)
+  birthdate date
+  created_at timestamptz [not null, default: `now()`]
+  updated_at timestamptz [not null, default: `now()`]
+  deleted_at timestamp
+}
+
+Table roles {
+  id uuid [pk, default: `uuid_generate_v4()`]
+  public_id int [not null]
+  name varchar(255)
+  description text
+  status int [not null, default: 1, note: '1=active, 0=inactive, 2=deleted']
+  is_active boolean [not null, default: true]
+  created_at timestamptz [not null, default: `now()`]
+  updated_at timestamptz [not null, default: `now()`]
+  deleted_at timestamp
+}
+
+Table permissions {
+  id uuid [pk, default: `uuid_generate_v4()`]
+  route varchar(255) [not null]
+  name varchar(255) [not null]
+  type varchar(20) [not null]
+  key varchar(50)
+  method "varchar[]"
+  parent_id uuid [ref: > permissions.id]
+  description text
+  created_at timestamptz [not null, default: `now()`]
+  updated_at timestamptz [not null, default: `now()`]
+  deleted_at timestamp
+}
+
+Table employee_roles {
+  id uuid [pk, default: `uuid_generate_v4()`]
+  employee_id uuid [ref: > employees.id]
+  role_id uuid [ref: > roles.id]
+  type varchar(20)
+  created_at timestamp [not null, default: `now()`]
+  updated_at timestamp [not null, default: `now()`]
+}
+
+Table role_permissions {
+  id uuid [pk, default: `uuid_generate_v4()`]
+  role_id uuid [ref: > roles.id]
+  permission_id uuid [ref: > permissions.id]
+  is_active boolean [not null, default: true]
+  created_at timestamptz [not null, default: `now()`]
+  updated_at timestamptz [not null, default: `now()`]
+}
+
+// ============================================================
+// GROUP: Customers
+// ============================================================
+
+Table customers {
+  id uuid [pk, default: `uuid_generate_v4()`]
+  public_id int [not null]
+  group_id uuid [ref: > groups.id]
+  tag_id uuid [ref: > tags.id]
+  store_id uuid [ref: > stores.id]
+  loyalty_card_level_id uuid [ref: > loyalty_card_levels.id]
+  loyalty_card_created_by uuid [ref: > employees.id]
+  first_name varchar(255)
+  last_name varchar(255)
+  full_name varchar(255)
+  middle_name varchar(255)
+  phone varchar(20) [unique]
+  birthday date
+  gender varchar(50)
+  marital_status varchar(100)
+  primary_lang varchar(10)
+  email varchar
+  tg_username varchar(255)
+  facebook varchar(255)
+  instagram varchar(255)
+  telegram_chat_id bigint [unique]
+  is_sms_notify boolean
+  is_phone_notify boolean
+  is_social_notify boolean
+  is_email_notify boolean
+  balance numeric(10,2) [default: 0.00]
+  debt_amount numeric(10,2) [default: 0.00]
+  spending_from_balance numeric(10,2) [default: 0.00]
+  discount_card_id uuid
+  loyalty_card_barcode varchar(20) [unique]
+  loyalty_card_percent int [default: 0]
+  loyalty_card_type varchar
+  is_active boolean [not null, default: true]
+  created_by uuid
+  created_at timestamptz [not null, default: `now()`]
+  updated_at timestamptz [not null, default: `now()`]
+  deleted_at timestamp
+}
+
+Table addresses {
+  id uuid [pk, default: `uuid_generate_v4()`]
+  customer_id uuid [ref: > customers.id]
+  country varchar(255)
+  city varchar(255)
+  address varchar(500)
+  postal_code varchar(100)
+  desc varchar(1000)
+  created_at timestamptz [not null, default: `now()`]
+  updated_at timestamptz [not null, default: `now()`]
+  deleted_at timestamp
+}
+
+Table discount_cards {
+  id uuid [pk, default: `uuid_generate_v4()`]
+  customer_id uuid [ref: > customers.id]
+  barcode varchar(13) [not null, unique]
+  percent int [default: 0]
+  created_by uuid [ref: > employees.id]
+  updated_by uuid [ref: > employees.id]
+  deleted_by uuid [ref: > employees.id]
+  created_at timestamptz [default: `now()`]
+  updated_at timestamptz [default: `now()`]
+  deleted_at timestamp
+}
+
+Table loyalty_card_levels {
+  id uuid [pk, default: `uuid_generate_v4()`]
+  name varchar(20) [unique, not null]
+  min_spent numeric(10,2) [default: 0.00]
+  cashback_percent int [not null]
+  position int [not null]
+  created_at timestamptz [not null, default: `now()`]
+  updated_at timestamptz [not null, default: `now()`]
+  deleted_at timestamp
+}
+
+Table loyalty_card_levelup_history {
+  id uuid [pk, default: `uuid_generate_v4()`]
+  customer_id uuid [ref: > customers.id]
+  loyalty_card_level_id uuid [ref: > loyalty_card_levels.id]
+  total_spent numeric(10,2) [default: 0.00]
+  created_at timestamptz [not null, default: `now()`]
+}
+
+// ============================================================
+// GROUP: Cashbox & Payments
+// ============================================================
+
+Table cash_boxes {
+  id uuid [pk, not null, default: `uuid_generate_v4()`]
+  store_id uuid [ref: > stores.id]
+  name varchar(255)
+  is_open boolean
+  is_enable boolean
+  created_by uuid
+  device_id varchar(255)
+  is_active boolean [not null, default: true]
+  created_at timestamp [not null, default: `now()`]
+  updated_at timestamp [not null, default: `now()`]
+  deleted_at timestamp
+}
+
+Table cashbox_operations {
+  id uuid [pk, not null, default: `uuid_generate_v4()`]
+  cash_box_id uuid [ref: > cash_boxes.id]
+  employee_id uuid [ref: > employees.id]
+  current_employee_id uuid [ref: > employees.id]
+  cash_amount numeric(10,2) [default: 0]
+  cashless_amount numeric(10,2) [default: 0]
+  open_cashless_amount numeric(10,2) [default: 0]
+  opened_amount numeric(10,2) [default: 0]
+  closed_amount numeric(10,2) [default: 0]
+  is_open boolean
+  description varchar(255)
+  start_time timestamp
+  end_time timestamp
+  created_at timestamptz [not null, default: `now()`]
+  updated_at timestamptz [not null, default: `now()`]
+}
+
+Table cashbox_payment_types {
+  id uuid [pk, default: `uuid_generate_v4()`]
+  cash_box_id uuid [ref: > cash_boxes.id]
+  payment_type_id uuid [ref: > payment_types.id]
+  is_active boolean [default: true]
+  created_at timestamp [not null, default: `now()`]
+  updated_at timestamp [not null, default: `now()`]
+}
+
+Table cashbox_closures {
+  id serial [pk]
+  cashbox_operation_id uuid [ref: > cashbox_operations.id]
+  sender_id uuid [ref: > employees.id]
+  receiver_id uuid [ref: > employees.id]
+  received_amount numeric(20,2) [default: 0.00]
+  accepted_amount numeric(20,2) [default: 0.00]
+  status varchar(55) [default: 'pending']
+  comment text
+  created_at timestamp [not null, default: `now()`]
+  updated_at timestamp [not null, default: `now()`]
+  deleted_at timestamp
+}
+
+Table payment_types {
+  id uuid [pk, not null, default: `uuid_generate_v4()`]
+  name varchar(255)
+  type varchar(10)
+  description text
+  is_active boolean [default: false]
+  order_number int [default: 0]
+  icon varchar(255)
+  created_at timestamptz [not null, default: `now()`]
+  updated_at timestamptz [not null, default: `now()`]
+}
+
+Table payment_services {
+  id uuid [pk, not null, default: `uuid_generate_v4()`]
+  store_id uuid [ref: > stores.id]
+  payment_type_id uuid [ref: > payment_types.id]
+  cashbox_id uuid [ref: > cash_boxes.id]
+  name varchar(255)
+  type varchar(10)
+  merchant_id int
+  service_id int
+  merchant_user_id int
+  secret_key varchar(255)
+  is_active boolean
+  created_at timestamp [not null, default: `now()`]
+  updated_at timestamp [not null, default: `now()`]
+  deleted_at timestamp
+}
+
+Table payment_requests {
+  id uuid [pk, default: `uuid_generate_v4()`]
+  method varchar(255)
+  payload jsonb
+  response jsonb
+  payment_provider varchar(55)
+  transaction_id uuid
+  seq_id bigint
+  created_at timestamp [default: `now()`]
+  updated_at timestamp [default: `now()`]
+}
+
+Table sale_payment_summary {
+  id uuid [pk, default: `uuid_generate_v4()`]
+  cash_box_operation_id uuid [not null, ref: > cashbox_operations.id]
+  payment_type_id uuid [not null, ref: > payment_types.id]
+  total_amount decimal(10,2) [default: 0]
+  total_expense_amount decimal(10,2) [default: 0]
+  total_net_amount decimal(10,2) [default: 0]
+  total_difference decimal(10,2) [default: 0]
+  created_at timestamptz [default: `now()`]
+  updated_at timestamptz [default: `now()`]
+
+  indexes {
+    (cash_box_operation_id, payment_type_id) [unique]
+  }
+}
+
+Table finance_categories {
+  id serial [pk]
+  parent_id int [ref: > finance_categories.id]
+  name varchar(55)
+  description text
+  account_group varchar(55)
+  status varchar(55)
+  created_at timestamp [not null, default: `now()`]
+  updated_at timestamp [not null, default: `now()`]
+  deleted_at timestamp
+}
+
+Table finance_operations {
+  id serial [pk]
+  cashbox_id uuid [ref: > cash_boxes.id]
+  employee_id uuid [ref: > employees.id]
+  finance_category_id int [ref: > finance_categories.id]
+  payment_type_id uuid [ref: > payment_types.id]
+  amount numeric(20,2) [default: 0.00]
+  operation_type varchar(55)
+  comment text
+  status varchar(55)
+  report_type varchar(55)
+  created_at timestamp [not null, default: `now()`]
+  updated_at timestamp [not null, default: `now()`]
+  deleted_at timestamp
+}
+
+Table app_transactions {
+  id serial [pk]
+  sale_id uuid [ref: > sales.id]
+  payment_id bigint
+  payment_status smallint
+  receipt_id varchar(255)
+  created_at timestamp [default: `now()`]
+  updated_at timestamp [default: `now()`]
+}
+
+// ============================================================
+// GROUP: Sales
+// ============================================================
+
+Table sales {
+  id uuid [pk, not null, default: `uuid_generate_v4()`]
+  sale_number int [not null]
+  employee_id uuid [ref: > employees.id]
+  cash_box_operation_id uuid [ref: > cashbox_operations.id]
+  cashbox_id uuid [ref: > cash_boxes.id]
+  customer_id uuid [ref: > customers.id]
+  store_id uuid [ref: > stores.id]
+  parent_id uuid [ref: > sales.id]
+  discount_type varchar(10)
+  total_discount numeric(10,2)
+  total_amount numeric(10,2) [default: 0]
+  returned_amount numeric(10,2)
+  type varchar(50)
+  stage varchar(50)
+  payment_type varchar(100)
+  payment_receipt_id varchar(255)
+  online_status varchar(50)
+  is_resale boolean [default: false]
+  is_returned boolean [default: false]
+  is_corporate boolean [default: false]
+  is_tax_free boolean [default: false]
+  uzum_order_id varchar(255)
+  uzum_tezkor_id varchar(255)
+  vendor_order_id varchar(255)
+  oson_apteka_id varchar(255)
+  client_comment text
+  created_by uuid
+  status varchar(20) [default: 'pending', note: 'pending | in_progress | completed']
+  is_active boolean [not null, default: true]
+  completed_at timestamp
+  created_at timestamp [not null, default: `now()`]
+  updated_at timestamp [not null, default: `now()`]
+}
+
+Table cart_items {
+  id uuid [pk, not null, default: `uuid_generate_v4()`]
+  employee_id uuid [ref: > employees.id]
+  sale_id uuid [ref: > sales.id]
+  store_product_id uuid [ref: > store_products.id]
+  product_id uuid [ref: > products.id]
+  quantity int [default: 0]
+  unit_quantity int [default: 0]
+  marking_count int [default: 0]
+  unit_price numeric(10,2)
+  discount_type varchar(10) [default: 'percent', note: 'percent | cash']
+  discount_value numeric(10,2) [default: 0]
+  discount_amount numeric(10,2) [default: 0]
+  total_price numeric(10,2) [default: 0]
+  discount_price numeric(10,2) [default: 0]
+  barcode varchar(50)
+  is_marking boolean [default: false]
+  skip_auto_order boolean [default: false]
+  status varchar(20) [note: 'pending | active | deleted | sold | drafted']
+  created_at timestamptz [not null, default: `now()`]
+  updated_at timestamptz [not null, default: `now()`]
+}
+
+Table sale_payments {
+  id uuid [pk, not null, default: `uuid_generate_v4()`]
+  sale_id uuid [ref: > sales.id]
+  payment_service_id uuid [ref: > payment_services.id]
+  payment_type_id uuid [ref: > payment_types.id]
+  cash_box_operation_id uuid [ref: > cashbox_operations.id]
+  amount numeric(10,2)
+  paid_at timestamp
+  receipt_id varchar(255)
+  status varchar(20) [default: 'pending']
+  transaction_id uuid
+  created_at timestamptz [not null, default: `now()`]
+  updated_at timestamptz [not null, default: `now()`]
+}
+
+Table sale_customer_discounts {
+  id uuid [pk, default: `uuid_generate_v4()`]
+  sale_id uuid [ref: > sales.id]
+  customer_id uuid [ref: > customers.id]
+  discount_card_id uuid [ref: > discount_cards.id]
+  discount_amount numeric(10,2) [default: 0.00]
+  discount_percent int
+  created_at timestamptz [default: `now()`]
+  updated_at timestamptz [default: `now()`]
+
+  indexes {
+    (sale_id, customer_id, discount_card_id) [unique]
+  }
+}
+
+Table employee_bonus {
+  id uuid [pk, default: `uuid_generate_v4()`]
+  employee_id uuid [ref: > employees.id]
+  sale_id uuid [ref: > sales.id]
+  product_id uuid [ref: > products.id]
+  cashbox_operation_id uuid [ref: > cashbox_operations.id]
+  bonus_amount numeric(10,2) [default: 0]
+  unit_quantity int [default: 0]
+  quantity int [default: 0]
+  created_at timestamp [not null, default: `now()`]
+  updated_at timestamp [not null, default: `now()`]
+  deleted_at timestamp
+}
+
+Table epos_responses {
+  id uuid [pk, default: `uuid_generate_v4()`]
+  sale_id uuid [ref: > sales.id]
+  response jsonb
+  status varchar(50)
+  created_at timestamp [not null, default: `now()`]
+  updated_at timestamp [not null, default: `now()`]
+}
+
+Table drafts {
+  id uuid [pk, not null, default: `uuid_generate_v4()`]
+  draft_number int [not null]
+  product_id uuid [ref: > products.id]
+  cash_box_id uuid [ref: > cash_boxes.id]
+  customer_id uuid [ref: > customers.id]
+  store_id uuid [ref: > stores.id]
+  sale_id uuid [ref: > sales.id]
+  description text
+  status varchar(50) [default: 'pending']
+  created_by uuid
+  is_active boolean [not null, default: true]
+  draft_time timestamp
+  created_at timestamptz [not null, default: `now()`]
+  updated_at timestamptz [not null, default: `now()`]
+  deleted_at timestamp
+}
+
+Table cart_item_drafts {
+  id uuid [pk, default: `uuid_generate_v4()`]
+  cart_item_id uuid [ref: > cart_items.id]
+  draft_id uuid [ref: > drafts.id]
+  created_at timestamptz [not null, default: `now()`]
+  updated_at timestamptz [not null, default: `now()`]
+}
+
+// ============================================================
+// GROUP: Shifts
+// ============================================================
+
+Table shifts {
+  id uuid [pk, default: `uuid_generate_v4()`]
+  from_employee_id uuid [ref: > employees.id]
+  to_employee_id uuid [ref: > employees.id]
+  cash_box_id uuid [ref: > cash_boxes.id]
+  created_at timestamp [not null, default: `now()`]
+  updated_at timestamp [not null, default: `now()`]
+  deleted_at timestamp
+}
+
+Table shift_expenses {
+  id serial [pk]
+  store_id uuid [ref: > stores.id]
+  docs_number varchar(55) [not null, unique]
+  total_quantity numeric(10,2) [default: 0]
+  total_amount numeric(18,2) [default: 0]
+  status smallint [default: 0]
+  sent_at date
+  created_at timestamp [default: `now()`]
+  updated_at timestamp [default: `now()`]
+}
+
+// ============================================================
+// GROUP: Imports
+// ============================================================
+
+Table imports {
+  id uuid [pk, default: `uuid_generate_v4()`]
+  public_id int [not null]
+  store_id uuid [ref: > stores.id]
+  store_code int
+  document_number varchar(50)
+  created_by uuid [ref: > employees.id]
+  accepted_by uuid [ref: > employees.id]
+  name varchar(255)
+  type varchar(50)
+  comment text
+  status varchar(55) [not null, default: 'new', note: 'new | pending | completed | canceled | write-off']
+  import_date timestamp
+  document_year int
+  received_amount numeric(20,2) [default: 0.00]
+  scanned_amount numeric(20,2) [default: 0.00]
+  created_at timestamptz [default: `now()`]
+  updated_at timestamptz [default: `now()`]
+
+  indexes {
+    (document_number, document_year) [unique]
+  }
+}
+
+Table import_details {
+  id uuid [pk, default: `uuid_generate_v4()`]
+  import_id uuid [ref: > imports.id]
+  product_id uuid [ref: > products.id]
+  country_id uuid [ref: > countries.id]
+  received_count int [default: 0]
+  accepted_count int [default: 0]
+  canceled_count int [default: 0]
+  unit_count numeric(10,4) [default: 0]
+  scanned_count int [default: 0]
+  expire_date timestamp
+  supply_price numeric(20,2) [default: 0.00]
+  vat int [default: 0]
+  vat_sum numeric(10,2) [default: 0.00]
+  sum_vat numeric(10,2) [default: 0.00]
+  retail_price numeric(20,2) [default: 0.00]
+  series_number varchar(255)
+  barcode varchar(255)
+  marking_code varchar(255)
+  is_return boolean [default: false]
+  requires_prescription boolean [default: false]
+  created_at timestamptz [default: `now()`]
+  updated_at timestamptz [default: `now()`]
+}
+
+// ============================================================
+// GROUP: Transfers
+// ============================================================
+
+Table transfers {
+  id uuid [pk, default: `uuid_generate_v4()`]
+  public_id varchar(20)
+  name varchar(255)
+  comment varchar(500)
+  from_store_id uuid [ref: > stores.id]
+  to_store_id uuid [ref: > stores.id]
+  entry_type int [default: 1, note: '1=transfer, 2=return']
+  status varchar(55) [not null, default: 'new', note: 'new | pending | completed | canceled | write-off']
+  is_auto boolean [default: false]
+  created_by uuid [ref: > employees.id]
+  updated_by uuid [ref: > employees.id]
+  accepted_by uuid [ref: > employees.id]
+  accepted_at timestamp
+  created_at timestamptz [default: `now()`]
+  updated_at timestamptz [default: `now()`]
+}
+
+Table transfer_details {
+  id uuid [pk, default: `uuid_generate_v4()`]
+  transfer_id uuid [ref: > transfers.id]
+  product_id uuid [ref: > products.id]
+  store_product_id uuid
+  received_count int [default: 0]
+  accepted_count int
+  scanned_count int [default: 0]
+  expected_count int [default: 0]
+  onec_count int [default: 0]
+  expire_date timestamp
+  serial_number varchar(255)
+  supply_price numeric(20,2) [default: 0.00]
+  retail_price numeric(20,2) [default: 0.00]
+  created_at timestamptz [default: `now()`]
+  updated_at timestamptz [default: `now()`]
+}
+
+Table transfer_logs {
+  id bigserial [pk]
+  transfer_id uuid [not null, ref: > transfers.id]
+  transfer_detail_id uuid [not null, ref: > transfer_details.id]
+  user_id uuid [not null, ref: > employees.id]
+  product_id uuid [not null, ref: > products.id]
+  quantity int
+  stage smallint [not null, default: 0, note: '0=created,1=sent,2=received,3=checking,4=completed']
+  transfer_type smallint [not null, default: 0, note: '0=transfer,1=return']
+  created_at timestamptz [not null, default: `now()`]
+  updated_at timestamptz [not null, default: `now()`]
+}
+
+// ============================================================
+// GROUP: Auto Orders
+// ============================================================
+
+Table auto_orders {
+  id uuid [pk, default: `uuid_generate_v4()`]
+  store_id uuid [ref: > stores.id]
+  public_id int [not null]
+  created_by uuid [ref: > employees.id]
+  updated_by uuid [ref: > employees.id]
+  status varchar(20) [default: 'new', note: 'new | pending | completed | canceled']
+  auto_order_date timestamp
+  completed_date timestamp
+  created_at timestamp [default: `now()`]
+  updated_at timestamp [default: `now()`]
+}
+
+Table auto_order_details {
+  id uuid [pk, default: `uuid_generate_v4()`]
+  auto_order_id uuid [ref: > auto_orders.id]
+  product_id uuid [ref: > products.id]
+  kvant int [default: 1]
+  current_stock numeric(10,4) [default: 0.0000]
+  min_stock numeric(10,4) [default: 0.0000]
+  max_stock numeric(10,4) [default: 0.0000]
+  sale_count numeric(10,4) [default: 0.0000]
+  daily_sale_count numeric(10,4) [default: 0.0000]
+  import_day int [default: 2]
+  sale_period int [default: 3]
+  stock_on_delivery_date numeric(10,4) [default: 0.0000]
+  reserve_quantity numeric(10,4) [default: 0.0000]
+  future_stock numeric(10,4) [default: 0.0000]
+  future_stock_with_reserve numeric(10,4) [default: 0.0000]
+  order_count numeric(10,4) [default: 0.0000]
+  created_at timestamp [default: `now()`]
+  updated_at timestamp [default: `now()`]
+}
+
+// ============================================================
+// GROUP: Price Revaluations
+// ============================================================
+
+Table price_revalutions {
+  id serial [pk]
+  store_id uuid [ref: > stores.id]
+  name varchar(255)
+  status varchar(25) [default: 'new', note: 'new | pending | completed | canceled']
+  type varchar(55) [default: 'retail_price']
+  created_by uuid [ref: > employees.id]
+  updated_by uuid [ref: > employees.id]
+  created_at timestamp [default: `now()`]
+  updated_at timestamp
+}
+
+Table price_revalution_details {
+  id uuid [pk, default: `uuid_generate_v4()`]
+  price_revalution_id int [ref: > price_revalutions.id]
+  store_product_id uuid [ref: > store_products.id]
+  product_id uuid [ref: > products.id]
+  old_supply_price numeric(10,2) [default: 0.00]
+  new_supply_price numeric(10,2) [default: 0.00]
+  old_retail_price numeric(10,2) [default: 0.00]
+  new_retail_price numeric(10,2) [default: 0.00]
+  scanned_count numeric(10,4) [default: 0.0000]
+  old_expire_date date
+  new_expire_date date
+  serial_number varchar(255)
+  created_at timestamp [default: `now()`]
+  updated_at timestamp [default: `now()`]
+
+  indexes {
+    (store_product_id, price_revalution_id) [unique]
+  }
+}
+
+// ============================================================
+// GROUP: Targets
+// ============================================================
+
+Table store_targets {
+  id uuid [pk, default: `uuid_generate_v4()`]
+  store_id uuid [not null, ref: > stores.id]
+  company_id uuid [not null]
+  amount numeric(20,2) [not null, default: 0]
+  sales numeric(20,2) [not null, default: 0]
+  year int [not null]
+  month int [not null]
+  synced_at timestamptz
+  average_target_sales numeric(20,2) [default: 0]
+  created_at timestamptz [not null, default: `now()`]
+  updated_at timestamptz [not null, default: `now()`]
+
+  indexes {
+    (store_id, year, month) [unique]
+  }
+}
+
+Table employee_targets {
+  id uuid [pk, default: `uuid_generate_v4()`]
+  store_target_id uuid [not null, ref: > store_targets.id]
+  employee_id uuid [not null, ref: > employees.id]
+  store_id uuid [not null, ref: > stores.id]
+  company_id uuid [not null]
+  amount numeric(20,2) [not null, default: 0]
+  sales numeric(20,2) [not null, default: 0]
+  year int [not null]
+  month int [not null]
+  synced_at timestamptz
+  created_at timestamptz [not null, default: `now()`]
+  updated_at timestamptz [not null, default: `now()`]
+
+  indexes {
+    (employee_id, year, month) [unique]
+  }
+}
+
+// ============================================================
+// GROUP: Integration / External Systems
+// ============================================================
+
+Table requests_1c {
+  id uuid [pk, default: `uuid_generate_v4()`]
+  method varchar(255)
+  payload jsonb
+  response jsonb
+  action varchar(55)
+  store_id varchar(255)
+  status varchar(55)
+  created_at timestamp [default: `now()`]
+  updated_at timestamp [default: `now()`]
+}
+
+Table asil_belgi_tokens {
+  id uuid [pk, not null, default: `uuid_generate_v4()`]
+  token text [not null]
+  issued_at timestamp [default: `now()`]
+  expires_at timestamp
+  is_active boolean [not null, default: true]
+  created_at timestamp [not null, default: `now()`]
+  updated_at timestamp [not null, default: `now()`]
+}
+
+Table dmed_requests {
+  id bigserial [pk]
+  payload jsonb [not null]
+  method varchar(10) [not null]
+  response jsonb
+  status smallint [not null, default: 0, note: '0=failed, 1=success']
+  created_at timestamptz [not null, default: `now()`]
+  updated_at timestamptz [not null, default: `now()`]
+}
+
+Table oauth_clients {
+  id uuid [pk, not null, default: `uuid_generate_v4()`]
+  client_id text [not null, unique]
+  client_secret text [not null]
+  client_name text
+  allowed_scopes text [default: 'read write']
+  is_active boolean [not null, default: true]
+  created_at timestamp [not null, default: `now()`]
+  updated_at timestamp [not null, default: `now()`]
+}
+
+// NOTE: Bu jadvallar 000185-da yaratilgan, 000190-da DROP qilingan
+Table online_price_revaluations {
+  id serial [pk]
+  store_id uuid [not null, ref: > stores.id]
+  platform_type varchar(50) [not null, note: 'uzum | yandex_eda | ...']
+  name varchar(255)
+  status varchar(25) [not null, default: 'new', note: 'new | pending | completed | canceled']
+  created_by uuid [ref: > employees.id]
+  updated_by uuid [ref: > employees.id]
+  created_at timestamptz [not null, default: `now()`]
+  updated_at timestamptz [not null, default: `now()`]
+}
+
+Table online_price_revaluation_details {
+  id uuid [pk, default: `uuid_generate_v4()`]
+  online_price_revaluation_id int [not null, ref: > online_price_revaluations.id]
+  product_id uuid [not null, ref: > products.id]
+  old_retail_price numeric(10,2) [not null, default: 0]
+  new_retail_price numeric(10,2) [not null, default: 0]
+  old_supply_price numeric(10,2) [not null, default: 0]
+  created_at timestamptz [not null, default: `now()`]
+  updated_at timestamptz [not null, default: `now()`]
+
+  indexes {
+    (online_price_revaluation_id, product_id) [unique]
+  }
+}
