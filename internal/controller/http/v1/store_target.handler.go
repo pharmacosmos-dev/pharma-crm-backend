@@ -3,6 +3,7 @@ package v1
 import (
 	"context"
 	"fmt"
+	"net/http"
 	"strconv"
 	"strings"
 	"time"
@@ -37,6 +38,7 @@ func (h *StoreTargetHandler) StoreTargetRoutes(r *gin.RouterGroup) {
 		target.PUT("/employee/:employee_id", h.UpdateEmployeeTarget)
 		target.GET("/summary", h.Summary)
 		target.POST("/import-excel", h.ImportFromExcel)
+		target.GET("/store-target-export-excel", h.ExportStoreTargetExcel)
 	}
 }
 
@@ -635,4 +637,104 @@ func (h *StoreTargetHandler) ImportFromExcel(c *gin.Context) {
 	}
 
 	handleResponse(c, OK, res)
+}
+
+
+// ExportStoreTargetExcel godoc
+// @Summary      Export store target list to Excel
+// @Description  Downloads an Excel file with all store targets filtered by year and month
+// @Tags         store-target
+// @Security     BearerAuth
+// @Produce      application/vnd.openxmlformats-officedocument.spreadsheetml.sheet
+// @Param        year   query  int  true  "Year (example: 2026)"
+// @Param        month  query  int  true  "Month (1-12)"
+// @Param        is_franchise  query  bool  false  "Filter by franchise stores"
+// @Param        is_pharma     query  bool  false  "Filter by pharma stores"
+// @Success      200
+// @Failure      400  {object}  v1.Response
+// @Failure      500  {object}  v1.Response
+// @Router       /store-target/store-target-export-excel [get]
+func (h *StoreTargetHandler) ExportStoreTargetExcel(c *gin.Context) {
+	user := h.service.GetSignedUser(c)
+	if user.UserId == "" {
+		handleServiceResponse(c, nil, domain.UnauthorizedError)
+		return
+	}
+
+	var params domain.StoreTargetQueryParams
+	if err := c.ShouldBindQuery(&params); err != nil {
+		handleResponse(c, BadRequest, err.Error())
+		return
+	}
+
+	if params.Year == 0 || params.Month == 0 {
+		handleResponse(c, BadRequest, "year and month are required")
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
+	defer cancel()
+
+	var isAdmin bool
+	if !utils.In(user.Role, constants.StoreTargetViewAll...) {
+		if user.StoreId != "" {
+			params.StoreId = user.StoreId
+		}
+		params.CompanyIds = []string{user.CompanyId}
+	} else {
+		isAdmin = true
+		params.CompanyIds = []string{user.CompanyId}
+	}
+
+	if isAdmin && params.IsFranchise != nil && *params.IsFranchise {
+		params.CompanyIds, _ = h.service.GetCompanyIds(ctx, true)
+		params.StoreId = ""
+	} else if isAdmin && params.IsPharma != nil && *params.IsPharma {
+		params.CompanyIds, _ = h.service.GetCompanyIds(ctx, false)
+		params.StoreId = ""
+	}
+
+	// No pagination — fetch all records
+	params.Limit = 0
+	params.Offset = 0
+
+	results, _, err := h.service.GetStoreTargetList(ctx, &params)
+	if err != nil {
+		handleServiceResponse(c, nil, err)
+		return
+	}
+
+	f := excelize.NewFile()
+	sheetName := "StoreTargets"
+	f.SetSheetName("Sheet1", sheetName)
+
+	headers := []string{"#", "Apteka nomi", "Target (so'm)", "Sotuv (so'm)", "Yil", "Oy"}
+	if err := setExcelHeaders(f, sheetName, headers); err != nil {
+		h.log.Errorf("Excel header style error: %v", err)
+		handleServiceResponse(c, nil, domain.InternalServerError)
+		return
+	}
+
+	for i, item := range results {
+		row := strconv.Itoa(i + 2)
+		f.SetCellValue(sheetName, "A"+row, i+1)
+		f.SetCellValue(sheetName, "B"+row, item.StoreName)
+		f.SetCellValue(sheetName, "C"+row, item.Amount)
+		f.SetCellValue(sheetName, "D"+row, item.Sales)
+		f.SetCellValue(sheetName, "E"+row, item.Year)
+		f.SetCellValue(sheetName, "F"+row, item.Month)
+	}
+
+	buf, err := f.WriteToBuffer()
+	if err != nil {
+		h.log.Errorf("could not write Excel to buffer: %v", err)
+		handleServiceResponse(c, nil, domain.InternalServerError)
+		return
+	}
+
+	fileName := fmt.Sprintf("store_targets_%d_%02d.xlsx", params.Year, params.Month)
+	c.Header("Content-Description", "File Transfer")
+	c.Header("Content-Disposition", "attachment; filename="+fileName)
+	c.Header("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+	c.Data(http.StatusOK, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", buf.Bytes())
 }

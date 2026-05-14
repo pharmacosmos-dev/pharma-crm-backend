@@ -18616,6 +18616,47 @@ paths:
       summary: All store target list
       tags:
       - store-target
+  /store-target/store-target-export-excel:
+    get:
+      description: Downloads an Excel file with all store targets filtered by year
+        and month
+      parameters:
+      - description: 'Year (example: 2026)'
+        in: query
+        name: year
+        required: true
+        type: integer
+      - description: Month (1-12)
+        in: query
+        name: month
+        required: true
+        type: integer
+      - description: Filter by franchise stores
+        in: query
+        name: is_franchise
+        type: boolean
+      - description: Filter by pharma stores
+        in: query
+        name: is_pharma
+        type: boolean
+      produces:
+      - application/vnd.openxmlformats-officedocument.spreadsheetml.sheet
+      responses:
+        "200":
+          description: OK
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Export store target list to Excel
+      tags:
+      - store-target
   /store-target/summary:
     get:
       consumes:
