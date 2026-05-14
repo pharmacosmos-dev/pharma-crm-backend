@@ -3,7 +3,8 @@ package v1
 import (
 	"context"
 	"fmt"
-	"net/http"
+	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
@@ -38,7 +39,7 @@ func (h *StoreTargetHandler) StoreTargetRoutes(r *gin.RouterGroup) {
 		target.PUT("/employee/:employee_id", h.UpdateEmployeeTarget)
 		target.GET("/summary", h.Summary)
 		target.POST("/import-excel", h.ImportFromExcel)
-		target.GET("/store-target-export-excel", h.ExportStoreTargetExcel)
+		target.GET("/export-excel", h.ExportStoreTargetExcel)
 	}
 }
 
@@ -645,15 +646,15 @@ func (h *StoreTargetHandler) ImportFromExcel(c *gin.Context) {
 // @Description  Downloads an Excel file with all store targets filtered by year and month
 // @Tags         store-target
 // @Security     BearerAuth
-// @Produce      application/vnd.openxmlformats-officedocument.spreadsheetml.sheet
-// @Param        year   query  int  true  "Year (example: 2026)"
-// @Param        month  query  int  true  "Month (1-12)"
+// @Produce      json
+// @Param        year          query  int   true   "Year (example: 2026)"
+// @Param        month         query  int   true   "Month (1-12)"
 // @Param        is_franchise  query  bool  false  "Filter by franchise stores"
 // @Param        is_pharma     query  bool  false  "Filter by pharma stores"
-// @Success      200
+// @Success      200  {object}  v1.Response
 // @Failure      400  {object}  v1.Response
 // @Failure      500  {object}  v1.Response
-// @Router       /store-target/store-target-export-excel [get]
+// @Router       /store-target/export-excel [get]
 func (h *StoreTargetHandler) ExportStoreTargetExcel(c *gin.Context) {
 	user := h.service.GetSignedUser(c)
 	if user.UserId == "" {
@@ -694,7 +695,6 @@ func (h *StoreTargetHandler) ExportStoreTargetExcel(c *gin.Context) {
 		params.StoreId = ""
 	}
 
-	// No pagination — fetch all records
 	params.Limit = 0
 	params.Offset = 0
 
@@ -709,10 +709,20 @@ func (h *StoreTargetHandler) ExportStoreTargetExcel(c *gin.Context) {
 	f.SetSheetName("Sheet1", sheetName)
 
 	headers := []string{"#", "Apteka nomi", "Target (so'm)", "Sotuv (so'm)", "Yil", "Oy"}
-	if err := setExcelHeaders(f, sheetName, headers); err != nil {
+
+	headerStyle, err := f.NewStyle(&excelize.Style{
+		Font: &excelize.Font{Bold: true, Color: "000000"},
+	})
+	if err != nil {
 		h.log.Errorf("Excel header style error: %v", err)
-		handleServiceResponse(c, nil, domain.InternalServerError)
+		handleResponse(c, InternalError, "Error on giving style to excel")
 		return
+	}
+
+	for i, header := range headers {
+		col := string(rune('A'+i)) + "1"
+		f.SetCellValue(sheetName, col, header)
+		f.SetCellStyle(sheetName, col, col, headerStyle)
 	}
 
 	for i, item := range results {
@@ -725,16 +735,22 @@ func (h *StoreTargetHandler) ExportStoreTargetExcel(c *gin.Context) {
 		f.SetCellValue(sheetName, "F"+row, item.Month)
 	}
 
-	buf, err := f.WriteToBuffer()
-	if err != nil {
-		h.log.Errorf("could not write Excel to buffer: %v", err)
-		handleServiceResponse(c, nil, domain.InternalServerError)
+	fileName := fmt.Sprintf("store_targets_%d_%02d_", params.Year, params.Month) + time.Now().Add(time.Hour*5).Format("2006-01-02_15-04-05") + ".xlsx"
+	filePath := filepath.Join("uploads", fileName)
+
+	if _, err := os.Stat("uploads"); os.IsNotExist(err) {
+		if err := os.Mkdir("uploads", os.ModePerm); err != nil {
+			h.log.Errorf("could not create uploads directory: %v", err)
+			handleResponse(c, InternalError, "Failed to create uploads folder")
+			return
+		}
+	}
+
+	if err := f.SaveAs(filePath); err != nil {
+		h.log.Errorf("could not save Excel file: %v", err)
+		handleResponse(c, InternalError, "Failed to save Excel file")
 		return
 	}
 
-	fileName := fmt.Sprintf("store_targets_%d_%02d.xlsx", params.Year, params.Month)
-	c.Header("Content-Description", "File Transfer")
-	c.Header("Content-Disposition", "attachment; filename="+fileName)
-	c.Header("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
-	c.Data(http.StatusOK, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", buf.Bytes())
+	handleResponse(c, OK, gin.H{"file_name": fileName})
 }
