@@ -879,7 +879,7 @@ func (s *Services) ConfirmInventory(ctx context.Context, inventoryId string, use
 				UPDATE store_products
 				SET
 					unit_quantity = ?,
-					pack_quantity = FLOOR(? / ?)
+					pack_quantity = FLOOR(?::numeric / ?::integer)
 				WHERE id = ?`,
 				imd.ScannedCount,
 				imd.ScannedCount,
