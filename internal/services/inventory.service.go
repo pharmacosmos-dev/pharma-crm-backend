@@ -839,111 +839,141 @@ func (s *Services) ConfirmInventory(ctx context.Context, inventoryId string, use
 		return domain.InternalServerError
 	}
 
-	// get inventory details list if fact and current quantity will not be equal
-	var inventoryDetails []domain.ImportDetail
-	query1 := `
+	detailQuery := `
 	SELECT
-		imd.*, 
-		p.material_code, 
+		imd.*,
+		p.material_code,
 		p.name AS product_name,
-		p.barcode, 
-		p.unit_per_pack, 
+		p.barcode,
+		p.unit_per_pack,
 		pr.code AS producer_code
-	FROM 
+	FROM
 		import_details imd
 	JOIN
 		products p ON imd.product_id = p.id
 	LEFT JOIN
 		producers pr ON p.producer_id = pr.id
-	WHERE
-		imd.import_id = ? AND imd.received_count != imd.scanned_count
-	`
-	// execute get import details as inventory details
-	err = tx.WithContext(ctx).Raw(query1, inventoryId).Scan(&inventoryDetails).Error
+	WHERE imd.import_id = ?`
+
+	// SOME: only scanned items (to deduct); FULL: only items that differ
+	if res.InventoryType == "SOME" {
+		detailQuery += ` AND imd.scanned_count > 0`
+	} else {
+		detailQuery += ` AND imd.received_count != imd.scanned_count`
+	}
+
+	var inventoryDetails []domain.ImportDetail
+	err = tx.WithContext(ctx).Raw(detailQuery, inventoryId).Scan(&inventoryDetails).Error
 	if err != nil {
 		_ = tx.Rollback()
 		s.log.Errorf("could not get inventory_details on confirming: %v", err)
 		return domain.InternalServerError
 	}
-	// add new inventory products to store_products if fact greater then current quantity
-	// We only add delta -> (scanned_count - received_count) as a new product
-	storeProduct := `
-	INSERT INTO store_products(
-            product_id,
-            store_id,
-            pack_quantity,
-            unit_quantity,
-            retail_price,
-            supply_price,
-            vat,
-            expire_date,
-            vat_price,
-            import_detail_id,
-            serial_number
-            )
-	SELECT
-		imd.product_id,
-		?,
-		FLOOR((imd.scanned_count - imd.received_count)/p.unit_per_pack),
-		imd.scanned_count - imd.received_count,
-		imd.retail_price_vat,
-		imd.supply_price_vat,
-		12,
-		imd.expire_date,
-		(imd.retail_price_vat*12)/112,
-		imd.id,
-		imd.series_number
-	FROM import_details imd
-	JOIN products p ON imd.product_id = p.id
-	WHERE imd.import_id = ? AND imd.scanned_count > imd.received_count;
-	`
-	// execute store_product create query
-	err = tx.WithContext(ctx).Exec(storeProduct, res.StoreId, inventoryId).Error
-	if err != nil {
-		_ = tx.Rollback()
-		s.log.Errorf("could not inserting inventory to store_product: %v", err)
-		return domain.InternalServerError
-	}
-	// update store_products quantities if fact quantity greater then current (received_count > scanned_count)
-	// collect 1C inventar request data
+
 	var dataOnec domain.InventoryData1C
-	for _, imd := range inventoryDetails {
-		if imd.ScannedCount < imd.ReceivedCount {
+
+	if res.InventoryType == "SOME" {
+		// SOME: ostatkadan ayirish (deduct scanned_count from store_products)
+		for _, imd := range inventoryDetails {
 			err = tx.WithContext(ctx).Exec(`
-			UPDATE 
-				store_products 
-			SET 
-				pack_quantity = ?, 
-				unit_quantity = ? 
-			WHERE id = ?;`,
-				int(imd.ScannedCount/float64(imd.UnitPerPack)),
+				UPDATE store_products
+				SET
+					unit_quantity = GREATEST(0, unit_quantity - ?),
+					pack_quantity = GREATEST(0, FLOOR((unit_quantity - ?) / ?))
+				WHERE id = ?`,
 				imd.ScannedCount,
+				imd.ScannedCount,
+				imd.UnitPerPack,
 				imd.StoreProductId,
 			).Error
 			if err != nil {
 				_ = tx.Rollback()
-				s.log.Errorf("could not update store_product quantity on confirm inventory: %v", err)
+				s.log.Errorf("could not deduct store_product quantity on confirm SOME inventory: %v", err)
 				return domain.InternalServerError
 			}
+			dataOnec.Товары = append(dataOnec.Товары, domain.InventoryProduct1C{
+				MaterialCode:        imd.MaterialCode,
+				Name:                imd.ProductName,
+				Barcode:             imd.Barcode,
+				Manufacturer:        imd.ProducerCode,
+				ProductSeriesNumber: imd.SeriesNumber,
+				ExpireDate:          imd.ExpireDate,
+				Quantity:            utils.RoundTo((imd.ReceivedCount / float64(imd.UnitPerPack)), 4),
+				QuantityInventar:    utils.RoundTo((imd.ScannedCount / float64(imd.UnitPerPack)), 4),
+				RetailPrice:         imd.RetailPrice,
+				RetailPriceVat:      imd.RetailPriceVat,
+				SupplyPrice:         imd.SupplyPrice,
+				SupplyPriceVat:      imd.SupplyPriceVat,
+				Sum:                 utils.RoundTo((imd.ScannedCount/float64(imd.UnitPerPack))*imd.RetailPrice, 2),
+				SumVat:              utils.RoundTo((imd.ScannedCount/float64(imd.UnitPerPack))*imd.RetailPriceVat, 2),
+			})
 		}
-		// collect inventory products to send 1C
-		dataOnec.Товары = append(dataOnec.Товары, domain.InventoryProduct1C{
-			MaterialCode:        imd.MaterialCode,
-			Name:                imd.ProductName,
-			Barcode:             imd.Barcode,
-			Manufacturer:        imd.ProducerCode,
-			ProductSeriesNumber: imd.SeriesNumber,
-			ExpireDate:          imd.ExpireDate,
-			Quantity:            utils.RoundTo((imd.ReceivedCount / float64(imd.UnitPerPack)), 4),
-			QuantityInventar:    utils.RoundTo((imd.ScannedCount / float64(imd.UnitPerPack)), 4),
-			RetailPrice:         imd.RetailPrice,
-			RetailPriceVat:      imd.RetailPriceVat,
-			SupplyPrice:         imd.SupplyPrice,
-			SupplyPriceVat:      imd.SupplyPriceVat,
-			Sum:                 utils.RoundTo((imd.ScannedCount/float64(imd.UnitPerPack))*imd.RetailPrice, 2),
-			SumVat:              utils.RoundTo((imd.ScannedCount/float64(imd.UnitPerPack))*imd.RetailPriceVat, 2),
-		})
+	} else {
+		// FULL: surplus → yangi store_product qo'shish, shortage → mavjudni yangilash
+		err = tx.WithContext(ctx).Exec(`
+			INSERT INTO store_products(
+				product_id, store_id, pack_quantity, unit_quantity,
+				retail_price, supply_price, vat, expire_date,
+				vat_price, import_detail_id, serial_number
+			)
+			SELECT
+				imd.product_id,
+				?,
+				FLOOR((imd.scanned_count - imd.received_count) / p.unit_per_pack),
+				imd.scanned_count - imd.received_count,
+				imd.retail_price_vat,
+				imd.supply_price_vat,
+				12,
+				imd.expire_date,
+				(imd.retail_price_vat * 12) / 112,
+				imd.id,
+				imd.series_number
+			FROM import_details imd
+			JOIN products p ON imd.product_id = p.id
+			WHERE imd.import_id = ? AND imd.scanned_count > imd.received_count`,
+			res.StoreId, inventoryId,
+		).Error
+		if err != nil {
+			_ = tx.Rollback()
+			s.log.Errorf("could not inserting inventory to store_product: %v", err)
+			return domain.InternalServerError
+		}
 
+		for _, imd := range inventoryDetails {
+			if imd.ScannedCount < imd.ReceivedCount {
+				err = tx.WithContext(ctx).Exec(`
+					UPDATE store_products
+					SET
+						pack_quantity = ?,
+						unit_quantity = ?
+					WHERE id = ?`,
+					int(imd.ScannedCount/float64(imd.UnitPerPack)),
+					imd.ScannedCount,
+					imd.StoreProductId,
+				).Error
+				if err != nil {
+					_ = tx.Rollback()
+					s.log.Errorf("could not update store_product quantity on confirm inventory: %v", err)
+					return domain.InternalServerError
+				}
+			}
+			dataOnec.Товары = append(dataOnec.Товары, domain.InventoryProduct1C{
+				MaterialCode:        imd.MaterialCode,
+				Name:                imd.ProductName,
+				Barcode:             imd.Barcode,
+				Manufacturer:        imd.ProducerCode,
+				ProductSeriesNumber: imd.SeriesNumber,
+				ExpireDate:          imd.ExpireDate,
+				Quantity:            utils.RoundTo((imd.ReceivedCount / float64(imd.UnitPerPack)), 4),
+				QuantityInventar:    utils.RoundTo((imd.ScannedCount / float64(imd.UnitPerPack)), 4),
+				RetailPrice:         imd.RetailPrice,
+				RetailPriceVat:      imd.RetailPriceVat,
+				SupplyPrice:         imd.SupplyPrice,
+				SupplyPriceVat:      imd.SupplyPriceVat,
+				Sum:                 utils.RoundTo((imd.ScannedCount/float64(imd.UnitPerPack))*imd.RetailPrice, 2),
+				SumVat:              utils.RoundTo((imd.ScannedCount/float64(imd.UnitPerPack))*imd.RetailPriceVat, 2),
+			})
+		}
 	}
 
 	if len(dataOnec.Товары) < 1 {
