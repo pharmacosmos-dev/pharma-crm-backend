@@ -873,13 +873,13 @@ func (s *Services) ConfirmInventory(ctx context.Context, inventoryId string, use
 	var dataOnec domain.InventoryData1C
 
 	if res.InventoryType == "SOME" {
-		// SOME: ostatkadan ayirish (deduct scanned_count from store_products)
+		// SOME: skanerlangan miqdorni to'g'ridan-to'g'ri o'rnatish (set scanned_count as actual stock)
 		for _, imd := range inventoryDetails {
 			err = tx.WithContext(ctx).Exec(`
 				UPDATE store_products
 				SET
-					unit_quantity = GREATEST(0, unit_quantity - ?),
-					pack_quantity = GREATEST(0, FLOOR((unit_quantity - ?) / ?))
+					unit_quantity = ?,
+					pack_quantity = FLOOR(? / ?)
 				WHERE id = ?`,
 				imd.ScannedCount,
 				imd.ScannedCount,
@@ -888,7 +888,7 @@ func (s *Services) ConfirmInventory(ctx context.Context, inventoryId string, use
 			).Error
 			if err != nil {
 				_ = tx.Rollback()
-				s.log.Errorf("could not deduct store_product quantity on confirm SOME inventory: %v", err)
+				s.log.Errorf("could not update store_product quantity on confirm SOME inventory: %v", err)
 				return domain.InternalServerError
 			}
 			dataOnec.Товары = append(dataOnec.Товары, domain.InventoryProduct1C{
