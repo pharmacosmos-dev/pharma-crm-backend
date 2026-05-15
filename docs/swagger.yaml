@@ -746,12 +746,17 @@ definitions:
         type: string
       name:
         type: string
+      product_ids:
+        description: used when Type == "SOME"
+        items:
+          type: string
+        type: array
       public_id:
         type: string
       store_id:
         type: string
       type:
-        description: FULL || PARTIAL || IMPORT
+        description: FULL || PARTIAL || IMPORT || SOME
         type: string
     type: object
   domain.Login:
@@ -12576,6 +12581,32 @@ paths:
       security:
       - BearerAuth: []
       summary: Export product movement units by date range to Excel
+      tags:
+      - products
+  /product/movement-units-by-product-export:
+    get:
+      parameters:
+      - description: product_id
+        in: query
+        name: product_id
+        required: true
+        type: string
+      produces:
+      - application/octet-stream
+      responses:
+        "200":
+          description: OK
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Export product movement units across all stores by product_id to Excel
       tags:
       - products
   /product/movement-units-export:

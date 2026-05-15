@@ -15720,6 +15720,48 @@ const docTemplate = `{
                 }
             }
         },
+        "/product/movement-units-by-product-export": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "produces": [
+                    "application/octet-stream"
+                ],
+                "tags": [
+                    "products"
+                ],
+                "summary": "Export product movement units across all stores by product_id to Excel",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "product_id",
+                        "name": "product_id",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK"
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    }
+                }
+            }
+        },
         "/product/movement-units-export": {
             "get": {
                 "security": [
@@ -30676,6 +30718,13 @@ const docTemplate = `{
                 "name": {
                     "type": "string"
                 },
+                "product_ids": {
+                    "description": "used when Type == \"SOME\"",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
                 "public_id": {
                     "type": "string"
                 },
@@ -30683,7 +30732,7 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "type": {
-                    "description": "FULL || PARTIAL || IMPORT",
+                    "description": "FULL || PARTIAL || IMPORT || SOME",
                     "type": "string"
                 }
             }
