@@ -515,6 +515,7 @@ type MovementUnitsResponse struct {
 	ProductId           string  `gorm:"product_id" json:"product_id"`
 	StoreProductId      string  `gorm:"store_product_id" json:"store_product_id"`
 	StoreId             string  `gorm:"store_id" json:"store_id"`
+	StoreName           string  `gorm:"store_name" json:"store_name"`
 	Name                string  `gorm:"name" json:"name"`
 	UnitPerPack         float64 `gorm:"unit_per_pack" json:"unit_per_pack"`
 	UnitQuantity        float64 `gorm:"unit_quantity" json:"unit_quantity"`

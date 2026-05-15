@@ -86,6 +86,7 @@ func (h *ProductHandler) ProductRoutes(r *gin.RouterGroup) {
 		product.GET("/movement-units-export", h.ExportMovementUnits)
 		product.GET("/movement-units-by-date", h.GetMovementUnitsByDate)
 		product.GET("/movement-units-by-date-export", h.ExportMovementUnitsByDate)
+		product.GET("/movement-units-by-product-export", h.ExportMovementUnitsByProductId)
 		product.PUT("/update-ostatok/:store_product_id", h.UpdateOstatok)
 		product.POST("/barcode/upsert", h.CreateOrUpdateBarcodes)
 		product.GET("/:id/barcodes", h.GetProductBarcodes)
@@ -3135,6 +3136,98 @@ func (h *ProductHandler) GetMovementUnitsByDate(c *gin.Context) {
 
 	handleResponse(c, OK, res)
 }
+
+
+
+// ExportMovementUnitsByProductId godoc
+// @Summary Export product movement units across all stores by product_id to Excel
+// @Tags products
+// @Security BearerAuth
+// @Produce octet-stream
+// @Param product_id query string true "product_id"
+// @Success 200
+// @Failure 400 {object} v1.Response
+// @Failure 500 {object} v1.Response
+// @Router /product/movement-units-by-product-export [GET]
+func (h *ProductHandler) ExportMovementUnitsByProductId(c *gin.Context) {
+  user := h.service.GetSignedUser(c)
+  if user.UserId == "" {
+    handleServiceResponse(c, nil, domain.UnauthorizedError)
+    return
+  }
+
+  productId := c.Query("product_id")
+  if productId == "" {
+    handleServiceResponse(c, BadRequest, domain.InvalidQueryError)
+    return
+  }
+
+  ctx, cancel := context.WithTimeout(context.Background(), time.Minute*2)
+  defer cancel()
+
+  res, err := h.service.GetMovementUnitsByProductId(ctx, productId)
+  if err != nil {
+    handleServiceResponse(c, nil, err)
+    return
+  }
+
+  f := excelize.NewFile()
+  sheetName := "List1"
+  f.SetSheetName("Sheet1", sheetName)
+
+  headers := []string{
+    "Apteka", "Товары ID", "Наименования", "№",
+    "Остаток", "Импорт Кол-во", "Продано Кол-во",
+    "Возврат От клиент Кол-во", "Возврат склад Кол-во",
+    "Трансфер-In", "Трансфер-Out",
+    "Инвентаризация +", "Инвентаризация -",
+    "Посл. инв. Тек. кол-во (упак)", "Посл. инв. Факт. кол-во (упак)",
+    "Фиксированное Кол-во", "Разница",
+    "Разница нет", "Инвер Спросил", "В аптеке есть", "В аптеке нет проблем",
+    "Разница прогр. и потерян.", "Кол-во из-за программы",
+    "Сумма", "Розн. Сумма", "Инв. разница сумма",
+  }
+
+  err = setExcelHeaders(f, sheetName, headers)
+  if err != nil {
+    h.log.Errorf("Failed to create style: %v", err)
+    handleServiceResponse(c, nil, domain.InternalServerError)
+    return
+  }
+
+  for i, product := range res {
+    row := strconv.Itoa(i + 2)
+    f.SetCellValue(sheetName, "A"+row, product.StoreName)
+    f.SetCellValue(sheetName, "B"+row, product.ProductId)
+    f.SetCellValue(sheetName, "C"+row, product.Name)
+    f.SetCellValue(sheetName, "D"+row, product.UnitPerPack)
+    f.SetCellValue(sheetName, "E"+row, product.UnitQuantity)
+    f.SetCellValue(sheetName, "F"+row, product.ImportQuantity)
+    f.SetCellValue(sheetName, "G"+row, product.SoldQuantity)
+    f.SetCellValue(sheetName, "H"+row, product.ReturnedQuantity)
+    f.SetCellValue(sheetName, "I"+row, product.VozvratQuantity)
+    f.SetCellValue(sheetName, "J"+row, product.TransferInQuantity)
+    f.SetCellValue(sheetName, "K"+row, product.TransferOutQuantity)
+    f.SetCellValue(sheetName, "L"+row, product.InventoryPlusCount)
+    f.SetCellValue(sheetName, "M"+row, product.InventoryMinusCount)
+    f.SetCellValue(sheetName, "N"+row, product.LastInvCurrentQuantity)
+    f.SetCellValue(sheetName, "O"+row, product.LastInvFactQuantity)
+    f.SetCellValue(sheetName, "P"+row, product.CorrectQuantity)
+    f.SetCellValue(sheetName, "Q"+row, product.Diff)
+    f.SetCellFormula(sheetName, "R"+row, "OR(P"+row+"=Q"+row+",Q"+row+"=0)")
+    f.SetCellFormula(sheetName, "S"+row, "N"+row+"*D"+row)
+    f.SetCellFormula(sheetName, "T"+row, "O"+row+"*D"+row)
+    f.SetCellFormula(sheetName, "U"+row, "OR(T"+row+"=S"+row+",T"+row+">S"+row+")")
+    f.SetCellFormula(sheetName, "V"+row, "S"+row+"-T"+row+"+Q"+row)
+    f.SetCellFormula(sheetName, "W"+row, "S"+row+"-T"+row+"-V"+row)
+    f.SetCellValue(sheetName, "X"+row, product.LastInvRetailPrice)
+    f.SetCellFormula(sheetName, "Y"+row, "W"+row+"*X"+row)
+    f.SetCellValue(sheetName, "Z"+row, product.LastInvDifferenceSum)
+  }
+
+  saveExcelToUploads(c, f, *h.log, "product-movement-by-store")
+}
+
 
 // ExportMovementUnitsByDate godoc
 // @Summary Export product movement units by date range to Excel
