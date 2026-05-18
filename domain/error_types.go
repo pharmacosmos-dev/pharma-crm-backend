@@ -64,6 +64,7 @@ var (
 	AlreadyAcceptedError                 = NewError(http.StatusConflict, "already.accepted")
 	DuplicatePhoneError                  = NewError(http.StatusConflict, "duplicate.phone.error")
 	DuplicateLoyaltyCardError            = NewError(http.StatusConflict, "duplicate.loyalty.card.error")
+	DuplicateImportError                 = NewError(http.StatusConflict, "you are send duplicate import")
 	AlreadyHaveOpenCashboxOperationError = NewError(http.StatusConflict, "already.have.open.cashbox.operation")
 
 	// 202 – Accepted (so’rov qabul qilindi, tolov noaniq)

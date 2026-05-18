@@ -471,6 +471,21 @@ func (h *EmployeeHandler) Delete(c *gin.Context) {
 		return
 	}
 
+	var openCashbox struct {
+		EmployeeId string `gorm:"column:current_employee_id"`
+	}
+	if err := h.db.WithContext(c.Request.Context()).
+		Raw(`SELECT current_employee_id FROM cashbox_operations WHERE current_employee_id IN (?) AND is_open = TRUE LIMIT 1`, ids).
+		Scan(&openCashbox).Error; err != nil {
+		h.log.Error(err)
+		handleResponse(c, InternalError, "Can't check employee cashbox status")
+		return
+	}
+	if openCashbox.EmployeeId != "" {
+		handleResponse(c, BadRequest, "Your cash box is open, close your cash box operations")
+		return
+	}
+
 	err := h.db.
 		WithContext(c.Request.Context()).
 		Table("employees").

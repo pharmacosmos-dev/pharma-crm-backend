@@ -15,6 +15,16 @@ import (
 )
 
 func (s *Services) CreateImportFromOnec(ctx context.Context, req *domain.CreateOnecImportDto) error {
+	// calculate total count and sum from the request to detect duplicates
+	var totalCount, totalSum float64
+	for _, p := range req.Товары {
+		totalCount += p.Quantity
+		totalSum += p.Quantity * p.RetailPriceVat
+	}
+	if err := s.checkDuplicateImport(ctx, req.Apteka.StoreCode, totalCount, totalSum); err != nil {
+		return err
+	}
+
 	company, err := s.getCompanyForCheckFranchise(ctx, req.Apteka.Franshiza)
 	if err != nil {
 		return err
@@ -289,6 +299,31 @@ func (s *Services) createOrGetProductAndImportDetails(
 
 	return nil
 
+}
+
+func (s *Services) checkDuplicateImport(ctx context.Context, storeCode int, totalCount, totalSum float64) error {
+	var count int64
+	err := s.db.WithContext(ctx).Raw(`
+		SELECT COUNT(*) FROM (
+			SELECT i.id
+			FROM imports i
+			JOIN stores st ON st.id = i.store_id
+			LEFT JOIN import_details id ON id.import_id = i.id
+			WHERE st.store_code = ?
+			  AND i.created_at >= NOW() - INTERVAL '1 hour'
+			GROUP BY i.id
+			HAVING ABS(COALESCE(SUM(id.received_count), 0) - ?) < 0.0001
+			   AND ABS(COALESCE(SUM(id.received_count * id.retail_price_vat), 0) - ?) < 0.01
+		) sub
+	`, storeCode, totalCount, totalSum).Scan(&count).Error
+	if err != nil {
+		s.log.Errorf("could not check duplicate import: %v", err)
+		return domain.InternalServerError
+	}
+	if count > 0 {
+		return domain.DuplicateImportError
+	}
+	return nil
 }
 
 func (s *Services) updateImportTotalsAfterCreateNewImport(importId string) {
