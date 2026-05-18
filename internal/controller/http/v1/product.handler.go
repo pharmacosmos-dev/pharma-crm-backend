@@ -94,6 +94,8 @@ func (h *ProductHandler) ProductRoutes(r *gin.RouterGroup) {
 		product.POST("/:id/barcodes", h.CreateProductBarcode)
 		product.DELETE("/:id/barcodes", h.DeleteProductBarcode)
 		product.GET("/export-products-by-import", h.ExportProductsByImport)
+		product.GET("/store-product-import-detail", h.ListStoreProductsWithImportDetail)
+		product.PATCH("/store-product/:id/unit-quantity", h.UpdateStoreProductUnitQuantity)
 	}
 }
 
@@ -3675,4 +3677,143 @@ func (h *ProductHandler) ExportProductsByImport(c *gin.Context) {
 	}
 
 	saveExcelToUploads(c, f, *h.log, "products_by_import")
+}
+
+// ListStoreProductsWithImportDetail godoc
+// @Summary List store products with import detail
+// @Description Get store_products by product_id and store_id with left join from import_details, paginated
+// @Tags products
+// @Security     BearerAuth
+// @Accept json
+// @Produce json
+// @Param product_id query string true  "Product ID"
+// @Param store_id   query string false "Store ID"
+// @Param limit      query int    false "Limit"
+// @Param offset     query int    false "Offset"
+// @Success 200 {object} v1.Response
+// @Failure 400 {object} v1.Response
+// @Failure 500 {object} v1.Response
+// @Router /product/store-product-import-detail [get]
+func (h *ProductHandler) ListStoreProductsWithImportDetail(c *gin.Context) {
+	user := h.service.GetSignedUser(c)
+	if user.UserId == "" {
+		handleServiceResponse(c, nil, domain.UnauthorizedError)
+		return
+	}
+
+	productId := c.Query("product_id")
+	if productId == "" {
+		handleServiceResponse(c, BadRequest, domain.InvalidQueryError)
+		return
+	}
+
+	storeId := c.Query("store_id")
+	if !helper.IsAdmin(user) {
+		if user.StoreId != "" {
+			storeId = user.StoreId
+		}
+	}
+
+	limit, offset, err := getPaginationParams(c)
+	if err != nil {
+		handleServiceResponse(c, BadRequest, domain.InvalidQueryError)
+		return
+	}
+
+	type StoreProductWithImport struct {
+		domain.StoreProduct
+		ImportId       string     `gorm:"import_id" json:"import_id"`
+		DocumentNumber string     `gorm:"document_number" json:"document_number"`
+		ImportDate     *time.Time `gorm:"import_date" json:"import_date"`
+		ReceivedCount  float64    `gorm:"received_count" json:"received_count"`
+		ScannedCount   float64    `gorm:"scanned_count" json:"scanned_count"`
+		AcceptedCount  float64    `gorm:"accepted_count" json:"accepted_count"`
+	}
+
+	var (
+		res        []StoreProductWithImport
+		totalCount int64
+	)
+
+	query := h.db.
+		Table("store_products sp").
+		Select(`sp.*,
+			id.import_id,
+			im.document_number,
+			im.import_date,
+			id.received_count,
+			id.scanned_count,
+			id.accepted_count`).
+		Joins("LEFT JOIN import_details id ON id.id = sp.import_detail_id").
+		Joins("LEFT JOIN imports im ON im.id = id.import_id").
+		Where("sp.product_id = ?", productId)
+
+	if storeId != "" {
+		query = query.Where("sp.store_id = ?", storeId)
+	}
+
+	if err = query.Count(&totalCount).Error; err != nil {
+		h.log.Errorf("could not count store_products with import_detail: %v", err)
+		handleServiceResponse(c, InternalError, domain.InternalServerError)
+		return
+	}
+
+	if err = query.Limit(limit).Offset(offset).Order("sp.created_at DESC").Scan(&res).Error; err != nil {
+		h.log.Errorf("could not get store_products with import_detail: %v", err)
+		handleServiceResponse(c, InternalError, domain.InternalServerError)
+		return
+	}
+
+	handleResponse(c, OK, utils.ListResponse(res, totalCount, limit, offset))
+}
+
+// UpdateStoreProductUnitQuantity godoc
+// @Summary Update unit_quantity of a store product
+// @Description Update unit_quantity field in store_products by store_product_id
+// @Tags products
+// @Security     BearerAuth
+// @Accept json
+// @Produce json
+// @Param id   path string                             true "Store Product ID"
+// @Param body body domain.UpdateUnitQuantityRequest  true "unit_quantity body"
+// @Success 200 {object} v1.Response
+// @Failure 400 {object} v1.Response
+// @Failure 500 {object} v1.Response
+// @Router /product/store-product/{id}/unit-quantity [patch]
+func (h *ProductHandler) UpdateStoreProductUnitQuantity(c *gin.Context) {
+	user := h.service.GetSignedUser(c)
+	if user.UserId == "" {
+		handleServiceResponse(c, nil, domain.UnauthorizedError)
+		return
+	}
+
+	storeProductId := c.Param("id")
+	if err := uuid.Validate(storeProductId); err != nil {
+		handleServiceResponse(c, BadRequest, domain.InvalidQueryError)
+		return
+	}
+
+	var body domain.UpdateUnitQuantityRequest
+	if err := c.ShouldBindJSON(&body); err != nil {
+		handleServiceResponse(c, BadRequest, domain.InvalidQueryError)
+		return
+	}
+
+	if body.UnitQuantity < 0 {
+		handleServiceResponse(c, BadRequest, domain.InvalidQueryError)
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
+	defer cancel()
+
+	if err := h.db.WithContext(ctx).
+		Exec("UPDATE store_products SET unit_quantity = ?, updated_at = NOW() WHERE id = ?",
+			body.UnitQuantity, storeProductId).Error; err != nil {
+		h.log.Errorf("could not update store_product unit_quantity: %v", err)
+		handleServiceResponse(c, InternalError, domain.InternalServerError)
+		return
+	}
+
+	handleResponse(c, OK, "UPDATED")
 }

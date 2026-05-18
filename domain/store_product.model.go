@@ -38,6 +38,10 @@ type StoreProductUpdateRequest struct {
 	SmallQuantity int    `json:"small_quantity"`
 }
 
+type UpdateUnitQuantityRequest struct {
+	UnitQuantity int `json:"unit_quantity"`
+}
+
 // Store Product Request structure for creating
 type StoreProductRequest struct {
 	StoreID          string  `gorm:"store_id" json:"store_id"`

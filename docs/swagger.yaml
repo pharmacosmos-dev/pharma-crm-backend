@@ -1994,6 +1994,11 @@ definitions:
       unit_code:
         type: string
     type: object
+  domain.UpdateUnitQuantityRequest:
+    properties:
+      unit_quantity:
+        type: integer
+    type: object
   domain.UzumCancelOrderRequest:
     properties:
       comment:
@@ -12939,6 +12944,50 @@ paths:
       summary: Update store_product is_marking
       tags:
       - products
+  /product/store-product-import-detail:
+    get:
+      consumes:
+      - application/json
+      description: Get store_products by product_id and store_id with left join from
+        import_details, paginated
+      parameters:
+      - description: Product ID
+        in: query
+        name: product_id
+        required: true
+        type: string
+      - description: Store ID
+        in: query
+        name: store_id
+        type: string
+      - description: Limit
+        in: query
+        name: limit
+        type: integer
+      - description: Offset
+        in: query
+        name: offset
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: List store products with import detail
+      tags:
+      - products
   /product/store-product/{id}:
     get:
       consumes:
@@ -12980,6 +13029,43 @@ paths:
       security:
       - BearerAuth: []
       summary: Get store products by product_id
+      tags:
+      - products
+  /product/store-product/{id}/unit-quantity:
+    patch:
+      consumes:
+      - application/json
+      description: Update unit_quantity field in store_products by store_product_id
+      parameters:
+      - description: Store Product ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: unit_quantity body
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/domain.UpdateUnitQuantityRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Update unit_quantity of a store product
       tags:
       - products
   /product/store/{id}:
