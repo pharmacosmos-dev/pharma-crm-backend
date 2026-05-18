@@ -30718,6 +30718,13 @@ const docTemplate = `{
                 "name": {
                     "type": "string"
                 },
+                "product_ids": {
+                    "description": "used when Type == \"SOME\"",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
                 "public_id": {
                     "type": "string"
                 },
@@ -30725,7 +30732,7 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "type": {
-                    "description": "FULL || PARTIAL || IMPORT",
+                    "description": "FULL || PARTIAL || IMPORT || SOME",
                     "type": "string"
                 }
             }

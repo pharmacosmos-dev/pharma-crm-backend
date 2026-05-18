@@ -746,12 +746,17 @@ definitions:
         type: string
       name:
         type: string
+      product_ids:
+        description: used when Type == "SOME"
+        items:
+          type: string
+        type: array
       public_id:
         type: string
       store_id:
         type: string
       type:
-        description: FULL || PARTIAL || IMPORT
+        description: FULL || PARTIAL || IMPORT || SOME
         type: string
     type: object
   domain.Login:

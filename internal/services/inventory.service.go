@@ -3,8 +3,9 @@ package services
 import (
 	"context"
 	"fmt"
-"time"
+	"time"
 
+	"github.com/lib/pq"
 	"github.com/pharma-crm-backend/domain"
 	"github.com/pharma-crm-backend/domain/constants"
 	"github.com/pharma-crm-backend/pkg/utils"
@@ -43,34 +44,177 @@ func (s *Services) CreateInventory(ctx context.Context, req *domain.InventoryReq
 		s.log.Errorf("could not create inventory: %v", err)
 		return domain.InternalServerError
 	}
-	// insert all products (including those not in store_products)
-	err = tx.WithContext(ctx).Exec(`
-		INSERT INTO import_details (
-			import_id, 
-			product_id, 
-			store_product_id,  
-			received_count, 
-			supply_price_vat, 
-			retail_price_vat, 
-			expire_date, 
-			series_number, 
-			imported_at
+	if req.Type == "FULL" {
+		// FULL: insert all store products with unit_quantity as-is (original logic)
+		err = tx.WithContext(ctx).Exec(`
+			INSERT INTO import_details (
+				import_id,
+				product_id,
+				store_product_id,
+				received_count,
+				supply_price_vat,
+				retail_price_vat,
+				expire_date,
+				series_number,
+				imported_at
 			)
-		SELECT
-			?,
-			p.id,
-			sp.id,
-			COALESCE(sp.unit_quantity, 0),
-			COALESCE(sp.supply_price, 0.00) AS supply_price,
-			COALESCE(sp.retail_price, 0.00) AS retail_price,
-			sp.expire_date,
-			sp.serial_number,
-			sp.created_at
-		FROM
-			products p
-		LEFT JOIN
-			store_products sp ON sp.product_id = p.id and sp.store_id = ?
-		`, id, req.StoreId).Error
+			SELECT
+				?,
+				p.id,
+				sp.id,
+				COALESCE(sp.unit_quantity, 0),
+				COALESCE(sp.supply_price, 0.00),
+				COALESCE(sp.retail_price, 0.00),
+				sp.expire_date,
+				sp.serial_number,
+				sp.created_at
+			FROM products p
+			LEFT JOIN store_products sp ON sp.product_id = p.id AND sp.store_id = ?
+			`, id, req.StoreId).Error
+	} else {
+		// SOME: insert only the given product_ids with received_count corrected by movement diff
+		// diff = correct_quantity - unit_quantity (same as GetProductMovementUnits/ExportMovementUnits Q column)
+		err = tx.WithContext(ctx).Exec(`
+			WITH import_data AS (
+				SELECT
+					imd.product_id,
+					(SUM(imd.accepted_count) * p.unit_per_pack)::INTEGER AS import_count
+				FROM imports im
+					JOIN import_details imd ON im.id = imd.import_id
+					JOIN products p ON p.id = imd.product_id
+				WHERE im.store_id = ? AND im.entry_type = 1 AND im.status = 'completed'
+				GROUP BY imd.product_id, p.unit_per_pack
+			),
+			sold AS (
+				SELECT
+					sp.product_id,
+					SUM(ci.unit_quantity) AS sold_quantity
+				FROM sales s
+					JOIN cart_items ci ON ci.sale_id = s.id
+					JOIN store_products sp ON sp.id = ci.store_product_id
+				WHERE s.store_id = ? AND s.stage IN (9, 11) AND s.sale_type = 'SALE'
+				GROUP BY sp.product_id
+			),
+			return_sales AS (
+				SELECT
+					sp.product_id,
+					SUM(ci.unit_quantity) AS return_quantity
+				FROM sales s
+					JOIN cart_items ci ON ci.sale_id = s.id
+					JOIN store_products sp ON sp.id = ci.store_product_id
+				WHERE s.store_id = ? AND s.stage IN (9, 11) AND s.sale_type = 'RETURN'
+				GROUP BY sp.product_id
+			),
+			transfer_in AS (
+				SELECT
+					td.product_id,
+					(SUM(td.accepted_count) * p.unit_per_pack)::INTEGER AS transfer_in_count
+				FROM transfer_details td
+					JOIN transfers t ON td.transfer_id = t.id
+					JOIN products p ON p.id = td.product_id
+				WHERE t.to_store_id = ? AND t.entry_type = 1 AND (t.status = 'completed' OR t.status = 'sent-to-1c')
+				GROUP BY td.product_id, p.unit_per_pack
+			),
+			transfer_out AS (
+				SELECT
+					td.product_id,
+					(SUM(td.accepted_count) * p.unit_per_pack)::INTEGER AS transfer_out_count
+				FROM transfer_details td
+					JOIN transfers t ON td.transfer_id = t.id
+					JOIN products p ON p.id = td.product_id
+				WHERE t.from_store_id = ? AND t.entry_type = 1 AND (t.status = 'completed' OR t.status = 'sent-to-1c')
+				GROUP BY td.product_id, p.unit_per_pack
+			),
+			vozvrat AS (
+				SELECT
+					td.product_id,
+					(SUM(td.accepted_count) * p.unit_per_pack)::INTEGER AS vozvrat_count
+				FROM transfer_details td
+					JOIN transfers t ON td.transfer_id = t.id
+					JOIN products p ON p.id = td.product_id
+				WHERE t.from_store_id = ? AND t.entry_type = 2 AND (t.status = 'completed' OR t.status = 'sent-to-1c')
+				GROUP BY td.product_id, p.unit_per_pack
+			),
+			product_quantity AS (
+				SELECT
+					sp.product_id,
+					SUM(sp.unit_quantity)::INTEGER AS unit_quantity
+				FROM store_products sp
+				WHERE sp.store_id = ?
+				GROUP BY sp.product_id
+			),
+			inventory_quantity AS (
+				SELECT
+					imd.product_id,
+					SUM(CASE WHEN imd.scanned_count - imd.received_count > 0 THEN imd.scanned_count - imd.received_count ELSE 0 END)::INTEGER AS inventory_plus_count,
+					SUM(CASE WHEN imd.scanned_count - imd.received_count < 0 THEN imd.scanned_count - imd.received_count ELSE 0 END)::INTEGER AS inventory_minus_count
+				FROM import_details imd
+					JOIN imports im ON im.id = imd.import_id
+				WHERE im.store_id = ? AND im.entry_type = 2 AND im.status = 'completed'
+				GROUP BY imd.product_id
+			),
+			movement_diff AS (
+				SELECT
+					p.id AS product_id,
+					COALESCE(im.import_count, 0) + COALESCE(rs.return_quantity, 0) + COALESCE(tin.transfer_in_count, 0) +
+					COALESCE(inv.inventory_plus_count, 0) + COALESCE(inv.inventory_minus_count, 0) -
+					COALESCE(s.sold_quantity, 0) - COALESCE(tout.transfer_out_count, 0) - COALESCE(v.vozvrat_count, 0) -
+					COALESCE(pq.unit_quantity, 0) AS diff
+				FROM products p
+				JOIN product_quantity pq ON pq.product_id = p.id
+				LEFT JOIN import_data im ON im.product_id = p.id
+				LEFT JOIN sold s ON s.product_id = p.id
+				LEFT JOIN return_sales rs ON rs.product_id = p.id
+				LEFT JOIN transfer_in tin ON tin.product_id = p.id
+				LEFT JOIN transfer_out tout ON tout.product_id = p.id
+				LEFT JOIN vozvrat v ON v.product_id = p.id
+				LEFT JOIN inventory_quantity inv ON inv.product_id = p.id
+			),
+			ranked_sp AS (
+				SELECT sp.*,
+					ROW_NUMBER() OVER (PARTITION BY sp.product_id ORDER BY sp.created_at) AS rn
+				FROM store_products sp
+				WHERE sp.store_id = ?
+			)
+			INSERT INTO import_details (
+				import_id,
+				product_id,
+				store_product_id,
+				received_count,
+				supply_price_vat,
+				retail_price_vat,
+				expire_date,
+				series_number,
+				imported_at
+			)
+			SELECT
+				?,
+				p.id,
+				rsp.id,
+				COALESCE(rsp.unit_quantity, 0) + CASE WHEN rsp.rn = 1 THEN COALESCE(md.diff, 0) ELSE 0 END,
+				COALESCE(rsp.supply_price, 0.00),
+				COALESCE(rsp.retail_price, 0.00),
+				rsp.expire_date,
+				rsp.serial_number,
+				rsp.created_at
+			FROM products p
+			LEFT JOIN ranked_sp rsp ON rsp.product_id = p.id
+			LEFT JOIN movement_diff md ON md.product_id = p.id
+			WHERE p.id = ANY(?)
+			`,
+			req.StoreId,                  // import_data
+			req.StoreId,                  // sold
+			req.StoreId,                  // return_sales
+			req.StoreId,                  // transfer_in
+			req.StoreId,                  // transfer_out
+			req.StoreId,                  // vozvrat
+			req.StoreId,                  // product_quantity
+			req.StoreId,                  // inventory_quantity
+			req.StoreId,                  // ranked_sp
+			id,                           // import_id
+			pq.Array(req.ProductIds),     // product filter
+		).Error
+	}
 	if err != nil {
 		_ = tx.Rollback()
 		s.log.Errorf("could create inventory details: %v", err)
@@ -695,111 +839,141 @@ func (s *Services) ConfirmInventory(ctx context.Context, inventoryId string, use
 		return domain.InternalServerError
 	}
 
-	// get inventory details list if fact and current quantity will not be equal
-	var inventoryDetails []domain.ImportDetail
-	query1 := `
+	detailQuery := `
 	SELECT
-		imd.*, 
-		p.material_code, 
+		imd.*,
+		p.material_code,
 		p.name AS product_name,
-		p.barcode, 
-		p.unit_per_pack, 
+		p.barcode,
+		p.unit_per_pack,
 		pr.code AS producer_code
-	FROM 
+	FROM
 		import_details imd
 	JOIN
 		products p ON imd.product_id = p.id
 	LEFT JOIN
 		producers pr ON p.producer_id = pr.id
-	WHERE
-		imd.import_id = ? AND imd.received_count != imd.scanned_count
-	`
-	// execute get import details as inventory details
-	err = tx.WithContext(ctx).Raw(query1, inventoryId).Scan(&inventoryDetails).Error
+	WHERE imd.import_id = ?`
+
+	// SOME: only scanned items (to deduct); FULL: only items that differ
+	if res.InventoryType == "SOME" {
+		detailQuery += ` AND imd.scanned_count > 0`
+	} else {
+		detailQuery += ` AND imd.received_count != imd.scanned_count`
+	}
+
+	var inventoryDetails []domain.ImportDetail
+	err = tx.WithContext(ctx).Raw(detailQuery, inventoryId).Scan(&inventoryDetails).Error
 	if err != nil {
 		_ = tx.Rollback()
 		s.log.Errorf("could not get inventory_details on confirming: %v", err)
 		return domain.InternalServerError
 	}
-	// add new inventory products to store_products if fact greater then current quantity
-	// We only add delta -> (scanned_count - received_count) as a new product
-	storeProduct := `
-	INSERT INTO store_products(
-            product_id,
-            store_id,
-            pack_quantity,
-            unit_quantity,
-            retail_price,
-            supply_price,
-            vat,
-            expire_date,
-            vat_price,
-            import_detail_id,
-            serial_number
-            )
-	SELECT
-		imd.product_id,
-		?,
-		FLOOR((imd.scanned_count - imd.received_count)/p.unit_per_pack),
-		imd.scanned_count - imd.received_count,
-		imd.retail_price_vat,
-		imd.supply_price_vat,
-		12,
-		imd.expire_date,
-		(imd.retail_price_vat*12)/112,
-		imd.id,
-		imd.series_number
-	FROM import_details imd
-	JOIN products p ON imd.product_id = p.id
-	WHERE imd.import_id = ? AND imd.scanned_count > imd.received_count;
-	`
-	// execute store_product create query
-	err = tx.WithContext(ctx).Exec(storeProduct, res.StoreId, inventoryId).Error
-	if err != nil {
-		_ = tx.Rollback()
-		s.log.Errorf("could not inserting inventory to store_product: %v", err)
-		return domain.InternalServerError
-	}
-	// update store_products quantities if fact quantity greater then current (received_count > scanned_count)
-	// collect 1C inventar request data
+
 	var dataOnec domain.InventoryData1C
-	for _, imd := range inventoryDetails {
-		if imd.ScannedCount < imd.ReceivedCount {
+
+	if res.InventoryType == "SOME" {
+		// SOME: skanerlangan miqdorni to'g'ridan-to'g'ri o'rnatish (set scanned_count as actual stock)
+		for _, imd := range inventoryDetails {
 			err = tx.WithContext(ctx).Exec(`
-			UPDATE 
-				store_products 
-			SET 
-				pack_quantity = ?, 
-				unit_quantity = ? 
-			WHERE id = ?;`,
-				int(imd.ScannedCount/float64(imd.UnitPerPack)),
+				UPDATE store_products
+				SET
+					unit_quantity = ?,
+					pack_quantity = FLOOR(?::numeric / ?::integer)
+				WHERE id = ?`,
 				imd.ScannedCount,
+				imd.ScannedCount,
+				imd.UnitPerPack,
 				imd.StoreProductId,
 			).Error
 			if err != nil {
 				_ = tx.Rollback()
-				s.log.Errorf("could not update store_product quantity on confirm inventory: %v", err)
+				s.log.Errorf("could not update store_product quantity on confirm SOME inventory: %v", err)
 				return domain.InternalServerError
 			}
+			dataOnec.Товары = append(dataOnec.Товары, domain.InventoryProduct1C{
+				MaterialCode:        imd.MaterialCode,
+				Name:                imd.ProductName,
+				Barcode:             imd.Barcode,
+				Manufacturer:        imd.ProducerCode,
+				ProductSeriesNumber: imd.SeriesNumber,
+				ExpireDate:          imd.ExpireDate,
+				Quantity:            utils.RoundTo((imd.ReceivedCount / float64(imd.UnitPerPack)), 4),
+				QuantityInventar:    utils.RoundTo((imd.ScannedCount / float64(imd.UnitPerPack)), 4),
+				RetailPrice:         imd.RetailPrice,
+				RetailPriceVat:      imd.RetailPriceVat,
+				SupplyPrice:         imd.SupplyPrice,
+				SupplyPriceVat:      imd.SupplyPriceVat,
+				Sum:                 utils.RoundTo((imd.ScannedCount/float64(imd.UnitPerPack))*imd.RetailPrice, 2),
+				SumVat:              utils.RoundTo((imd.ScannedCount/float64(imd.UnitPerPack))*imd.RetailPriceVat, 2),
+			})
 		}
-		// collect inventory products to send 1C
-		dataOnec.Товары = append(dataOnec.Товары, domain.InventoryProduct1C{
-			MaterialCode:        imd.MaterialCode,
-			Name:                imd.ProductName,
-			Barcode:             imd.Barcode,
-			Manufacturer:        imd.ProducerCode,
-			ProductSeriesNumber: imd.SeriesNumber,
-			ExpireDate:          imd.ExpireDate,
-			Quantity:            utils.RoundTo((imd.ReceivedCount / float64(imd.UnitPerPack)), 4),
-			QuantityInventar:    utils.RoundTo((imd.ScannedCount / float64(imd.UnitPerPack)), 4),
-			RetailPrice:         imd.RetailPrice,
-			RetailPriceVat:      imd.RetailPriceVat,
-			SupplyPrice:         imd.SupplyPrice,
-			SupplyPriceVat:      imd.SupplyPriceVat,
-			Sum:                 utils.RoundTo((imd.ScannedCount/float64(imd.UnitPerPack))*imd.RetailPrice, 2),
-			SumVat:              utils.RoundTo((imd.ScannedCount/float64(imd.UnitPerPack))*imd.RetailPriceVat, 2),
-		})
+	} else {
+		// FULL: surplus → yangi store_product qo'shish, shortage → mavjudni yangilash
+		err = tx.WithContext(ctx).Exec(`
+			INSERT INTO store_products(
+				product_id, store_id, pack_quantity, unit_quantity,
+				retail_price, supply_price, vat, expire_date,
+				vat_price, import_detail_id, serial_number
+			)
+			SELECT
+				imd.product_id,
+				?,
+				FLOOR((imd.scanned_count - imd.received_count) / p.unit_per_pack),
+				imd.scanned_count - imd.received_count,
+				imd.retail_price_vat,
+				imd.supply_price_vat,
+				12,
+				imd.expire_date,
+				(imd.retail_price_vat * 12) / 112,
+				imd.id,
+				imd.series_number
+			FROM import_details imd
+			JOIN products p ON imd.product_id = p.id
+			WHERE imd.import_id = ? AND imd.scanned_count > imd.received_count`,
+			res.StoreId, inventoryId,
+		).Error
+		if err != nil {
+			_ = tx.Rollback()
+			s.log.Errorf("could not inserting inventory to store_product: %v", err)
+			return domain.InternalServerError
+		}
 
+		for _, imd := range inventoryDetails {
+			if imd.ScannedCount < imd.ReceivedCount {
+				err = tx.WithContext(ctx).Exec(`
+					UPDATE store_products
+					SET
+						pack_quantity = ?,
+						unit_quantity = ?
+					WHERE id = ?`,
+					int(imd.ScannedCount/float64(imd.UnitPerPack)),
+					imd.ScannedCount,
+					imd.StoreProductId,
+				).Error
+				if err != nil {
+					_ = tx.Rollback()
+					s.log.Errorf("could not update store_product quantity on confirm inventory: %v", err)
+					return domain.InternalServerError
+				}
+			}
+			dataOnec.Товары = append(dataOnec.Товары, domain.InventoryProduct1C{
+				MaterialCode:        imd.MaterialCode,
+				Name:                imd.ProductName,
+				Barcode:             imd.Barcode,
+				Manufacturer:        imd.ProducerCode,
+				ProductSeriesNumber: imd.SeriesNumber,
+				ExpireDate:          imd.ExpireDate,
+				Quantity:            utils.RoundTo((imd.ReceivedCount / float64(imd.UnitPerPack)), 4),
+				QuantityInventar:    utils.RoundTo((imd.ScannedCount / float64(imd.UnitPerPack)), 4),
+				RetailPrice:         imd.RetailPrice,
+				RetailPriceVat:      imd.RetailPriceVat,
+				SupplyPrice:         imd.SupplyPrice,
+				SupplyPriceVat:      imd.SupplyPriceVat,
+				Sum:                 utils.RoundTo((imd.ScannedCount/float64(imd.UnitPerPack))*imd.RetailPrice, 2),
+				SumVat:              utils.RoundTo((imd.ScannedCount/float64(imd.UnitPerPack))*imd.RetailPriceVat, 2),
+			})
+		}
 	}
 
 	if len(dataOnec.Товары) < 1 {

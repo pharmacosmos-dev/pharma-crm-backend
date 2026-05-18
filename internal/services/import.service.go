@@ -306,7 +306,7 @@ func (s *Services) AddAllProductsToStore(ctx context.Context, tx *gorm.DB, impor
 				importData.StoreId,
 				item.ProductId,
 				int(item.ReceivedCount),
-				int(item.ReceivedCount*float64(item.UnitPerPack)),
+				int(math.Round(item.ReceivedCount*float64(item.UnitPerPack))),
 				item.SupplyPriceVat,
 				item.RetailPriceVat,
 				item.Vat,
