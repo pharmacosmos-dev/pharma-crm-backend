@@ -16,14 +16,14 @@ import (
 
 func (s *Services) CreateImportFromOnec(ctx context.Context, req *domain.CreateOnecImportDto) error {
 	// calculate total count and sum from the request to detect duplicates
-	var totalCount, totalSum float64
-	for _, p := range req.Товары {
-		totalCount += p.Quantity
-		totalSum += p.Quantity * p.RetailPriceVat
-	}
-	if err := s.checkDuplicateImport(ctx, req.Apteka.StoreCode, totalCount, totalSum); err != nil {
-		return err
-	}
+	// var totalCount, totalSum float64
+	// for _, p := range req.Товары {
+	// 	totalCount += p.Quantity
+	// 	totalSum += p.Quantity * p.RetailPriceVat
+	// }
+	// if err := s.checkDuplicateImport(ctx, req.Apteka.StoreCode, totalCount, totalSum); err != nil {
+	// 	return err
+	// }
 
 	company, err := s.getCompanyForCheckFranchise(ctx, req.Apteka.Franshiza)
 	if err != nil {
