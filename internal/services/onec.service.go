@@ -321,7 +321,7 @@ func (s *Services) checkDuplicateImport(ctx context.Context, storeCode int, tota
 		return domain.InternalServerError
 	}
 	if count > 0 {
-		return domain.DuplicateImportError
+		return domain.AlreadySentError
 	}
 	return nil
 }

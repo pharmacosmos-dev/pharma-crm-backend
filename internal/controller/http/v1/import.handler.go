@@ -48,6 +48,7 @@ func (h *ImportHandler) ImportRoutes(r *gin.RouterGroup) {
 		importDetail.GET("/get-stock-status-counts/:id", h.GetStockStatusCounts)
 		importDetail.PUT("/:id", h.UpdateImportDetail)
 		// importDetail.GET("/product-marking/:id", h.ProductMarking)
+		importDetail.GET("/accepted-products/:id", h.ListAcceptedStoreProducts)
 	}
 }
 
@@ -901,6 +902,147 @@ func (h *ImportHandler) GetStockStatusCounts(c *gin.Context) {
 	}
 
 	handleResponse(c, OK, res)
+}
+
+// ListAcceptedStoreProducts godoc
+// @Summary List accepted store products by import id
+// @Description Returns store_products created from the given import, with sales/transfer/return aggregates
+// @Tags import_details
+// @Security     BearerAuth
+// @Accept json
+// @Produce json
+// @Param id     path  string true  "Import ID"
+// @Param limit  query int    false "Limit"
+// @Param offset query int    false "Offset"
+// @Success 200 {object} v1.Response
+// @Failure 400 {object} v1.Response
+// @Failure 500 {object} v1.Response
+// @Router /import-detail/accepted-products/{id} [get]
+func (h *ImportHandler) ListAcceptedStoreProducts(c *gin.Context) {
+	user := h.service.GetSignedUser(c)
+	if user.UserId == "" {
+		handleServiceResponse(c, nil, domain.UnauthorizedError)
+		return
+	}
+
+	importId := c.Param("id")
+	if err := uuid.Validate(importId); err != nil {
+		handleServiceResponse(c, BadRequest, domain.InvalidQueryError)
+		return
+	}
+
+	limit, offset, err := getPaginationParams(c)
+	if err != nil {
+		handleServiceResponse(c, BadRequest, domain.InvalidQueryError)
+		return
+	}
+
+	type Row struct {
+		// store_product fields
+		Id           string     `gorm:"column:id"           json:"id"`
+		ProductId    string     `gorm:"column:product_id"   json:"product_id"`
+		StoreId      string     `gorm:"column:store_id"     json:"store_id"`
+		PackQuantity int        `gorm:"column:pack_quantity" json:"pack_quantity"`
+		UnitQuantity int        `gorm:"column:unit_quantity" json:"unit_quantity"`
+		RetailPrice  float64    `gorm:"column:retail_price" json:"retail_price"`
+		SupplyPrice  float64    `gorm:"column:supply_price" json:"supply_price"`
+		ExpireDate   *time.Time `gorm:"column:expire_date"  json:"expire_date"`
+		SerialNumber string     `gorm:"column:serial_number" json:"serial_number"`
+		Barcode      string     `gorm:"column:barcode"      json:"barcode"`
+		IsMarking    bool       `gorm:"column:is_marking"   json:"is_marking"`
+		CreatedAt    *time.Time `gorm:"column:created_at"   json:"created_at"`
+		// product fields
+		ProductName string `gorm:"column:product_name" json:"product_name"`
+		UnitPerPack int    `gorm:"column:unit_per_pack" json:"unit_per_pack"`
+		// import_detail fields
+		ReceivedCount float64 `gorm:"column:received_count" json:"received_count"`
+		ScannedCount  float64 `gorm:"column:scanned_count"  json:"scanned_count"`
+		// sales aggregates
+		SaleCount         int64   `gorm:"column:sale_count"          json:"sale_count"`
+		TotalSoldUnitQty  int64   `gorm:"column:total_sold_unit_qty"  json:"total_sold_unit_qty"`
+		TotalSoldAmount   float64 `gorm:"column:total_sold_amount"    json:"total_sold_amount"`
+		// transfer aggregates
+		TransferCount      int64   `gorm:"column:transfer_count"       json:"transfer_count"`
+		TotalTransferredQty float64 `gorm:"column:total_transferred_qty" json:"total_transferred_qty"`
+		// return aggregates
+		ReturnCount      int64   `gorm:"column:return_count"        json:"return_count"`
+		TotalReturnedQty float64 `gorm:"column:total_returned_qty"  json:"total_returned_qty"`
+	}
+
+	baseQuery := `
+		FROM store_products sp
+		JOIN import_details imd ON imd.id = sp.import_detail_id
+		JOIN products p ON p.id = sp.product_id
+		LEFT JOIN (
+			SELECT
+				store_product_id,
+				COUNT(DISTINCT sale_id)  AS sale_count,
+				SUM(unit_quantity)       AS total_sold_unit_qty,
+				SUM(total_price)         AS total_sold_amount
+			FROM cart_items
+			GROUP BY store_product_id
+		) sales_agg ON sales_agg.store_product_id = sp.id
+		LEFT JOIN (
+			SELECT
+				td.store_product_id,
+				COUNT(DISTINCT td.transfer_id) AS transfer_count,
+				SUM(td.scanned_count)          AS total_transferred_qty
+			FROM transfer_details td
+			JOIN transfers t ON t.id = td.transfer_id AND t.entry_type = 1
+			GROUP BY td.store_product_id
+		) tr_agg ON tr_agg.store_product_id = sp.id
+		LEFT JOIN (
+			SELECT
+				td.store_product_id,
+				COUNT(DISTINCT td.transfer_id) AS return_count,
+				SUM(td.scanned_count)          AS total_returned_qty
+			FROM transfer_details td
+			JOIN transfers t ON t.id = td.transfer_id AND t.entry_type = 2
+			GROUP BY td.store_product_id
+		) ret_agg ON ret_agg.store_product_id = sp.id
+		WHERE imd.import_id = ?`
+
+	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
+	defer cancel()
+
+	var totalCount int64
+	if err = h.db.WithContext(ctx).
+		Raw("SELECT COUNT(*) "+baseQuery, importId).
+		Scan(&totalCount).Error; err != nil {
+		h.log.Errorf("could not count accepted store products: %v", err)
+		handleServiceResponse(c, InternalError, domain.InternalServerError)
+		return
+	}
+
+	var res []Row
+	if err = h.db.WithContext(ctx).
+		Raw(`SELECT
+				sp.id, sp.product_id, sp.store_id,
+				sp.pack_quantity, sp.unit_quantity,
+				sp.retail_price, sp.supply_price,
+				sp.expire_date, sp.serial_number, sp.barcode, sp.is_marking, sp.created_at,
+				p.name  AS product_name,
+				p.unit_per_pack,
+				imd.received_count,
+				imd.scanned_count,
+				COALESCE(sales_agg.sale_count, 0)           AS sale_count,
+				COALESCE(sales_agg.total_sold_unit_qty, 0)  AS total_sold_unit_qty,
+				COALESCE(sales_agg.total_sold_amount, 0)    AS total_sold_amount,
+				COALESCE(tr_agg.transfer_count, 0)          AS transfer_count,
+				COALESCE(tr_agg.total_transferred_qty, 0)   AS total_transferred_qty,
+				COALESCE(ret_agg.return_count, 0)           AS return_count,
+				COALESCE(ret_agg.total_returned_qty, 0)     AS total_returned_qty
+			`+baseQuery+`
+			ORDER BY sp.created_at DESC
+			LIMIT ? OFFSET ?`,
+			importId, limit, offset).
+		Scan(&res).Error; err != nil {
+		h.log.Errorf("could not get accepted store products: %v", err)
+		handleServiceResponse(c, InternalError, domain.InternalServerError)
+		return
+	}
+
+	handleResponse(c, OK, utils.ListResponse(res, totalCount, limit, offset))
 }
 
 // lock order for parallel request
