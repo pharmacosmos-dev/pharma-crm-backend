@@ -2719,6 +2719,163 @@ func (s *Services) GetProductMovementUnits(ctx context.Context, params *domain.P
 	return res, nil
 }
 
+func (s *Services) GetMovementUnitsBeforeFirstInventory(ctx context.Context, params *domain.ProductQueryParam) ([]domain.MovementUnitsResponse, error) {
+	if params.StoreId == "" {
+		return nil, domain.InvalidQueryError
+	}
+
+	query := `
+	WITH first_inventory AS (
+		SELECT id, created_at
+		FROM imports
+		WHERE store_id = ? AND entry_type = 2 AND status = 'completed'
+		ORDER BY created_at ASC
+		LIMIT 1
+	),
+	import_data AS (
+		SELECT
+			imd.product_id,
+			(SUM(imd.accepted_count) * p.unit_per_pack)::INTEGER AS import_count
+		FROM imports im
+			JOIN import_details imd ON im.id = imd.import_id
+			JOIN products p ON p.id = imd.product_id
+		WHERE im.store_id = ? AND im.entry_type = 1 AND im.status = 'completed'
+			AND im.created_at < (SELECT created_at FROM first_inventory)
+		GROUP BY imd.product_id, p.unit_per_pack
+	),
+	sold AS (
+		SELECT
+			sp.product_id,
+			SUM(ci.unit_quantity) AS sold_quantity
+		FROM sales s
+			JOIN cart_items ci ON ci.sale_id = s.id
+			JOIN store_products sp ON sp.id = ci.store_product_id
+		WHERE s.store_id = ? AND s.stage IN (9, 11) AND s.sale_type = 'SALE'
+			AND s.created_at < (SELECT created_at FROM first_inventory)
+		GROUP BY sp.product_id
+	),
+	return_sales AS (
+		SELECT
+			sp.product_id,
+			SUM(ci.unit_quantity) AS return_quantity
+		FROM sales s
+			JOIN cart_items ci ON ci.sale_id = s.id
+			JOIN store_products sp ON sp.id = ci.store_product_id
+		WHERE s.store_id = ? AND s.stage IN (9, 11) AND s.sale_type = 'RETURN'
+			AND s.created_at < (SELECT created_at FROM first_inventory)
+		GROUP BY sp.product_id
+	),
+	transfer_in AS (
+		SELECT
+			td.product_id,
+			(SUM(td.accepted_count) * p.unit_per_pack)::INTEGER AS transfer_in_count
+		FROM transfer_details td
+			JOIN transfers t ON td.transfer_id = t.id
+			JOIN products p ON p.id = td.product_id
+		WHERE t.to_store_id = ? AND t.entry_type = 1 AND (t.status = 'completed' OR t.status = 'sent-to-1c')
+			AND t.created_at < (SELECT created_at FROM first_inventory)
+		GROUP BY td.product_id, p.unit_per_pack
+	),
+	transfer_out AS (
+		SELECT
+			td.product_id,
+			(SUM(td.accepted_count) * p.unit_per_pack)::INTEGER AS transfer_out_count
+		FROM transfer_details td
+			JOIN transfers t ON td.transfer_id = t.id
+			JOIN products p ON p.id = td.product_id
+		WHERE t.from_store_id = ? AND t.entry_type = 1 AND (t.status = 'completed' OR t.status = 'sent-to-1c')
+			AND t.created_at < (SELECT created_at FROM first_inventory)
+		GROUP BY td.product_id, p.unit_per_pack
+	),
+	vozvrat AS (
+		SELECT
+			td.product_id,
+			(SUM(td.accepted_count) * p.unit_per_pack)::INTEGER AS vozvrat_count
+		FROM transfer_details td
+			JOIN transfers t ON td.transfer_id = t.id
+			JOIN products p ON p.id = td.product_id
+		WHERE t.from_store_id = ? AND t.entry_type = 2 AND (t.status = 'completed' OR t.status = 'sent-to-1c')
+			AND t.created_at < (SELECT created_at FROM first_inventory)
+		GROUP BY td.product_id, p.unit_per_pack
+	),
+	product_quantity AS (
+		SELECT
+			sp.product_id,
+			SUM(sp.unit_quantity)::INTEGER AS unit_quantity
+		FROM store_products sp
+		WHERE sp.store_id = ?
+		GROUP BY sp.product_id
+	),
+	first_inventory_data AS (
+		SELECT
+			imd.product_id,
+			ROUND(SUM(imd.received_count / p.unit_per_pack), 4)  AS last_inv_current_quantity,
+			ROUND(SUM(imd.scanned_count / p.unit_per_pack), 4)   AS last_inv_fact_quantity,
+			ROUND(MAX(imd.retail_price_vat) / MAX(p.unit_per_pack), 4) AS last_inv_retail_price,
+			ROUND(SUM(imd.retail_price_vat * ((imd.scanned_count - imd.received_count) / p.unit_per_pack)), 2) AS last_inv_difference_sum
+		FROM import_details imd
+			JOIN first_inventory fi ON fi.id = imd.import_id
+			JOIN products p ON p.id = imd.product_id
+		GROUP BY imd.product_id
+	)
+	SELECT
+		p.id                                              AS product_id,
+		p.material_code                                   AS ID,
+		p.name,
+		p.unit_per_pack,
+		COALESCE(im.import_count, 0)                      AS import_quantity,
+		COALESCE(pq.unit_quantity, 0)                     AS unit_quantity,
+		COALESCE(s.sold_quantity, 0)                      AS sold_quantity,
+		COALESCE(rs.return_quantity, 0)                   AS returned_quantity,
+		COALESCE(tin.transfer_in_count, 0)                AS transfer_in_quantity,
+		COALESCE(tout.transfer_out_count, 0)              AS transfer_out_quantity,
+		COALESCE(v.vozvrat_count, 0)                      AS vozvrat_quantity,
+		0                                                  AS inventory_plus_count,
+		0                                                  AS inventory_minus_count,
+		COALESCE(fid.last_inv_current_quantity, 0)        AS last_inv_current_quantity,
+		COALESCE(fid.last_inv_fact_quantity, 0)           AS last_inv_fact_quantity,
+		COALESCE(fid.last_inv_retail_price, 0)            AS last_inv_retail_price,
+		COALESCE(fid.last_inv_difference_sum, 0)          AS last_inv_difference_sum,
+		COALESCE(im.import_count, 0) + COALESCE(rs.return_quantity, 0) + COALESCE(tin.transfer_in_count, 0) -
+		COALESCE(s.sold_quantity, 0) - COALESCE(tout.transfer_out_count, 0) - COALESCE(v.vozvrat_count, 0) AS correct_quantity,
+		COALESCE(im.import_count, 0) + COALESCE(rs.return_quantity, 0) + COALESCE(tin.transfer_in_count, 0) -
+		COALESCE(s.sold_quantity, 0) - COALESCE(tout.transfer_out_count, 0) - COALESCE(v.vozvrat_count, 0) -
+		COALESCE(pq.unit_quantity, 0) AS diff
+	FROM products p
+	JOIN product_quantity pq ON pq.product_id = p.id
+	LEFT JOIN import_data im ON im.product_id = p.id
+	LEFT JOIN sold s ON s.product_id = p.id
+	LEFT JOIN return_sales rs ON rs.product_id = p.id
+	LEFT JOIN transfer_in tin ON tin.product_id = p.id
+	LEFT JOIN transfer_out tout ON tout.product_id = p.id
+	LEFT JOIN vozvrat v ON v.product_id = p.id
+	LEFT JOIN first_inventory_data fid ON fid.product_id = p.id
+	ORDER BY p.name`
+
+	if params.Limit > 0 {
+		query += fmt.Sprintf(" LIMIT %d OFFSET %d", params.Limit, params.Offset)
+	}
+
+	var res []domain.MovementUnitsResponse
+
+	err := s.db.WithContext(ctx).Raw(query,
+		params.StoreId, // first_inventory
+		params.StoreId, // import_data
+		params.StoreId, // sold
+		params.StoreId, // return_sales
+		params.StoreId, // transfer_in (to_store_id)
+		params.StoreId, // transfer_out (from_store_id)
+		params.StoreId, // vozvrat (from_store_id)
+		params.StoreId, // product_quantity
+	).Scan(&res).Error
+
+	if err != nil {
+		s.log.Errorf("could not get movement_units_before_first_inventory: %v", err)
+		return res, domain.InternalServerError
+	}
+
+	return res, nil
+}
 
 func (s *Services) GetMovementUnitsByProductId(ctx context.Context, productId string) ([]domain.MovementUnitsResponse, error) {
   query := `

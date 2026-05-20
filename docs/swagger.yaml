@@ -12542,6 +12542,78 @@ paths:
       summary: Get a product
       tags:
       - products
+  /product/movement-units-before-first-inventory:
+    get:
+      parameters:
+      - description: store_id
+        in: query
+        name: store_id
+        required: true
+        type: string
+      - description: Limit
+        in: query
+        name: limit
+        type: integer
+      - description: Offset
+        in: query
+        name: offset
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Get product movement units before the first inventory for a store
+      tags:
+      - products
+  /product/movement-units-before-first-inventory-export:
+    get:
+      parameters:
+      - description: store_id
+        in: query
+        name: store_id
+        required: true
+        type: string
+      - description: Limit
+        in: query
+        name: limit
+        type: integer
+      - description: Offset
+        in: query
+        name: offset
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Export product movement units before the first inventory for a store
+      tags:
+      - products
   /product/movement-units-by-date:
     get:
       parameters:
