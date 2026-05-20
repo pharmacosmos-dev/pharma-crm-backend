@@ -1140,7 +1140,7 @@ vozvrat_data AS (
         tr.id, tr.public_id::int, 5 AS entry_type, tr.created_at,
         s.name AS store_name,
         SUM(td.accepted_count) * vd.unit_per_pack * (-1) AS quantity,
-        SUM((td.accepted_count/vd.unit_per_pack) * td.retail_price) * (-1) AS sum,
+        SUM(td.accepted_count * td.retail_price) * (-1) AS sum,
         tr.name as name,
         vd.unit_per_pack
     FROM transfer_details td
