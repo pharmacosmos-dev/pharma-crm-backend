@@ -2992,12 +2992,14 @@ func (h *HelperHandler) UploadUzumTezkorPrice(c *gin.Context) {
 	skipped := 0
 
 	for _, row := range rows[1:] { // Skip header
-		if len(row) <= 1 {
+		if len(row) < 3 {
+			skipped++
 			continue
 		}
 
-		productName := strings.TrimSpace(row[0])
-		priceStr := strings.ReplaceAll(strings.TrimSpace(row[1]), ",", "")
+		productName := strings.TrimSpace(row[0])   // A: name
+		materialCode := strings.TrimSpace(row[1])  // B: material_code
+		priceStr := strings.ReplaceAll(strings.TrimSpace(row[2]), ",", "") // C: retail_price
 		price := cast.ToFloat64(priceStr)
 		if productName == "" || price <= 0 {
 			skipped++
@@ -3005,11 +3007,10 @@ func (h *HelperHandler) UploadUzumTezkorPrice(c *gin.Context) {
 		}
 
 		var product struct {
-			Id           string `gorm:"id"`
-			MaterialCode int    `gorm:"material_code"`
+			Id string `gorm:"id"`
 		}
 		if err := h.db.Raw(`
-			SELECT id, material_code FROM products
+			SELECT id FROM products
 			WHERE name ILIKE ?
 			LIMIT 1
 		`, productName).Scan(&product).Error; err != nil || product.Id == "" {
@@ -3021,7 +3022,7 @@ func (h *HelperHandler) UploadUzumTezkorPrice(c *gin.Context) {
 		if err := h.db.Exec(`
 			INSERT INTO online_products_price (product_id, material_code, retail_price, type, created_at)
 			VALUES (?, ?, ?, 'uzum', NOW())
-		`, product.Id, cast.ToString(product.MaterialCode), price).Error; err != nil {
+		`, product.Id, materialCode, price).Error; err != nil {
 			h.log.Warnf("Failed to insert uzum price for product %q: %v", productName, err)
 			skipped++
 			continue
