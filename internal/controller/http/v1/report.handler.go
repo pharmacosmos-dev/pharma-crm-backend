@@ -812,7 +812,7 @@ func (h *ReportHandler) StoreReportAmountExport(c *gin.Context) {
 	f.SetSheetName("Sheet1", sheetName)
 
 	// Headerlar
-	headers := []string{"ID", "АПТЕКА", "ДАТА", "НАЛИЧНЫЕ", "HUMO", "UZCARD", "CLICK", "PAYME", "ALIF", "ВОЗВРАТ", "ОБЩАЯ СУММА"}
+	headers := []string{"ID", "АПТЕКА", "ДАТА", "НАЛИЧНЫЕ", "HUMO", "UZCARD", "CLICK", "PAYME", "ALIF", "ВОЗВРАТ", "ОБЩАЯ СУММА", "Количество чеков"}
 
 	err = setExcelHeaders(f, sheetName, headers)
 	if err != nil {
@@ -835,6 +835,7 @@ func (h *ReportHandler) StoreReportAmountExport(c *gin.Context) {
 		f.SetCellValue(sheetName, "I"+row, value.Alif)
 		f.SetCellValue(sheetName, "J"+row, value.ReturnAmount)
 		f.SetCellValue(sheetName, "K"+row, value.TotalAmount)
+		f.SetCellValue(sheetName, "L"+row, value.ChequeCount)
 	}
 
 	saveExcelToUploads(c, f, *h.log, "apteka_reports")
