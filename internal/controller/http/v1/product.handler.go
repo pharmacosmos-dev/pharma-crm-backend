@@ -75,6 +75,8 @@ func (h *ProductHandler) ProductRoutes(r *gin.RouterGroup) {
 		product.GET("/excluded-list", h.ListExcludedProducts)
 		product.GET("/excluded-export", h.ExportExcludedProductsExcel)
 		product.PUT("/update-packaging", h.UpdatePackaging)
+		product.PUT("/update-packaging-v2", h.UpdatePackagingV2)
+		product.PUT("/revert-packaging", h.UpdatePackagingV3)
 		product.POST("/list-store-products", h.ListStoreProducts)
 		product.POST("/photo-alert", h.CreateProductPhotoAlert)
 		product.POST("/photo-alert/list", h.ListProductPhotoAlert)
@@ -2419,6 +2421,78 @@ func (h *ProductHandler) UpdatePackaging(c *gin.Context) {
 	}
 
 	handleResponse(c, OK, "Packaging updated successfully")
+}
+
+// UpdatePackagingV2 godoc
+// @Summary Re-edit product packaging
+// @Description Update unit_per_pack using ratio formula, works even after first packaging
+// @Tags products
+// @Security BearerAuth
+// @Accept json
+// @Produce json
+// @Param data body domain.UpdatePackagingRequest true "Update Packaging V2"
+// @Success 200 {object} v1.Response
+// @Failure 400 {object} v1.Response
+// @Failure 401 {object} v1.Response
+// @Failure 404 {object} v1.Response
+// @Failure 500 {object} v1.Response
+// @Router /product/update-packaging-v2 [put]
+func (h *ProductHandler) UpdatePackagingV2(c *gin.Context) {
+	var req domain.UpdatePackagingRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		handleServiceResponse(c, BadRequest, domain.InvalidRequestBodyError)
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
+	defer cancel()
+
+	mu := h.getProductLock(req.ProductId)
+	mu.Lock()
+	defer mu.Unlock()
+
+	if err := h.service.UpdatePackagingV2(ctx, &req); err != nil {
+		handleServiceResponse(c, InternalError, err)
+		return
+	}
+
+	handleResponse(c, OK, "Packaging updated successfully")
+}
+
+// UpdatePackagingV3 godoc
+// @Summary Revert product packaging
+// @Description Revert unit_per_pack back to 1 and recalculate quantities
+// @Tags products
+// @Security BearerAuth
+// @Accept json
+// @Produce json
+// @Param data body domain.RevertPackagingRequest true "Revert Packaging"
+// @Success 200 {object} v1.Response
+// @Failure 400 {object} v1.Response
+// @Failure 401 {object} v1.Response
+// @Failure 404 {object} v1.Response
+// @Failure 500 {object} v1.Response
+// @Router /product/revert-packaging [put]
+func (h *ProductHandler) UpdatePackagingV3(c *gin.Context) {
+	var req domain.RevertPackagingRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		handleServiceResponse(c, BadRequest, domain.InvalidRequestBodyError)
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
+	defer cancel()
+
+	mu := h.getProductLock(req.ProductId)
+	mu.Lock()
+	defer mu.Unlock()
+
+	if err := h.service.UpdatePackagingV3(ctx, &req); err != nil {
+		handleServiceResponse(c, InternalError, err)
+		return
+	}
+
+	handleResponse(c, OK, "Packaging reverted successfully")
 }
 
 // ListStoreProducts godoc

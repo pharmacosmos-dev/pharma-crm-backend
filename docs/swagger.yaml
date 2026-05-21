@@ -1630,6 +1630,13 @@ definitions:
       store_id:
         type: string
     type: object
+  domain.RevertPackagingRequest:
+    properties:
+      product_id:
+        type: string
+    required:
+    - product_id
+    type: object
   domain.RolePermissionReq:
     properties:
       children_ids:
@@ -12959,6 +12966,46 @@ paths:
       summary: Get a product
       tags:
       - products
+  /product/revert-packaging:
+    put:
+      consumes:
+      - application/json
+      description: Revert unit_per_pack back to 1 and recalculate quantities
+      parameters:
+      - description: Revert Packaging
+        in: body
+        name: data
+        required: true
+        schema:
+          $ref: '#/definitions/domain.RevertPackagingRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Revert product packaging
+      tags:
+      - products
   /product/similar/{id}:
     get:
       consumes:
@@ -13460,6 +13507,47 @@ paths:
       security:
       - BearerAuth: []
       summary: Update product packaging
+      tags:
+      - products
+  /product/update-packaging-v2:
+    put:
+      consumes:
+      - application/json
+      description: Update unit_per_pack using ratio formula, works even after first
+        packaging
+      parameters:
+      - description: Update Packaging V2
+        in: body
+        name: data
+        required: true
+        schema:
+          $ref: '#/definitions/domain.UpdatePackagingRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Re-edit product packaging
       tags:
       - products
   /product1c:

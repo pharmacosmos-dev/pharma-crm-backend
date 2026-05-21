@@ -468,6 +468,10 @@ type UpdatePackagingRequest struct {
 	UnitPerPack int    `json:"unit_per_pack" binding:"required,min=1"`
 }
 
+type RevertPackagingRequest struct {
+	ProductId string `json:"product_id" binding:"required"`
+}
+
 // domain/product_photo_alert.go
 
 type ProductPhotoAlert struct {

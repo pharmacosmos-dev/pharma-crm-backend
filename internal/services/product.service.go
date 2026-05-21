@@ -2481,6 +2481,163 @@ func (s *Services) UpdatePackaging(ctx context.Context, req *domain.UpdatePackag
 	return nil
 }
 
+// UpdatePackagingV2 - avvalgi versiyadan farqli o'laroq, bu funksiya unit_per_pack ni 1 dan boshqa qiymatga ham yangilashga imkon beradi.
+func (s *Services) UpdatePackagingV2(ctx context.Context, req *domain.UpdatePackagingRequest) error {
+	tx := s.db.Begin()
+	defer func() {
+		if r := recover(); r != nil {
+			_ = tx.Rollback()
+		}
+	}()
+
+	var product struct {
+		Id          string `gorm:"column:id"`
+		UnitPerPack int    `gorm:"column:unit_per_pack"`
+	}
+
+	err := tx.WithContext(ctx).Table("products").Take(&product, "id = ?", req.ProductId).Error
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			_ = tx.Rollback()
+			s.log.Error("product not found by id")
+			return domain.NotFoundError
+		}
+		_ = tx.Rollback()
+		s.log.Errorf("could not find product by id: %v", err)
+		return domain.InternalServerError
+	}
+
+	oldUnitPerPack := product.UnitPerPack
+	if oldUnitPerPack == 0 {
+		oldUnitPerPack = 1
+	}
+
+	err = tx.WithContext(ctx).Exec(
+		"UPDATE products SET unit_per_pack = ?, updated_at = NOW() WHERE id = ?;",
+		req.UnitPerPack, req.ProductId,
+	).Error
+	if err != nil {
+		_ = tx.Rollback()
+		s.log.Errorf("could not update product packaging: %v", err)
+		return domain.InternalServerError
+	}
+
+	err = tx.WithContext(ctx).Exec(`
+		UPDATE store_products sp
+			SET unit_quantity = (unit_quantity / ?) * ?
+		FROM products p
+		  WHERE sp.product_id = p.id
+			AND sp.product_id = ?;`,
+		oldUnitPerPack, req.UnitPerPack, req.ProductId,
+	).Error
+	if err != nil {
+		_ = tx.Rollback()
+		s.log.Errorf("could not recalc store_products.unit_quantity: %v", err)
+		return err
+	}
+
+	err = tx.WithContext(ctx).Exec(`
+		UPDATE cart_items ci
+		SET unit_quantity = (ci.unit_quantity / ?) * ?
+		FROM store_products sp
+		WHERE ci.store_product_id = sp.id
+		AND sp.product_id = ?`,
+		oldUnitPerPack, req.UnitPerPack, req.ProductId,
+	).Error
+	if err != nil {
+		_ = tx.Rollback()
+		s.log.Errorf("could not recalc cart_items.unit_quantity: %v", err)
+		return domain.InternalServerError
+	}
+
+	if err = tx.Commit().Error; err != nil {
+		s.log.Errorf("could not commit update packaging transaction: %v", err)
+		return domain.InternalServerError
+	}
+
+	return nil
+}
+
+// UpdatePackagingV3 - bu funksiya packaging ni yangilashni emas, balki uni avvalgi holatga qaytarishni amalga oshiradi. Ya'ni, agar product hozirda unit_per_pack > 1 ga ega bo'lsa, uni 1 ga o'zgartiradi va tegishli unit_quantity larni qayta hisoblaydi.
+func (s *Services) UpdatePackagingV3(ctx context.Context, req *domain.RevertPackagingRequest) error {
+	tx := s.db.Begin()
+	defer func() {
+		if r := recover(); r != nil {
+			_ = tx.Rollback()
+		}
+	}()
+
+	var product struct {
+		Id          string `gorm:"column:id"`
+		UnitPerPack int    `gorm:"column:unit_per_pack"`
+	}
+
+	err := tx.WithContext(ctx).Table("products").Take(&product, "id = ?", req.ProductId).Error
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			_ = tx.Rollback()
+			s.log.Error("product not found by id")
+			return domain.NotFoundError
+		}
+		_ = tx.Rollback()
+		s.log.Errorf("could not find product by id: %v", err)
+		return domain.InternalServerError
+	}
+
+	if product.UnitPerPack <= 1 {
+		_ = tx.Rollback()
+		s.log.Error("product is already unpackaged (unit_per_pack <= 1)")
+		return domain.AlreadyUpdatedError
+	}
+
+	oldUnitPerPack := product.UnitPerPack
+
+	err = tx.WithContext(ctx).Exec(
+		"UPDATE products SET unit_per_pack = 1, updated_at = NOW() WHERE id = ?;",
+		req.ProductId,
+	).Error
+	if err != nil {
+		_ = tx.Rollback()
+		s.log.Errorf("could not revert product packaging: %v", err)
+		return domain.InternalServerError
+	}
+
+	err = tx.WithContext(ctx).Exec(`
+		UPDATE store_products sp
+			SET unit_quantity = unit_quantity / ?
+		FROM products p
+		  WHERE sp.product_id = p.id
+			AND sp.product_id = ?;`,
+		oldUnitPerPack, req.ProductId,
+	).Error
+	if err != nil {
+		_ = tx.Rollback()
+		s.log.Errorf("could not recalc store_products.unit_quantity on revert: %v", err)
+		return err
+	}
+
+	err = tx.WithContext(ctx).Exec(`
+		UPDATE cart_items ci
+		SET unit_quantity = ci.unit_quantity / ?
+		FROM store_products sp
+		WHERE ci.store_product_id = sp.id
+		AND sp.product_id = ?`,
+		oldUnitPerPack, req.ProductId,
+	).Error
+	if err != nil {
+		_ = tx.Rollback()
+		s.log.Errorf("could not recalc cart_items.unit_quantity on revert: %v", err)
+		return domain.InternalServerError
+	}
+
+	if err = tx.Commit().Error; err != nil {
+		s.log.Errorf("could not commit revert packaging transaction: %v", err)
+		return domain.InternalServerError
+	}
+
+	return nil
+}
+
 func (s *Services) IncrementQuantity(tx *gorm.DB, id string, quantity int) error {
 	err := tx.Exec(`UPDATE store_products SET unit_quantity = unit_quantity + ? WHERE id = ?`, quantity, id).Error
 	if err != nil {
