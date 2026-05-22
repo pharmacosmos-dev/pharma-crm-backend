@@ -89,6 +89,7 @@ type TransferDetail struct {
 	ShortName      string     `gorm:"short_name" json:"short_name"`
 	ReceivedSum    float64    `gorm:"received_sum" json:"received_sum"`
 	ScannedSum     float64    `gorm:"scanned_sum" json:"scanned_sum"`
+	IsMarking      bool       `gorm:"is_marking" json:"is_marking"`
 }
 
 type TransferDetailStatus struct {

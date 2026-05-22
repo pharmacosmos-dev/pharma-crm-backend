@@ -57,7 +57,8 @@ func (s *Services) CreateTransfer(ctx context.Context, req *domain.TransferReque
 			supply_price, 
 			retail_price, 
 			expire_date, 
-			serial_number
+			serial_number,
+			is_marking
 			) SELECT 
 				?, 
 				sp.id, 
@@ -66,7 +67,8 @@ func (s *Services) CreateTransfer(ctx context.Context, req *domain.TransferReque
 				sp.supply_price,
 				sp.retail_price,
 				sp.expire_date, 
-				sp.serial_number
+				sp.serial_number,
+				sp.is_marking
 			FROM store_products sp
 			JOIN products p ON sp.product_id = p.id
 			WHERE sp.store_id = ? AND sp.unit_quantity/p.unit_per_pack > 0;
@@ -797,7 +799,8 @@ func (s *Services) ConfirmTransfer(ctx context.Context, transferId string, userI
 		p.barcode,
 		COALESCE(pr.code, '') AS producer_code,
 		COALESCE(idt.retail_price, 0.00) AS retail_price,
-		COALESCE(idt.supply_price, 0.00) AS supply_price
+		COALESCE(idt.supply_price, 0.00) AS supply_price,
+		td.is_marking
 	FROM transfer_details td
 		JOIN products p ON p.id = td.product_id
 		LEFT JOIN producers pr ON pr.id = p.producer_id
@@ -814,7 +817,7 @@ func (s *Services) ConfirmTransfer(ctx context.Context, transferId string, userI
 	// insert transfered products to store_product
 	query2 := `
 		INSERT INTO store_products(
-				product_id, 
+				product_id,
 				store_id,
 				unit_quantity,
 				retail_price,
@@ -823,9 +826,10 @@ func (s *Services) ConfirmTransfer(ctx context.Context, transferId string, userI
 				expire_date,
 				vat_price,
 				serial_number,
-				import_detail_id
+				import_detail_id,
+				is_marking
 		)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 	`
 	var dataOnec domain.TransferData1C
 	for _, item := range res {
@@ -846,7 +850,7 @@ func (s *Services) ConfirmTransfer(ctx context.Context, transferId string, userI
 		err = tx.WithContext(ctx).Exec(query2,
 			item.ProductId,
 			transfer.ToStoreId,
-			math.Round(item.AcceptedCount * float64(item.UnitPerPack)),
+			math.Round(item.AcceptedCount*float64(item.UnitPerPack)),
 			item.RetailPriceVat,
 			item.SupplyPriceVat,
 			12,
@@ -854,6 +858,7 @@ func (s *Services) ConfirmTransfer(ctx context.Context, transferId string, userI
 			(item.RetailPriceVat*12)/112,
 			item.SerialNumber,
 			item.Id,
+			item.IsMarking,
 		).Error
 		if err != nil {
 			_ = tx.Rollback()
