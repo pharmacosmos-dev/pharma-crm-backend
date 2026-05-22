@@ -4023,11 +4023,6 @@ func (h *ProductHandler) UpdateStoreProductUnitQuantity(c *gin.Context) {
 		return
 	}
 
-	if body.UnitQuantity < 0 {
-		handleServiceResponse(c, BadRequest, domain.InvalidQueryError)
-		return
-	}
-
 	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
 	defer cancel()
 
