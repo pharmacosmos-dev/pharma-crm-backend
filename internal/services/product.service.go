@@ -1083,14 +1083,15 @@ WHERE p.id = ?
 ),
 import_data AS (
     SELECT
-        im.id, 
-		im.public_id, 
-		im.entry_type, 
+        im.id,
+		im.public_id,
+		im.entry_type,
 		im.created_at,
         s.name AS store_name,
         ROUND(SUM(imd.accepted_count * vd.unit_per_pack)) AS quantity,
         SUM(imd.accepted_count * imd.retail_price_vat) AS sum,
         COALESCE(im.name, '') AS name,
+        im.status,
         vd.unit_per_pack
     FROM imports im
     JOIN stores s ON im.store_id = s.id
@@ -1107,6 +1108,7 @@ inventory_data AS (
         SUM(imd.scanned_count-imd.received_count) AS quantity,
         ROUND(SUM(imd.retail_price_vat * ((imd.scanned_count - imd.received_count)/vd.unit_per_pack)), 2) AS sum,
         im.name AS name,
+        im.status,
         vd.unit_per_pack
     FROM imports im
     JOIN stores s ON im.store_id = s.id
@@ -1125,6 +1127,7 @@ sales_data AS (
         CASE WHEN sa.sale_type = 'SALE' THEN SUM(ci.unit_quantity) * (-1) ELSE SUM(ci.unit_quantity) END AS quantity,
 		CASE WHEN sa.sale_type = 'SALE' THEN sa.total_amount * (-1) ELSE sa.total_amount END as sum,
         sa.sale_type AS name,
+        sa.status,
         vd.unit_per_pack
     FROM sales sa
     JOIN stores st ON st.id = sa.store_id
@@ -1142,6 +1145,7 @@ vozvrat_data AS (
         SUM(td.accepted_count) * vd.unit_per_pack * (-1) AS quantity,
         SUM(td.accepted_count * td.retail_price) * (-1) AS sum,
         tr.name as name,
+        tr.status,
         vd.unit_per_pack
     FROM transfer_details td
     JOIN transfers tr ON td.transfer_id = tr.id
@@ -1160,6 +1164,7 @@ transfer_in_data AS (
         SUM(td.accepted_count) * vd.unit_per_pack AS quantity,
         SUM(td.accepted_count * td.retail_price) AS sum,
         tr.name as name,
+        tr.status,
         vd.unit_per_pack
     FROM transfer_details td
     JOIN transfers tr ON td.transfer_id = tr.id
@@ -1180,6 +1185,7 @@ transfer_in_data AS (
         SUM(td.accepted_count) * vd.unit_per_pack * (-1) AS quantity,
         SUM(td.accepted_count * td.retail_price * (-1)) AS sum,
         tr.name as name,
+        tr.status,
         vd.unit_per_pack
     FROM transfer_details td
     JOIN transfers tr ON td.transfer_id = tr.id
@@ -1197,6 +1203,7 @@ vozvrat_pending_data AS (
         SUM(td.received_count) * vd.unit_per_pack * (-1) AS quantity,
         SUM(td.received_count * td.retail_price) * (-1) AS sum,
         tr.name as name,
+        tr.status,
         vd.unit_per_pack
     FROM transfer_details td
     JOIN transfers tr ON td.transfer_id = tr.id
@@ -1215,6 +1222,7 @@ transfer_in_pending_data AS (
         SUM(td.received_count) * vd.unit_per_pack AS quantity,
         SUM(td.received_count * td.retail_price) AS sum,
         tr.name as name,
+        tr.status,
         vd.unit_per_pack
     FROM transfer_details td
     JOIN transfers tr ON td.transfer_id = tr.id
@@ -1235,6 +1243,7 @@ transfer_out_pending_data AS (
         SUM(td.received_count) * vd.unit_per_pack * (-1) AS quantity,
         SUM(td.received_count * td.retail_price) * (-1) AS sum,
         tr.name as name,
+        tr.status,
         vd.unit_per_pack
     FROM transfer_details td
     JOIN transfers tr ON td.transfer_id = tr.id

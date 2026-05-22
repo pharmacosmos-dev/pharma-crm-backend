@@ -213,6 +213,7 @@ type ImportProductData struct {
 	Quantity    float64    `gorm:"quantity" json:"quantity"`
 	Sum         float64    `gorm:"sum" json:"sum"`
 	Name        string     `gorm:"name" json:"name"`
+	Status      string     `gorm:"status" json:"status"`
 	StoreName   string     `gorm:"store_name" json:"store_name"`
 	CreatedAt   *time.Time `gorm:"created_at" json:"created_at"`
 	TotalCount  int64      `gorm:"total_count" json:"-"`
