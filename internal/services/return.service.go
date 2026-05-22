@@ -18,6 +18,21 @@ import (
 
 // Create return creates a new return
 func (s *Services) CreateReturn(ctx context.Context, req *domain.ReturnRequest) error {
+	var activeInventoryCount int64
+	err := s.db.WithContext(ctx).Raw(`
+		SELECT COUNT(*) FROM imports
+		WHERE store_id = ?
+		AND entry_type = 2
+		AND status NOT IN ('completed', 'canceled')
+	`, req.StoreId).Scan(&activeInventoryCount).Error
+	if err != nil {
+		s.log.Errorf("could not check active inventory: %v", err)
+		return domain.InternalServerError
+	}
+	if activeInventoryCount > 0 {
+		return domain.ActiveInventoryError
+	}
+
 	var id string
 	// start transaction
 	tx := s.db.Begin()
@@ -27,7 +42,7 @@ func (s *Services) CreateReturn(ctx context.Context, req *domain.ReturnRequest) 
 		}
 	}()
 	// insert return into inventories table
-	err := tx.WithContext(ctx).Raw(`
+	err = tx.WithContext(ctx).Raw(`
 	INSERT INTO transfers (
 		from_store_id, 
 		name,  

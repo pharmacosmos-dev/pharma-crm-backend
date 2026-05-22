@@ -18,12 +18,27 @@ import (
 
 // Create inventory creates a new inventory
 func (s *Services) CreateTransfer(ctx context.Context, req *domain.TransferRequest) error {
+	var activeInventoryCount int64
+	err := s.db.WithContext(ctx).Raw(`
+		SELECT COUNT(*) FROM imports
+		WHERE store_id IN (?, ?)
+		AND entry_type = 2
+		AND status NOT IN ('completed', 'canceled')
+	`, req.FromStoreId, req.ToStoreId).Scan(&activeInventoryCount).Error
+	if err != nil {
+		s.log.Errorf("could not check active inventory: %v", err)
+		return domain.InternalServerError
+	}
+	if activeInventoryCount > 0 {
+		return domain.ActiveInventoryError
+	}
+
 	var id string
 	// start transaction
 	tx := s.db.Begin()
 
 	// insert inventory into inventories table
-	err := tx.WithContext(ctx).
+	err = tx.WithContext(ctx).
 		Raw(`
 	INSERT INTO 
 		transfers (
