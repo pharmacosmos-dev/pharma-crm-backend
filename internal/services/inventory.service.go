@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/lib/pq"
 	"github.com/pharma-crm-backend/domain"
 	"github.com/pharma-crm-backend/domain/constants"
 	"github.com/pharma-crm-backend/pkg/utils"
@@ -16,6 +15,20 @@ import (
 
 // Create inventory creates a new inventory
 func (s *Services) CreateInventory(ctx context.Context, req *domain.InventoryRequest) error {
+	var unfinishedCount int64
+	err := s.db.WithContext(ctx).Raw(`
+		SELECT COUNT(*) FROM transfers
+		WHERE (from_store_id = ? OR to_store_id = ?)
+		AND status NOT IN ('new', 'completed', 'canceled', 'sent-to-1c')
+	`, req.StoreId, req.StoreId).Scan(&unfinishedCount).Error
+	if err != nil {
+		s.log.Errorf("could not check unfinished transfers/returns: %v", err)
+		return domain.InternalServerError
+	}
+	if unfinishedCount > 0 {
+		return domain.UnfinishedTransferOrReturnError
+	}
+
 	var id string
 	// start transaction
 	tx := s.db.Begin()
@@ -25,7 +38,7 @@ func (s *Services) CreateInventory(ctx context.Context, req *domain.InventoryReq
 		}
 	}()
 	// insert inventory into inventories table
-	err := tx.WithContext(ctx).
+	err = tx.WithContext(ctx).
 		Raw(`
 	INSERT INTO imports (
 		store_id, 
@@ -44,177 +57,34 @@ func (s *Services) CreateInventory(ctx context.Context, req *domain.InventoryReq
 		s.log.Errorf("could not create inventory: %v", err)
 		return domain.InternalServerError
 	}
-	if req.Type == "FULL" {
-		// FULL: insert all store products with unit_quantity as-is (original logic)
-		err = tx.WithContext(ctx).Exec(`
-			INSERT INTO import_details (
-				import_id,
-				product_id,
-				store_product_id,
-				received_count,
-				supply_price_vat,
-				retail_price_vat,
-				expire_date,
-				series_number,
-				imported_at
+	// insert all products (including those not in store_products)
+	err = tx.WithContext(ctx).Exec(`
+		INSERT INTO import_details (
+			import_id,
+			product_id,
+			store_product_id,
+			received_count,
+			supply_price_vat,
+			retail_price_vat,
+			expire_date,
+			series_number,
+			imported_at
 			)
-			SELECT
-				?,
-				p.id,
-				sp.id,
-				COALESCE(sp.unit_quantity, 0),
-				COALESCE(sp.supply_price, 0.00),
-				COALESCE(sp.retail_price, 0.00),
-				sp.expire_date,
-				sp.serial_number,
-				sp.created_at
-			FROM products p
-			LEFT JOIN store_products sp ON sp.product_id = p.id AND sp.store_id = ?
-			`, id, req.StoreId).Error
-	} else {
-		// SOME: insert only the given product_ids with received_count corrected by movement diff
-		// diff = correct_quantity - unit_quantity (same as GetProductMovementUnits/ExportMovementUnits Q column)
-		err = tx.WithContext(ctx).Exec(`
-			WITH import_data AS (
-				SELECT
-					imd.product_id,
-					(SUM(imd.accepted_count) * p.unit_per_pack)::INTEGER AS import_count
-				FROM imports im
-					JOIN import_details imd ON im.id = imd.import_id
-					JOIN products p ON p.id = imd.product_id
-				WHERE im.store_id = ? AND im.entry_type = 1 AND im.status = 'completed'
-				GROUP BY imd.product_id, p.unit_per_pack
-			),
-			sold AS (
-				SELECT
-					sp.product_id,
-					SUM(ci.unit_quantity) AS sold_quantity
-				FROM sales s
-					JOIN cart_items ci ON ci.sale_id = s.id
-					JOIN store_products sp ON sp.id = ci.store_product_id
-				WHERE s.store_id = ? AND s.stage IN (9, 11) AND s.sale_type = 'SALE'
-				GROUP BY sp.product_id
-			),
-			return_sales AS (
-				SELECT
-					sp.product_id,
-					SUM(ci.unit_quantity) AS return_quantity
-				FROM sales s
-					JOIN cart_items ci ON ci.sale_id = s.id
-					JOIN store_products sp ON sp.id = ci.store_product_id
-				WHERE s.store_id = ? AND s.stage IN (9, 11) AND s.sale_type = 'RETURN'
-				GROUP BY sp.product_id
-			),
-			transfer_in AS (
-				SELECT
-					td.product_id,
-					(SUM(td.accepted_count) * p.unit_per_pack)::INTEGER AS transfer_in_count
-				FROM transfer_details td
-					JOIN transfers t ON td.transfer_id = t.id
-					JOIN products p ON p.id = td.product_id
-				WHERE t.to_store_id = ? AND t.entry_type = 1 AND (t.status = 'completed' OR t.status = 'sent-to-1c')
-				GROUP BY td.product_id, p.unit_per_pack
-			),
-			transfer_out AS (
-				SELECT
-					td.product_id,
-					(SUM(td.accepted_count) * p.unit_per_pack)::INTEGER AS transfer_out_count
-				FROM transfer_details td
-					JOIN transfers t ON td.transfer_id = t.id
-					JOIN products p ON p.id = td.product_id
-				WHERE t.from_store_id = ? AND t.entry_type = 1 AND (t.status = 'completed' OR t.status = 'sent-to-1c')
-				GROUP BY td.product_id, p.unit_per_pack
-			),
-			vozvrat AS (
-				SELECT
-					td.product_id,
-					(SUM(td.accepted_count) * p.unit_per_pack)::INTEGER AS vozvrat_count
-				FROM transfer_details td
-					JOIN transfers t ON td.transfer_id = t.id
-					JOIN products p ON p.id = td.product_id
-				WHERE t.from_store_id = ? AND t.entry_type = 2 AND (t.status = 'completed' OR t.status = 'sent-to-1c')
-				GROUP BY td.product_id, p.unit_per_pack
-			),
-			product_quantity AS (
-				SELECT
-					sp.product_id,
-					SUM(sp.unit_quantity)::INTEGER AS unit_quantity
-				FROM store_products sp
-				WHERE sp.store_id = ?
-				GROUP BY sp.product_id
-			),
-			inventory_quantity AS (
-				SELECT
-					imd.product_id,
-					SUM(CASE WHEN imd.scanned_count - imd.received_count > 0 THEN imd.scanned_count - imd.received_count ELSE 0 END)::INTEGER AS inventory_plus_count,
-					SUM(CASE WHEN imd.scanned_count - imd.received_count < 0 THEN imd.scanned_count - imd.received_count ELSE 0 END)::INTEGER AS inventory_minus_count
-				FROM import_details imd
-					JOIN imports im ON im.id = imd.import_id
-				WHERE im.store_id = ? AND im.entry_type = 2 AND im.status = 'completed'
-				GROUP BY imd.product_id
-			),
-			movement_diff AS (
-				SELECT
-					p.id AS product_id,
-					COALESCE(im.import_count, 0) + COALESCE(rs.return_quantity, 0) + COALESCE(tin.transfer_in_count, 0) +
-					COALESCE(inv.inventory_plus_count, 0) + COALESCE(inv.inventory_minus_count, 0) -
-					COALESCE(s.sold_quantity, 0) - COALESCE(tout.transfer_out_count, 0) - COALESCE(v.vozvrat_count, 0) -
-					COALESCE(pq.unit_quantity, 0) AS diff
-				FROM products p
-				JOIN product_quantity pq ON pq.product_id = p.id
-				LEFT JOIN import_data im ON im.product_id = p.id
-				LEFT JOIN sold s ON s.product_id = p.id
-				LEFT JOIN return_sales rs ON rs.product_id = p.id
-				LEFT JOIN transfer_in tin ON tin.product_id = p.id
-				LEFT JOIN transfer_out tout ON tout.product_id = p.id
-				LEFT JOIN vozvrat v ON v.product_id = p.id
-				LEFT JOIN inventory_quantity inv ON inv.product_id = p.id
-			),
-			ranked_sp AS (
-				SELECT sp.*,
-					ROW_NUMBER() OVER (PARTITION BY sp.product_id ORDER BY sp.created_at) AS rn
-				FROM store_products sp
-				WHERE sp.store_id = ?
-			)
-			INSERT INTO import_details (
-				import_id,
-				product_id,
-				store_product_id,
-				received_count,
-				supply_price_vat,
-				retail_price_vat,
-				expire_date,
-				series_number,
-				imported_at
-			)
-			SELECT
-				?,
-				p.id,
-				rsp.id,
-				COALESCE(rsp.unit_quantity, 0) + CASE WHEN rsp.rn = 1 THEN COALESCE(md.diff, 0) ELSE 0 END,
-				COALESCE(rsp.supply_price, 0.00),
-				COALESCE(rsp.retail_price, 0.00),
-				rsp.expire_date,
-				rsp.serial_number,
-				rsp.created_at
-			FROM products p
-			LEFT JOIN ranked_sp rsp ON rsp.product_id = p.id
-			LEFT JOIN movement_diff md ON md.product_id = p.id
-			WHERE p.id = ANY(?)
-			`,
-			req.StoreId,                  // import_data
-			req.StoreId,                  // sold
-			req.StoreId,                  // return_sales
-			req.StoreId,                  // transfer_in
-			req.StoreId,                  // transfer_out
-			req.StoreId,                  // vozvrat
-			req.StoreId,                  // product_quantity
-			req.StoreId,                  // inventory_quantity
-			req.StoreId,                  // ranked_sp
-			id,                           // import_id
-			pq.Array(req.ProductIds),     // product filter
-		).Error
-	}
+		SELECT
+			?,
+			p.id,
+			sp.id,
+			COALESCE(sp.unit_quantity, 0),
+			COALESCE(sp.supply_price, 0.00) AS supply_price,
+			COALESCE(sp.retail_price, 0.00) AS retail_price,
+			sp.expire_date,
+			sp.serial_number,
+			sp.created_at
+		FROM
+			products p
+		LEFT JOIN
+			store_products sp ON sp.product_id = p.id and sp.store_id = ?
+		`, id, req.StoreId).Error
 	if err != nil {
 		_ = tx.Rollback()
 		s.log.Errorf("could create inventory details: %v", err)

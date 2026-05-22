@@ -60,12 +60,11 @@ type InventoryStatusSummary struct {
 
 // InventoryRequest structure
 type InventoryRequest struct {
-	PublicId   string   `gorm:"public_id" json:"public_id"`
-	StoreId    string   `gorm:"store_id" json:"store_id"`
-	Name       string   `gorm:"name" json:"name"`
-	Type       string   `gorm:"type" json:"type"` // FULL || PARTIAL || IMPORT || SOME
-	CreatedBy  string   `gorm:"created_by" json:"created_by"`
-	ProductIds []string `gorm:"-" json:"product_ids"` // used when Type == "SOME"
+	PublicId  string `gorm:"public_id" json:"public_id"`
+	StoreId   string `gorm:"store_id" json:"store_id"`
+	Name      string `gorm:"name" json:"name"`
+	Type      string `gorm:"type" json:"type"` // FULL || PARTIAL || IMPORT
+	CreatedBy string `gorm:"created_by" json:"created_by"`
 }
 
 // InventoryRequest structure

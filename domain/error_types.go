@@ -65,6 +65,7 @@ var (
 	DuplicatePhoneError                  = NewError(http.StatusConflict, "duplicate.phone.error")
 	DuplicateLoyaltyCardError            = NewError(http.StatusConflict, "duplicate.loyalty.card.error")
 	AlreadyHaveOpenCashboxOperationError = NewError(http.StatusConflict, "already.have.open.cashbox.operation")
+	UnfinishedTransferOrReturnError      = NewError(http.StatusConflict, "unfinished.transfer.or.return")
 
 	// 202 – Accepted (so’rov qabul qilindi, tolov noaniq)
 	PaymePendingError = NewError(http.StatusAccepted, "payme.payment.pending")
