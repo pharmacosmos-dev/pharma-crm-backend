@@ -1172,7 +1172,7 @@ transfer_in_data AS (
  ),
  transfer_out_data AS (
     SELECT
-        tr.id, 
+        tr.id,
 		tr.public_id::int,
         6 AS entry_type,
         tr.created_at,
@@ -1189,7 +1189,62 @@ transfer_in_data AS (
     WHERE (tr.status = 'completed' OR tr.status = 'sent-to-1c') AND tr.entry_type = 1
     %s
     GROUP BY tr.id, fs.id, ts.id, vd.unit_per_pack
- )
+ ),
+vozvrat_pending_data AS (
+    SELECT
+        tr.id, tr.public_id::int, 5 AS entry_type, tr.created_at,
+        s.name AS store_name,
+        SUM(td.received_count) * vd.unit_per_pack * (-1) AS quantity,
+        SUM(td.received_count * td.retail_price) * (-1) AS sum,
+        tr.name as name,
+        vd.unit_per_pack
+    FROM transfer_details td
+    JOIN transfers tr ON td.transfer_id = tr.id
+    JOIN var_data vd ON td.product_id = vd.product_id
+    JOIN stores s ON s.id = tr.from_store_id
+    WHERE tr.status NOT IN ('new', 'completed', 'canceled') AND tr.entry_type = 2
+    %s
+    GROUP BY tr.id, s.id, vd.unit_per_pack
+),
+transfer_in_pending_data AS (
+    SELECT
+        tr.id, tr.public_id::int,
+        6 AS entry_type,
+        tr.created_at,
+        fs.name || ' -> ' || ts.name as store_name,
+        SUM(td.received_count) * vd.unit_per_pack AS quantity,
+        SUM(td.received_count * td.retail_price) AS sum,
+        tr.name as name,
+        vd.unit_per_pack
+    FROM transfer_details td
+    JOIN transfers tr ON td.transfer_id = tr.id
+    JOIN var_data vd ON td.product_id = vd.product_id
+    JOIN stores fs ON fs.id = tr.from_store_id
+    JOIN stores ts ON ts.id = tr.to_store_id
+    WHERE tr.status NOT IN ('new', 'completed', 'canceled') AND tr.entry_type = 1
+    %s
+    GROUP BY tr.id, fs.id, ts.id, vd.unit_per_pack
+),
+transfer_out_pending_data AS (
+    SELECT
+        tr.id,
+        tr.public_id::int,
+        6 AS entry_type,
+        tr.created_at,
+        fs.name || ' -> ' || ts.name as store_name,
+        SUM(td.received_count) * vd.unit_per_pack * (-1) AS quantity,
+        SUM(td.received_count * td.retail_price) * (-1) AS sum,
+        tr.name as name,
+        vd.unit_per_pack
+    FROM transfer_details td
+    JOIN transfers tr ON td.transfer_id = tr.id
+    JOIN var_data vd ON td.product_id = vd.product_id
+    JOIN stores fs ON fs.id = tr.from_store_id
+    JOIN stores ts ON ts.id = tr.to_store_id
+    WHERE tr.status NOT IN ('new', 'completed', 'canceled') AND tr.entry_type = 1
+    %s
+    GROUP BY tr.id, fs.id, ts.id, vd.unit_per_pack
+)
 SELECT *, COUNT(*) OVER() AS total_count
 FROM (
     SELECT * FROM import_data
@@ -1203,6 +1258,12 @@ FROM (
     SELECT * FROM transfer_in_data
 	UNION ALL
     SELECT * FROM transfer_out_data
+    UNION ALL
+    SELECT * FROM vozvrat_pending_data
+    UNION ALL
+    SELECT * FROM transfer_in_pending_data
+    UNION ALL
+    SELECT * FROM transfer_out_pending_data
 ) all_data
 %s
 ORDER BY created_at DESC
@@ -1230,7 +1291,7 @@ LIMIT ? OFFSET ?;
 
 	// dynamic query conditions
 	if params.StoreId == "" && params.CompanyId == "" {
-		query = fmt.Sprintf(baseQuery, "", "", "", "", "", "", outerWhere)
+		query = fmt.Sprintf(baseQuery, "", "", "", "", "", "", "", "", "", outerWhere)
 		args = []any{params.ProducerId}
 		args = append(args, timeArgs...)
 		args = append(args, params.Limit, params.Offset)
@@ -1244,16 +1305,22 @@ LIMIT ? OFFSET ?;
 			"AND tr.from_store_id = ?",
 			"AND tr.to_store_id = ?",
 			"AND tr.from_store_id = ?",
+			"AND tr.from_store_id = ?",
+			"AND tr.to_store_id = ?",
+			"AND tr.from_store_id = ?",
 			outerWhere,
 		)
 		args = []any{
 			params.ProducerId,
-			params.StoreId,
-			params.StoreId,
-			params.StoreId,
-			params.StoreId,
-			params.StoreId,
-			params.StoreId, // for transfer_data
+			params.StoreId, // import_data
+			params.StoreId, // inventory_data
+			params.StoreId, // sales_data
+			params.StoreId, // vozvrat_data
+			params.StoreId, // transfer_in_data
+			params.StoreId, // transfer_out_data
+			params.StoreId, // vozvrat_pending_data
+			params.StoreId, // transfer_in_pending_data
+			params.StoreId, // transfer_out_pending_data
 		}
 		args = append(args, timeArgs...)
 		args = append(args, params.Limit, params.Offset)
@@ -1267,16 +1334,22 @@ LIMIT ? OFFSET ?;
 			"AND s.company_id = ?",
 			"AND ts.company_id = ?",
 			"AND fs.company_id = ?",
+			"AND s.company_id = ?",
+			"AND ts.company_id = ?",
+			"AND fs.company_id = ?",
 			outerWhere,
 		)
 		args = []any{
 			params.ProducerId,
-			params.CompanyId,
-			params.CompanyId,
-			params.CompanyId,
-			params.CompanyId,
-			params.CompanyId,
-			params.CompanyId, // for transfer_data
+			params.CompanyId, // import_data
+			params.CompanyId, // inventory_data
+			params.CompanyId, // sales_data
+			params.CompanyId, // vozvrat_data
+			params.CompanyId, // transfer_in_data
+			params.CompanyId, // transfer_out_data
+			params.CompanyId, // vozvrat_pending_data
+			params.CompanyId, // transfer_in_pending_data
+			params.CompanyId, // transfer_out_pending_data
 		}
 		args = append(args, timeArgs...)
 		args = append(args, params.Limit, params.Offset)
@@ -1290,6 +1363,9 @@ LIMIT ? OFFSET ?;
 			"AND tr.from_store_id = ? AND s.company_id = ?",
 			"AND tr.to_store_id = ? AND ts.company_id = ?",
 			"AND tr.from_store_id = ? AND fs.company_id = ?",
+			"AND tr.from_store_id = ? AND s.company_id = ?",
+			"AND tr.to_store_id = ? AND ts.company_id = ?",
+			"AND tr.from_store_id = ? AND fs.company_id = ?",
 			outerWhere,
 		)
 		args = []any{
@@ -1298,8 +1374,11 @@ LIMIT ? OFFSET ?;
 			params.StoreId, params.CompanyId, // inventory_data
 			params.StoreId, params.CompanyId, // sales_data
 			params.StoreId, params.CompanyId, // vozvrat_data
-			params.StoreId, params.CompanyId,
-			params.StoreId, params.CompanyId, // transfer_data
+			params.StoreId, params.CompanyId, // transfer_in_data
+			params.StoreId, params.CompanyId, // transfer_out_data
+			params.StoreId, params.CompanyId, // vozvrat_pending_data
+			params.StoreId, params.CompanyId, // transfer_in_pending_data
+			params.StoreId, params.CompanyId, // transfer_out_pending_data
 		}
 		args = append(args, timeArgs...)
 		args = append(args, params.Limit, params.Offset)
