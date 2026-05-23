@@ -133,9 +133,11 @@ func (s *Services) GetReturnById(ctx context.Context, returnId string) (*domain.
 
 // update product quantity
 func (s *Services) UpdateReturnDetailQuantity(ctx context.Context, req *domain.ReturnAddProduct, userId string, transferType int) error {
+	if req.ScannedPack == nil && req.ScannedUnit == nil {
+		return nil
+	}
 
-	// get unit per pack
-	var returnDetail struct {
+	var detail struct {
 		ProductId     string  `gorm:"product_id"`
 		UnitPerPack   float64 `gorm:"unit_per_pack"`
 		ReceivedCount float64 `gorm:"received_count"`
@@ -154,101 +156,75 @@ func (s *Services) UpdateReturnDetailQuantity(ctx context.Context, req *domain.R
 	FROM transfer_details td
 	JOIN products p ON td.product_id = p.id
 	WHERE td.id = ?;
-	`, req.Id).Scan(&returnDetail).Error
+	`, req.Id).Scan(&detail).Error
 	if err != nil {
 		s.log.Errorf("could not get transfer detail(%s): %v", req.Id, err)
 		return domain.InternalServerError
 	}
-
-	var scannedPackVal float64
-	if req.ScannedPack != nil {
-		scannedPackVal = *req.ScannedPack
+	if detail.UnitPerPack <= 0 {
+		s.log.Errorf("invalid unit_per_pack for transfer detail(%s)", req.Id)
+		return domain.InternalServerError
 	}
 
-	// transfer log
-	transferLog := domain.TransferLog{
+	// Determine which field to update, its current value and upper limit
+	var updateField string
+	var currentQty, limit float64
+	var logStage int
+	switch req.Status {
+	case "checking":
+		updateField = "accepted_count"
+		currentQty = detail.AcceptedCount
+		limit = detail.ScannedCount
+		logStage = constants.TransferLogStageChecking
+	case "get":
+		updateField = "scanned_count"
+		currentQty = detail.ScannedCount
+		limit = detail.ExpectedCount
+		logStage = constants.TransferLogStageSent
+	default:
+		updateField = "expected_count"
+		currentQty = detail.ExpectedCount
+		limit = detail.ReceivedCount
+	}
+
+	// Compute new quantity:
+	// - scanned_pack present → absolute base; scanned_unit added on top
+	// - only scanned_unit → incremental add to current field value
+	var newQty float64
+	if req.ScannedPack != nil {
+		newQty = *req.ScannedPack
+		if req.ScannedUnit != nil {
+			newQty += float64(*req.ScannedUnit) / detail.UnitPerPack
+		}
+	} else {
+		newQty = currentQty + float64(*req.ScannedUnit)/detail.UnitPerPack
+	}
+
+	if newQty > limit || newQty > detail.ReceivedCount {
+		return errors.New("invalid.quantity")
+	}
+
+	err = s.db.WithContext(ctx).Exec(fmt.Sprintf(`
+	UPDATE transfer_details
+	SET %s = ?, updated_at = NOW()
+	WHERE id = ? AND transfer_id = ?;`, updateField),
+		newQty, req.Id, req.TransferId).Error
+	if err != nil {
+		s.log.Errorf("could not update transfer_details: %v", err)
+		return domain.InternalServerError
+	}
+
+	go s.SaveTransferLog(&domain.TransferLog{
 		TransferId:       req.TransferId,
 		UserId:           userId,
 		TransferDetailId: req.Id,
-		ProductId:        returnDetail.ProductId,
+		ProductId:        detail.ProductId,
 		TransferType:     transferType,
-		Quantity:         int(scannedPackVal),
-	}
-
-	// update scanned count with pack quantity
-	if req.ScannedPack != nil {
-		if *req.ScannedPack > returnDetail.ReceivedCount {
-			return errors.New("invalid.quantity")
-		}
-		updateField := "expected_count"
-
-		switch req.Status {
-		case "checking":
-			updateField = "accepted_count"
-			transferLog.Stage = constants.TransferLogStageChecking
-			if *req.ScannedPack > returnDetail.ScannedCount {
-				return errors.New("invalid.quantity")
-			}
-		case "get":
-			updateField = "scanned_count"
-			transferLog.Stage = constants.TransferLogStageSent
-			if *req.ScannedPack > returnDetail.ExpectedCount {
-				return errors.New("invalid.quantity")
-			}
-		}
-		err = s.db.WithContext(ctx).Exec(fmt.Sprintf(`
-		UPDATE transfer_details
-		SET %s = ?, updated_at = NOW()
-		WHERE id = ? AND transfer_id = ?;`, updateField),
-			*req.ScannedPack, req.Id, req.TransferId).Error
-		if err != nil {
-			s.log.Errorf("could not update transfer_details: %v", err)
-			return domain.InternalServerError
-		}
-	}
-
-	// update scanned count with unit quantity
-	if req.ScannedUnit != nil {
-		unitQty := float64(*req.ScannedUnit) / returnDetail.UnitPerPack
-		updateField := "expected_count"
-		var quantity float64
-		switch req.Status {
-		case "checking":
-			transferLog.Stage = constants.TransferLogStageChecking
-			updateField = "accepted_count"
-			quantity = float64(int(returnDetail.AcceptedCount)) + unitQty
-			if quantity > returnDetail.ScannedCount {
-				return errors.New("invalid.quantity")
-			}
-		case "get":
-			transferLog.Stage = constants.TransferLogStageSent
-			updateField = "scanned_count"
-			quantity = float64(int(returnDetail.ScannedCount)) + unitQty
-			if quantity > returnDetail.ExpectedCount {
-				return errors.New("invalid.quantity")
-			}
-		default:
-			quantity = float64(int(returnDetail.ExpectedCount)) + unitQty
-			if quantity > returnDetail.ReceivedCount {
-				return errors.New("invalid.quantity")
-			}
-		}
-		err = s.db.WithContext(ctx).Exec(fmt.Sprintf(`
-		UPDATE transfer_details
-		SET %s = ?, updated_at = NOW()
-		WHERE id = ? AND transfer_id = ?;`, updateField),
-			quantity, req.Id, req.TransferId).Error
-		if err != nil {
-			s.log.Errorf("could not update transfer detail unit: %v", err)
-			return domain.InternalServerError
-		}
-	}
-
-	// save transfer log
-	go s.SaveTransferLog(&transferLog)
+		Stage:            logStage,
+		Quantity:         int(math.Round(newQty * detail.UnitPerPack)),
+	})
 
 	return nil
-
 }
 
 // UpdateTransferDetailByUnit updates transfer detail quantity using dona (unit) count

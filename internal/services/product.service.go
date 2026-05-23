@@ -1147,7 +1147,7 @@ sales_data AS (
     JOIN cart_items ci ON ci.sale_id = sa.id
     JOIN store_products sp ON sp.id = ci.store_product_id
     JOIN var_data vd ON sp.product_id = vd.product_id
-    WHERE sa.stage IN (9, 11) AND sa.status = 'completed'
+    WHERE sa.stage IN (9, 11)
     %s
     GROUP BY sa.id, st.id, vd.unit_per_pack
 ),
