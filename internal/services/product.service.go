@@ -1112,11 +1112,11 @@ inventory_data AS (
         im.status,
         jsonb_build_object(
             'current_quantity',     ROUND(SUM(imd.received_count::numeric / vd.unit_per_pack), 4),
-            'current_unit',         ROUND(SUM(imd.received_count::numeric % vd.unit_per_pack), 4),
+            'current_unit',         ROUND(SUM(imd.received_count::numeric %% vd.unit_per_pack), 4),
             'fact_quantity',        ROUND(SUM(imd.scanned_count::numeric / vd.unit_per_pack), 4),
-            'fact_unit',            ROUND(SUM(imd.scanned_count::numeric % vd.unit_per_pack), 4),
+            'fact_unit',            ROUND(SUM(imd.scanned_count::numeric %% vd.unit_per_pack), 4),
             'difference_quantity',  ROUND(SUM((imd.scanned_count - imd.received_count)::numeric / vd.unit_per_pack), 4),
-            'difference_unit',      ROUND(SUM((imd.scanned_count - imd.received_count)::numeric % vd.unit_per_pack), 4),
+            'difference_unit',      ROUND(SUM((imd.scanned_count - imd.received_count)::numeric %% vd.unit_per_pack), 4),
             'current_sum',          ROUND(SUM(imd.retail_price_vat * (imd.received_count::numeric / vd.unit_per_pack)), 2),
             'fact_sum',             ROUND(SUM(imd.retail_price_vat * (imd.scanned_count::numeric / vd.unit_per_pack)), 2),
             'difference_sum',       ROUND(SUM(imd.retail_price_vat * ((imd.scanned_count - imd.received_count)::numeric / vd.unit_per_pack)), 2)
