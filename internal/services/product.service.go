@@ -1133,7 +1133,7 @@ inventory_data AS (
 sales_data AS (
     SELECT
         sa.id, sa.sale_number AS public_id,
-        CASE WHEN sa.sale_type = 'SALE' THEN 4 ELSE 7 END AS entry_type,
+        NULL::int AS entry_type,
         sa.completed_at AS created_at,
         st.name AS store_name,
         CASE WHEN sa.sale_type = 'SALE' THEN SUM(ci.unit_quantity) * (-1) ELSE SUM(ci.unit_quantity) END AS quantity,
@@ -1147,7 +1147,7 @@ sales_data AS (
     JOIN cart_items ci ON ci.sale_id = sa.id
     JOIN store_products sp ON sp.id = ci.store_product_id
     JOIN var_data vd ON sp.product_id = vd.product_id
-    WHERE sa.stage IN (9, 11)
+    WHERE sa.stage IN (9, 11) AND sa.status = 'completed'
     %s
     GROUP BY sa.id, st.id, vd.unit_per_pack
 ),
