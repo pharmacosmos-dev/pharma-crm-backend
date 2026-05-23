@@ -336,7 +336,7 @@ func (s *Services) GetCustomerById(ctx context.Context, tx *gorm.DB, id string) 
 	var res domain.Customer
 
 	err := tx.WithContext(ctx).
-		Where("id = ?", id).
+		Where("id = ? AND is_active = true", id).
 		First(&res).Error
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
