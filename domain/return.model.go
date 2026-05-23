@@ -10,6 +10,7 @@ type Return struct {
 	Name              string     `gorm:"name" json:"name"`
 	Status            string     `gorm:"status" json:"status"`
 	Comment           string     `gorm:"comment" json:"comment"`
+	CommentById       string     `gorm:"column:comment_by" json:"comment_by_id"`
 	Is_Auto           bool       `gorm:"is_auto" json:"is_auto"`
 	ReturnCount       float64    `gorm:"return_count" json:"return_count"`
 	ScannedCount      float64    `gorm:"scanned_count" json:"scanned_count"`
@@ -29,6 +30,7 @@ type Return struct {
 	CreatedBy         *Employee  `gorm:"foreignKey:CreatedById" json:"created_by"`
 	UpdatedBy         *Employee  `gorm:"foreignKey:UpdatedById" json:"updated_by"`
 	AcceptedBy        *Employee  `gorm:"foreignKey:AcceptedById" json:"accepted_by"`
+	CommentBy         *Employee  `gorm:"foreignKey:CommentById" json:"comment_by"`
 }
 
 type TransferBarcodeRequest struct {
@@ -43,6 +45,10 @@ type ReturnStatusSummary struct {
 	ReturnCount       float64 `json:"return_count"`
 	ReceivedRetailSum float64 `json:"received_retail_sum"`
 	AcceptedRetailSum float64 `json:"accepted_retail_sum"`
+}
+
+type ReturnCommentRequest struct {
+	Comment string `json:"comment"`
 }
 
 // return off create request

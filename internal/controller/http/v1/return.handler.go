@@ -44,6 +44,7 @@ func (h *ReturnHandler) ReturnRoutes(r *gin.RouterGroup) {
 		returned.GET("/export-nakladnoy", h.ExportReturnNakladnoyPDF)
 		returned.PUT("/update-by-barcode/:id", h.UpdateByBarcode)
 		returned.PUT("/edit-status-to-checking/:id", h.EditStatusToChecking)
+		returned.PATCH("/:id/comment", h.UpdateComment)
 	}
 	detail := r.Group("return-detail")
 	{
@@ -535,6 +536,49 @@ func (h *ReturnHandler) Cancel(c *gin.Context) {
 	}
 
 	handleResponse(c, OK, "CANCELED")
+}
+
+
+
+// UpdateComment godoc
+// @Summary Update Return Comment
+// @Description Update comment for a return by ID
+// @Tags Return
+// @Security     BearerAuth
+// @Accept json
+// @Produce json
+// @Param id path string true "Return ID"
+// @Param comment body domain.ReturnCommentRequest true "Comment"
+// @Success 200 {object} v1.Response
+// @Failure 400 {object} v1.Response
+// @Failure 401 {object} v1.Response
+// @Failure 500 {object} v1.Response
+// @Router /return/{id}/comment [PATCH]
+func (h *ReturnHandler) UpdateComment(c *gin.Context) {
+	var id = c.Param("id")
+	if err := uuid.Validate(id); err != nil {
+		handleResponse(c, BadRequest, "Invalid return id")
+		return
+	}
+
+	var req domain.ReturnCommentRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		handleResponse(c, BadRequest, "Invalid request body")
+		return
+	}
+
+	userId, ok := c.Get("user_id")
+	if !ok {
+		handleResponse(c, UNAUTHORIZED, "user id not found from the context")
+		return
+	}
+
+	if err := h.service.UpdateReturnComment(id, req.Comment, userId.(string)); err != nil {
+		handleResponse(c, InternalError, err)
+		return
+	}
+
+	handleResponse(c, OK, "UPDATED")
 }
 
 // Get List

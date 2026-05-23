@@ -22708,6 +22708,70 @@ const docTemplate = `{
                 }
             }
         },
+        "/return/{id}/comment": {
+            "patch": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Update comment for a return by ID",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Return"
+                ],
+                "summary": "Update Return Comment",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Return ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Comment",
+                        "name": "comment",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/domain.ReturnCommentRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    }
+                }
+            }
+        },
         "/role": {
             "post": {
                 "security": [
@@ -31144,13 +31208,6 @@ const docTemplate = `{
                 "name": {
                     "type": "string"
                 },
-                "product_ids": {
-                    "description": "used when Type == \"SOME\"",
-                    "type": "array",
-                    "items": {
-                        "type": "string"
-                    }
-                },
                 "public_id": {
                     "type": "string"
                 },
@@ -31158,7 +31215,7 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "type": {
-                    "description": "FULL || PARTIAL || IMPORT || SOME",
+                    "description": "FULL || PARTIAL || IMPORT",
                     "type": "string"
                 }
             }
@@ -32457,6 +32514,14 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "type": {
+                    "type": "string"
+                }
+            }
+        },
+        "domain.ReturnCommentRequest": {
+            "type": "object",
+            "properties": {
+                "comment": {
                     "type": "string"
                 }
             }

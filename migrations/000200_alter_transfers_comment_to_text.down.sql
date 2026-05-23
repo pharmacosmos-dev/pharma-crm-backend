@@ -1,0 +1,1 @@
+ALTER TABLE transfers ALTER COLUMN comment TYPE VARCHAR(500);

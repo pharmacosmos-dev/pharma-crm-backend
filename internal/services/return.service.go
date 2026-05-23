@@ -426,6 +426,7 @@ func (s *Services) ReturnList(ctx context.Context, param *domain.ReturnParam) ([
 		Preload("CreatedBy").
 		Preload("UpdatedBy").
 		Preload("AcceptedBy").
+		Preload("CommentBy").
 		Select(`
 			transfers.*, 
 			SUM(trd.scanned_count) AS return_count,
@@ -939,7 +940,7 @@ func (s *Services) ConfirmReturn(ctx context.Context, returnId, userId string) e
 	return nil
 }
 
-// canceled inventory
+// canceled return
 func (s *Services) CancelReturn(returnId string, userId string) error {
 	// start transaction
 	tx := s.db.Begin()
@@ -948,7 +949,7 @@ func (s *Services) CancelReturn(returnId string, userId string) error {
 			_ = tx.Rollback()
 		}
 	}()
-	// update confirm inventory
+	// update confirm return
 	query := `UPDATE transfers SET status = ?, accepted_by = ?, updated_at = NOW() WHERE id = ?`
 	err := tx.Exec(query, constants.GeneralStatusCanceled, userId, returnId).Error
 	if err != nil {
@@ -961,6 +962,15 @@ func (s *Services) CancelReturn(returnId string, userId string) error {
 		return domain.InternalServerError
 	}
 
+	return nil
+}
+
+func (s *Services) UpdateReturnComment(returnId string, comment string, userId string) error {
+	err := s.db.Exec(`UPDATE transfers SET comment = ?, comment_by = ?, updated_at = NOW() WHERE id = ? AND entry_type = 2`, comment, userId, returnId).Error
+	if err != nil {
+		s.log.Errorf("could not update return comment: %v", err)
+		return domain.InternalServerError
+	}
 	return nil
 }
 

@@ -746,17 +746,12 @@ definitions:
         type: string
       name:
         type: string
-      product_ids:
-        description: used when Type == "SOME"
-        items:
-          type: string
-        type: array
       public_id:
         type: string
       store_id:
         type: string
       type:
-        description: FULL || PARTIAL || IMPORT || SOME
+        description: FULL || PARTIAL || IMPORT
         type: string
     type: object
   domain.Login:
@@ -1613,6 +1608,11 @@ definitions:
       transfer_id:
         type: string
       type:
+        type: string
+    type: object
+  domain.ReturnCommentRequest:
+    properties:
+      comment:
         type: string
     type: object
   domain.ReturnRequest:
@@ -16341,6 +16341,47 @@ paths:
       security:
       - BearerAuth: []
       summary: Add product by barcode
+      tags:
+      - Return
+  /return/{id}/comment:
+    patch:
+      consumes:
+      - application/json
+      description: Update comment for a return by ID
+      parameters:
+      - description: Return ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Comment
+        in: body
+        name: comment
+        required: true
+        schema:
+          $ref: '#/definitions/domain.ReturnCommentRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Update Return Comment
       tags:
       - Return
   /return/cancel/{id}:
