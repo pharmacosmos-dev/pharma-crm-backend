@@ -52,6 +52,7 @@ var (
 	PrescriptionExpiredError = NewError(http.StatusRequestTimeout, "prescription.expired")
 
 	// 409 – Conflict (mavjud ma'lumot bilan to‘qnashuv)
+	CanNotCreateYourselfError            = NewError(http.StatusConflict, "you.can.not.create.yourself")
 	ConflictError                        = NewError(http.StatusConflict, "conflict")
 	NotEnoughProductError                = NewError(http.StatusConflict, "not.enough.product")
 	AlreadyExistsError                   = NewError(http.StatusConflict, "already.exists")

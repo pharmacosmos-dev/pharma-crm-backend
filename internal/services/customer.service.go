@@ -11,6 +11,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgconn"
 	"github.com/pharma-crm-backend/domain"
+	"github.com/pharma-crm-backend/domain/constants"
 	"github.com/pharma-crm-backend/pkg/utils"
 	"gorm.io/gorm"
 )
@@ -48,6 +49,19 @@ func (s *Services) CreateCustomer(ctx context.Context, req *domain.CustomerReque
 		loyaltyCardBarcode = sql.NullString{String: *req.LoyaltyCardBarcode, Valid: true}
 		loyaltyCardType = sql.NullString{String: "physical", Valid: true}
 		loyaltyCardCreatedAt = sql.NullTime{Time: time.Now(), Valid: true}
+	}
+
+	// check if phone belongs to a cashier employee
+	var cashierCount int64
+	if err := s.db.WithContext(ctx).Table("employees e").
+		Joins("JOIN employee_roles er ON er.employee_id = e.id").
+		Joins("JOIN roles r ON r.id = er.role_id").
+		Where("e.phone = ? AND r.name = ?", req.Phone, constants.RoleCashier).
+		Count(&cashierCount).Error; err != nil {
+		return &res, domain.InternalServerError
+	}
+	if cashierCount > 0 {
+		return &res, domain.CanNotCreateYourselfError
 	}
 
 	tx := s.db.Begin()

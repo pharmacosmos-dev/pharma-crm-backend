@@ -82,6 +82,7 @@ type StoreUpdateRequest struct {
 	EmployeeCount int     `gorm:"employee_count" json:"employee_count"`
 	CashBoxCount  int     `gorm:"cash_box_count" json:"cash_box_count"`
 	StoreCode     int     `gorm:"store_code" json:"store_code"`
+	CompanyId     string  `gorm:"company_id" json:"company_id"`
 	Location      string  `gorm:"location" json:"location"`
 	IsFullday     bool    `gorm:"is_fullday" json:"is_fullday"`
 	UpdatedBy     string  `gorm:"updated_by" json:"-"`
