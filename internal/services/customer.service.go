@@ -11,7 +11,6 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgconn"
 	"github.com/pharma-crm-backend/domain"
-	"github.com/pharma-crm-backend/domain/constants"
 	"github.com/pharma-crm-backend/pkg/utils"
 	"gorm.io/gorm"
 )
@@ -56,7 +55,7 @@ func (s *Services) CreateCustomer(ctx context.Context, req *domain.CustomerReque
 	if err := s.db.WithContext(ctx).Table("employees e").
 		Joins("JOIN employee_roles er ON er.employee_id = e.id").
 		Joins("JOIN roles r ON r.id = er.role_id").
-		Where("e.phone = ? AND r.name = ?", req.Phone, constants.RoleCashier).
+		Where("e.phone = ? AND r.name IN ?", req.Phone, []string{"Кассир", "Кассир Франшиза"}).
 		Count(&cashierCount).Error; err != nil {
 		return &res, domain.InternalServerError
 	}
