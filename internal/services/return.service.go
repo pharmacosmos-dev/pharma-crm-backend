@@ -175,6 +175,68 @@ func (s *Services) UpdateReturnDetailQuantity(ctx context.Context, req *domain.R
 		Quantity:         int(scannedPackVal),
 	}
 
+	// New pack+unit logic: explicit pack and unit input for new transfers.
+	// Follows the same status-based flow as the old logic.
+	// Old transfers keep expected_pack/expected_unit = NULL (no effect).
+	if req.Pack != nil || req.Unit != nil {
+		pack := 0
+		unit := 0
+		if req.Pack != nil {
+			pack = *req.Pack
+		}
+		if req.Unit != nil {
+			unit = *req.Unit
+		}
+		count := float64(pack) + float64(unit)/returnDetail.UnitPerPack
+
+		updateField := "expected_count"
+		switch req.Status {
+		case "checking":
+			updateField = "accepted_count"
+			transferLog.Stage = constants.TransferLogStageChecking
+			if count > returnDetail.ScannedCount {
+				return errors.New("invalid.quantity")
+			}
+		case "get":
+			updateField = "scanned_count"
+			transferLog.Stage = constants.TransferLogStageSent
+			if count > returnDetail.ExpectedCount {
+				return errors.New("invalid.quantity")
+			}
+		default:
+			// status="" → expected_count + expected_pack + expected_unit saqlanadi
+			transferLog.Stage = constants.TransferLogStageSent
+			if count > returnDetail.ReceivedCount {
+				return errors.New("invalid.quantity")
+			}
+		}
+
+		if updateField == "expected_count" {
+			err = s.db.WithContext(ctx).Exec(`
+				UPDATE transfer_details
+				SET expected_count = ?,
+				    expected_pack  = ?,
+				    expected_unit  = ?,
+				    updated_at     = NOW()
+				WHERE id = ? AND transfer_id = ?
+			`, count, pack, unit, req.Id, req.TransferId).Error
+		} else {
+			err = s.db.WithContext(ctx).Exec(fmt.Sprintf(`
+				UPDATE transfer_details
+				SET %s = ?,
+				    updated_at = NOW()
+				WHERE id = ? AND transfer_id = ?
+			`, updateField), count, req.Id, req.TransferId).Error
+		}
+		if err != nil {
+			s.log.Errorf("could not update transfer_detail pack/unit(%s): %v", req.Id, err)
+			return domain.InternalServerError
+		}
+		transferLog.Quantity = pack
+		go s.SaveTransferLog(&transferLog)
+		return nil
+	}
+
 	// update scanned count with pack quantity
 	if req.ScannedPack != nil {
 		if *req.ScannedPack > returnDetail.ReceivedCount {

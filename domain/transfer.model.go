@@ -90,6 +90,12 @@ type TransferDetail struct {
 	ReceivedSum    float64    `gorm:"received_sum" json:"received_sum"`
 	ScannedSum     float64    `gorm:"scanned_sum" json:"scanned_sum"`
 	IsMarking      bool       `gorm:"is_marking" json:"is_marking"`
+	// Pack+Unit input (NULL = old transfer, NOT NULL = new transfer with explicit pack/unit entry)
+	ExpectedPack *int `gorm:"expected_pack" json:"expected_pack"`
+	ExpectedUnit *int `gorm:"expected_unit" json:"expected_unit"`
+	// Computed from received_count (not stored)
+	ReceivedPack int `gorm:"-" json:"received_pack"`
+	ReceivedUnit int `gorm:"-" json:"received_unit"`
 }
 
 type TransferDetailStatus struct {
