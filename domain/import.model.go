@@ -1,7 +1,6 @@
 package domain
 
 import (
-	"encoding/json"
 	"time"
 
 	"github.com/pharma-crm-backend/pkg/utils"
@@ -213,10 +212,9 @@ type ImportProductData struct {
 	UnitPerPack int             `gorm:"unit_per_pack" json:"-"`
 	Quantity    float64         `gorm:"quantity" json:"quantity"`
 	Sum         float64         `gorm:"sum" json:"sum"`
-	Name        string          `gorm:"name" json:"name"`
-	Status      string          `gorm:"status" json:"status"`
-	Metadata    json.RawMessage `gorm:"metadata" json:"metadata"`
-	StoreName   string          `gorm:"store_name" json:"store_name"`
+	Name        string     `gorm:"name" json:"name"`
+	Status      string     `gorm:"status" json:"status"`
+	StoreName   string     `gorm:"store_name" json:"store_name"`
 	CreatedAt   *time.Time      `gorm:"created_at" json:"created_at"`
 	TotalCount  int64           `gorm:"total_count" json:"-"`
 }
