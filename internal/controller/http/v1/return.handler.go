@@ -990,7 +990,7 @@ func (h *ReturnHandler) EditStatusToChecking(c *gin.Context) {
 	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
 	defer cancel()
 
-	err := h.service.EditStatusToCheckingReturn(ctx, id, user.UserId)
+	err := h.service.EditStatusToCheckingReturn(ctx, id, user.UserId, "")
 	if err != nil {
 		handleServiceResponse(c, nil, err)
 		return

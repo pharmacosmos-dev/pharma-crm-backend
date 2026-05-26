@@ -644,10 +644,15 @@ func (h *TransferHandler) EditStatusToChecking(c *gin.Context) {
 		return
 	}
 
+	var req struct {
+		DriverName string `json:"driver_name"`
+	}
+	_ = c.ShouldBindJSON(&req)
+
 	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
 	defer cancel()
 
-	err := h.service.EditStatusToCheckingReturn(ctx, id, user.UserId)
+	err := h.service.EditStatusToCheckingReturn(ctx, id, user.UserId, req.DriverName)
 	if err != nil {
 		handleServiceResponse(c, InternalError, err)
 		return
