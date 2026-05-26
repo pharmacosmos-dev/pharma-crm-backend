@@ -331,7 +331,7 @@ func (s *Services) TransferList(ctx context.Context, params *domain.ReturnParam)
 	// complete query
 	err := query.
 		Group("t.id, fs.id, ts.id, e.id, e2.id, e3.id").
-		Order("t.name ASC").
+		Order("t.created_at DESC").
 		Count(&totalCount).
 		Limit(params.Limit).
 		Offset(params.Offset).
