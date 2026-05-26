@@ -93,9 +93,9 @@ type TransferDetail struct {
 	// Pack+Unit input (NULL = old transfer, NOT NULL = new transfer with explicit pack/unit entry)
 	ExpectedPack *int `gorm:"expected_pack" json:"expected_pack"`
 	ExpectedUnit *int `gorm:"expected_unit" json:"expected_unit"`
-	// Computed from received_count (not stored)
-	ReceivedPack int `gorm:"-" json:"received_pack"`
-	ReceivedUnit int `gorm:"-" json:"received_unit"`
+	// Computed from received_count in SQL (not a stored column)
+	ReceivedPack int `gorm:"received_pack" json:"received_pack"`
+	ReceivedUnit int `gorm:"received_unit" json:"received_unit"`
 }
 
 type TransferDetailStatus struct {
