@@ -178,14 +178,14 @@ func (s *Services) UpdateReturnDetailQuantity(ctx context.Context, req *domain.R
 	// New pack+unit logic: explicit pack and unit input for new transfers.
 	// Follows the same status-based flow as the old logic.
 	// Old transfers keep expected_pack/expected_unit = NULL (no effect).
-	if req.Pack != nil || req.Unit != nil {
+	if req.ExpectedPack != nil || req.ExpectedUnit != nil {
 		pack := 0
 		unit := 0
-		if req.Pack != nil {
-			pack = *req.Pack
+		if req.ExpectedPack != nil {
+			pack = *req.ExpectedPack
 		}
-		if req.Unit != nil {
-			unit = *req.Unit
+		if req.ExpectedUnit != nil {
+			unit = *req.ExpectedUnit
 		}
 		count := float64(pack) + float64(unit)/returnDetail.UnitPerPack
 

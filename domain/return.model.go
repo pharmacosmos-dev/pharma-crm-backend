@@ -133,10 +133,10 @@ type ReturnAddProduct struct {
 	ScannedUnit *int     `gorm:"scanned_unit" json:"scanned_unit"`
 	Type        string   `gorm:"type" json:"type"`
 	Status      string   `gorm:"status" json:"status"`
-	// New pack+unit logic: if Pack or Unit provided, computes expected_count and saves expected_pack/expected_unit.
-	// Old fields (ScannedPack/ScannedUnit) are ignored when Pack or Unit is present.
-	Pack *int `gorm:"-" json:"pack"`
-	Unit *int `gorm:"-" json:"unit"`
+	// New pack+unit logic: if ExpectedPack or ExpectedUnit provided, computes expected_count and saves to DB.
+	// Old fields (ScannedPack/ScannedUnit) are ignored when ExpectedPack or ExpectedUnit is present.
+	ExpectedPack *int `gorm:"-" json:"expected_pack"`
+	ExpectedUnit *int `gorm:"-" json:"expected_unit"`
 }
 
 type ReturnDetail1C struct {

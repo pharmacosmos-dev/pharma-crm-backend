@@ -32498,6 +32498,13 @@ const docTemplate = `{
         "domain.ReturnAddProduct": {
             "type": "object",
             "properties": {
+                "expected_pack": {
+                    "description": "New pack+unit logic: if ExpectedPack or ExpectedUnit provided, computes expected_count and saves to DB.\nOld fields (ScannedPack/ScannedUnit) are ignored when ExpectedPack or ExpectedUnit is present.",
+                    "type": "integer"
+                },
+                "expected_unit": {
+                    "type": "integer"
+                },
                 "id": {
                     "type": "string"
                 },
