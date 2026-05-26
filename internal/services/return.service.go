@@ -194,7 +194,7 @@ func (s *Services) UpdateReturnDetailQuantity(ctx context.Context, req *domain.R
 		case "checking":
 			updateField = "accepted_count"
 			transferLog.Stage = constants.TransferLogStageChecking
-			if count > returnDetail.ScannedCount {
+			if count > returnDetail.ExpectedCount {
 				return errors.New("invalid.quantity")
 			}
 		case "get":
