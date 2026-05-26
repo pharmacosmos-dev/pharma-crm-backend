@@ -1226,7 +1226,7 @@ vozvrat_pending_data AS (
     JOIN transfers tr ON td.transfer_id = tr.id
     JOIN var_data vd ON td.product_id = vd.product_id
     JOIN stores s ON s.id = tr.from_store_id
-    WHERE tr.status NOT IN ('new', 'completed', 'canceled') AND tr.entry_type = 2
+    WHERE tr.status NOT IN ('new', 'completed', 'sent-to-1c', 'canceled') AND tr.entry_type = 2
     %s
     GROUP BY tr.id, s.id, vd.unit_per_pack
 ),
