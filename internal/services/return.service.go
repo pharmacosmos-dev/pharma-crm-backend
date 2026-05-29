@@ -221,7 +221,7 @@ func (s *Services) UpdateReturnDetailQuantity(ctx context.Context, req *domain.R
 				    expected_unit  = ?,
 				    updated_at     = NOW()
 				WHERE id = ? AND transfer_id = ?
-			`, count, pack, unit, req.Id, req.TransferId).Error
+			`, count, unit, req.Id, req.TransferId).Error
 		}
 		if err != nil {
 			s.log.Errorf("could not update transfer_detail pack/unit(%s): %v", req.Id, err)
