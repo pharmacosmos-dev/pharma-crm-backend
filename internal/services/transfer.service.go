@@ -489,7 +489,7 @@ func (s *Services) TransferDetailList(param *domain.ReturnDetailParam) ([]domain
 	}
 
 	err := query.
-		Order("transfer_details.created_at DESC").
+		Order("transfer_details.created_at DESC, transfer_details.id").
 		Count(&totalCount).
 		Limit(param.Limit).
 		Offset(param.Offset).
