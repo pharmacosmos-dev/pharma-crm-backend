@@ -460,6 +460,8 @@ func (s *Services) TransferDetailList(param *domain.ReturnDetailParam) ([]domain
 			transfer_details.expected_unit,
 			FLOOR(transfer_details.received_count)::integer AS received_pack,
 			ROUND((transfer_details.received_count - FLOOR(transfer_details.received_count)) * p.unit_per_pack)::integer AS received_unit,
+			FLOOR(transfer_details.scanned_count)::integer AS scanned_pack,
+			ROUND((transfer_details.scanned_count - FLOOR(transfer_details.scanned_count)) * p.unit_per_pack)::integer AS scanned_unit,
 			ROUND(transfer_details.received_count*transfer_details.retail_price, 2) AS received_sum,
 			ROUND(transfer_details.scanned_count*transfer_details.retail_price, 2) AS scanned_sum,
 			p.name,
