@@ -73,8 +73,7 @@ type TransferDetail struct {
 	ReceivedCount  float64    `gorm:"received_count" json:"received_count"`
 	ExpectedCount  float64    `gorm:"expected_count" json:"expected_count"`
 	AcceptedCount  float64    `gorm:"accepted_count" json:"accepted_count"`
-	ScannedCount   float64    `gorm:"scanned_count" json:"scanned_pack"`
-	ScannedUnit    float64    `gorm:"scanned_unit" json:"scanned_unit"`
+	ScannedCount   float64    `gorm:"scanned_count" json:"scanned_count"`
 	ExpireDate     *time.Time `gorm:"expire_date" json:"expire_date"`
 	SerialNumber   string     `gorm:"serial_number" json:"serial_number"`
 	SupplyPrice    float64    `gorm:"supply_price" json:"supply_price"`
@@ -91,6 +90,8 @@ type TransferDetail struct {
 	ReceivedSum    float64    `gorm:"received_sum" json:"received_sum"`
 	ScannedSum     float64    `gorm:"scanned_sum" json:"scanned_sum"`
 	IsMarking      bool       `gorm:"is_marking" json:"is_marking"`
+	ScannedPack    int        `gorm:"scanned_pack" json:"scanned_pack"`
+	ScannedUnit    int        `gorm:"scanned_unit" json:"scanned_unit"`
 	// Pack+Unit input (NULL = old transfer, NOT NULL = new transfer with explicit pack/unit entry)
 	ExpectedPack *int `gorm:"expected_pack" json:"expected_pack"`
 	ExpectedUnit *int `gorm:"expected_unit" json:"expected_unit"`
