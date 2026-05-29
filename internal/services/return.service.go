@@ -217,8 +217,7 @@ func (s *Services) UpdateReturnDetailQuantity(ctx context.Context, req *domain.R
 			}
 			err = s.db.WithContext(ctx).Exec(`
 				UPDATE transfer_details
-				SET expected_count = ?,
-				    expected_pack  = ?,
+				SET expected_pack  = ?,
 				    expected_unit  = ?,
 				    updated_at     = NOW()
 				WHERE id = ? AND transfer_id = ?
