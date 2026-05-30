@@ -1664,7 +1664,14 @@ func (s *Services) GetProductsByImport(ctx context.Context, params *domain.Produ
 	}
 
 	if params.Status != "" {
-		qb = qb.Where("p.status = ?", params.Status)
+		switch params.Status {
+		case "active":
+			qb = qb.Where("sp.unit_quantity > 0")
+		case "inactive":
+			qb = qb.Where("sp.unit_quantity = 0")
+		default:
+			qb = qb.Where("p.status = ?", params.Status)
+		}
 	}
 
 	var totalCount int64
