@@ -27364,7 +27364,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Cancel Return",
+                "description": "Cancel Transfer",
                 "consumes": [
                     "application/json"
                 ],
@@ -27374,11 +27374,11 @@ const docTemplate = `{
                 "tags": [
                     "Transfer"
                 ],
-                "summary": "Cancel Return",
+                "summary": "Cancel Transfer",
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "Return ID",
+                        "description": "Transfer ID",
                         "name": "id",
                         "in": "path",
                         "required": true
@@ -27413,7 +27413,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Confirm Return",
+                "description": "Confirm Transfer",
                 "consumes": [
                     "application/json"
                 ],
@@ -27423,7 +27423,7 @@ const docTemplate = `{
                 "tags": [
                     "Transfer"
                 ],
-                "summary": "Confirm Return",
+                "summary": "Confirm Transfer",
                 "parameters": [
                     {
                         "type": "string",
@@ -27469,7 +27469,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "Return"
+                    "Transfer"
                 ],
                 "summary": "Edit status to checking",
                 "parameters": [

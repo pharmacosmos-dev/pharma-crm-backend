@@ -622,7 +622,7 @@ func (h *TransferHandler) Send(c *gin.Context) {
 }
 
 // @Summary Edit status to checking
-// @Tags Return
+// @Tags Transfer
 // @Security     BearerAuth
 // @Accept 	json
 // @Produce json
@@ -661,9 +661,9 @@ func (h *TransferHandler) EditStatusToChecking(c *gin.Context) {
 	handleResponse(c, OK, "UPDATED")
 }
 
-// confirm Return
-// @Summary Confirm Return
-// @Description Confirm Return
+// confirm Transfer
+// @Summary Confirm Transfer
+// @Description Confirm Transfer
 // @Tags Transfer
 // @Security     BearerAuth
 // @Accept 	json
@@ -739,14 +739,14 @@ func (h *TransferHandler) SendOnec(c *gin.Context) {
 	handleResponse(c, OK, "SENT")
 }
 
-// cancel return
-// @Summary Cancel Return
-// @Description Cancel Return
+// cancel transfer
+// @Summary Cancel Transfer
+// @Description Cancel Transfer
 // @Tags Transfer
 // @Security     BearerAuth
 // @Accept 	json
 // @Produce json
-// @Param 	id 	path string true "Return ID"
+// @Param 	id 	path string true "Transfer ID"
 // @Success 200 {object} v1.Response
 // @Failure 400 {object} v1.Response
 // @Failure 500 {object} v1.Response
@@ -759,7 +759,7 @@ func (h *TransferHandler) Cancel(c *gin.Context) {
 	}
 
 	transferId := c.Param("id")
-	// validate return id
+	// validate transfer id
 	if transferId == "" {
 		handleServiceResponse(c, BadRequest, domain.InvalidQueryError)
 		return

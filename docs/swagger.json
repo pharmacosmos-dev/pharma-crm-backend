@@ -27357,7 +27357,7 @@
                         "BearerAuth": []
                     }
                 ],
-                "description": "Cancel Return",
+                "description": "Cancel Transfer",
                 "consumes": [
                     "application/json"
                 ],
@@ -27367,11 +27367,11 @@
                 "tags": [
                     "Transfer"
                 ],
-                "summary": "Cancel Return",
+                "summary": "Cancel Transfer",
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "Return ID",
+                        "description": "Transfer ID",
                         "name": "id",
                         "in": "path",
                         "required": true
@@ -27406,7 +27406,7 @@
                         "BearerAuth": []
                     }
                 ],
-                "description": "Confirm Return",
+                "description": "Confirm Transfer",
                 "consumes": [
                     "application/json"
                 ],
@@ -27416,7 +27416,7 @@
                 "tags": [
                     "Transfer"
                 ],
-                "summary": "Confirm Return",
+                "summary": "Confirm Transfer",
                 "parameters": [
                     {
                         "type": "string",
@@ -27462,7 +27462,7 @@
                     "application/json"
                 ],
                 "tags": [
-                    "Return"
+                    "Transfer"
                 ],
                 "summary": "Edit status to checking",
                 "parameters": [

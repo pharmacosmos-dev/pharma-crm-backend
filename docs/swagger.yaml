@@ -19825,9 +19825,9 @@ paths:
     post:
       consumes:
       - application/json
-      description: Cancel Return
+      description: Cancel Transfer
       parameters:
-      - description: Return ID
+      - description: Transfer ID
         in: path
         name: id
         required: true
@@ -19849,14 +19849,14 @@ paths:
             $ref: '#/definitions/v1.Response'
       security:
       - BearerAuth: []
-      summary: Cancel Return
+      summary: Cancel Transfer
       tags:
       - Transfer
   /transfer/confirm/{id}:
     post:
       consumes:
       - application/json
-      description: Confirm Return
+      description: Confirm Transfer
       parameters:
       - description: Return ID
         in: path
@@ -19880,7 +19880,7 @@ paths:
             $ref: '#/definitions/v1.Response'
       security:
       - BearerAuth: []
-      summary: Confirm Return
+      summary: Confirm Transfer
       tags:
       - Transfer
   /transfer/edit-status-to-checking/{id}:
@@ -19912,7 +19912,7 @@ paths:
       - BearerAuth: []
       summary: Edit status to checking
       tags:
-      - Return
+      - Transfer
   /transfer/export-excel:
     get:
       consumes:
