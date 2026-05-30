@@ -1663,6 +1663,10 @@ func (s *Services) GetProductsByImport(ctx context.Context, params *domain.Produ
 		qb = qb.Where("sp.created_at <= ?", params.EndDate+" 23:59:59")
 	}
 
+	if params.Status != "" {
+		qb = qb.Where("p.status = ?", params.Status)
+	}
+
 	var totalCount int64
 	if err := qb.Count(&totalCount).Error; err != nil {
 		s.log.Errorf("could not get total_count in get_products_by_import: %v", err)
