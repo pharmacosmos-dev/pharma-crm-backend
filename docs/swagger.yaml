@@ -432,6 +432,13 @@ definitions:
       store_id:
         type: string
     type: object
+  domain.EditStatusToCheckingRequest:
+    properties:
+      driver_name:
+        type: string
+      type:
+        type: string
+    type: object
   domain.EmployeeRequest:
     properties:
       birthdate:
@@ -19893,10 +19900,12 @@ paths:
         name: id
         required: true
         type: string
-      - description: Driver name
-        in: query
-        name: driver_name
-        type: string
+      - description: Driver name and type
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/domain.EditStatusToCheckingRequest'
       produces:
       - application/json
       responses:

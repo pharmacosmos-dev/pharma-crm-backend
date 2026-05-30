@@ -27481,10 +27481,13 @@ const docTemplate = `{
                         "required": true
                     },
                     {
-                        "type": "string",
-                        "description": "Driver name",
-                        "name": "driver_name",
-                        "in": "query"
+                        "description": "Driver name and type",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/domain.EditStatusToCheckingRequest"
+                        }
                     }
                 ],
                 "responses": {
@@ -30741,6 +30744,17 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "store_id": {
+                    "type": "string"
+                }
+            }
+        },
+        "domain.EditStatusToCheckingRequest": {
+            "type": "object",
+            "properties": {
+                "driver_name": {
+                    "type": "string"
+                },
+                "type": {
                     "type": "string"
                 }
             }
