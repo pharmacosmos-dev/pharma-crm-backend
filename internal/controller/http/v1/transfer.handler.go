@@ -650,7 +650,7 @@ func (h *TransferHandler) EditStatusToChecking(c *gin.Context) {
 	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
 	defer cancel()
 
-	err := h.service.EditStatusToCheckingReturn(ctx, id, user.UserId, driverName)
+	err := h.service.EditStatusToCheckingTransfer(ctx, id, user.UserId, driverName)
 	if err != nil {
 		handleServiceResponse(c, InternalError, err)
 		return

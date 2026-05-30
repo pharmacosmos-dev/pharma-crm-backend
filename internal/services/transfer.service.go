@@ -629,14 +629,16 @@ func (s *Services) SendTransfer(ctx context.Context, transferId string, userId s
 	return nil
 }
 
-func (s *Services) EditStatusToCheckingTransfer(ctx context.Context, Id string, userId string) error {
-	// update transfer status
-	err := s.db.WithContext(ctx).Exec("UPDATE transfers SET status = ?, updated_by = ?, updated_at = NOW() WHERE id = ?", constants.GeneralStatusChecking, userId, Id).Error
-	if err != nil {
-		s.log.Errorf("could not update transfer(%s) status: %v", Id, err)
+func (s *Services) EditStatusToCheckingTransfer(ctx context.Context, Id string, userId string, driverName string) error {
+	result := s.db.WithContext(ctx).Exec(
+		"UPDATE transfers SET status = $1, updated_by = $2, driver_name = $3, updated_at = NOW() WHERE id = $4",
+		constants.GeneralStatusChecking, userId, driverName, Id,
+	)
+	if result.Error != nil {
+		s.log.Errorf("could not update transfer(%s) status: %v", Id, result.Error)
 		return domain.InternalServerError
 	}
-
+	s.log.Infof("EditStatusToCheckingTransfer: id=%s driverName=%s rowsAffected=%d", Id, driverName, result.RowsAffected)
 	return nil
 }
 
