@@ -27479,6 +27479,15 @@ const docTemplate = `{
                         "name": "id",
                         "in": "path",
                         "required": true
+                    },
+                    {
+                        "description": "Driver info",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/domain.EditStatusToCheckingRequest"
+                        }
                     }
                 ],
                 "responses": {
@@ -30735,6 +30744,14 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "store_id": {
+                    "type": "string"
+                }
+            }
+        },
+        "domain.EditStatusToCheckingRequest": {
+            "type": "object",
+            "properties": {
+                "driver_name": {
                     "type": "string"
                 }
             }

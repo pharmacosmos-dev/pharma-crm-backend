@@ -627,6 +627,7 @@ func (h *TransferHandler) Send(c *gin.Context) {
 // @Accept 	json
 // @Produce json
 // @Param   id path string true "Transfer ID"
+// @Param   body body domain.EditStatusToCheckingRequest true "Driver info"
 // @Success 200 {object} v1.Response "Return PDF file"
 // @Failure 400 {object} v1.Response "Invalid request parameters"
 // @Failure 500 {object} v1.Response "Internal server error"
@@ -644,9 +645,7 @@ func (h *TransferHandler) EditStatusToChecking(c *gin.Context) {
 		return
 	}
 
-	var req struct {
-		DriverName string `json:"driver_name"`
-	}
+	var req domain.EditStatusToCheckingRequest
 	_ = c.ShouldBindJSON(&req)
 
 	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)

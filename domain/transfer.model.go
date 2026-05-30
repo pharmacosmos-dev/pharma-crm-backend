@@ -198,3 +198,7 @@ type OnecReturnResponse struct {
   Unfulfilled []OnecTransferUnfulfilled `json:"unfulfilled"`
 }
 
+type EditStatusToCheckingRequest struct {
+	DriverName string `json:"driver_name"`
+}
+
