@@ -1676,7 +1676,7 @@ func (h *ProductHandler) GetProductsByImportExport(c *gin.Context) {
 		f.SetCellValue(sheetName, "A"+row, product.MaterialCode)
 		f.SetCellValue(sheetName, "B"+row, product.Name)
 		f.SetCellValue(sheetName, "C"+row, product.StoreName)
-		f.SetCellValue(sheetName, "D"+row, math.Round(float64(product.UQuantity)/float64(product.UnitPerPack)))
+		f.SetCellValue(sheetName, "D"+row, product.Quantity)
 		f.SetCellValue(sheetName, "E"+row, product.Barcode)
 		f.SetCellValue(sheetName, "F"+row, product.ProducerName)
 		f.SetCellValue(sheetName, "G"+row, product.ExpireDate)
