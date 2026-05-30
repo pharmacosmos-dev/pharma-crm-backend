@@ -111,6 +111,7 @@ func (s *Services) GetTransferById(ctx context.Context, transferId string) (*dom
 		ToStoreId         string     `gorm:"to_store_id"`
 		Name              string     `gorm:"name"`
 		Status            string     `gorm:"status"`
+		DriverName        string     `gorm:"driver_name"`
 		ReceivedCount     float64    `gorm:"received_count"`
 		ExpectedCount     float64    `gorm:"expected_count"`
 		ScannedCount      float64    `gorm:"scanned_count"`
@@ -144,6 +145,7 @@ func (s *Services) GetTransferById(ctx context.Context, transferId string) (*dom
 			"t.from_store_id",
 			"t.to_store_id",
 			"t.status",
+			"t.driver_name",
 			"t.created_at",
 			"t.updated_at",
 			"t.created_by",
@@ -189,6 +191,7 @@ func (s *Services) GetTransferById(ctx context.Context, transferId string) (*dom
 		FromStoreId:       tmpTransfer.FromStoreId,
 		ToStoreId:         tmpTransfer.ToStoreId,
 		Status:            tmpTransfer.Status,
+		DriverName:        tmpTransfer.DriverName,
 		ReceivedCount:     tmpTransfer.ReceivedCount,
 		ExpectedCount:     tmpTransfer.ExpectedCount,
 		ScannedCount:      tmpTransfer.ScannedCount,
