@@ -244,6 +244,7 @@ func (s *Services) TransferList(ctx context.Context, params *domain.ReturnParam)
 		ToStoreId         string     `gorm:"to_store_id"`
 		Name              string     `gorm:"name"`
 		Status            string     `gorm:"status"`
+		DriverName        string     `gorm:"driver_name"`
 		Is_Auto		      bool       `gorm:"is_auto"`
 		ReceivedCount     float64    `gorm:"received_count"`
 		ExpectedCount     float64    `gorm:"expected_count"`
@@ -274,6 +275,7 @@ func (s *Services) TransferList(ctx context.Context, params *domain.ReturnParam)
 			"t.from_store_id",
 			"t.to_store_id",
 			"t.status",
+			"t.driver_name",
 			"t.is_auto",
 			"t.created_at",
 			"t.updated_at",
