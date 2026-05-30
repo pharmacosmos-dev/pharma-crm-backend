@@ -355,6 +355,7 @@ func (s *Services) TransferList(ctx context.Context, params *domain.ReturnParam)
 			FromStoreId:       item.FromStoreId,
 			ToStoreId:         item.ToStoreId,
 			Status:            item.Status,
+			DriverName:        item.DriverName,
 			IsAuto:            item.Is_Auto,
 			ReceivedCount:     item.ReceivedCount,
 			ExpectedCount:     item.ExpectedCount,
