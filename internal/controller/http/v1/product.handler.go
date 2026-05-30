@@ -1661,7 +1661,7 @@ func (h *ProductHandler) GetProductsByImportExport(c *gin.Context) {
 	f.SetSheetName("Sheet1", sheetName)
 
 	// Headerlar
-	headers := []string{"Код", "Наименование", "Кол-во", "Штрихкод", "Производитель", "ИКПУ", "Код.Уп", "Наз.Уп", "Маркировка", "Цена поставки", "Цена продажи"}
+	headers := []string{"Код", "Наименование", "Aптека", "Кол-во", "Штрихкод", "Производитель", "Срок", "ИКПУ", "Код.Уп", "Наз.Уп", "Маркировка", "Цена поставки", "Цена продажи"}
 
 	err = setExcelHeaders(f, sheetName, headers)
 	if err != nil {
@@ -1675,15 +1675,17 @@ func (h *ProductHandler) GetProductsByImportExport(c *gin.Context) {
 		row := strconv.Itoa(i + 2)
 		f.SetCellValue(sheetName, "A"+row, product.MaterialCode)
 		f.SetCellValue(sheetName, "B"+row, product.Name)
-		f.SetCellValue(sheetName, "C"+row, math.Round(float64(product.UQuantity)/float64(product.UnitPerPack)))
-		f.SetCellValue(sheetName, "D"+row, product.Barcode)
-		f.SetCellValue(sheetName, "E"+row, product.ProducerName)
-		f.SetCellValue(sheetName, "F"+row, product.Mxik)
-		f.SetCellValue(sheetName, "G"+row, product.UnitCode)
-		f.SetCellValue(sheetName, "H"+row, product.UnitLabel)
-		f.SetCellValue(sheetName, "J"+row, product.IsMarking)
-		f.SetCellValue(sheetName, "K"+row, product.SupplyPrice)
-		f.SetCellValue(sheetName, "L"+row, product.RetailPrice)
+		f.SetCellValue(sheetName, "C"+row, product.StoreName)
+		f.SetCellValue(sheetName, "D"+row, math.Round(float64(product.UQuantity)/float64(product.UnitPerPack)))
+		f.SetCellValue(sheetName, "E"+row, product.Barcode)
+		f.SetCellValue(sheetName, "F"+row, product.ProducerName)
+		f.SetCellValue(sheetName, "G"+row, product.ExpireDate)
+		f.SetCellValue(sheetName, "H"+row, product.Mxik)
+		f.SetCellValue(sheetName, "I"+row, product.UnitCode)
+		f.SetCellValue(sheetName, "J"+row, product.UnitLabel)
+		f.SetCellValue(sheetName, "K"+row, product.IsMarking)
+		f.SetCellValue(sheetName, "L"+row, product.SupplyPrice)
+		f.SetCellValue(sheetName, "M"+row, product.RetailPrice)
 
 	}
 
