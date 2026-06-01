@@ -177,14 +177,14 @@ func (s *Services) UpdateReturnDetailQuantity(ctx context.Context, req *domain.R
 
 	// Version 2: new transfers use explicit pack + unit fields.
 	// Old transfers keep expected_pack/expected_unit = NULL and fall through to version 1.
-	if req.ExpectedPack != nil || req.ExpectedUnit != nil {
+	if req.Pack != nil || req.Unit != nil {
 		pack := 0
 		unit := 0
-		if req.ExpectedPack != nil {
-			pack = *req.ExpectedPack
+		if req.Pack != nil {
+			pack = *req.Pack	
 		}
-		if req.ExpectedUnit != nil {
-			unit = *req.ExpectedUnit
+		if req.Unit != nil {
+			unit = *req.Unit
 		}
 		count := float64(pack) + float64(unit)/returnDetail.UnitPerPack
 
@@ -205,8 +205,8 @@ func (s *Services) UpdateReturnDetailQuantity(ctx context.Context, req *domain.R
 			err = s.db.WithContext(ctx).Exec(`
 				UPDATE transfer_details
 				SET scanned_count = ?,
-				    expected_pack = ?,
-				    expected_unit = ?,
+				    scanned_pack = ?,
+				    scanned_unit = ?,
 				    updated_at   = NOW()
 				WHERE id = ? AND transfer_id = ?
 			`, count, pack, unit, req.Id, req.TransferId).Error

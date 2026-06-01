@@ -1,0 +1,3 @@
+ALTER TABLE transfer_details
+    ADD COLUMN IF NOT EXISTS "scanned_pack" INTEGER DEFAULT NULL,
+    ADD COLUMN IF NOT EXISTS "scanned_unit" INTEGER DEFAULT NULL;
