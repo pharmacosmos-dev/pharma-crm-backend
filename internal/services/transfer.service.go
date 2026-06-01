@@ -252,6 +252,8 @@ func (s *Services) TransferList(ctx context.Context, params *domain.ReturnParam)
 		AcceptedCount     float64    `gorm:"accepted_count"`
 		ReceivedSupplySum float64    `gorm:"received_supply_sum"`
 		ReceivedRetailSum float64    `gorm:"received_retail_sum"`
+		ExpectedSupplySum float64    `gorm:"expected_supply_sum"`
+		ExpectedRetailSum float64    `gorm:"expected_retail_sum"`
 		ScannedSupplySum  float64    `gorm:"scanned_supply_sum"`
 		ScannedRetailSum  float64    `gorm:"scanned_retail_sum"`
 		AcceptedSupplySum float64    `gorm:"accepted_supply_sum"`
@@ -291,6 +293,8 @@ func (s *Services) TransferList(ctx context.Context, params *domain.ReturnParam)
 			"SUM(trd.accepted_count) AS accepted_count",
 			"SUM(trd.received_count*trd.supply_price) AS received_supply_sum",
 			"SUM(trd.received_count*trd.retail_price) AS received_retail_sum",
+			"SUM(trd.expected_count*trd.supply_price) AS expected_supply_sum",
+			"SUM(trd.expected_count*trd.retail_price) AS expected_retail_sum",
 			"SUM(trd.scanned_count*trd.supply_price)  AS scanned_supply_sum",
 			"SUM(trd.scanned_count*trd.retail_price)  AS scanned_retail_sum",
 			"SUM(trd.accepted_count*trd.supply_price) AS accepted_supply_sum",
@@ -367,6 +371,8 @@ func (s *Services) TransferList(ctx context.Context, params *domain.ReturnParam)
 			AcceptedCount:     item.AcceptedCount,
 			ReceivedSupplySum: item.ReceivedSupplySum,
 			ReceivedRetailSum: item.ReceivedRetailSum,
+			ExpectedSupplySum: item.ExpectedSupplySum,
+			ExpectedRetailSum: item.ExpectedRetailSum,
 			ScannedSupplySum:  item.ScannedSupplySum,
 			ScannedRetailSum:  item.ScannedRetailSum,
 			AcceptedSupplySum: item.AcceptedSupplySum,

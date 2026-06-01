@@ -19,6 +19,8 @@ type Transfer struct {
 	AcceptedAt        *time.Time                   `gorm:"accepted_at" json:"accepted_at"`
 	ReceivedSupplySum float64                      `gorm:"received_supply_sum" json:"received_supply_sum"`
 	ReceivedRetailSum float64                      `gorm:"received_retail_sum" json:"received_retail_sum"`
+	ExpectedSupplySum float64                      `gorm:"expected_supply_sum" json:"expected_supply_sum"`
+	ExpectedRetailSum float64                      `gorm:"expected_retail_sum" json:"expected_retail_sum"`
 	AcceptedSupplySum float64                      `gorm:"accepted_supply_sum" json:"accepted_supply_sum"`
 	AcceptedRetailSum float64                      `gorm:"accepted_retail_sum" json:"accepted_retail_sum"`
 	ScannedSupplySum  float64                      `gorm:"scanned_supply_sum" json:"scanned_supply_sum"`
