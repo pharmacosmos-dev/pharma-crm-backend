@@ -245,13 +245,15 @@ func (s *Services) TransferList(ctx context.Context, params *domain.ReturnParam)
 		Name              string     `gorm:"name"`
 		Status            string     `gorm:"status"`
 		DriverName        string     `gorm:"driver_name"`
-		Is_Auto		      bool       `gorm:"is_auto"`
+		Is_Auto           bool       `gorm:"is_auto"`
 		ReceivedCount     float64    `gorm:"received_count"`
 		ExpectedCount     float64    `gorm:"expected_count"`
 		ScannedCount      float64    `gorm:"scanned_count"`
 		AcceptedCount     float64    `gorm:"accepted_count"`
 		ReceivedSupplySum float64    `gorm:"received_supply_sum"`
 		ReceivedRetailSum float64    `gorm:"received_retail_sum"`
+		ScannedSupplySum  float64    `gorm:"scanned_supply_sum"`
+		ScannedRetailSum  float64    `gorm:"scanned_retail_sum"`
 		AcceptedSupplySum float64    `gorm:"accepted_supply_sum"`
 		AcceptedRetailSum float64    `gorm:"accepted_retail_sum"`
 		FromStoreName     string     `gorm:"from_store_name"`
@@ -289,6 +291,8 @@ func (s *Services) TransferList(ctx context.Context, params *domain.ReturnParam)
 			"SUM(trd.accepted_count) AS accepted_count",
 			"SUM(trd.received_count*trd.supply_price) AS received_supply_sum",
 			"SUM(trd.received_count*trd.retail_price) AS received_retail_sum",
+			"SUM(trd.scanned_count*trd.supply_price)  AS scanned_supply_sum",
+			"SUM(trd.scanned_count*trd.retail_price)  AS scanned_retail_sum",
 			"SUM(trd.accepted_count*trd.supply_price) AS accepted_supply_sum",
 			"SUM(trd.accepted_count*trd.retail_price) AS accepted_retail_sum",
 			"fs.name AS from_store_name",
@@ -363,6 +367,8 @@ func (s *Services) TransferList(ctx context.Context, params *domain.ReturnParam)
 			AcceptedCount:     item.AcceptedCount,
 			ReceivedSupplySum: item.ReceivedSupplySum,
 			ReceivedRetailSum: item.ReceivedRetailSum,
+			ScannedSupplySum:  item.ScannedSupplySum,
+			ScannedRetailSum:  item.ScannedRetailSum,
 			AcceptedSupplySum: item.AcceptedSupplySum,
 			AcceptedRetailSum: item.AcceptedRetailSum,
 			CreatedAt:         item.CreatedAt,

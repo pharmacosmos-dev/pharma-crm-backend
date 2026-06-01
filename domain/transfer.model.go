@@ -21,6 +21,8 @@ type Transfer struct {
 	ReceivedRetailSum float64                      `gorm:"received_retail_sum" json:"received_retail_sum"`
 	AcceptedSupplySum float64                      `gorm:"accepted_supply_sum" json:"accepted_supply_sum"`
 	AcceptedRetailSum float64                      `gorm:"accepted_retail_sum" json:"accepted_retail_sum"`
+	ScannedSupplySum  float64                      `gorm:"scanned_supply_sum" json:"scanned_supply_sum"`
+	ScannedRetailSum  float64                      `gorm:"scanned_retail_sum" json:"scanned_retail_sum"`
 	IsAuto            bool                         `gorm:"is_auto" json:"is_auto"`
 	DriverName        string                       `gorm:"driver_name" json:"driver_name"`
 	CreatedById       string                       `gorm:"column:created_by" json:"created_by_id"`
