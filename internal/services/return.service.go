@@ -868,7 +868,7 @@ func (s *Services) ReSendReturnToOnec(ctx context.Context, returnId string) erro
 	return nil
 }
 
-func (s *Services) EditStatusToCheckingReturn(ctx context.Context, Id string, userId string, driverName string) error {
+func (s *Services) EditStatusToCheckingReturn(ctx context.Context, Id string, userId string, driverName *string) error {
 	err := s.db.WithContext(ctx).Exec(
 		"UPDATE transfers SET status = ?, updated_by = ?, driver_name = ?, updated_at = NOW() WHERE id = ?",
 		constants.GeneralStatusChecking, userId, driverName, Id,

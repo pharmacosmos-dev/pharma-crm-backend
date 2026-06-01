@@ -987,10 +987,13 @@ func (h *ReturnHandler) EditStatusToChecking(c *gin.Context) {
 		return
 	}
 
+	var req domain.EditStatusToCheckingRequest
+	_ = c.ShouldBindJSON(&req)
+
 	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
 	defer cancel()
 
-	err := h.service.EditStatusToCheckingReturn(ctx, id, user.UserId, "")
+	err := h.service.EditStatusToCheckingReturn(ctx, id, user.UserId, req.DriverName)
 	if err != nil {
 		handleServiceResponse(c, nil, err)
 		return
