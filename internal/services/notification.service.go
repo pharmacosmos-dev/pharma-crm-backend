@@ -98,6 +98,26 @@ func (s *Services) NotifyOnlineOrderUpdatedStatus(StoreId string, orderDisplayId
 	})
 }
 
+func (s *Services) NotifyImportCreated(storeId string, documentNumber string) {
+	notification := domain.CreateNotificationDto{
+		ContentUz: fmt.Sprintf("Yangi kirim yaratildi: %s", documentNumber),
+		ContentRu: fmt.Sprintf("Создан новый приход: %s", documentNumber),
+		ContentEn: fmt.Sprintf("New import created: %s", documentNumber),
+		HeaderUz:  "Yangi kirim",
+		HeaderRu:  "Новый приход",
+		HeaderEn:  "New import",
+		StoreId:   storeId,
+	}
+
+	s.hub.SendMessage(ws.Message{
+		StoreId: storeId,
+		Payload: ws.OutgoingMessage{
+			Event: constants.WsEventImportCreated,
+			Data:  notification,
+		},
+	})
+}
+
 func (s *Services) NotifyTransferChecking(storeId string, transferName string) {
 	notification := domain.CreateNotificationDto{
 		ContentUz: fmt.Sprintf("Transfer tekshirish uchun keldi: %s", transferName),

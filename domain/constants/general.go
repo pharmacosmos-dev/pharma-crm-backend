@@ -49,6 +49,7 @@ const (
 	WsEventNoorOrderAcceptCourier = "noor_order_accept_courier"
 	WsEventTransferSent           = "transfer_sent"
 	WsEventTransferChecking       = "transfer_checking"
+	WsEventImportCreated          = "import_created"
 
 )
 

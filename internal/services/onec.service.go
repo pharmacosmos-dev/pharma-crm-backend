@@ -68,6 +68,7 @@ func (s *Services) CreateImportFromOnec(ctx context.Context, req *domain.CreateO
 	}
 
 	go s.updateImportTotalsAfterCreateNewImport(importId)
+	go s.NotifyImportCreated(store.Id, req.Dok.DocumentNumber)
 
 	return nil
 }
