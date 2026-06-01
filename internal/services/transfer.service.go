@@ -638,6 +638,15 @@ func (s *Services) SendTransfer(ctx context.Context, transferId string, userId s
 }
 
 func (s *Services) EditStatusToCheckingTransfer(ctx context.Context, Id string, userId string, driverName *string) error {
+	var transfer struct {
+		ToStoreId string `gorm:"to_store_id"`
+		Name      string `gorm:"name"`
+	}
+	if err := s.db.WithContext(ctx).Raw("SELECT to_store_id, name FROM transfers WHERE id = ?", Id).Scan(&transfer).Error; err != nil {
+		s.log.Errorf("could not get transfer(%s): %v", Id, err)
+		return domain.InternalServerError
+	}
+
 	result := s.db.WithContext(ctx).Exec(
 		"UPDATE transfers SET status = $1, updated_by = $2, driver_name = $3, updated_at = NOW() WHERE id = $4",
 		constants.GeneralStatusChecking, userId, driverName, Id,
@@ -647,6 +656,8 @@ func (s *Services) EditStatusToCheckingTransfer(ctx context.Context, Id string, 
 		return domain.InternalServerError
 	}
 	s.log.Infof("EditStatusToCheckingTransfer: id=%s rowsAffected=%d", Id, result.RowsAffected)
+
+	go s.NotifyTransferChecking(transfer.ToStoreId, transfer.Name)
 	return nil
 }
 

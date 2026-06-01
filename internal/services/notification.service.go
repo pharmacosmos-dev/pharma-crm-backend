@@ -98,6 +98,26 @@ func (s *Services) NotifyOnlineOrderUpdatedStatus(StoreId string, orderDisplayId
 	})
 }
 
+func (s *Services) NotifyTransferChecking(storeId string, transferName string) {
+	notification := domain.CreateNotificationDto{
+		ContentUz: fmt.Sprintf("Transfer tekshirish uchun keldi: %s", transferName),
+		ContentRu: fmt.Sprintf("Трансфер пришёл на проверку: %s", transferName),
+		ContentEn: fmt.Sprintf("Transfer arrived for checking: %s", transferName),
+		HeaderUz:  "Transfer keldi",
+		HeaderRu:  "Трансфер получен",
+		HeaderEn:  "Transfer received",
+		StoreId:   storeId,
+	}
+
+	s.hub.SendMessage(ws.Message{
+		StoreId: storeId,
+		Payload: ws.OutgoingMessage{
+			Event: constants.WsEventTransferChecking,
+			Data:  notification,
+		},
+	})
+}
+
 func (s *Services) NotifyTransferSent(storeId string, transferName string) {
   notification := domain.CreateNotificationDto{
     ContentUz: fmt.Sprintf("Transfer jo'natildi: %s", transferName),
