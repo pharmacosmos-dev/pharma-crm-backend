@@ -100,11 +100,11 @@ func (s *Services) NotifyOnlineOrderUpdatedStatus(StoreId string, orderDisplayId
 
 func (s *Services) NotifyImportCreated(storeId string, documentNumber string) {
 	notification := domain.CreateNotificationDto{
-		ContentUz: fmt.Sprintf("Yangi kirim yaratildi: %s", documentNumber),
-		ContentRu: fmt.Sprintf("Создан новый приход: %s", documentNumber),
+		ContentUz: fmt.Sprintf("Yangi import yaratildi: %s", documentNumber),
+		ContentRu: fmt.Sprintf("Создан новый импорт: %s", documentNumber),
 		ContentEn: fmt.Sprintf("New import created: %s", documentNumber),
-		HeaderUz:  "Yangi kirim",
-		HeaderRu:  "Новый приход",
+		HeaderUz:  "Yangi import",
+		HeaderRu:  "Новый импорт",
 		HeaderEn:  "New import",
 		StoreId:   storeId,
 	}
