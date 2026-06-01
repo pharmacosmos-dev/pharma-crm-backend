@@ -47,6 +47,8 @@ const (
 	WsEventNoorOrder              = "noor_order"
 	WsEventNoorOrderCancel        = "noor_order_cancel"
 	WsEventNoorOrderAcceptCourier = "noor_order_accept_courier"
+	WsEventTransferSent           = "transfer_sent"
+
 )
 
 // Payment Types slices

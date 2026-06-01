@@ -631,6 +631,8 @@ func (s *Services) SendTransfer(ctx context.Context, transferId string, userId s
 	}
 
 	go s.deleteNotInsertedTransferDetails(transferId)
+	go s.NotifyTransferSent(transfer.FromStoreId, transfer.Name)
+
 
 	return nil
 }

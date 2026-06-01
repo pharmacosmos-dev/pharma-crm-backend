@@ -97,3 +97,24 @@ func (s *Services) NotifyOnlineOrderUpdatedStatus(StoreId string, orderDisplayId
 		},
 	})
 }
+
+func (s *Services) NotifyTransferSent(storeId string, transferName string) {
+  notification := domain.CreateNotificationDto{
+    ContentUz: fmt.Sprintf("Transfer jo'natildi: %s", transferName),
+    ContentRu: fmt.Sprintf("Трансфер отправлен: %s", transferName),
+    ContentEn: fmt.Sprintf("Transfer sent: %s", transferName),
+    HeaderUz:  "Transfer jo'natildi",
+    HeaderRu:  "Трансфер отправлен",
+    HeaderEn:  "Transfer sent",
+    StoreId:   storeId,
+  }
+
+  s.hub.SendMessage(ws.Message{
+    StoreId: storeId,
+    Payload: ws.OutgoingMessage{
+      Event: constants.WsEventTransferSent,
+      Data:  notification,
+    },
+  })
+}
+
