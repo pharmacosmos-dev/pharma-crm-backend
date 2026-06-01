@@ -646,9 +646,11 @@ func (h *TransferHandler) EditStatusToChecking(c *gin.Context) {
 	}
 
 	var req domain.EditStatusToCheckingRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		handleServiceResponse(c, BadRequest, domain.InvalidRequestBodyError)
-		return
+	if c.Request.ContentLength != 0 {
+		if err := c.ShouldBindJSON(&req); err != nil {
+			handleServiceResponse(c, BadRequest, domain.InvalidRequestBodyError)
+			return
+		}
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
