@@ -199,7 +199,7 @@ type OnecReturnResponse struct {
 }
 
 type EditStatusToCheckingRequest struct {
-	DriverName string `json:"driver_name"`
-	Type       string `json:"type"`
+	DriverName *string `json:"driver_name"`
+	Type       string  `json:"type"`
 }
 
