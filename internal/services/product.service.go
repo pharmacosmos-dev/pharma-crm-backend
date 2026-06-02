@@ -506,6 +506,7 @@ func (s *Services) GetPublicProducts(ctx context.Context, params *domain.Product
 		"DATE_PART('day', sp.expire_date::timestamp - NOW()) AS expire_day",
 		"st.name AS store_name",
 		"st.phone AS store_phone",
+		"st.address AS store_address",
 	).
 		Limit(params.Limit).
 		Offset(params.Offset).

@@ -210,6 +210,7 @@ type ProductData struct {
 	ID           string            `gorm:"id" json:"id"`
 	StoreName    string            `gorm:"store_name" json:"store_name"`
 	StorePhone   string            `gorm:"store_phone" json:"store_phone"`
+	StoreAddress string            `gorm:"store_address" json:"store_address"`
 	MaterialCode int               `gorm:"material_code" json:"material_code"`
 	Name         string            `gorm:"name" json:"name"`
 	Photos       utils.StringArray `gorm:"type:text[]" json:"photos"`
