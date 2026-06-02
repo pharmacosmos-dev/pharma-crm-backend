@@ -100,6 +100,7 @@ func (h *ProductHandler) ProductRoutes(r *gin.RouterGroup) {
 		product.GET("/export-products-by-import", h.ExportProductsByImport)
 		product.GET("/store-product-import-detail", h.ListStoreProductsWithImportDetail)
 		product.PATCH("/store-product/:id/unit-quantity", h.UpdateStoreProductUnitQuantity)
+		product.GET("/public-list", h.PublicList)
 	}
 }
 
@@ -4037,4 +4038,42 @@ func (h *ProductHandler) UpdateStoreProductUnitQuantity(c *gin.Context) {
 	}
 
 	handleResponse(c, OK, "UPDATED")
+}
+
+// PublicList godoc
+// @Summary Get public product list with store info
+// @Description Get product list from all stores including store name and phone. No auth required.
+// @Tags products
+// @Accept json
+// @Produce json
+// @Param limit query int false "Limit"
+// @Param offset query int false "Offset"
+// @Param search query string false "Search by name or barcode"
+// @Param store_id query string false "Filter by store ID"
+// @Param category_id query string false "Filter by category ID"
+// @Param producer_id query string false "Filter by producer ID"
+// @Success 200 {object} v1.Response
+// @Failure 400 {object} v1.Response
+// @Failure 500 {object} v1.Response
+// @Router /product/public-list [get]
+func (h *ProductHandler) PublicList(c *gin.Context) {
+	var params domain.ProductQueryParam
+	if err := c.ShouldBindQuery(&params); err != nil {
+		handleServiceResponse(c, nil, domain.InvalidQueryError)
+		return
+	}
+
+	params.Limit, params.Offset = defaultLimitOffset(params.Limit, params.Offset)
+
+	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
+	defer cancel()
+
+	products, totalCount, err := h.service.GetPublicProducts(ctx, &params)
+	if err != nil {
+		handleServiceResponse(c, InternalError, err)
+		return
+	}
+
+	result := utils.ListResponse(products, totalCount, params.Limit, params.Offset)
+	handleResponse(c, OK, result)
 }

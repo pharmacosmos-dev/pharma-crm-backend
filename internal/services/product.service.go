@@ -454,6 +454,87 @@ func (s *Services) GetProductsByStores(ctx context.Context, params *domain.Produ
 	return res, nil
 }
 
+func (s *Services) GetPublicProducts(ctx context.Context, params *domain.ProductQueryParam) ([]domain.ProductData, int64, error) {
+	qb := s.db.WithContext(ctx).
+		Table("store_products sp").
+		Joins("JOIN stores st ON st.id = sp.store_id").
+		Joins("JOIN products p ON p.id = sp.product_id").
+		Joins("LEFT JOIN producers pr ON p.producer_id = pr.id").
+		Joins("LEFT JOIN categories c ON p.category_id = c.id").
+		Joins("LEFT JOIN countries cnt ON p.country_id = cnt.id").
+		Where("sp.unit_quantity > 0")
+
+	if params.SearchField != "" {
+		search := fmt.Sprintf("%%%s%%", params.SearchField)
+		qb = qb.Where("p.name ILIKE ? OR p.barcode LIKE ?", search, search)
+	}
+	if params.StoreId != "" {
+		qb = qb.Where("sp.store_id = ?", params.StoreId)
+	}
+	if params.CategoryId != "" {
+		qb = qb.Where("p.category_id = ?", params.CategoryId)
+	}
+	if params.ProducerId != "" {
+		qb = qb.Where("p.producer_id = ?", params.ProducerId)
+	}
+
+	var totalCount int64
+	if err := qb.Session(&gorm.Session{}).Count(&totalCount).Error; err != nil {
+		s.log.Errorf("could not count public products: %v", err)
+		return nil, 0, domain.InternalServerError
+	}
+
+	var res []domain.ProductData
+	err := qb.Select(
+		"p.id",
+		"p.material_code",
+		"p.name",
+		"p.barcode",
+		"p.photos",
+		"p.unit_per_pack",
+		"p.is_marking",
+		"p.requires_prescription",
+		"p.created_at",
+		"p.updated_at",
+		"COALESCE(pr.name, '') AS manufacturer",
+		"COALESCE(c.name, '') AS category_name",
+		"COALESCE(cnt.name, '') AS country",
+		"sp.unit_quantity",
+		"sp.retail_price",
+		"sp.supply_price",
+		"sp.expire_date",
+		"DATE_PART('day', sp.expire_date::timestamp - NOW()) AS expire_day",
+		"st.name AS store_name",
+		"st.phone AS store_phone",
+	).
+		Limit(params.Limit).
+		Offset(params.Offset).
+		Order("st.name, p.name").
+		Find(&res).Error
+
+	if err != nil {
+		s.log.Errorf("could not get public products: %v", err)
+		return nil, 0, domain.InternalServerError
+	}
+
+	for i := range res {
+		if res[i].UnitQuantity%res[i].UnitPerPack > 0 {
+			res[i].Units = fmt.Sprintf("%d (%d/%d)",
+				res[i].UnitQuantity/res[i].UnitPerPack,
+				res[i].UnitQuantity%res[i].UnitPerPack,
+				res[i].UnitPerPack)
+		} else {
+			res[i].Units = fmt.Sprintf("%d", res[i].UnitQuantity/res[i].UnitPerPack)
+		}
+	}
+
+	if len(res) == 0 {
+		res = []domain.ProductData{}
+	}
+
+	return res, totalCount, nil
+}
+
 func (s *Services) GetProductStats(ctx context.Context, params *domain.ProductQueryParam) (domain.ProductStats, error) {
 
 	now := time.Now().Add(constants.DateTimeTashkent)
