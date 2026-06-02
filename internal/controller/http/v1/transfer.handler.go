@@ -627,7 +627,7 @@ func (h *TransferHandler) Send(c *gin.Context) {
 // @Accept 	json
 // @Produce json
 // @Param   id path string true "Transfer ID"
-// @Param   body body domain.EditStatusToCheckingRequest true "Driver name and type"
+// @Param   body body domain.EditStatusToCheckingRequest false "Driver name and type"
 // @Success 200 {object} v1.Response "Return PDF file"
 // @Failure 400 {object} v1.Response "Invalid request parameters"
 // @Failure 500 {object} v1.Response "Internal server error"
@@ -646,10 +646,13 @@ func (h *TransferHandler) EditStatusToChecking(c *gin.Context) {
 	}
 
 	var req domain.EditStatusToCheckingRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		handleServiceResponse(c, BadRequest, domain.InvalidRequestBodyError)
-		return
-	}
+	_ = c.ShouldBindJSON(&req)
+
+	// var req domain.EditStatusToCheckingRequest
+	// if err := c.ShouldBindJSON(&req); err != nil {
+	// 	handleServiceResponse(c, BadRequest, domain.InvalidRequestBodyError)
+	// 	return
+	// }
 
 	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
 	defer cancel()
