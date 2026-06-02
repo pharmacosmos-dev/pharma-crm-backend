@@ -12979,6 +12979,55 @@ paths:
       summary: Get a product
       tags:
       - products
+  /product/public-list:
+    get:
+      consumes:
+      - application/json
+      description: Get product list from all stores including store name and phone.
+        No auth required.
+      parameters:
+      - description: Limit
+        in: query
+        name: limit
+        type: integer
+      - description: Offset
+        in: query
+        name: offset
+        type: integer
+      - description: Search by name or barcode
+        in: query
+        name: search
+        type: string
+      - description: Filter by store ID
+        in: query
+        name: store_id
+        type: string
+      - description: Filter by category ID
+        in: query
+        name: category_id
+        type: string
+      - description: Filter by producer ID
+        in: query
+        name: producer_id
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      summary: Get public product list with store info
+      tags:
+      - products
   /product/revert-packaging:
     put:
       consumes:
