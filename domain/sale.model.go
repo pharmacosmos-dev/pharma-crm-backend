@@ -268,6 +268,8 @@ type SaleStats struct {
 	TotalReturnedCount  int     `gorm:"total_returned_count" json:"total_returned_count"`
 	TotalDiscountSum    float64 `gorm:"total_discount_sum" json:"total_discount_sum"`
 	TotalDiscountCount  int     `gorm:"total_discount_count" json:"total_discount_count"`
+	TotalLoyaltyCardSum float64 `gorm:"total_loyalty_card_sum" json:"total_loyalty_card_sum"`
+	TotalLoyaltyCardCount int   `gorm:"total_loyalty_card_count" json:"total_loyalty_card_count"`
 	TotalCashSum        float64 `gorm:"total_cash_sum" json:"total_cash_sum"`
 	TotalCashCount      int     `gorm:"total_cash_count" json:"total_cash_count"`
 	TotalHumoSum        float64 `gorm:"total_humo_sum" json:"total_humo_sum"`

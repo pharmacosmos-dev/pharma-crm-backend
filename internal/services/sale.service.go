@@ -1858,6 +1858,8 @@ func (s *Services) GetSales(ctx context.Context, params *domain.SaleQueryParams,
 				OR (pt.front_name = 'alif' AND s.alif > 0)
 				OR (pt.front_name = 'uzum' AND s.uzum > 0)
 				OR (pt.front_name = 'uzum_tezkor' AND s.uzum_tez_kor > 0)
+				OR (pt.front_name = 'loyalty_card' AND s.loyalty_card > 0)
+				OR (pt.front_name = 'cash_back' AND s.cash_back > 0)
 			)
 		)`, params.PaymentTypeId)
 	}
@@ -1930,6 +1932,8 @@ func (s *Services) GetSalesStats(ctx context.Context, params *domain.SaleQueryPa
 			"COUNT(*) FILTER (WHERE s.sale_type = 'RETURN') AS total_returned_count",
 			"SUM(s.total_discount) AS total_discount_sum",
 			"COUNT(*) FILTER (WHERE s.total_discount > 0) AS total_discount_count",
+			"SUM(s.loyalty_card) AS total_loyalty_card_sum",
+			"COUNT(*) FILTER (WHERE s.loyalty_card > 0) AS total_loyalty_card_count",
 			"SUM(s.cash) AS total_cash_sum",
 			"COUNT(*) FILTER (WHERE s.cash != 0) AS total_cash_count",
 			"SUM(s.humo) AS total_humo_sum",
