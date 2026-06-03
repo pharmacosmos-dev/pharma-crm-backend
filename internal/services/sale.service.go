@@ -720,7 +720,8 @@ func (s *Services) EposResult(ctx context.Context, req *domain.EposResponseReque
 		return nil, err
 	}
 
-	if sale.Stage < constants.SaleStageFinished && fiscal.FiscalSign == "" {
+	isOnlineOrder := sale.ServiceType == constants.ServiceTypeUzum || sale.ServiceType == constants.ServiceTypeNoor
+	if sale.Stage < constants.SaleStageFinished && fiscal.FiscalSign == "" && !isOnlineOrder {
 		_ = tx.Rollback()
 		return nil, domain.FiscalSignRequiredError
 	}
@@ -756,7 +757,7 @@ func (s *Services) EposResult(ctx context.Context, req *domain.EposResponseReque
 		updates["stage"] = constants.SaleStageOfdSent
 		updates["fiscal_sign"] = fiscal.FiscalSign
 		updates["check_url"] = fiscal.QrCodeUrl
-		updates["is_sent_to_tax"] = true
+		updates["is_sent_to_tax"] = fiscal.FiscalSign != ""
 		updates["updated_at"] = time.Now()
 
 		// Save fiscal data immediately within transaction

@@ -179,8 +179,8 @@ func (s *Services) GetAvailability(ctx context.Context, storeId string, page, li
 	}
 
 	query := `
-		SELECT 
-			p.id AS store_product_id, 
+		SELECT
+			p.id AS store_product_id,
 			SUM(sp.unit_quantity) / p.unit_per_pack AS quantity
 		FROM (
 			SELECT DISTINCT ON (product_id) *
@@ -189,6 +189,14 @@ func (s *Services) GetAvailability(ctx context.Context, storeId string, page, li
 			ORDER BY product_id, unit_quantity DESC
 		) sp
 		JOIN products p ON sp.product_id = p.id
+		JOIN LATERAL (
+			SELECT retail_price
+			FROM online_products_price
+			WHERE product_id = p.id
+			  AND type = 'uzum'
+			ORDER BY created_at DESC
+			LIMIT 1
+		) osp ON true
 		WHERE sp.unit_quantity > 0 AND p.requires_prescription = false
 		GROUP BY p.id, p.unit_per_pack
 	`
