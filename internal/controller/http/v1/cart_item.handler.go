@@ -69,6 +69,16 @@ func (h *CartItemHandler) Create(c *gin.Context) {
 	ctx, cancel := context.WithTimeout(c.Request.Context(), constants.DefaultContextTimeout)
 	defer cancel()
 
+	var sale domain.Sale
+	if err := h.db.WithContext(ctx).Select("type").Where("id = ?", body.SaleId).First(&sale).Error; err != nil {
+		handleServiceResponse(c, InternalError, err)
+		return
+	}
+	if sale.Type == "online" {
+		handleServiceResponse(c, FORBIDDEN, domain.ForbiddinError)
+		return
+	}
+
 	body.EmployeeId = user.UserId
 
 	// create cart item
@@ -383,6 +393,22 @@ func (h *CartItemHandler) Delete(c *gin.Context) {
 
 	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
 	defer cancel()
+
+	var cartItem domain.CartItem
+	if err := h.db.WithContext(ctx).Select("sale_id").Where("id = ?", id).First(&cartItem).Error; err != nil {
+		handleServiceResponse(c, InternalError, err)
+		return
+	}
+
+	var sale domain.Sale
+	if err := h.db.WithContext(ctx).Select("type").Where("id = ?", cartItem.SaleId).First(&sale).Error; err != nil {
+		handleServiceResponse(c, InternalError, err)
+		return
+	}
+	if sale.Type == "online" {
+		handleServiceResponse(c, FORBIDDEN, domain.ForbiddinError)
+		return
+	}
 
 	err := h.service.DeleteCartItem(ctx, id)
 	if err != nil {
