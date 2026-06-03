@@ -231,7 +231,7 @@ func (h *CustomerHandler) ExportCustomerExcel(c *gin.Context) {
 	f.SetSheetName("Sheet1", sheetName)
 
 	// Headerlar
-	headers := []string{"ID", "ФИО", "Номер Телефона", "Теги", "Сумма покупки", "Последний покупка", "Дата рождения", "Дата регистрации", "Зарегистрируйтесь в филиале", "Баланс", "Текущий долг"}
+	headers := []string{"ID", "ФИО", "Номер Телефона", "Теги", "Сумма покупки", "Последний покупка", "Дисконт карта", "Процент скидки", "Штрихкод карты лояльности", "Процент карты лояльности", "Создатель карты лояльности", "Дата рождения", "Дата регистрации", "Зарегистрируйтесь в филиале", "Баланс", "Текущий долг"}
 
 	err = setExcelHeaders(f, sheetName, headers)
 	if err != nil {
@@ -259,16 +259,21 @@ func (h *CustomerHandler) ExportCustomerExcel(c *gin.Context) {
 		} else {
 			f.SetCellValue(sheetName, "F"+row, "N/A")
 		}
-		f.SetCellValue(sheetName, "G"+row, client.Birthday)
-		f.SetCellValue(sheetName, "H"+row, client.CreatedAt)
+		f.SetCellValue(sheetName, "G"+row, client.DiscountCard)
+		f.SetCellValue(sheetName, "H"+row, client.DiscountPercent)
+		f.SetCellValue(sheetName, "I"+row, client.LoyaltyCardBarcode)
+		f.SetCellValue(sheetName, "J"+row, client.LoyaltyCardPercent)
+		f.SetCellValue(sheetName, "K"+row, client.LoyaltyCardCreatedBy)
+		f.SetCellValue(sheetName, "L"+row, client.Birthday)
+		f.SetCellValue(sheetName, "M"+row, client.CreatedAt)
 		// check if store is not null
 		if client.Store != nil {
-			f.SetCellValue(sheetName, "I"+row, client.Store.Name)
+			f.SetCellValue(sheetName, "N"+row, client.Store.Name)
 		} else {
-			f.SetCellValue(sheetName, "I"+row, "N/A")
+			f.SetCellValue(sheetName, "N"+row, "N/A")
 		}
-		f.SetCellValue(sheetName, "J"+row, client.Balance)
-		f.SetCellValue(sheetName, "K"+row, client.DebtAmount)
+		f.SetCellValue(sheetName, "O"+row, client.Balance)
+		f.SetCellValue(sheetName, "P"+row, client.DebtAmount)
 
 	}
 	saveExcelToUploads(c, f, *h.log, "Mijozlar")
