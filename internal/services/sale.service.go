@@ -1840,7 +1840,9 @@ func (s *Services) GetSales(ctx context.Context, params *domain.SaleQueryParams,
 	if params.TotalAmountTo > 0 {
 		qb = qb.Where("s.total_amount <= ?", params.TotalAmountTo)
 	}
-	if params.SaleType != "" {
+	if params.SaleType == "DISCOUNT" {
+		qb = qb.Where("s.cash_back > 0")
+	} else if params.SaleType != "" {
 		qb = qb.Where("s.sale_type = ?", params.SaleType)
 	}
 	if params.IsCorporate {
@@ -1859,7 +1861,6 @@ func (s *Services) GetSales(ctx context.Context, params *domain.SaleQueryParams,
 				OR (pt.front_name = 'uzum' AND s.uzum > 0)
 				OR (pt.front_name = 'uzum_tezkor' AND s.uzum_tez_kor > 0)
 				OR (pt.front_name = 'loyalty_card' AND s.loyalty_card > 0)
-				OR (pt.front_name = 'cash_back' AND s.cash_back > 0)
 			)
 		)`, params.PaymentTypeId)
 	}
@@ -2019,7 +2020,9 @@ func (s *Services) GetSalesStats(ctx context.Context, params *domain.SaleQueryPa
 	if params.TotalAmountTo > 0 {
 		qb = qb.Where("s.total_amount <= ?", params.TotalAmountTo)
 	}
-	if params.SaleType != "" {
+	if params.SaleType == "DISCOUNT" {
+		qb = qb.Where("s.cash_back > 0")
+	} else if params.SaleType != "" {
 		qb = qb.Where("s.sale_type = ?", params.SaleType)
 	}
 	if params.IsCorporate {
@@ -2114,7 +2117,9 @@ func (s *Services) GetSaleList(ctx context.Context, params *domain.SaleQueryPara
 	if params.TotalAmountTo > 0 {
 		qb = qb.Where("s.total_amount <= ?", params.TotalAmountTo)
 	}
-	if params.SaleType != "" {
+	if params.SaleType == "DISCOUNT" {
+		qb = qb.Where("s.cash_back > 0")
+	} else if params.SaleType != "" {
 		qb = qb.Where("s.sale_type = ?", params.SaleType)
 	}
 
