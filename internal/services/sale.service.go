@@ -1841,7 +1841,7 @@ func (s *Services) GetSales(ctx context.Context, params *domain.SaleQueryParams,
 		qb = qb.Where("s.total_amount <= ?", params.TotalAmountTo)
 	}
 	if params.SaleType == "DISCOUNT" {
-		qb = qb.Where("s.cash_back > 0")
+		qb = qb.Where("s.total_discount > 0")
 	} else if params.SaleType != "" {
 		qb = qb.Where("s.sale_type = ?", params.SaleType)
 	}
@@ -2021,7 +2021,7 @@ func (s *Services) GetSalesStats(ctx context.Context, params *domain.SaleQueryPa
 		qb = qb.Where("s.total_amount <= ?", params.TotalAmountTo)
 	}
 	if params.SaleType == "DISCOUNT" {
-		qb = qb.Where("s.cash_back > 0")
+		qb = qb.Where("s.total_discount > 0")
 	} else if params.SaleType != "" {
 		qb = qb.Where("s.sale_type = ?", params.SaleType)
 	}
@@ -2118,7 +2118,7 @@ func (s *Services) GetSaleList(ctx context.Context, params *domain.SaleQueryPara
 		qb = qb.Where("s.total_amount <= ?", params.TotalAmountTo)
 	}
 	if params.SaleType == "DISCOUNT" {
-		qb = qb.Where("s.cash_back > 0")
+		qb = qb.Where("s.total_discount > 0")
 	} else if params.SaleType != "" {
 		qb = qb.Where("s.sale_type = ?", params.SaleType)
 	}
