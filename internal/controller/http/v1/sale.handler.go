@@ -338,7 +338,7 @@ func (h *SaleHandler) ExportSalesExcel(c *gin.Context) {
 	f.SetSheetName("Sheet1", sheetName)
 
 	// Headerlar
-	headers := []string{"ID", "Филиал", "Наличный", "Humo", "Uzcard", "Payme", "Click", "AlifBank", "Обшая сумма", "Дата продажа", "Время продажа", "Касса", "Продавец", "Клиент"}
+	headers := []string{"ID", "Филиал", "Наличный", "Humo", "Uzcard", "Payme", "Click", "AlifBank", "Карта лояльности", "Скидка", "Обшая сумма", "Дата продажа", "Касса", "Клиент"}
 
 	err = setExcelHeaders(f, sheetName, headers)
 	if err != nil {
@@ -358,17 +358,16 @@ func (h *SaleHandler) ExportSalesExcel(c *gin.Context) {
 		f.SetCellValue(sheetName, "F"+row, sale.Payme)
 		f.SetCellValue(sheetName, "G"+row, sale.Click)
 		f.SetCellValue(sheetName, "H"+row, sale.Alif)
-		f.SetCellValue(sheetName, "I"+row, sale.TotalAmount)
-		f.SetCellValue(sheetName, "J"+row, sale.CompletedAt.Add(time.Hour*5).Format(time.DateOnly))
-		f.SetCellValue(sheetName, "K"+row, sale.CompletedAt.Add(time.Hour*5).Format(time.TimeOnly))
-		f.SetCellValue(sheetName, "L"+row, sale.CashBoxName)
-		f.SetCellValue(sheetName, "M"+row, sale.FullName)
+		f.SetCellValue(sheetName, "I"+row, sale.LoyaltyCard)
+		f.SetCellValue(sheetName, "J"+row, sale.TotalDiscount)
+		f.SetCellValue(sheetName, "K"+row, sale.TotalAmount)
+		f.SetCellValue(sheetName, "L"+row, sale.CompletedAt.Add(time.Hour*5).Format(time.DateOnly))
+		f.SetCellValue(sheetName, "M"+row, sale.CashBoxName)
 		if sale.CustomerName != nil {
 			f.SetCellValue(sheetName, "N"+row, *sale.CustomerName)
 		} else {
 			f.SetCellValue(sheetName, "N"+row, "N/A")
 		}
-
 	}
 
 	saveExcelToUploads(c, f, *h.log, "Barcha_sotuvlar")
