@@ -418,7 +418,8 @@ func (h *ProductHandler) ProductList(c *gin.Context) {
 	}
 	var totalCount int64
 	// complete query
-	err = query.Count(&totalCount).Limit(limit).Offset(offset).Find(&products).Error
+	err = query.Select("id", "CASE WHEN material_code IS NOT NULL AND material_code != 0 THEN name || '(' || material_code::text || ')' ELSE name END AS name").
+		Count(&totalCount).Limit(limit).Offset(offset).Find(&products).Error
 	if err != nil {
 		handleResponse(c, InternalError, err.Error())
 		return

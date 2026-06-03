@@ -568,7 +568,7 @@ func (s *Services) FinalizeReturnSale(ctx context.Context, tx *gorm.DB, req *dom
 			updates["uzum_tez_kor"] = -req.UzumTezKor
 			updates["loyalty_card"] = -req.LoyaltyCard
 			updates["total_amount"] = gorm.Expr("-(SELECT COALESCE(SUM(total_price) - SUM(discount_amount), 0) FROM cart_items WHERE sale_id = ?)", req.SaleId)
-			updates["total_discount"] = gorm.Expr("(SELECT COALESCE(SUM(discount_amount), 0) FROM cart_items WHERE sale_id = ?)", req.SaleId)
+			updates["total_discount"] = gorm.Expr("-(SELECT COALESCE(SUM(discount_amount), 0) FROM cart_items WHERE sale_id = ?)", req.SaleId)
 			updates["return_amount"] = req.ReturnAmount
 			updates["stage"] = constants.SaleStagePayFinished
 			updates["updated_at"] = time.Now()
@@ -596,7 +596,7 @@ func (s *Services) FinalizeReturnSale(ctx context.Context, tx *gorm.DB, req *dom
 		updates["uzum_tez_kor"] = -req.UzumTezKor
 		updates["loyalty_card"] = -req.LoyaltyCard
 		updates["total_amount"] = gorm.Expr("-(SELECT COALESCE(SUM(total_price) - SUM(discount_amount), 0) FROM cart_items WHERE sale_id = ?)", req.SaleId)
-		updates["total_discount"] = gorm.Expr("(SELECT COALESCE(SUM(discount_amount), 0) FROM cart_items WHERE sale_id = ?)", req.SaleId)
+		updates["total_discount"] = gorm.Expr("-(SELECT COALESCE(SUM(discount_amount), 0) FROM cart_items WHERE sale_id = ?)", req.SaleId)
 		updates["return_amount"] = req.ReturnAmount
 		updates["stage"] = constants.SaleStageOfdWaiting
 		updates["updated_at"] = time.Now()
