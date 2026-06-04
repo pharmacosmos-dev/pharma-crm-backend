@@ -86,7 +86,7 @@ func (s *Services) CreateTransfer(ctx context.Context, req *domain.TransferReque
 				sp.is_marking
 			FROM store_products sp
 			JOIN products p ON sp.product_id = p.id
-			WHERE sp.store_id = ? AND sp.unit_quantity/p.unit_per_pack > 0;
+			WHERE sp.store_id = ? AND sp.unit_quantity::numeric/p.unit_per_pack > 0;
 		`, id, req.FromStoreId).Error
 	if err != nil {
 		_ = tx.Rollback()
