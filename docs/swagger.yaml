@@ -434,7 +434,7 @@ definitions:
     type: object
   domain.EditStatusToCheckingRequest:
     properties:
-      driver_name:
+      driver_store_a:
         type: string
       type:
         type: string
