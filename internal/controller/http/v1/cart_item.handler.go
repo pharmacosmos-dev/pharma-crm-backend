@@ -448,6 +448,22 @@ func (h *CartItemHandler) MultipleDelete(c *gin.Context) {
 		return
 	}
 
+	var cartItem domain.CartItem
+	if err := h.db.WithContext(ctx).Select("sale_id").Where("id IN ?", body.Ids).First(&cartItem).Error; err != nil {
+		handleServiceResponse(c, InternalError, err)
+		return
+	}
+
+	var sale domain.Sale
+	if err := h.db.WithContext(ctx).Select("type").Where("id = ?", cartItem.SaleId).First(&sale).Error; err != nil {
+		handleServiceResponse(c, InternalError, err)
+		return
+	}
+	if sale.Type == "online" {
+		handleServiceResponse(c, BadRequest, domain.BadRequestError)
+		return
+	}
+
 	err := h.service.DeleteCartItems(ctx, body.Ids)
 	if err != nil {
 		handleServiceResponse(c, nil, err)
