@@ -1636,7 +1636,16 @@ func (s *Services) CreateTransferForOnec(ctx context.Context, req *domain.OnecTr
 		return nil, domain.NotFoundError
 	}
 
-	// 2. Create transfer (status stays "new" — employees handle scanning themselves)
+	// 2. Duplicate name tekshiruvi
+	var existingId string
+	_ = tx.WithContext(ctx).Raw(`SELECT id FROM transfers WHERE name = ? LIMIT 1`, req.Name).Scan(&existingId).Error
+	if existingId != "" {
+		_ = tx.Rollback()
+		s.log.Warnf("onec transfer: duplicate name=%s, existing transfer_id=%s", req.Name, existingId)
+		return nil, domain.AlreadyExistsError
+	}
+
+	// 3. Create transfer (status stays "new" — employees handle scanning themselves)
 	var transferId string
 	err = tx.WithContext(ctx).Raw(`
 		INSERT INTO transfers (from_store_id, to_store_id, name, created_by, is_auto)
@@ -1711,10 +1720,15 @@ func (s *Services) CreateTransferForOnec(ctx context.Context, req *domain.OnecTr
 		totalAvailable := sumAvailable(rows)
 
 		if len(rows) == 0 || totalAvailable < expectedCount {
+			var storeName string
+			_ = tx.WithContext(ctx).Raw(`SELECT name FROM stores WHERE id = ?`, fromStoreId).Scan(&storeName).Error
 			_ = tx.Rollback()
 			s.log.Warnf("onec transfer: not enough stock material_code=%d name=%s: available=%.4f requested=%.4f",
 				product.MaterialCode, product.ProductName, totalAvailable, expectedCount)
-			return nil, domain.NotEnoughProductError
+			return nil, domain.NewNotAdditionError(http.StatusConflict, map[string]any{
+				"product_name": product.ProductName,
+				"store_name":   storeName,
+			})
 		}
 
 		// FIFO: distribute count across rows, derive expected_pack/expected_unit per row
