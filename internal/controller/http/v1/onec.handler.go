@@ -3,6 +3,7 @@ package v1
 import (
 	"context"
 	"errors"
+	"fmt"
 	"strconv"
 	"sync"
 
@@ -670,12 +671,12 @@ func (h *ProductOnecHandler) CreateAndSendForOnec(c *gin.Context) {
 	ctx, cancel := context.WithTimeout(c.Request.Context(), constants.DefaultContextTimeout)
 	defer cancel()
 
-	lock, _ := h.ordersToMutexes.LoadOrStore(request.FromStoreId+request.ToStoreId, &sync.Mutex{})
+	lock, _ := h.ordersToMutexes.LoadOrStore(fmt.Sprintf("%d-%d", request.FromStoreCode, request.ToStoreCode), &sync.Mutex{})
 	mu := lock.(*sync.Mutex)
 	mu.Lock()
 	defer mu.Unlock()
 
-	res, err := h.service.CreateAndSendTransferForOnec(ctx, &request, "")
+	res, err := h.service.CreateTransferForOnec(ctx, &request, "")
 	if err != nil {
 		handleServiceResponse(c, nil, err)
 		return

@@ -166,35 +166,41 @@ type EmployeeTransferLog struct {
 }
 
 
+// OnecTransferProduct — return request uchun (count bilan)
 type OnecTransferProduct struct {
-  MaterialCode int     `json:"material_code"`
-  Count        float64 `json:"count"`
+	MaterialCode int     `json:"material_code"`
+	Count        float64 `json:"count"`
+}
+
+// OnecTransferItem — transfer request uchun (count bilan, pack/unit server da hisoblanadi)
+type OnecTransferItem struct {
+	MaterialCode int     `json:"material_code"`
+	Count        float64 `json:"count"`
 }
 
 type OnecTransferRequest struct {
-  Name        string               `json:"name"`
-  FromStoreId string               `json:"from_store_id"`
-  ToStoreId   string               `json:"to_store_id"`
-  Products    []OnecTransferProduct `json:"products"`
+	Name          string             `json:"name"`
+	FromStoreCode int                `json:"from_store_code"`
+	ToStoreCode   int                `json:"to_store_code"`
+	Products      []OnecTransferItem `json:"products"`
 }
 
 type OnecTransferUnfulfilled struct {
-  MaterialCode int     `json:"material_code"`
-  Name         string  `json:"name"`
-  Requested    float64 `json:"requested"`
-  Accepted     float64 `json:"accepted"`
-  Remaining    float64 `json:"remaining"`
+	MaterialCode int     `json:"material_code"`
+	Name         string  `json:"name"`
+	Requested    float64 `json:"requested"`
+	Accepted     float64 `json:"accepted"`
+	Remaining    float64 `json:"remaining"`
 }
 
 type OnecTransferResponse struct {
-  TransferId  string                    `json:"transfer_id"`
-  Unfulfilled []OnecTransferUnfulfilled `json:"unfulfilled"`
+	TransferId string `json:"transfer_id"`
 }
 
 type OnecReturnRequest struct {
-  Name     string               `json:"name"`
-  StoreId  string               `json:"store_id"`
-  Products []OnecTransferProduct `json:"products"`
+	Name     string                `json:"name"`
+	StoreId  string                `json:"store_id"`
+	Products []OnecTransferProduct `json:"products"`
 }
 
 type OnecReturnResponse struct {
