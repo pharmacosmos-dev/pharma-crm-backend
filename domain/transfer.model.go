@@ -26,8 +26,10 @@ type Transfer struct {
 	ScannedSupplySum  float64                      `gorm:"scanned_supply_sum" json:"scanned_supply_sum"`
 	ScannedRetailSum  float64                      `gorm:"scanned_retail_sum" json:"scanned_retail_sum"`
 	IsAuto            bool                         `gorm:"is_auto" json:"is_auto"`
-	DriverName        string                       `gorm:"driver_name" json:"driver_name"`
-	CreatedById       string                       `gorm:"column:created_by" json:"created_by_id"`
+	DriverOfis        string                       `gorm:"driver_ofis" json:"driver_ofis"`
+	DriverStoreA      string                       `gorm:"driver_store_a" json:"driver_store_a"`
+	DriverStoreB      string                       `gorm:"driver_store_b" json:"driver_store_b"`
+	CreatedById       string                        `gorm:"column:created_by" json:"created_by_id"`
 	UpdatedById       string                       `gorm:"column:updated_by" json:"updated_by_id"`
 	AcceptedById      string                       `gorm:"column:accepted_by" json:"accepted_by_id"`
 	FromStore         NullStruct[TransferStore]    `gorm:"-" json:"store"`
@@ -208,8 +210,16 @@ type OnecReturnResponse struct {
   Unfulfilled []OnecTransferUnfulfilled `json:"unfulfilled"`
 }
 
+type SendTransferRequest struct {
+	DriverOfis string `json:"driver_ofis"`
+}
+
+type ConfirmTransferRequest struct {
+	DriverStoreB string `json:"driver_store_b"`
+}
+
 type EditStatusToCheckingRequest struct {
-	DriverName *string `json:"driver_name"`
-	Type       string  `json:"type"`
+	DriverStoreA *string `json:"driver_store_a"`
+	Type         string  `json:"type"`
 }
 

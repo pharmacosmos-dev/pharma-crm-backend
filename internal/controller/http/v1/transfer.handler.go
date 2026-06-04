@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"math"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 
@@ -599,6 +600,16 @@ func (h *TransferHandler) Send(c *gin.Context) {
 		return
 	}
 
+	var req domain.SendTransferRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		handleServiceResponse(c, BadRequest, domain.InvalidRequestBodyError)
+		return
+	}
+	if strings.TrimSpace(req.DriverOfis) == "" {
+		handleServiceResponse(c, BadRequest, domain.BadRequestError)
+		return
+	}
+
 	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
 	defer cancel()
 
@@ -607,8 +618,7 @@ func (h *TransferHandler) Send(c *gin.Context) {
 	mu.Lock()
 	defer mu.Unlock()
 
-	// confirm return service
-	err := h.service.SendTransfer(ctx, id, user.UserId)
+	err := h.service.SendTransfer(ctx, id, user.UserId, req.DriverOfis)
 	if err != nil {
 		if notAddErr, ok := err.(*domain.NotAdditionError); ok {
 			handleResponse(c, CONFLICT, notAddErr.Data)
@@ -646,18 +656,15 @@ func (h *TransferHandler) EditStatusToChecking(c *gin.Context) {
 	}
 
 	var req domain.EditStatusToCheckingRequest
-	_ = c.ShouldBindJSON(&req)
-
-	// var req domain.EditStatusToCheckingRequest
-	// if err := c.ShouldBindJSON(&req); err != nil {
-	// 	handleServiceResponse(c, BadRequest, domain.InvalidRequestBodyError)
-	// 	return
-	// }
+	if err := c.ShouldBindJSON(&req); err != nil {
+		handleServiceResponse(c, BadRequest, domain.InvalidRequestBodyError)
+		return
+	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
 	defer cancel()
 
-	err := h.service.EditStatusToCheckingTransfer(ctx, id, user.UserId, req.DriverName)
+	err := h.service.EditStatusToCheckingTransfer(ctx, id, user.UserId, &req)
 	if err != nil {
 		handleServiceResponse(c, InternalError, err)
 		return
@@ -691,6 +698,16 @@ func (h *TransferHandler) Confirm(c *gin.Context) {
 		return
 	}
 
+	var req domain.ConfirmTransferRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		handleServiceResponse(c, BadRequest, domain.InvalidRequestBodyError)
+		return
+	}
+	if strings.TrimSpace(req.DriverStoreB) == "" {
+		handleServiceResponse(c, BadRequest, domain.BadRequestError)
+		return
+	}
+
 	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
 	defer cancel()
 
@@ -705,7 +722,7 @@ func (h *TransferHandler) Confirm(c *gin.Context) {
 		return
 	}
 	// confirm return service
-	err = h.service.ConfirmTransfer(ctx, id, user.UserId)
+	err = h.service.ConfirmTransfer(ctx, id, user.UserId, req.DriverStoreB)
 	if err != nil {
 		handleServiceResponse(c, nil, err)
 		return

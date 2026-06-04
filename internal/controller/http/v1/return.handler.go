@@ -986,14 +986,11 @@ func (h *ReturnHandler) EditStatusToChecking(c *gin.Context) {
 		handleServiceResponse(c, BadRequest, domain.InvalidQueryError)
 		return
 	}
-
-	var req domain.EditStatusToCheckingRequest
-	_ = c.ShouldBindJSON(&req)
-
+	
 	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
 	defer cancel()
 
-	err := h.service.EditStatusToCheckingReturn(ctx, id, user.UserId, req.DriverName)
+	err := h.service.EditStatusToCheckingReturn(ctx, id, user.UserId)
 	if err != nil {
 		handleServiceResponse(c, nil, err)
 		return

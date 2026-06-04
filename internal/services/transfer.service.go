@@ -111,7 +111,9 @@ func (s *Services) GetTransferById(ctx context.Context, transferId string) (*dom
 		ToStoreId         string     `gorm:"to_store_id"`
 		Name              string     `gorm:"name"`
 		Status            string     `gorm:"status"`
-		DriverName        string     `gorm:"driver_name"`
+		DriverOfis        string     `gorm:"driver_ofis"`
+		DriverStoreA      string     `gorm:"driver_store_a"`
+		DriverStoreB      string     `gorm:"driver_store_b"`
 		ReceivedCount     float64    `gorm:"received_count"`
 		ExpectedCount     float64    `gorm:"expected_count"`
 		ScannedCount      float64    `gorm:"scanned_count"`
@@ -145,7 +147,9 @@ func (s *Services) GetTransferById(ctx context.Context, transferId string) (*dom
 			"t.from_store_id",
 			"t.to_store_id",
 			"t.status",
-			"t.driver_name",
+			"t.driver_ofis",
+			"t.driver_store_a",
+			"t.driver_store_b",
 			"t.created_at",
 			"t.updated_at",
 			"t.created_by",
@@ -190,9 +194,11 @@ func (s *Services) GetTransferById(ctx context.Context, transferId string) (*dom
 		Name:              tmpTransfer.Name,
 		FromStoreId:       tmpTransfer.FromStoreId,
 		ToStoreId:         tmpTransfer.ToStoreId,
-		Status:            tmpTransfer.Status,
-		DriverName:        tmpTransfer.DriverName,
-		ReceivedCount:     tmpTransfer.ReceivedCount,
+		Status:        tmpTransfer.Status,
+		DriverOfis:    tmpTransfer.DriverOfis,
+		DriverStoreA:  tmpTransfer.DriverStoreA,
+		DriverStoreB:  tmpTransfer.DriverStoreB,
+		ReceivedCount: tmpTransfer.ReceivedCount,
 		ExpectedCount:     tmpTransfer.ExpectedCount,
 		ScannedCount:      tmpTransfer.ScannedCount,
 		AcceptedCount:     tmpTransfer.AcceptedCount,
@@ -244,7 +250,9 @@ func (s *Services) TransferList(ctx context.Context, params *domain.ReturnParam)
 		ToStoreId         string     `gorm:"to_store_id"`
 		Name              string     `gorm:"name"`
 		Status            string     `gorm:"status"`
-		DriverName        string     `gorm:"driver_name"`
+		DriverOfis        string     `gorm:"driver_ofis"`
+		DriverStoreA      string     `gorm:"driver_store_a"`
+		DriverStoreB      string     `gorm:"driver_store_b"`
 		Is_Auto           bool       `gorm:"is_auto"`
 		ReceivedCount     float64    `gorm:"received_count"`
 		ExpectedCount     float64    `gorm:"expected_count"`
@@ -279,7 +287,9 @@ func (s *Services) TransferList(ctx context.Context, params *domain.ReturnParam)
 			"t.from_store_id",
 			"t.to_store_id",
 			"t.status",
-			"t.driver_name",
+			"t.driver_ofis",
+			"t.driver_store_a",
+			"t.driver_store_b",
 			"t.is_auto",
 			"t.created_at",
 			"t.updated_at",
@@ -363,7 +373,9 @@ func (s *Services) TransferList(ctx context.Context, params *domain.ReturnParam)
 			FromStoreId:       item.FromStoreId,
 			ToStoreId:         item.ToStoreId,
 			Status:            item.Status,
-			DriverName:        item.DriverName,
+			DriverOfis:        item.DriverOfis,
+			DriverStoreA:      item.DriverStoreA,
+			DriverStoreB:      item.DriverStoreB,
 			IsAuto:            item.Is_Auto,
 			ReceivedCount:     item.ReceivedCount,
 			ExpectedCount:     item.ExpectedCount,
@@ -553,7 +565,7 @@ func (s *Services) TransferDetailStatsCount(param *domain.ReturnDetailParam) (do
 }
 
 // confirm inventory
-func (s *Services) SendTransfer(ctx context.Context, transferId string, userId string) error {
+func (s *Services) SendTransfer(ctx context.Context, transferId string, userId string, driverOfis string) error {
 	// start transaction
 	tx := s.db.Begin()
 	defer func() {
@@ -576,8 +588,8 @@ func (s *Services) SendTransfer(ctx context.Context, transferId string, userId s
 	}
 
 	// update confirm inventory
-	query := `UPDATE transfers SET status = ?, updated_by = ? WHERE id = ?`
-	err = tx.WithContext(ctx).Exec(query, constants.GeneralStatusSent, userId, transferId).Error
+	query := `UPDATE transfers SET status = ?, updated_by = ?, driver_ofis = ? WHERE id = ?`
+	err = tx.WithContext(ctx).Exec(query, constants.GeneralStatusSent, userId, driverOfis, transferId).Error
 	if err != nil {
 		_ = tx.Rollback()
 		s.log.Errorf("could not update transfer: %v", err)
@@ -651,7 +663,7 @@ func (s *Services) SendTransfer(ctx context.Context, transferId string, userId s
 	return nil
 }
 
-func (s *Services) EditStatusToCheckingTransfer(ctx context.Context, Id string, userId string, driverName *string) error {
+func (s *Services) EditStatusToCheckingTransfer(ctx context.Context, Id string, userId string, req *domain.EditStatusToCheckingRequest) error {
 	var transfer struct {
 		ToStoreId string `gorm:"to_store_id"`
 		Name      string `gorm:"name"`
@@ -661,9 +673,16 @@ func (s *Services) EditStatusToCheckingTransfer(ctx context.Context, Id string, 
 		return domain.InternalServerError
 	}
 
-	result := s.db.WithContext(ctx).Exec(
-		"UPDATE transfers SET status = $1, updated_by = $2, driver_name = $3, updated_at = NOW() WHERE id = $4",
-		constants.GeneralStatusChecking, userId, driverName, Id,
+	result := s.db.WithContext(ctx).Exec(`
+		UPDATE transfers
+		SET status         = ?,
+		    updated_by     = ?,
+		    driver_store_a = ?,
+		    updated_at     = NOW()
+		WHERE id = ?`,
+		constants.GeneralStatusChecking, userId,
+		req.DriverStoreA,
+		Id,
 	)
 	if result.Error != nil {
 		s.log.Errorf("could not update transfer(%s) status: %v", Id, result.Error)
@@ -799,7 +818,7 @@ func (s *Services) CheckAcceptedCount(ctx context.Context, transferId string) er
 }
 
 // confirm inventory
-func (s *Services) ConfirmTransfer(ctx context.Context, transferId string, userId string) error {
+func (s *Services) ConfirmTransfer(ctx context.Context, transferId string, userId string, driverStoreB string) error {
 	// start transaction
 	tx := s.db.Begin()
 	defer func() {
@@ -822,8 +841,8 @@ func (s *Services) ConfirmTransfer(ctx context.Context, transferId string, userI
 		return domain.AlreadyCompletedError
 	}
 
-	query := `UPDATE transfers SET status = ?, accepted_by = ?, accepted_at = NOW() WHERE id = ? RETURNING *`
-	err = tx.WithContext(ctx).Raw(query, constants.GeneralStatusCompleted, userId, transferId).Scan(&transfer).Error
+	query := `UPDATE transfers SET status = ?, accepted_by = ?, driver_store_b = ?, accepted_at = NOW() WHERE id = ? RETURNING *`
+	err = tx.WithContext(ctx).Raw(query, constants.GeneralStatusCompleted, userId, driverStoreB, transferId).Scan(&transfer).Error
 	if err != nil {
 		_ = tx.Rollback()
 		s.log.Errorf("could not update transfer %v", err)
