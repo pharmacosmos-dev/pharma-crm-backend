@@ -1663,8 +1663,7 @@ func (s *Services) CreateTransferForOnec(ctx context.Context, req *domain.OnecTr
 			SerialNumber   string     `gorm:"column:serial_number"`
 			UnitPerPack    float64    `gorm:"column:unit_per_pack"`
 		}
-		var rows []stockRow
-		err = tx.WithContext(ctx).Raw(`
+		stockQuery := `
 			SELECT
 				sp.id      AS store_product_id,
 				sp.product_id,
@@ -1676,57 +1675,45 @@ func (s *Services) CreateTransferForOnec(ctx context.Context, req *domain.OnecTr
 				p.unit_per_pack
 			FROM store_products sp
 			JOIN products p ON sp.product_id = p.id
-			WHERE sp.store_id = ? AND p.material_code = ? AND sp.unit_quantity > 0
-			ORDER BY sp.expire_date ASC NULLS LAST`,
-			fromStoreId, product.MaterialCode,
-		).Scan(&rows).Error
+			WHERE sp.store_id = ? AND %s AND sp.unit_quantity > 0
+			ORDER BY sp.expire_date ASC NULLS LAST`
+
+		sumAvailable := func(rs []stockRow) float64 {
+			var total float64
+			for _, r := range rs {
+				total += r.Available
+			}
+			return total
+		}
+
+		expectedCount := product.Count
+
+		var codeRows []stockRow
+		err = tx.WithContext(ctx).Raw(fmt.Sprintf(stockQuery, "p.material_code = ?"), fromStoreId, product.MaterialCode).Scan(&codeRows).Error
 		if err != nil {
 			_ = tx.Rollback()
 			s.log.Errorf("onec transfer: fetch stock material_code=%d: %v", product.MaterialCode, err)
 			return nil, domain.InternalServerError
 		}
 
-		// material_code bo'yicha ostatkasi yo'q bo'lsa va product_name berilgan bo'lsa — nom bo'yicha qidirish
-		if len(rows) == 0 && product.ProductName != "" {
-			err = tx.WithContext(ctx).Raw(`
-				SELECT
-					sp.id      AS store_product_id,
-					sp.product_id,
-					sp.unit_quantity::numeric / p.unit_per_pack AS available,
-					sp.supply_price,
-					sp.retail_price,
-					sp.expire_date,
-					sp.serial_number,
-					p.unit_per_pack
-				FROM store_products sp
-				JOIN products p ON sp.product_id = p.id
-				WHERE sp.store_id = ? AND p.name ILIKE ? AND sp.unit_quantity > 0
-				ORDER BY sp.expire_date ASC NULLS LAST`,
-				fromStoreId, product.ProductName,
-			).Scan(&rows).Error
+		rows := codeRows
+		if sumAvailable(codeRows) < expectedCount && product.ProductName != "" {
+			var nameRows []stockRow
+			err = tx.WithContext(ctx).Raw(fmt.Sprintf(stockQuery, "p.name ILIKE ?"), fromStoreId, product.ProductName).Scan(&nameRows).Error
 			if err != nil {
 				_ = tx.Rollback()
 				s.log.Errorf("onec transfer: fetch stock by name=%s: %v", product.ProductName, err)
 				return nil, domain.InternalServerError
 			}
+			rows = nameRows
 		}
 
-		if len(rows) == 0 {
+		totalAvailable := sumAvailable(rows)
+
+		if len(rows) == 0 || totalAvailable < expectedCount {
 			_ = tx.Rollback()
-			return nil, domain.NotEnoughProductError
-		}
-
-		expectedCount := product.Count
-
-		// Check total available across all FIFO rows
-		var totalAvailable float64
-		for _, r := range rows {
-			totalAvailable += r.Available
-		}
-		if totalAvailable < expectedCount {
-			_ = tx.Rollback()
-			s.log.Warnf("onec transfer: not enough stock material_code=%d: available=%.4f requested=%.4f",
-				product.MaterialCode, totalAvailable, expectedCount)
+			s.log.Warnf("onec transfer: not enough stock material_code=%d name=%s: available=%.4f requested=%.4f",
+				product.MaterialCode, product.ProductName, totalAvailable, expectedCount)
 			return nil, domain.NotEnoughProductError
 		}
 
