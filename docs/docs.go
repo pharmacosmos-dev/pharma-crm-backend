@@ -27557,7 +27557,6 @@ const docTemplate = `{
                         "description": "Driver name and type",
                         "name": "body",
                         "in": "body",
-                        "required": true,
                         "schema": {
                             "$ref": "#/definitions/domain.EditStatusToCheckingRequest"
                         }
@@ -31936,6 +31935,17 @@ const docTemplate = `{
                 }
             }
         },
+        "domain.OnecTransferItem": {
+            "type": "object",
+            "properties": {
+                "count": {
+                    "type": "number"
+                },
+                "material_code": {
+                    "type": "integer"
+                }
+            }
+        },
         "domain.OnecTransferProduct": {
             "type": "object",
             "properties": {
@@ -31950,8 +31960,8 @@ const docTemplate = `{
         "domain.OnecTransferRequest": {
             "type": "object",
             "properties": {
-                "from_store_id": {
-                    "type": "string"
+                "from_store_code": {
+                    "type": "integer"
                 },
                 "name": {
                     "type": "string"
@@ -31959,11 +31969,11 @@ const docTemplate = `{
                 "products": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/domain.OnecTransferProduct"
+                        "$ref": "#/definitions/domain.OnecTransferItem"
                     }
                 },
-                "to_store_id": {
-                    "type": "string"
+                "to_store_code": {
+                    "type": "integer"
                 }
             }
         },
@@ -31972,12 +31982,6 @@ const docTemplate = `{
             "properties": {
                 "transfer_id": {
                     "type": "string"
-                },
-                "unfulfilled": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/domain.OnecTransferUnfulfilled"
-                    }
                 }
             }
         },

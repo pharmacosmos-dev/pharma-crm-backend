@@ -1167,6 +1167,13 @@ definitions:
           $ref: '#/definitions/domain.OnecTransferUnfulfilled'
         type: array
     type: object
+  domain.OnecTransferItem:
+    properties:
+      count:
+        type: number
+      material_code:
+        type: integer
+    type: object
   domain.OnecTransferProduct:
     properties:
       count:
@@ -1176,25 +1183,21 @@ definitions:
     type: object
   domain.OnecTransferRequest:
     properties:
-      from_store_id:
-        type: string
+      from_store_code:
+        type: integer
       name:
         type: string
       products:
         items:
-          $ref: '#/definitions/domain.OnecTransferProduct'
+          $ref: '#/definitions/domain.OnecTransferItem'
         type: array
-      to_store_id:
-        type: string
+      to_store_code:
+        type: integer
     type: object
   domain.OnecTransferResponse:
     properties:
       transfer_id:
         type: string
-      unfulfilled:
-        items:
-          $ref: '#/definitions/domain.OnecTransferUnfulfilled'
-        type: array
     type: object
   domain.OnecTransferUnfulfilled:
     properties:
@@ -19951,7 +19954,6 @@ paths:
       - description: Driver name and type
         in: body
         name: body
-        required: true
         schema:
           $ref: '#/definitions/domain.EditStatusToCheckingRequest'
       produces:

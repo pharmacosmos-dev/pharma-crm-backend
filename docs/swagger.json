@@ -27550,7 +27550,6 @@
                         "description": "Driver name and type",
                         "name": "body",
                         "in": "body",
-                        "required": true,
                         "schema": {
                             "$ref": "#/definitions/domain.EditStatusToCheckingRequest"
                         }
@@ -31929,6 +31928,17 @@
                 }
             }
         },
+        "domain.OnecTransferItem": {
+            "type": "object",
+            "properties": {
+                "count": {
+                    "type": "number"
+                },
+                "material_code": {
+                    "type": "integer"
+                }
+            }
+        },
         "domain.OnecTransferProduct": {
             "type": "object",
             "properties": {
@@ -31943,8 +31953,8 @@
         "domain.OnecTransferRequest": {
             "type": "object",
             "properties": {
-                "from_store_id": {
-                    "type": "string"
+                "from_store_code": {
+                    "type": "integer"
                 },
                 "name": {
                     "type": "string"
@@ -31952,11 +31962,11 @@
                 "products": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/domain.OnecTransferProduct"
+                        "$ref": "#/definitions/domain.OnecTransferItem"
                     }
                 },
-                "to_store_id": {
-                    "type": "string"
+                "to_store_code": {
+                    "type": "integer"
                 }
             }
         },
@@ -31965,12 +31975,6 @@
             "properties": {
                 "transfer_id": {
                     "type": "string"
-                },
-                "unfulfilled": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/domain.OnecTransferUnfulfilled"
-                    }
                 }
             }
         },
