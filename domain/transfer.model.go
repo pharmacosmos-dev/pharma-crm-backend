@@ -211,15 +211,15 @@ type OnecReturnResponse struct {
 }
 
 type SendTransferRequest struct {
-	DriverOfis string `json:"driver_ofis"`
+	DriverName string `json:"driver_name"`
 }
 
 type ConfirmTransferRequest struct {
-	DriverStoreB string `json:"driver_store_b"`
+	DriverName string `json:"driver_name"`
 }
 
 type EditStatusToCheckingRequest struct {
-	DriverStoreA *string `json:"driver_store_a"`
+	DriverName *string `json:"driver_name"`
 	Type         string  `json:"type"`
 }
 

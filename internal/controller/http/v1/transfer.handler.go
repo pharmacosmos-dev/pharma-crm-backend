@@ -605,7 +605,7 @@ func (h *TransferHandler) Send(c *gin.Context) {
 		handleServiceResponse(c, BadRequest, domain.InvalidRequestBodyError)
 		return
 	}
-	if strings.TrimSpace(req.DriverOfis) == "" {
+	if strings.TrimSpace(req.DriverName) == "" {
 		handleServiceResponse(c, BadRequest, domain.BadRequestError)
 		return
 	}
@@ -618,7 +618,7 @@ func (h *TransferHandler) Send(c *gin.Context) {
 	mu.Lock()
 	defer mu.Unlock()
 
-	err := h.service.SendTransfer(ctx, id, user.UserId, req.DriverOfis)
+	err := h.service.SendTransfer(ctx, id, user.UserId, req.DriverName)
 	if err != nil {
 		if notAddErr, ok := err.(*domain.NotAdditionError); ok {
 			handleResponse(c, CONFLICT, notAddErr.Data)
@@ -703,7 +703,7 @@ func (h *TransferHandler) Confirm(c *gin.Context) {
 		handleServiceResponse(c, BadRequest, domain.InvalidRequestBodyError)
 		return
 	}
-	if strings.TrimSpace(req.DriverStoreB) == "" {
+	if strings.TrimSpace(req.DriverName) == "" {
 		handleServiceResponse(c, BadRequest, domain.BadRequestError)
 		return
 	}
@@ -722,7 +722,7 @@ func (h *TransferHandler) Confirm(c *gin.Context) {
 		return
 	}
 	// confirm return service
-	err = h.service.ConfirmTransfer(ctx, id, user.UserId, req.DriverStoreB)
+	err = h.service.ConfirmTransfer(ctx, id, user.UserId, req.DriverName)
 	if err != nil {
 		handleServiceResponse(c, nil, err)
 		return

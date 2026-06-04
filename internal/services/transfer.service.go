@@ -565,7 +565,7 @@ func (s *Services) TransferDetailStatsCount(param *domain.ReturnDetailParam) (do
 }
 
 // confirm inventory
-func (s *Services) SendTransfer(ctx context.Context, transferId string, userId string, driverOfis string) error {
+func (s *Services) SendTransfer(ctx context.Context, transferId string, userId string, DriverName string) error {
 	// start transaction
 	tx := s.db.Begin()
 	defer func() {
@@ -589,7 +589,7 @@ func (s *Services) SendTransfer(ctx context.Context, transferId string, userId s
 
 	// update confirm inventory
 	query := `UPDATE transfers SET status = ?, updated_by = ?, driver_ofis = ? WHERE id = ?`
-	err = tx.WithContext(ctx).Exec(query, constants.GeneralStatusSent, userId, driverOfis, transferId).Error
+	err = tx.WithContext(ctx).Exec(query, constants.GeneralStatusSent, userId, DriverName, transferId).Error
 	if err != nil {
 		_ = tx.Rollback()
 		s.log.Errorf("could not update transfer: %v", err)
@@ -681,7 +681,7 @@ func (s *Services) EditStatusToCheckingTransfer(ctx context.Context, Id string, 
 		    updated_at     = NOW()
 		WHERE id = ?`,
 		constants.GeneralStatusChecking, userId,
-		req.DriverStoreA,
+		req.DriverName,
 		Id,
 	)
 	if result.Error != nil {
@@ -818,7 +818,7 @@ func (s *Services) CheckAcceptedCount(ctx context.Context, transferId string) er
 }
 
 // confirm inventory
-func (s *Services) ConfirmTransfer(ctx context.Context, transferId string, userId string, driverStoreB string) error {
+func (s *Services) ConfirmTransfer(ctx context.Context, transferId string, userId string, driverName string) error {
 	// start transaction
 	tx := s.db.Begin()
 	defer func() {
@@ -842,7 +842,7 @@ func (s *Services) ConfirmTransfer(ctx context.Context, transferId string, userI
 	}
 
 	query := `UPDATE transfers SET status = ?, accepted_by = ?, driver_store_b = ?, accepted_at = NOW() WHERE id = ? RETURNING *`
-	err = tx.WithContext(ctx).Raw(query, constants.GeneralStatusCompleted, userId, driverStoreB, transferId).Scan(&transfer).Error
+	err = tx.WithContext(ctx).Raw(query, constants.GeneralStatusCompleted, userId, driverName, transferId).Scan(&transfer).Error
 	if err != nil {
 		_ = tx.Rollback()
 		s.log.Errorf("could not update transfer %v", err)
