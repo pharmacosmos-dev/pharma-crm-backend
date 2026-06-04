@@ -30823,7 +30823,7 @@ const docTemplate = `{
         "domain.EditStatusToCheckingRequest": {
             "type": "object",
             "properties": {
-                "driver_store_a": {
+                "driver_name": {
                     "type": "string"
                 },
                 "type": {
@@ -31943,6 +31943,9 @@ const docTemplate = `{
                 },
                 "material_code": {
                     "type": "integer"
+                },
+                "product_name": {
+                    "type": "string"
                 }
             }
         },

@@ -177,6 +177,7 @@ type OnecTransferProduct struct {
 // OnecTransferItem — transfer request uchun (count bilan, pack/unit server da hisoblanadi)
 type OnecTransferItem struct {
 	MaterialCode int     `json:"material_code"`
+	ProductName  string  `json:"product_name"`
 	Count        float64 `json:"count"`
 }
 

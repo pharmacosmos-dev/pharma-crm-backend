@@ -1686,6 +1686,31 @@ func (s *Services) CreateTransferForOnec(ctx context.Context, req *domain.OnecTr
 			return nil, domain.InternalServerError
 		}
 
+		// material_code bo'yicha ostatkasi yo'q bo'lsa va product_name berilgan bo'lsa — nom bo'yicha qidirish
+		if len(rows) == 0 && product.ProductName != "" {
+			err = tx.WithContext(ctx).Raw(`
+				SELECT
+					sp.id      AS store_product_id,
+					sp.product_id,
+					sp.unit_quantity::numeric / p.unit_per_pack AS available,
+					sp.supply_price,
+					sp.retail_price,
+					sp.expire_date,
+					sp.serial_number,
+					p.unit_per_pack
+				FROM store_products sp
+				JOIN products p ON sp.product_id = p.id
+				WHERE sp.store_id = ? AND p.name ILIKE ? AND sp.unit_quantity > 0
+				ORDER BY sp.expire_date ASC NULLS LAST`,
+				fromStoreId, product.ProductName,
+			).Scan(&rows).Error
+			if err != nil {
+				_ = tx.Rollback()
+				s.log.Errorf("onec transfer: fetch stock by name=%s: %v", product.ProductName, err)
+				return nil, domain.InternalServerError
+			}
+		}
+
 		if len(rows) == 0 {
 			_ = tx.Rollback()
 			return nil, domain.NotEnoughProductError
