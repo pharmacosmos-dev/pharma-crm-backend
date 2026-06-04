@@ -111,7 +111,7 @@ func (s *Services) GetTransferById(ctx context.Context, transferId string) (*dom
 		ToStoreId         string     `gorm:"to_store_id"`
 		Name              string     `gorm:"name"`
 		Status            string     `gorm:"status"`
-		DriverOfis        string     `gorm:"driver_ofis"`
+		DriverOffice      string     `gorm:"driver_office"`
 		DriverStoreA      string     `gorm:"driver_store_a"`
 		DriverStoreB      string     `gorm:"driver_store_b"`
 		ReceivedCount     float64    `gorm:"received_count"`
@@ -147,7 +147,7 @@ func (s *Services) GetTransferById(ctx context.Context, transferId string) (*dom
 			"t.from_store_id",
 			"t.to_store_id",
 			"t.status",
-			"t.driver_ofis",
+			"t.driver_office",
 			"t.driver_store_a",
 			"t.driver_store_b",
 			"t.created_at",
@@ -194,11 +194,11 @@ func (s *Services) GetTransferById(ctx context.Context, transferId string) (*dom
 		Name:              tmpTransfer.Name,
 		FromStoreId:       tmpTransfer.FromStoreId,
 		ToStoreId:         tmpTransfer.ToStoreId,
-		Status:        tmpTransfer.Status,
-		DriverOfis:    tmpTransfer.DriverOfis,
-		DriverStoreA:  tmpTransfer.DriverStoreA,
-		DriverStoreB:  tmpTransfer.DriverStoreB,
-		ReceivedCount: tmpTransfer.ReceivedCount,
+		Status:            tmpTransfer.Status,
+		DriverOffice:      tmpTransfer.DriverOffice,
+		DriverStoreA:      tmpTransfer.DriverStoreA,
+		DriverStoreB:      tmpTransfer.DriverStoreB,
+		ReceivedCount:     tmpTransfer.ReceivedCount,
 		ExpectedCount:     tmpTransfer.ExpectedCount,
 		ScannedCount:      tmpTransfer.ScannedCount,
 		AcceptedCount:     tmpTransfer.AcceptedCount,
@@ -250,7 +250,7 @@ func (s *Services) TransferList(ctx context.Context, params *domain.ReturnParam)
 		ToStoreId         string     `gorm:"to_store_id"`
 		Name              string     `gorm:"name"`
 		Status            string     `gorm:"status"`
-		DriverOfis        string     `gorm:"driver_ofis"`
+		DriverOffice      string     `gorm:"driver_office"`
 		DriverStoreA      string     `gorm:"driver_store_a"`
 		DriverStoreB      string     `gorm:"driver_store_b"`
 		Is_Auto           bool       `gorm:"is_auto"`
@@ -287,7 +287,7 @@ func (s *Services) TransferList(ctx context.Context, params *domain.ReturnParam)
 			"t.from_store_id",
 			"t.to_store_id",
 			"t.status",
-			"t.driver_ofis",
+			"t.driver_office",
 			"t.driver_store_a",
 			"t.driver_store_b",
 			"t.is_auto",
@@ -373,7 +373,7 @@ func (s *Services) TransferList(ctx context.Context, params *domain.ReturnParam)
 			FromStoreId:       item.FromStoreId,
 			ToStoreId:         item.ToStoreId,
 			Status:            item.Status,
-			DriverOfis:        item.DriverOfis,
+			DriverOffice:      item.DriverOffice,
 			DriverStoreA:      item.DriverStoreA,
 			DriverStoreB:      item.DriverStoreB,
 			IsAuto:            item.Is_Auto,
@@ -588,7 +588,7 @@ func (s *Services) SendTransfer(ctx context.Context, transferId string, userId s
 	}
 
 	// update confirm inventory
-	query := `UPDATE transfers SET status = ?, updated_by = ?, driver_ofis = ? WHERE id = ?`
+	query := `UPDATE transfers SET status = ?, updated_by = ?, driver_office = ? WHERE id = ?`
 	err = tx.WithContext(ctx).Exec(query, constants.GeneralStatusSent, userId, DriverName, transferId).Error
 	if err != nil {
 		_ = tx.Rollback()

@@ -26,10 +26,10 @@ type Transfer struct {
 	ScannedSupplySum  float64                      `gorm:"scanned_supply_sum" json:"scanned_supply_sum"`
 	ScannedRetailSum  float64                      `gorm:"scanned_retail_sum" json:"scanned_retail_sum"`
 	IsAuto            bool                         `gorm:"is_auto" json:"is_auto"`
-	DriverOfis        string                       `gorm:"driver_ofis" json:"driver_ofis"`
+	DriverOffice      string                       `gorm:"driver_office" json:"driver_office"`
 	DriverStoreA      string                       `gorm:"driver_store_a" json:"driver_store_a"`
 	DriverStoreB      string                       `gorm:"driver_store_b" json:"driver_store_b"`
-	CreatedById       string                        `gorm:"column:created_by" json:"created_by_id"`
+	CreatedById       string                       `gorm:"column:created_by" json:"created_by_id"`
 	UpdatedById       string                       `gorm:"column:updated_by" json:"updated_by_id"`
 	AcceptedById      string                       `gorm:"column:accepted_by" json:"accepted_by_id"`
 	FromStore         NullStruct[TransferStore]    `gorm:"-" json:"store"`
