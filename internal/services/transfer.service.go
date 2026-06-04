@@ -1722,16 +1722,6 @@ func (s *Services) CreateTransferForOnec(ctx context.Context, req *domain.OnecTr
 		}
 	}
 
-	// Set status to "sent" after all expected values are set
-	err = tx.WithContext(ctx).Exec(`
-		UPDATE transfers SET status = ?, updated_by = ? WHERE id = ?`,
-		constants.GeneralStatusSent, createdBy, transferId).Error
-	if err != nil {
-		_ = tx.Rollback()
-		s.log.Errorf("onec transfer: update status: %v", err)
-		return nil, domain.InternalServerError
-	}
-
 	if err = tx.Commit().Error; err != nil {
 		s.log.Errorf("onec transfer: commit: %v", err)
 		return nil, domain.InternalServerError
