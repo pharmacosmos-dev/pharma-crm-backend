@@ -678,6 +678,10 @@ func (h *ProductOnecHandler) CreateAndSendForOnec(c *gin.Context) {
 
 	res, err := h.service.CreateTransferForOnec(ctx, &request, "")
 	if err != nil {
+		if notAddErr, ok := err.(*domain.NotAdditionError); ok {
+			handleResponse(c, mapErrorCodeToStatus(notAddErr.Code), notAddErr.Data)
+			return
+		}
 		handleServiceResponse(c, nil, err)
 		return
 	}
