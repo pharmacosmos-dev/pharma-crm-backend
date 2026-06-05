@@ -31957,6 +31957,9 @@ const docTemplate = `{
                 },
                 "material_code": {
                     "type": "integer"
+                },
+                "product_name": {
+                    "type": "string"
                 }
             }
         },
@@ -31985,6 +31988,12 @@ const docTemplate = `{
             "properties": {
                 "transfer_id": {
                     "type": "string"
+                },
+                "unfulfilled": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/domain.OnecTransferUnfulfilled"
+                    }
                 }
             }
         },
@@ -32005,6 +32014,12 @@ const docTemplate = `{
                 },
                 "requested": {
                     "type": "number"
+                },
+                "store_name_a": {
+                    "type": "string"
+                },
+                "store_name_b": {
+                    "type": "string"
                 }
             }
         },

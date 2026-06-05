@@ -1182,6 +1182,8 @@ definitions:
         type: number
       material_code:
         type: integer
+      product_name:
+        type: string
     type: object
   domain.OnecTransferRequest:
     properties:
@@ -1200,6 +1202,10 @@ definitions:
     properties:
       transfer_id:
         type: string
+      unfulfilled:
+        items:
+          $ref: '#/definitions/domain.OnecTransferUnfulfilled'
+        type: array
     type: object
   domain.OnecTransferUnfulfilled:
     properties:
@@ -1213,6 +1219,10 @@ definitions:
         type: number
       requested:
         type: number
+      store_name_a:
+        type: string
+      store_name_b:
+        type: string
     type: object
   domain.OnecUpdateQuantityRequest:
     properties:
