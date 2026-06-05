@@ -1054,12 +1054,20 @@ func (s *Services) CreateAndSendReturnForOnec(ctx context.Context, req *domain.O
 		createdBy = userId
 	}
 
+	var storeId string
+	err := tx.WithContext(ctx).Raw(`SELECT id FROM stores WHERE store_code = ? LIMIT 1`, req.StoreCode).Scan(&storeId).Error
+	if err != nil || storeId == "" {
+		_ = tx.Rollback()
+		s.log.Errorf("onec return: store_code=%s not found: %v", req.StoreCode, err)
+		return nil, domain.NotFoundError
+	}
+
 	var returnId string
-	err := tx.WithContext(ctx).Raw(`
+	err = tx.WithContext(ctx).Raw(`
 		INSERT INTO transfers (from_store_id, name, created_by, entry_type, is_auto)
 		VALUES (?, ?, ?, 2, TRUE)
 		RETURNING id`,
-		req.StoreId, req.Name, createdBy,
+		storeId, req.Name, createdBy,
 	).Scan(&returnId).Error
 	if err != nil {
 		_ = tx.Rollback()
@@ -1096,7 +1104,7 @@ func (s *Services) CreateAndSendReturnForOnec(ctx context.Context, req *domain.O
 			JOIN products p ON sp.product_id = p.id
 			WHERE sp.store_id = ? AND p.material_code = ? AND sp.unit_quantity::numeric / p.unit_per_pack > 0
 			ORDER BY sp.expire_date ASC NULLS LAST`,
-			req.StoreId, product.MaterialCode).Scan(&stockRows).Error
+			storeId, product.MaterialCode).Scan(&stockRows).Error
 		if err != nil {
 			_ = tx.Rollback()
 			s.log.Errorf("onec return: fetch stock for material_code=%d: %v", product.MaterialCode, err)

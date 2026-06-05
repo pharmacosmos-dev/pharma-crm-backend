@@ -202,7 +202,7 @@ type OnecTransferResponse struct {
 
 type OnecReturnRequest struct {
 	Name     string                `json:"name"`
-	StoreId  string                `json:"store_id"`
+	StoreCode  string                `json:"store_code"`
 	Products []OnecTransferProduct `json:"products"`
 }
 
