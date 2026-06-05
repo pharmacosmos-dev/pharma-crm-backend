@@ -1659,42 +1659,55 @@ func (s *Services) CreateTransferForOnec(ctx context.Context, req *domain.OnecTr
 		return nil, domain.InternalServerError
 	}
 
-	// 2. For each product: validate stock, then insert transfer_details with expected_pack/expected_unit.
-	// Stock is NOT deducted — employees scan and accept items themselves.
+	var storeNames struct {
+		AStoreName string `gorm:"column:a_store_name"`
+		BStoreName string `gorm:"column:b_store_name"`
+	}
+	_ = tx.WithContext(ctx).Raw(`
+		SELECT
+			(SELECT name FROM stores WHERE id = ?) AS a_store_name,
+			(SELECT name FROM stores WHERE id = ?) AS b_store_name`,
+		fromStoreId, toStoreId).Scan(&storeNames).Error
+
+	type stockRow struct {
+		StoreProductId string     `gorm:"column:store_product_id"`
+		ProductId      string     `gorm:"column:product_id"`
+		Available      float64    `gorm:"column:available"`
+		SupplyPrice    float64    `gorm:"column:supply_price"`
+		RetailPrice    float64    `gorm:"column:retail_price"`
+		ExpireDate     *time.Time `gorm:"column:expire_date"`
+		SerialNumber   string     `gorm:"column:serial_number"`
+		UnitPerPack    float64    `gorm:"column:unit_per_pack"`
+		ProductName    string     `gorm:"column:product_name"`
+	}
+	stockQuery := `
+		SELECT
+			sp.id      AS store_product_id,
+			sp.product_id,
+			sp.unit_quantity::numeric / p.unit_per_pack AS available,
+			sp.supply_price,
+			sp.retail_price,
+			sp.expire_date,
+			sp.serial_number,
+			p.unit_per_pack,
+			p.name AS product_name
+		FROM store_products sp
+		JOIN products p ON sp.product_id = p.id
+		WHERE sp.store_id = ? AND %s AND sp.unit_quantity > 0
+		ORDER BY sp.expire_date ASC NULLS LAST`
+
+	sumAvailable := func(rs []stockRow) float64 {
+		var total float64
+		for _, r := range rs {
+			total += r.Available
+		}
+		return total
+	}
+
+	var unfulfilled []domain.OnecTransferUnfulfilled
+
+	// For each product: find stock, insert transfer_details. Insufficient stock → unfulfilled list, continue.
 	for _, product := range req.Products {
-		type stockRow struct {
-			StoreProductId string     `gorm:"column:store_product_id"`
-			ProductId      string     `gorm:"column:product_id"`
-			Available      float64    `gorm:"column:available"`
-			SupplyPrice    float64    `gorm:"column:supply_price"`
-			RetailPrice    float64    `gorm:"column:retail_price"`
-			ExpireDate     *time.Time `gorm:"column:expire_date"`
-			SerialNumber   string     `gorm:"column:serial_number"`
-			UnitPerPack    float64    `gorm:"column:unit_per_pack"`
-		}
-		stockQuery := `
-			SELECT
-				sp.id      AS store_product_id,
-				sp.product_id,
-				sp.unit_quantity::numeric / p.unit_per_pack AS available,
-				sp.supply_price,
-				sp.retail_price,
-				sp.expire_date,
-				sp.serial_number,
-				p.unit_per_pack
-			FROM store_products sp
-			JOIN products p ON sp.product_id = p.id
-			WHERE sp.store_id = ? AND %s AND sp.unit_quantity > 0
-			ORDER BY sp.expire_date ASC NULLS LAST`
-
-		sumAvailable := func(rs []stockRow) float64 {
-			var total float64
-			for _, r := range rs {
-				total += r.Available
-			}
-			return total
-		}
-
 		expectedCount := product.Count
 
 		var codeRows []stockRow
@@ -1719,27 +1732,37 @@ func (s *Services) CreateTransferForOnec(ctx context.Context, req *domain.OnecTr
 
 		totalAvailable := sumAvailable(rows)
 
-		if len(rows) == 0 || totalAvailable < expectedCount {
-			var storeNames struct {
-				AStoreName string `gorm:"column:a_store_name"`
-				BStoreName string `gorm:"column:b_store_name"`
-			}
-			_ = tx.WithContext(ctx).Raw(`
-				SELECT
-					(SELECT name FROM stores WHERE id = ?) AS a_store_name,
-					(SELECT name FROM stores WHERE id = ?) AS b_store_name`,
-				fromStoreId, toStoreId).Scan(&storeNames).Error
-			_ = tx.Rollback()
-			s.log.Warnf("onec transfer: not enough stock material_code=%d name=%s: available=%.4f requested=%.4f",
-				product.MaterialCode, product.ProductName, totalAvailable, expectedCount)
-			return nil, domain.NewNotAdditionError(http.StatusConflict, map[string]any{
-				"product_name": product.ProductName,
-				"A_store_name": storeNames.AStoreName,
-				"B_store_name": storeNames.BStoreName,
-			})
+		// Float solishtiruvi o'rniga unit (dona) hisobida solishtirish:
+		// 0.67 pack × 30 unit = 20.1 → round = 20 unit
+		// 20/30 = 0.6666 pack → round(0.6666×30) = 20 unit → 20 >= 20 → OK
+		notEnough := len(rows) == 0
+		if !notEnough && len(rows) > 0 {
+			unitPerPack := rows[0].UnitPerPack
+			requestedUnits := math.Round(expectedCount * unitPerPack)
+			availableUnits := math.Round(totalAvailable * unitPerPack)
+			notEnough = availableUnits < requestedUnits
 		}
 
-		// FIFO: distribute count across rows, derive expected_pack/expected_unit per row
+		if notEnough {
+			name := product.ProductName
+			if name == "" {
+				name = fmt.Sprintf("%d", product.MaterialCode)
+			}
+			s.log.Warnf("onec transfer: not enough stock material_code=%d name=%s: available=%.4f requested=%.4f",
+				product.MaterialCode, name, totalAvailable, expectedCount)
+			unfulfilled = append(unfulfilled, domain.OnecTransferUnfulfilled{
+				MaterialCode: product.MaterialCode,
+				Name:         name,
+				Requested:    expectedCount,
+				Accepted:     totalAvailable,
+				Remaining:    expectedCount - totalAvailable,
+				StoreNameA:   storeNames.AStoreName,
+				StoreNameB:   storeNames.BStoreName,
+			})
+			continue
+		}
+
+		// FIFO: distribute count across rows
 		remaining := expectedCount
 		for _, r := range rows {
 			if remaining <= 0 {
@@ -1780,5 +1803,8 @@ func (s *Services) CreateTransferForOnec(ctx context.Context, req *domain.OnecTr
 		return nil, domain.InternalServerError
 	}
 
-	return &domain.OnecTransferResponse{TransferId: transferId}, nil
+	return &domain.OnecTransferResponse{
+		TransferId:  transferId,
+		Unfulfilled: unfulfilled,
+	}, nil
 }

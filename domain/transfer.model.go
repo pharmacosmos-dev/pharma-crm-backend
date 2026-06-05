@@ -194,10 +194,13 @@ type OnecTransferUnfulfilled struct {
 	Requested    float64 `json:"requested"`
 	Accepted     float64 `json:"accepted"`
 	Remaining    float64 `json:"remaining"`
+	StoreNameA   string  `json:"store_name_a"`
+	StoreNameB   string  `json:"store_name_b"`
 }
 
 type OnecTransferResponse struct {
-	TransferId string `json:"transfer_id"`
+	TransferId  string                    `json:"transfer_id"`
+	Unfulfilled []OnecTransferUnfulfilled `json:"unfulfilled"`
 }
 
 type OnecReturnRequest struct {
