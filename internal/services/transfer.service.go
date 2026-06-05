@@ -1720,14 +1720,22 @@ func (s *Services) CreateTransferForOnec(ctx context.Context, req *domain.OnecTr
 		totalAvailable := sumAvailable(rows)
 
 		if len(rows) == 0 || totalAvailable < expectedCount {
-			var storeName string
-			_ = tx.WithContext(ctx).Raw(`SELECT name FROM stores WHERE id = ?`, fromStoreId).Scan(&storeName).Error
+			var storeNames struct {
+				AStoreName string `gorm:"column:a_store_name"`
+				BStoreName string `gorm:"column:b_store_name"`
+			}
+			_ = tx.WithContext(ctx).Raw(`
+				SELECT
+					(SELECT name FROM stores WHERE id = ?) AS a_store_name,
+					(SELECT name FROM stores WHERE id = ?) AS b_store_name`,
+				fromStoreId, toStoreId).Scan(&storeNames).Error
 			_ = tx.Rollback()
 			s.log.Warnf("onec transfer: not enough stock material_code=%d name=%s: available=%.4f requested=%.4f",
 				product.MaterialCode, product.ProductName, totalAvailable, expectedCount)
 			return nil, domain.NewNotAdditionError(http.StatusConflict, map[string]any{
 				"product_name": product.ProductName,
-				"store_name":   storeName,
+				"A_store_name": storeNames.AStoreName,
+				"B_store_name": storeNames.BStoreName,
 			})
 		}
 
