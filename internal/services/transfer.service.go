@@ -1679,6 +1679,7 @@ func (s *Services) CreateTransferForOnec(ctx context.Context, req *domain.OnecTr
 		SerialNumber   string     `gorm:"column:serial_number"`
 		UnitPerPack    float64    `gorm:"column:unit_per_pack"`
 		ProductName    string     `gorm:"column:product_name"`
+		IsMarking      bool       `gorm:"column:is_marking"`
 	}
 	stockQuery := `
 		SELECT
@@ -1689,6 +1690,7 @@ func (s *Services) CreateTransferForOnec(ctx context.Context, req *domain.OnecTr
 			sp.retail_price,
 			sp.expire_date,
 			sp.serial_number,
+			sp.is_marking,
 			p.unit_per_pack,
 			p.name AS product_name
 		FROM store_products sp
@@ -1718,8 +1720,15 @@ func (s *Services) CreateTransferForOnec(ctx context.Context, req *domain.OnecTr
 			return nil, domain.InternalServerError
 		}
 
+		codeEnoughUnits := func(rs []stockRow) bool {
+			if len(rs) == 0 {
+				return false
+			}
+			return math.Round(sumAvailable(rs)*rs[0].UnitPerPack) >= math.Round(expectedCount*rs[0].UnitPerPack)
+		}
+
 		rows := codeRows
-		if sumAvailable(codeRows) < expectedCount && product.ProductName != "" {
+		if !codeEnoughUnits(codeRows) && product.ProductName != "" {
 			var nameRows []stockRow
 			err = tx.WithContext(ctx).Raw(fmt.Sprintf(stockQuery, "p.name ILIKE ?"), fromStoreId, product.ProductName).Scan(&nameRows).Error
 			if err != nil {
@@ -1781,12 +1790,12 @@ func (s *Services) CreateTransferForOnec(ctx context.Context, req *domain.OnecTr
 					transfer_id, store_product_id, product_id,
 					received_count, expected_count,
 					expected_pack, expected_unit,
-					supply_price, retail_price, expire_date, serial_number
-				) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+					supply_price, retail_price, expire_date, serial_number, is_marking
+				) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 				transferId, r.StoreProductId, r.ProductId,
 				r.Available, toSet,
 				rowPack, rowUnit,
-				r.SupplyPrice, r.RetailPrice, r.ExpireDate, r.SerialNumber,
+				r.SupplyPrice, r.RetailPrice, r.ExpireDate, r.SerialNumber, r.IsMarking,
 			).Error
 			if err != nil {
 				_ = tx.Rollback()
