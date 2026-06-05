@@ -171,6 +171,7 @@ type EmployeeTransferLog struct {
 // OnecTransferProduct — return request uchun (count bilan)
 type OnecTransferProduct struct {
 	MaterialCode int     `json:"material_code"`
+	ProductName  string  `json:"product_name"`
 	Count        float64 `json:"count"`
 }
 

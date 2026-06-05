@@ -1706,7 +1706,7 @@ func (s *Services) CreateTransferForOnec(ctx context.Context, req *domain.OnecTr
 		return total
 	}
 
-	var unfulfilled []domain.OnecTransferUnfulfilled
+	unfulfilled := make([]domain.OnecTransferUnfulfilled, 0)
 
 	// For each product: find stock, insert transfer_details. Insufficient stock → unfulfilled list, continue.
 	for _, product := range req.Products {
@@ -1754,6 +1754,11 @@ func (s *Services) CreateTransferForOnec(ctx context.Context, req *domain.OnecTr
 
 		if notEnough {
 			name := product.ProductName
+			if name == "" {
+				if len(rows) > 0 {
+					name = rows[0].ProductName
+				}
+			}
 			if name == "" {
 				name = fmt.Sprintf("%d", product.MaterialCode)
 			}

@@ -1075,69 +1075,104 @@ func (s *Services) CreateAndSendReturnForOnec(ctx context.Context, req *domain.O
 		return nil, domain.InternalServerError
 	}
 
-	var unfulfilled []domain.OnecTransferUnfulfilled
+	type stockRow struct {
+		StoreProductId string     `gorm:"column:store_product_id"`
+		ProductId      string     `gorm:"column:product_id"`
+		Available      float64    `gorm:"column:available"`
+		SupplyPrice    float64    `gorm:"column:supply_price"`
+		RetailPrice    float64    `gorm:"column:retail_price"`
+		ExpireDate     *time.Time `gorm:"column:expire_date"`
+		SerialNumber   string     `gorm:"column:serial_number"`
+		UnitPerPack    float64    `gorm:"column:unit_per_pack"`
+		Name           string     `gorm:"column:name"`
+	}
+
+	stockQuery := `
+		SELECT
+			sp.id AS store_product_id,
+			sp.product_id,
+			sp.unit_quantity::numeric / p.unit_per_pack AS available,
+			sp.supply_price,
+			sp.retail_price,
+			sp.expire_date,
+			sp.serial_number,
+			p.unit_per_pack,
+			p.name
+		FROM store_products sp
+		JOIN products p ON sp.product_id = p.id
+		WHERE sp.store_id = ? AND %s AND sp.unit_quantity > 0
+		ORDER BY sp.expire_date ASC NULLS LAST`
+
+	sumAvailable := func(rs []stockRow) float64 {
+		var total float64
+		for _, r := range rs {
+			total += r.Available
+		}
+		return total
+	}
+
+	enoughUnits := func(rs []stockRow, count float64) bool {
+		if len(rs) == 0 {
+			return false
+		}
+		return math.Round(sumAvailable(rs)*rs[0].UnitPerPack) >= math.Round(count*rs[0].UnitPerPack)
+	}
+
+	unfulfilled := make([]domain.OnecTransferUnfulfilled, 0)
 
 	for _, product := range req.Products {
-		var stockRows []struct {
-			StoreProductId string     `gorm:"column:store_product_id"`
-			ProductId      string     `gorm:"column:product_id"`
-			Available      float64    `gorm:"column:available"`
-			SupplyPrice    float64    `gorm:"column:supply_price"`
-			RetailPrice    float64    `gorm:"column:retail_price"`
-			ExpireDate     *time.Time `gorm:"column:expire_date"`
-			SerialNumber   string     `gorm:"column:serial_number"`
-			UnitPerPack    float64    `gorm:"column:unit_per_pack"`
-			Name           string     `gorm:"column:name"`
-		}
-		err = tx.WithContext(ctx).Raw(`
-			SELECT
-				sp.id AS store_product_id,
-				sp.product_id,
-				sp.unit_quantity::numeric / p.unit_per_pack AS available,
-				sp.supply_price,
-				sp.retail_price,
-				sp.expire_date,
-				sp.serial_number,
-				p.unit_per_pack,
-				p.name
-			FROM store_products sp
-			JOIN products p ON sp.product_id = p.id
-			WHERE sp.store_id = ? AND p.material_code = ? AND sp.unit_quantity::numeric / p.unit_per_pack > 0
-			ORDER BY sp.expire_date ASC NULLS LAST`,
-			storeId, product.MaterialCode).Scan(&stockRows).Error
+		var codeRows []stockRow
+		err = tx.WithContext(ctx).Raw(fmt.Sprintf(stockQuery, "p.material_code = ?"),
+			storeId, product.MaterialCode).Scan(&codeRows).Error
 		if err != nil {
 			_ = tx.Rollback()
-			s.log.Errorf("onec return: fetch stock for material_code=%d: %v", product.MaterialCode, err)
+			s.log.Errorf("onec return: fetch stock material_code=%d: %v", product.MaterialCode, err)
 			return nil, domain.InternalServerError
 		}
 
-		productName := fmt.Sprintf("%d", product.MaterialCode)
-		if len(stockRows) > 0 {
-			productName = stockRows[0].Name
+		rows := codeRows
+		if !enoughUnits(codeRows, product.Count) && product.ProductName != "" {
+			var nameRows []stockRow
+			err = tx.WithContext(ctx).Raw(fmt.Sprintf(stockQuery, "p.name ILIKE ?"),
+				storeId, product.ProductName).Scan(&nameRows).Error
+			if err != nil {
+				_ = tx.Rollback()
+				s.log.Errorf("onec return: fetch stock by name=%s: %v", product.ProductName, err)
+				return nil, domain.InternalServerError
+			}
+			rows = nameRows
 		}
 
-		if len(stockRows) == 0 {
+		productName := product.ProductName
+		if productName == "" {
+			if len(rows) > 0 {
+				productName = rows[0].Name
+			} else {
+				productName = fmt.Sprintf("%d", product.MaterialCode)
+			}
+		}
+
+		if !enoughUnits(rows, product.Count) {
+			s.log.Warnf("onec return: not enough stock material_code=%d name=%s: available=%.4f requested=%.4f",
+				product.MaterialCode, productName, sumAvailable(rows), product.Count)
 			unfulfilled = append(unfulfilled, domain.OnecTransferUnfulfilled{
 				MaterialCode: product.MaterialCode,
 				Name:         productName,
 				Requested:    product.Count,
-				Accepted:     0,
-				Remaining:    product.Count,
+				Accepted:     sumAvailable(rows),
+				Remaining:    product.Count - sumAvailable(rows),
 			})
 			continue
 		}
 
 		remaining := product.Count
-		for _, stock := range stockRows {
+		for _, stock := range rows {
 			if remaining <= 0 {
 				break
 			}
 			toSet := remaining
 			if toSet > stock.Available {
 				toSet = stock.Available
-			}
-			if toSet <= 0 {
-				continue
 			}
 
 			err = tx.WithContext(ctx).Exec(`
@@ -1152,15 +1187,13 @@ func (s *Services) CreateAndSendReturnForOnec(ctx context.Context, req *domain.O
 			).Error
 			if err != nil {
 				_ = tx.Rollback()
-				s.log.Errorf("onec return: insert detail for material_code=%d: %v", product.MaterialCode, err)
+				s.log.Errorf("onec return: insert detail material_code=%d: %v", product.MaterialCode, err)
 				return nil, domain.InternalServerError
 			}
 
 			err = tx.WithContext(ctx).Exec(`
-				UPDATE store_products
-				SET unit_quantity = unit_quantity - ?, updated_at = NOW()
-				WHERE id = ?`,
-				toSet*stock.UnitPerPack, stock.StoreProductId).Error
+				UPDATE store_products SET unit_quantity = unit_quantity - ?, updated_at = NOW() WHERE id = ?`,
+				math.Round(toSet*stock.UnitPerPack), stock.StoreProductId).Error
 			if err != nil {
 				_ = tx.Rollback()
 				s.log.Errorf("onec return: deduct store_product %s: %v", stock.StoreProductId, err)
