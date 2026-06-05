@@ -1058,7 +1058,7 @@ func (s *Services) CreateAndSendReturnForOnec(ctx context.Context, req *domain.O
 	err := tx.WithContext(ctx).Raw(`SELECT id FROM stores WHERE store_code = ? LIMIT 1`, req.StoreCode).Scan(&storeId).Error
 	if err != nil || storeId == "" {
 		_ = tx.Rollback()
-		s.log.Errorf("onec return: store_code=%s not found: %v", req.StoreCode, err)
+		s.log.Errorf("onec return: store_code=%d not found: %v", req.StoreCode, err)
 		return nil, domain.NotFoundError
 	}
 

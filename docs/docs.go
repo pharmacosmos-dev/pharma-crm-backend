@@ -31917,7 +31917,7 @@ const docTemplate = `{
                     }
                 },
                 "store_code": {
-                    "type": "string"
+                    "type": "integer"
                 }
             }
         },
