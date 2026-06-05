@@ -1155,7 +1155,7 @@ definitions:
         items:
           $ref: '#/definitions/domain.OnecTransferProduct'
         type: array
-      store_id:
+      store_code:
         type: string
     type: object
   domain.OnecReturnResponse:

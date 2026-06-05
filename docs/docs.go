@@ -31916,7 +31916,7 @@ const docTemplate = `{
                         "$ref": "#/definitions/domain.OnecTransferProduct"
                     }
                 },
-                "store_id": {
+                "store_code": {
                     "type": "string"
                 }
             }
