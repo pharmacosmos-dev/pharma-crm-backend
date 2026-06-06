@@ -2,10 +2,12 @@ package v1
 
 import (
 	"context"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 	"github.com/pharma-crm-backend/domain"
 	"github.com/pharma-crm-backend/domain/constants"
+	"github.com/xuri/excelize/v2"
 )
 
 type UzumTezkorProductHandler struct {
@@ -22,6 +24,7 @@ func (h *UzumTezkorProductHandler) UzumTezkorProductRoutes(r *gin.RouterGroup) {
 	{
 		umtkproduct.GET("/list", h.List)
 		umtkproduct.PUT("/update-price", h.UpdatePrice)
+		umtkproduct.POST("/upload-product-price-excel", h.UploadExcel)
 	}
 }
 
@@ -59,6 +62,95 @@ func (h *UzumTezkorProductHandler) UpdatePrice(c *gin.Context) {
 	}
 
 	handleResponse(c, OK, "UPDATED")
+}
+
+// UploadExcel godoc
+// @Summary		Bulk update online prices from Excel (CRM)
+// @Tags		UzumTezkor Products
+// @Security	BearerAuth
+// @Accept		multipart/form-data
+// @Produce		json
+// @Param		file  formData  file    true   "Excel: col A=product name, col B=material_code, col C=retail_price"
+// @Param		type  query     string  false  "Platform type (default: uzum)"
+// @Success		200 {object} v1.Response
+// @Failure		400 {object} v1.Response
+// @Failure		500 {object} v1.Response
+// @Router		/uzumtezkor-products/upload-excel [post]
+func (h *UzumTezkorProductHandler) UploadExcel(c *gin.Context) {
+	user := h.service.GetSignedUser(c)
+	if user == nil {
+		handleResponse(c, UNAUTHORIZED, domain.UnauthorizedError)
+		return
+	}
+
+	fileHeader, err := c.FormFile("file")
+	if err != nil {
+		handleResponse(c, BadRequest, "file is required")
+		return
+	}
+
+	f, err := fileHeader.Open()
+	if err != nil {
+		handleResponse(c, BadRequest, "could not open file")
+		return
+	}
+	defer f.Close()
+
+	xlsx, err := excelize.OpenReader(f)
+	if err != nil {
+		handleResponse(c, BadRequest, "invalid excel file")
+		return
+	}
+
+	sheetName := xlsx.GetSheetName(0)
+	rows, err := xlsx.GetRows(sheetName)
+	if err != nil {
+		handleResponse(c, BadRequest, "could not read excel rows")
+		return
+	}
+
+	productType := c.Query("type")
+	if productType == "" {
+		productType = "uzum"
+	}
+
+	var items []domain.UzumTezKorProductRepriceItem
+	for i, row := range rows {
+		if i == 0 {
+			continue
+		}
+		if len(row) < 3 {
+			continue
+		}
+		materialCode := strings.TrimSpace(row[1])
+		retailPrice := parseFloat(row[2])
+		if materialCode == "" || retailPrice <= 0 {
+			continue
+		}
+		items = append(items, domain.UzumTezKorProductRepriceItem{
+			MaterialCode: materialCode,
+			RetailPrice:  retailPrice,
+		})
+	}
+
+	if len(items) == 0 {
+		handleResponse(c, BadRequest, "no valid rows found in excel")
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
+	defer cancel()
+
+	updated, notFound, err := h.service.BulkUpdateOnlinePriceFromExcel(ctx, items, productType, user.UserId)
+	if err != nil {
+		handleServiceResponse(c, nil, err)
+		return
+	}
+
+	handleResponse(c, OK, gin.H{
+		"updated":   updated,
+		"not_found": notFound,
+	})
 }
 
 // List godoc

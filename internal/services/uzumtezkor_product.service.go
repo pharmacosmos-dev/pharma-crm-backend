@@ -80,6 +80,50 @@ func (s *Services) UpdateOnlinePriceByMaterialCode(ctx context.Context, req *dom
 	return nil
 }
 
+// BulkUpdateOnlinePriceFromExcel — Excel dan kelgan items bo'yicha narxlarni yangilaydi.
+// Topilmagan material_code lar notFound slice ga yig'iladi.
+func (s *Services) BulkUpdateOnlinePriceFromExcel(ctx context.Context, items []domain.UzumTezKorProductRepriceItem, productType string, updatedBy string) (updated int64, notFound []string, err error) {
+	if len(items) == 0 {
+		return 0, nil, fmt.Errorf("items list is empty")
+	}
+
+	tx := s.db.WithContext(ctx).Begin()
+	defer func() {
+		if r := recover(); r != nil {
+			_ = tx.Rollback()
+		}
+	}()
+
+	for _, item := range items {
+		result := tx.Exec(`
+			UPDATE online_products_price
+			SET retail_price = ?, updated_by = ?, updated_at = NOW()
+			WHERE material_code = ? AND type = ?`,
+			item.RetailPrice,
+			updatedBy,
+			item.MaterialCode,
+			productType,
+		)
+		if result.Error != nil {
+			_ = tx.Rollback()
+			s.log.Errorf("failed to bulk update online price material_code=%s: %v", item.MaterialCode, result.Error)
+			return 0, nil, domain.InternalServerError
+		}
+		if result.RowsAffected == 0 {
+			notFound = append(notFound, item.MaterialCode)
+		} else {
+			updated += result.RowsAffected
+		}
+	}
+
+	if err = tx.Commit().Error; err != nil {
+		s.log.Errorf("failed to commit BulkUpdateOnlinePriceFromExcel: %v", err)
+		return 0, nil, domain.InternalServerError
+	}
+
+	return updated, notFound, nil
+}
+
 // GetOnlineProducts — CRM uchun narx tarixi
 func (s *Services) GetOnlineProducts(ctx context.Context, params *domain.UzumTezkorProductQueryParam) ([]domain.OnlineProductsPrice, int64, error) {
 	var result []domain.OnlineProductsPrice

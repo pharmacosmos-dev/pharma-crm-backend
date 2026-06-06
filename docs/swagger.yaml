@@ -2001,7 +2001,7 @@ definitions:
   domain.UpdateOnlinePriceRequest:
     properties:
       material_code:
-        type: integer
+        type: string
       retail_price:
         type: number
       type:
@@ -21157,6 +21157,40 @@ paths:
       security:
       - BearerAuth: []
       summary: Update online product price by material_code (CRM)
+      tags:
+      - UzumTezkor Products
+  /uzumtezkor-products/upload-excel:
+    post:
+      consumes:
+      - multipart/form-data
+      parameters:
+      - description: 'Excel: col A=product name, col B=material_code, col C=retail_price'
+        in: formData
+        name: file
+        required: true
+        type: file
+      - description: 'Platform type (default: uzum)'
+        in: query
+        name: type
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Bulk update online prices from Excel (CRM)
       tags:
       - UzumTezkor Products
   /write-off:

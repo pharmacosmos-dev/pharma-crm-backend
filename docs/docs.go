@@ -29603,6 +29603,60 @@ const docTemplate = `{
                 }
             }
         },
+        "/uzumtezkor-products/upload-excel": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "consumes": [
+                    "multipart/form-data"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "UzumTezkor Products"
+                ],
+                "summary": "Bulk update online prices from Excel (CRM)",
+                "parameters": [
+                    {
+                        "type": "file",
+                        "description": "Excel: col A=product name, col B=material_code, col C=retail_price",
+                        "name": "file",
+                        "in": "formData",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Platform type (default: uzum)",
+                        "name": "type",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    }
+                }
+            }
+        },
         "/write-off": {
             "post": {
                 "security": [
@@ -33248,7 +33302,7 @@ const docTemplate = `{
             ],
             "properties": {
                 "material_code": {
-                    "type": "integer"
+                    "type": "string"
                 },
                 "retail_price": {
                     "type": "number"
