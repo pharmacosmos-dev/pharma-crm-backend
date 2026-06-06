@@ -27768,6 +27768,18 @@ const docTemplate = `{
                     },
                     {
                         "type": "string",
+                        "description": "type",
+                        "name": "type",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "creator_id",
+                        "name": "creator_id",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
                         "description": "start_date",
                         "name": "start_date",
                         "in": "query"

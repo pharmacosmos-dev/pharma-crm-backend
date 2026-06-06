@@ -342,6 +342,14 @@ func (s *Services) TransferList(ctx context.Context, params *domain.ReturnParam)
 		query = query.Where("t.status = ?", params.Status)
 	}
 
+	if params.Type != "" {
+		query = query.Where("t.type = ?", params.Type)
+	}
+
+	if params.CreatorId != "" {
+		query = query.Where("t.created_by = ?", params.CreatorId)
+	}
+
 	if params.StartDate != "" {
 		query = query.Where("t.created_at >= ?", params.StartDate)
 	}

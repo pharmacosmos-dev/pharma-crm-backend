@@ -97,6 +97,8 @@ type ReturnParam struct {
 	StoreId    string `form:"store_id"`
 	CompanyId  string `form:"company_id"`
 	Status     string `form:"status"`
+	Type       string `form:"type"`
+	CreatorId  string `form:"creator_id"`
 	Search     string `form:"search"`
 	StartDate  string `form:"start_date"`
 	EndDate    string `form:"end_date"`

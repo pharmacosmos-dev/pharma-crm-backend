@@ -20111,6 +20111,14 @@ paths:
         in: query
         name: status
         type: string
+      - description: type
+        in: query
+        name: type
+        type: string
+      - description: creator_id
+        in: query
+        name: creator_id
+        type: string
       - description: start_date
         in: query
         name: start_date
