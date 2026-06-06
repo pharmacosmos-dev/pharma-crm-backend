@@ -29603,7 +29603,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/uzumtezkor-products/upload-excel": {
+        "/uzumtezkor-products/upload-product-price-excel": {
             "post": {
                 "security": [
                     {

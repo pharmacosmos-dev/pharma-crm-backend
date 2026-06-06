@@ -21159,7 +21159,7 @@ paths:
       summary: Update online product price by material_code (CRM)
       tags:
       - UzumTezkor Products
-  /uzumtezkor-products/upload-excel:
+  /uzumtezkor-products/upload-product-price-excel:
     post:
       consumes:
       - multipart/form-data

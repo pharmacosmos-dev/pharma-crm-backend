@@ -75,7 +75,7 @@ func (h *UzumTezkorProductHandler) UpdatePrice(c *gin.Context) {
 // @Success		200 {object} v1.Response
 // @Failure		400 {object} v1.Response
 // @Failure		500 {object} v1.Response
-// @Router		/uzumtezkor-products/upload-excel [post]
+// @Router		/uzumtezkor-products/upload-product-price-excel [post]
 func (h *UzumTezkorProductHandler) UploadExcel(c *gin.Context) {
 	user := h.service.GetSignedUser(c)
 	if user == nil {
