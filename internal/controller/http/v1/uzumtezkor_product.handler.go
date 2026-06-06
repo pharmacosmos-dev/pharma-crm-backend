@@ -21,9 +21,45 @@ func (h *UzumTezkorProductHandler) UzumTezkorProductRoutes(r *gin.RouterGroup) {
 	umtkproduct := r.Group("/uzumtezkor-products")
 	{
 		umtkproduct.GET("/list", h.List)
+		umtkproduct.PUT("/update-price", h.UpdatePrice)
 	}
 }
 
+
+// UpdatePrice godoc
+// @Summary		Update online product price by material_code (CRM)
+// @Tags		UzumTezkor Products
+// @Security	BearerAuth
+// @Accept		json
+// @Produce		json
+// @Param		body body domain.UpdateOnlinePriceRequest true "material_code and new retail_price"
+// @Success		200 {object} v1.Response
+// @Failure		400 {object} v1.Response
+// @Failure		500 {object} v1.Response
+// @Router		/v1/uzumtezkor-products/update-price [put]
+func (h *UzumTezkorProductHandler) UpdatePrice(c *gin.Context) {
+	user := h.service.GetSignedUser(c)
+	if user == nil {
+		handleServiceResponse(c, UNAUTHORIZED, domain.UnauthorizedError)
+		return
+	}
+
+	var req domain.UpdateOnlinePriceRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		handleResponse(c, BadRequest, err.Error())
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
+	defer cancel()
+
+	if err := h.service.UpdateOnlinePriceByMaterialCode(ctx, &req, user.UserId); err != nil {
+		handleServiceResponse(c, nil, err)
+		return
+	}
+
+	handleResponse(c, OK, "UPDATED")
+}
 
 // List godoc
 // @Summary		List UzumTezkor product price history (CRM)

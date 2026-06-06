@@ -11,6 +11,8 @@ type OnlineProductsPrice struct {
 	RetailPrice  float64    `gorm:"retail_price" json:"retail_price"`
 	CreatedBy    *string    `gorm:"created_by" json:"created_by"`
 	CreatedAt    *time.Time `gorm:"created_at" json:"created_at"`
+	UpdatedAt    *time.Time `gorm:"updated_at" json:"updated_at"`
+	UpdatedBy    *string    `gorm:"updated_by" json:"updated_by"`
 }
 
 func (OnlineProductsPrice) TableName() string {
@@ -35,4 +37,11 @@ type UzumTezkorProductQueryParam struct {
 	MaterialCode string `form:"material_code"`
 	Limit        int    `form:"limit"`
 	Offset       int    `form:"offset"`
+}
+
+// CRM dan material_code bo'yicha narx yangilash
+type UpdateOnlinePriceRequest struct {
+	MaterialCode string  `json:"material_code" binding:"required"`
+	RetailPrice  float64 `json:"retail_price" binding:"required,gt=0"`
+	Type         string  `json:"type"`
 }
