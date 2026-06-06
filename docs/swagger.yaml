@@ -21093,7 +21093,7 @@ paths:
       summary: Get Restaurants
       tags:
       - uzum
-  /v1/uzumtezkor-products/list:
+  /uzumtezkor-products/list:
     get:
       parameters:
       - description: Platform type (uzum, yandex_eda)
@@ -21128,7 +21128,7 @@ paths:
       summary: List UzumTezkor product price history (CRM)
       tags:
       - UzumTezkor Products
-  /v1/uzumtezkor-products/update-price:
+  /uzumtezkor-products/update-price:
     put:
       consumes:
       - application/json

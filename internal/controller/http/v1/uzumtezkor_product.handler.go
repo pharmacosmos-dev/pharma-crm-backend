@@ -36,7 +36,7 @@ func (h *UzumTezkorProductHandler) UzumTezkorProductRoutes(r *gin.RouterGroup) {
 // @Success		200 {object} v1.Response
 // @Failure		400 {object} v1.Response
 // @Failure		500 {object} v1.Response
-// @Router		/v1/uzumtezkor-products/update-price [put]
+// @Router		/uzumtezkor-products/update-price [put]
 func (h *UzumTezkorProductHandler) UpdatePrice(c *gin.Context) {
 	user := h.service.GetSignedUser(c)
 	if user == nil {
@@ -72,7 +72,7 @@ func (h *UzumTezkorProductHandler) UpdatePrice(c *gin.Context) {
 // @Param		limit         query int    false "Limit"
 // @Param		offset        query int    false "Offset"
 // @Success		200 {object} v1.Response
-// @Router		/v1/uzumtezkor-products/list [get]
+// @Router		/uzumtezkor-products/list [get]
 func (h *UzumTezkorProductHandler) List(c *gin.Context) {
 	var params domain.UzumTezkorProductQueryParam
 	if err := c.ShouldBindQuery(&params); err != nil {

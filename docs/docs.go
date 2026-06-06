@@ -29497,7 +29497,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/v1/uzumtezkor-products/list": {
+        "/uzumtezkor-products/list": {
             "get": {
                 "security": [
                     {
@@ -29553,7 +29553,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/v1/uzumtezkor-products/update-price": {
+        "/uzumtezkor-products/update-price": {
             "put": {
                 "security": [
                     {
