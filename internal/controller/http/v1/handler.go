@@ -121,7 +121,6 @@ func (h *Handler) InitRoutes(r *gin.Engine) {
 		h.NewPartnerHandler(v1)
 		h.NewOstatokHandler(public)
 		h.NewStoreTargetHandler(v1)
-		h.NewUzumTezkorProductHandler(v1)
 		// handler for external apis
 		h.NewNoorHandler(external)
 		// handler for partner auth apis
