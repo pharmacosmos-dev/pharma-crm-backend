@@ -41,7 +41,7 @@ type UzumTezkorProductQueryParam struct {
 
 // CRM dan material_code bo'yicha narx yangilash
 type UpdateOnlinePriceRequest struct {
-	MaterialCode string  `json:"material_code" binding:"required"`
+	MaterialCode int     `json:"material_code" binding:"required"`
 	RetailPrice  float64 `json:"retail_price" binding:"required,gt=0"`
 	Type         string  `json:"type"`
 }

@@ -2001,7 +2001,7 @@ definitions:
   domain.UpdateOnlinePriceRequest:
     properties:
       material_code:
-        type: string
+        type: integer
       retail_price:
         type: number
       type:

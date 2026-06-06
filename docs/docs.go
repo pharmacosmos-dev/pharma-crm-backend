@@ -33248,7 +33248,7 @@ const docTemplate = `{
             ],
             "properties": {
                 "material_code": {
-                    "type": "string"
+                    "type": "integer"
                 },
                 "retail_price": {
                     "type": "number"
