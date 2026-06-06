@@ -277,7 +277,7 @@ func (s *Services) GetProducts(ctx context.Context, params *domain.ProductQueryP
 	// Pre-aggregate store_products
 	storeJoin := `
 	LEFT JOIN (
-		SELECT 
+		SELECT
 			product_id,
 			SUM(unit_quantity) as total_quantity,
 			MIN(expire_date) FILTER (WHERE unit_quantity > 0) as min_expire_date,
@@ -285,8 +285,18 @@ func (s *Services) GetProducts(ctx context.Context, params *domain.ProductQueryP
 			MAX(retail_price) AS retail_price
 		FROM store_products`
 
+	var spConditions []string
 	if params.StoreId != "" {
-		storeJoin += fmt.Sprintf(" WHERE store_id = '%s'", params.StoreId)
+		spConditions = append(spConditions, fmt.Sprintf("store_id = '%s'", params.StoreId))
+	}
+	if params.StartDate != nil {
+		spConditions = append(spConditions, fmt.Sprintf("created_at >= '%s'", params.StartDate.GetTime().UTC().Format(time.RFC3339)))
+	}
+	if params.EndDate != nil {
+		spConditions = append(spConditions, fmt.Sprintf("created_at <= '%s'", params.EndDate.GetTime().UTC().Format(time.RFC3339)))
+	}
+	if len(spConditions) > 0 {
+		storeJoin += " WHERE " + strings.Join(spConditions, " AND ")
 	}
 
 	storeJoin += ` GROUP BY product_id
