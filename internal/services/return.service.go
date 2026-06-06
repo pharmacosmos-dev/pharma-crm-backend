@@ -199,7 +199,7 @@ func (s *Services) UpdateReturnDetailQuantity(ctx context.Context, req *domain.R
 			`, req.Id, req.TransferId).Error
 		case "get":
 			transferLog.Stage = constants.TransferLogStageSent
-			if count > returnDetail.ExpectedCount {
+			if count > returnDetail.ExpectedCount+1e-9 {
 				return errors.New("invalid.quantity")
 			}
 			err = s.db.WithContext(ctx).Exec(`
@@ -212,7 +212,7 @@ func (s *Services) UpdateReturnDetailQuantity(ctx context.Context, req *domain.R
 			`, count, pack, unit, req.Id, req.TransferId).Error
 		default:
 			transferLog.Stage = constants.TransferLogStageSent
-			if count > returnDetail.ReceivedCount {
+			if count > returnDetail.ReceivedCount+1e-9 {
 				return errors.New("invalid.quantity")
 			}
 			err = s.db.WithContext(ctx).Exec(`
