@@ -29553,6 +29553,56 @@ const docTemplate = `{
                 }
             }
         },
+        "/v1/uzumtezkor-products/update-price": {
+            "put": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "UzumTezkor Products"
+                ],
+                "summary": "Update online product price by material_code (CRM)",
+                "parameters": [
+                    {
+                        "description": "material_code and new retail_price",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/domain.UpdateOnlinePriceRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    }
+                }
+            }
+        },
         "/write-off": {
             "post": {
                 "security": [
@@ -33187,6 +33237,24 @@ const docTemplate = `{
                     "items": {
                         "type": "string"
                     }
+                }
+            }
+        },
+        "domain.UpdateOnlinePriceRequest": {
+            "type": "object",
+            "required": [
+                "material_code",
+                "retail_price"
+            ],
+            "properties": {
+                "material_code": {
+                    "type": "string"
+                },
+                "retail_price": {
+                    "type": "number"
+                },
+                "type": {
+                    "type": "string"
                 }
             }
         },

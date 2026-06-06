@@ -1998,6 +1998,18 @@ definitions:
     required:
     - store_ids
     type: object
+  domain.UpdateOnlinePriceRequest:
+    properties:
+      material_code:
+        type: string
+      retail_price:
+        type: number
+      type:
+        type: string
+    required:
+    - material_code
+    - retail_price
+    type: object
   domain.UpdateOnlineSale:
     properties:
       online_status:
@@ -21114,6 +21126,37 @@ paths:
       security:
       - BearerAuth: []
       summary: List UzumTezkor product price history (CRM)
+      tags:
+      - UzumTezkor Products
+  /v1/uzumtezkor-products/update-price:
+    put:
+      consumes:
+      - application/json
+      parameters:
+      - description: material_code and new retail_price
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/domain.UpdateOnlinePriceRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Update online product price by material_code (CRM)
       tags:
       - UzumTezkor Products
   /write-off:
