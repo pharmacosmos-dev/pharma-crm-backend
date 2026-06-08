@@ -283,7 +283,8 @@ func (s *Services) GetProducts(ctx context.Context, params *domain.ProductQueryP
 			MIN(expire_date) FILTER (WHERE unit_quantity > 0) as min_expire_date,
 			MAX(supply_price) AS supply_price,
 			MAX(retail_price) AS retail_price
-		FROM store_products`
+		FROM store_products
+		WHERE unit_quantity > 0`
 
 	var spConditions []string
 	if params.StoreId != "" {
@@ -296,7 +297,7 @@ func (s *Services) GetProducts(ctx context.Context, params *domain.ProductQueryP
 		spConditions = append(spConditions, fmt.Sprintf("created_at <= '%s'", params.EndDate.GetTime().UTC().Format(time.RFC3339)))
 	}
 	if len(spConditions) > 0 {
-		storeJoin += " WHERE " + strings.Join(spConditions, " AND ")
+		storeJoin += " AND " + strings.Join(spConditions, " AND ")
 	}
 
 	storeJoin += ` GROUP BY product_id
@@ -573,6 +574,13 @@ func (s *Services) GetProductStats(ctx context.Context, params *domain.ProductQu
 	if params.CompanyId != "" {
 		subQuery = subQuery.Joins("LEFT JOIN stores st ON sp.store_id = st.id").
 			Where("st.company_id = ?", params.CompanyId)
+	}
+
+	if params.StartDate != nil {
+		subQuery = subQuery.Where("sp.created_at >= ?", params.StartDate.GetTime().UTC())
+	}
+	if params.EndDate != nil {
+		subQuery = subQuery.Where("sp.created_at <= ?", params.EndDate.GetTime().UTC())
 	}
 
 	if params.ProducerId != "" {
