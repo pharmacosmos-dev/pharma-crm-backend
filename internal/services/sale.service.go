@@ -2216,6 +2216,7 @@ func (s *Services) GetOnlinePendingSales(ctx context.Context, params *domain.Sal
 			"s.online_status",
 			"s.stage",
 			"s.type",
+			"s.is_active",
 			"s.sale_type",
 			"s.service_type",
 			"s.created_at",
@@ -2226,7 +2227,9 @@ func (s *Services) GetOnlinePendingSales(ctx context.Context, params *domain.Sal
 		Table("sales s").
 		Joins("LEFT JOIN cart_items ci ON s.id = ci.sale_id").
 		Where("s.online_status IN(?)", constants.OnlinePendingStages).
-		Where("s.type = ?", constants.SaleTypeOnline)
+		Where("s.type = ?", constants.SaleTypeOnline).
+		Where("s.is_active = TRUE")
+	
 
 	if params.StoreId != "" {
 		qb = qb.Where("s.store_id = ?", params.StoreId)
@@ -2555,6 +2558,7 @@ func (s *Services) GetOnlineOrders(ctx context.Context, params *domain.SaleQuery
 			"s.payment_type",
 			"s.stage",
 			"s.online_status",
+			"s.is_active",
 			"s.service_type",
 			"s.is_paid",
 			"s.created_at",
@@ -2571,7 +2575,8 @@ func (s *Services) GetOnlineOrders(ctx context.Context, params *domain.SaleQuery
 		Table("sales s").
 		Joins("JOIN stores st ON s.store_id = st.id").
 		Joins("LEFT JOIN customers c ON s.customer_id = c.id").
-		Where("s.type = ?", constants.SaleTypeOnline)
+		Where("s.type = ?", constants.SaleTypeOnline).
+		Where("s.is_active = ?", true)
 
 	if params.Search != "" {
 		qb = qb.Where("s.sale_number::TEXT ILIKE ?", "%"+params.Search+"%")
