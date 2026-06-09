@@ -269,6 +269,8 @@ func (h *ProductHandler) List(c *gin.Context) {
 // @Param company_id query string false "company_id"
 // @Param producer_id query string false "Producer ID"
 // @Param no_barcode query bool false "No Barcode"
+// @Param start_date query string false "Filter by store_product arrival date from (e.g. 2026-01-01T00:00:00+05:00)"
+// @Param end_date query string false "Filter by store_product arrival date to (e.g. 2026-12-31T23:59:59+05:00)"
 // @Param order query string false "Order by (+name || -name || +expire_date || -expire_date)"
 // @Success 200 {object} v1.Response
 // @Failure 400 {object} v1.Response

@@ -11928,6 +11928,14 @@ paths:
         in: query
         name: no_barcode
         type: boolean
+      - description: Filter by store_product arrival date from (e.g. 2026-01-01T00:00:00+05:00)
+        in: query
+        name: start_date
+        type: string
+      - description: Filter by store_product arrival date to (e.g. 2026-12-31T23:59:59+05:00)
+        in: query
+        name: end_date
+        type: string
       - description: Order by (+name || -name || +expire_date || -expire_date)
         in: query
         name: order

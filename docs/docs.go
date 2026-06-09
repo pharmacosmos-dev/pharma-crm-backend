@@ -14625,6 +14625,18 @@ const docTemplate = `{
                     },
                     {
                         "type": "string",
+                        "description": "Filter by store_product arrival date from (e.g. 2026-01-01T00:00:00+05:00)",
+                        "name": "start_date",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Filter by store_product arrival date to (e.g. 2026-12-31T23:59:59+05:00)",
+                        "name": "end_date",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
                         "description": "Order by (+name || -name || +expire_date || -expire_date)",
                         "name": "order",
                         "in": "query"
