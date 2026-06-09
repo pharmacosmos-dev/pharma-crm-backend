@@ -1617,6 +1617,7 @@ func (s *Services) GetTransferLogs(ctx context.Context, params *domain.ReturnDet
 // For each requested product (material_code + count), finds matching store_products
 // FIFO by expire_date, inserts transfer_details, deducts stock, and returns unfulfilled products.
 func (s *Services) CreateTransferForOnec(ctx context.Context, req *domain.OnecTransferRequest, userId string) (*domain.OnecTransferResponse, error) {
+
 	tx := s.db.Begin()
 	defer func() {
 		if r := recover(); r != nil {
@@ -1643,6 +1644,24 @@ func (s *Services) CreateTransferForOnec(ctx context.Context, req *domain.OnecTr
 		s.log.Errorf("onec transfer: to_store_code=%d not found: %v", req.ToStoreCode, err)
 		return nil, domain.NotFoundError
 	}
+
+	var activeInventoryCount int64
+
+	err = s.db.WithContext(ctx).Raw(`
+		SELECT COUNT(*) FROM imports
+		WHERE store_id IN (?, ?)
+		AND entry_type = 2
+		AND status NOT IN ('completed', 'canceled')
+	`, fromStoreId, toStoreId).Scan(&activeInventoryCount).Error
+	if err != nil {
+		s.log.Errorf("could not check active inventory: %v", err)
+		return nil, domain.InternalServerError
+	}
+	if activeInventoryCount > 0 {
+		return nil, domain.ActiveInventoryError
+	}
+
+	
 
 	// 2. Duplicate name tekshiruvi
 	var existingId string

@@ -1062,6 +1062,21 @@ func (s *Services) CreateAndSendReturnForOnec(ctx context.Context, req *domain.O
 		return nil, domain.NotFoundError
 	}
 
+	var activeInventoryCount int64
+	err = s.db.WithContext(ctx).Raw(`
+		SELECT COUNT(*) FROM imports
+		WHERE store_id = ?
+		AND entry_type = 2
+		AND status NOT IN ('completed', 'canceled')
+	`, storeId).Scan(&activeInventoryCount).Error
+	if err != nil {
+		s.log.Errorf("could not check active inventory: %v", err)
+		return nil, domain.InternalServerError
+	}
+	if activeInventoryCount > 0 {
+		return nil, domain.ActiveInventoryError
+	}
+
 	var returnId string
 	err = tx.WithContext(ctx).Raw(`
 		INSERT INTO transfers (from_store_id, name, created_by, entry_type, is_auto)
