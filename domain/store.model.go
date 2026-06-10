@@ -100,7 +100,7 @@ type StoreQueryParams struct {
 	StoreId       string   `form:"-"`
 	Search        string   `form:"search"`
 	IsFranchise   *bool    `form:"is_franchise"`
-	IsOnlineOrder *bool    `form:"is_online_order"`
+	IsOnlineOrder *bool    `form:"is_online"`
 	Limit         int      `form:"limit"`
 	Offset        int      `form:"offset"`
 }

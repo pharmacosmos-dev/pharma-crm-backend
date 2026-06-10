@@ -122,7 +122,7 @@ func (h *StoreHandler) Get(c *gin.Context) {
 // @Param search query string false "Search"
 // @Param product_id query string false "Product ID"
 // @Param is_franchise query bool false "is_franchise"
-// @Param is_online_order query bool false "Filter by online order stores"
+// @Param is_online query bool false "Filter by online order stores"
 // @Success 200 {object} v1.Response
 // @Failure 400 {object} v1.Response
 // @Failure 500 {object} v1.Response

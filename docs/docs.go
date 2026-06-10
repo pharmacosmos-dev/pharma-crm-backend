@@ -26604,7 +26604,7 @@ const docTemplate = `{
                     {
                         "type": "boolean",
                         "description": "Filter by online order stores",
-                        "name": "is_online_order",
+                        "name": "is_online",
                         "in": "query"
                     }
                 ],
