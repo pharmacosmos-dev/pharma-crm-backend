@@ -3,8 +3,7 @@ package services
 import (
 	"context"
 	"fmt"
-	"time"
-
+	"github.com/pharma-crm-backend/domain/constants"
 	"github.com/pharma-crm-backend/domain"
 )
 
@@ -156,81 +155,106 @@ func (s *Services) CreateOnlinePrice(ctx context.Context, req *domain.CreateOnli
 	return nil
 }
 
-// GetOnlineProducts — CRM uchun narx tarixi (products bilan left join)
 func (s *Services) GetOnlineProducts(ctx context.Context, params *domain.UzumTezkorProductQueryParam) ([]domain.OnlineProductsPrice, int64, error) {
-	var tmp []struct {
-		Id             string     `gorm:"id"`
-		ProductId      string     `gorm:"product_id"`
-		MaterialCode   string     `gorm:"material_code"`
-		Type           string     `gorm:"type"`
-		RetailPrice    float64    `gorm:"retail_price"`
-		CreatedBy      *string    `gorm:"created_by"`
-		CreatedAt      *time.Time `gorm:"created_at"`
-		UpdatedAt      *time.Time `gorm:"updated_at"`
-		UpdatedBy      *string    `gorm:"updated_by"`
-		ProductName    string     `gorm:"product_name"`
-		ProductBarcode string     `gorm:"product_barcode"`
-	}
-	var total int64
+   
+    // sp_agg — named args bilan xavfsiz
+    spSQL := `LEFT JOIN (
+        SELECT sp.product_id, COALESCE(SUM(sp.quantity::numeric), 0) AS store_quantity
+        FROM store_products sp
+        JOIN stores st ON sp.store_id = st.id
+        WHERE st.is_online_order = true
+          AND ('' = @store_id OR sp.store_id = @store_id)
+        GROUP BY sp.product_id
+    ) sp_agg ON sp_agg.product_id = opp.product_id`
 
-	q := s.db.WithContext(ctx).
-		Table("online_products_price opp").
-		Select(
-			"opp.id",
-			"opp.product_id",
-			"opp.material_code",
-			"opp.type",
-			"opp.retail_price",
-			"opp.created_by",
-			"opp.created_at",
-			"opp.updated_at",
-			"opp.updated_by",
-			"p.name AS product_name",
-			"p.barcode AS product_barcode",
-		).
-		Joins("LEFT JOIN products p ON opp.product_id = p.id")
+    // sl_agg — barcha params xavfsiz
+    slSQL := `LEFT JOIN (
+        SELECT ci.product_id, COALESCE(SUM(ci.quantity), 0) AS sold_quantity
+        FROM cart_items ci
+        JOIN sales s ON ci.sale_id = s.id
+        JOIN stores st ON s.store_id = st.id
+        WHERE st.is_online_order = true
+          AND s.service_type  = 'uzum'
+          AND s.online_status = @online_status
+          AND s.stage         = @stage
+          AND ('' = @store_id   OR s.store_id   = @store_id)
+          AND ('' = @start_date OR s.created_at >= @start_date)
+          AND ('' = @end_date   OR s.created_at <= @end_date)
+        GROUP BY ci.product_id
+    ) sl_agg ON sl_agg.product_id = opp.product_id`
 
-	if params.Type != "" {
-		q = q.Where("opp.type = ?", params.Type)
-	}
-	if params.ProductId != "" {
-		q = q.Where("opp.product_id = ?", params.ProductId)
-	}
-	if params.MaterialCode != "" {
-		q = q.Where("opp.material_code = ?", params.MaterialCode)
-	}
+    args := map[string]any{
+        "store_id":      params.StoreId,
+        "start_date":    params.StartDate,
+        "end_date":      params.EndDate,
+        "online_status": constants.SaleOnlineStageCompleted, // = 3
+        "stage":         constants.SaleStageFinished,        // = 9
+    }
 
-	if err := q.Count(&total).Error; err != nil {
-		s.log.Errorf("failed to count online_products_price: %v", err)
-		return nil, 0, domain.InternalServerError
-	}
+    qb := s.db.WithContext(ctx).
+        Table("online_products_price opp").
+        Joins("LEFT JOIN products p ON p.id = opp.product_id").
+        Joins(spSQL, args).
+        Joins(slSQL, args)
 
-	if err := q.Order("opp.created_at DESC").
-		Limit(params.Limit).Offset(params.Offset).
-		Find(&tmp).Error; err != nil {
-		s.log.Errorf("failed to get online_products_price: %v", err)
-		return nil, 0, domain.InternalServerError
-	}
+    if params.Type != "" {
+        qb = qb.Where("opp.type = ?", params.Type)
+    }
+    if params.ProductId != "" {
+        qb = qb.Where("opp.product_id = ?", params.ProductId)
+    }
+    if params.MaterialCode != "" {
+        qb = qb.Where("opp.material_code = ?", params.MaterialCode)
+    }
 
-	result := make([]domain.OnlineProductsPrice, 0, len(tmp))
-	for _, item := range tmp {
-		result = append(result, domain.OnlineProductsPrice{
-			Id:           item.Id,
-			ProductId:    item.ProductId,
-			MaterialCode: item.MaterialCode,
-			Type:         item.Type,
-			RetailPrice:  item.RetailPrice,
-			CreatedBy:    item.CreatedBy,
-			CreatedAt:    item.CreatedAt,
-			UpdatedAt:    item.UpdatedAt,
-			UpdatedBy:    item.UpdatedBy,
-			Product: domain.NewNullStruct(domain.OnlineProductSummary{
-				Id:      item.ProductId,
-				Name:    item.ProductName,
-				Barcode: item.ProductBarcode,
-			}, item.ProductId != ""),
-		})
-	}
+    var total int64
+    if err := qb.Count(&total).Error; err != nil {
+        s.log.Errorf("GetOnlineProducts count: %v", err)
+        return nil, 0, domain.InternalServerError
+    }
 
-	return result, total, nil
+    var res []domain.OnlineProductsPrice
+    err := qb.Select(
+        "opp.id", 
+		"opp.product_id", 
+		"opp.material_code", 
+		"opp.type",
+        "opp.retail_price", 
+		"opp.created_by", 
+		"opp.created_at",
+        "opp.updated_at", 
+		"opp.updated_by",
+        "p.name    AS product_name",
+        "p.barcode AS product_barcode",
+        "p.unit_per_pack",
+        "COALESCE(sp_agg.store_quantity, 0) AS store_quantity",
+        "COALESCE(sl_agg.sold_quantity,  0) AS sold_quantity",
+    ).
+        Order("sold_quantity DESC, opp.created_at DESC").
+        Limit(params.Limit).
+        Offset(params.Offset).
+        Find(&res).Error
+    if err != nil {
+        s.log.Errorf("GetOnlineProducts find: %v", err)
+        return nil, 0, domain.InternalServerError
+    }
+
+    for i := range res {
+        res[i].Product = domain.NewNullStruct(domain.OnlineProductSummary{
+            Id:      res[i].ProductId,
+            Name:    res[i].ProductName,
+            Barcode: res[i].ProductBarcode,
+        }, res[i].ProductId != "")
+
+        qty, upack := int(res[i].StoreQuantity), res[i].UnitPerPack
+        if upack > 0 {
+            if qty%upack > 0 {
+                res[i].Units = fmt.Sprintf("%d (%d/%d)", qty/upack, qty%upack, upack)
+            } else {
+                res[i].Units = fmt.Sprintf("%d", qty/upack)
+            }
+        }
+    }
+
+    return res, total, nil
 }

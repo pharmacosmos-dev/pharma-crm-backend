@@ -4,16 +4,22 @@ import "time"
 
 // Append-only history — har bir narx o'zgarishi yangi row
 type OnlineProductsPrice struct {
-	Id           string                           `gorm:"id" json:"id"`
-	ProductId    string                           `gorm:"product_id" json:"product_id"`
-	MaterialCode string                           `gorm:"material_code" json:"material_code"`
-	Type         string                           `gorm:"type" json:"type"`
-	RetailPrice  float64                          `gorm:"retail_price" json:"retail_price"`
-	CreatedBy    *string                          `gorm:"created_by" json:"created_by"`
-	CreatedAt    *time.Time                       `gorm:"created_at" json:"created_at"`
-	UpdatedAt    *time.Time                       `gorm:"updated_at" json:"updated_at"`
-	UpdatedBy    *string                          `gorm:"updated_by" json:"updated_by"`
-	Product      NullStruct[OnlineProductSummary] `gorm:"-" json:"product"`
+	Id             string                           `gorm:"column:id"           json:"id"`
+	ProductId      string                           `gorm:"column:product_id"   json:"product_id"`
+	MaterialCode   string                           `gorm:"column:material_code" json:"material_code"`
+	Type           string                           `gorm:"column:type"         json:"type"`
+	RetailPrice    float64                          `gorm:"column:retail_price" json:"retail_price"`
+	CreatedBy      *string                          `gorm:"column:created_by"   json:"created_by"`
+	CreatedAt      *time.Time                       `gorm:"column:created_at"   json:"created_at"`
+	UpdatedAt      *time.Time                       `gorm:"column:updated_at"   json:"updated_at"`
+	UpdatedBy      *string                          `gorm:"column:updated_by"   json:"updated_by"`
+	StoreQuantity  float64                          `gorm:"column:store_quantity"  json:"store_quantity"`
+	SoldQuantity   float64                          `gorm:"column:sold_quantity"   json:"sold_quantity"`
+	Units          string                           `gorm:"-"                      json:"units"`
+	UnitPerPack    int                              `gorm:"column:unit_per_pack"   json:"unit_per_pack"`
+	ProductName    string                           `gorm:"column:product_name"    json:"-"`
+	ProductBarcode string                           `gorm:"column:product_barcode" json:"-"`
+	Product        NullStruct[OnlineProductSummary] `gorm:"-"                      json:"product"`
 }
 
 func (OnlineProductsPrice) TableName() string {
@@ -43,6 +49,9 @@ type UzumTezkorProductQueryParam struct {
 	Type         string `form:"type"`
 	ProductId    string `form:"product_id"`
 	MaterialCode string `form:"material_code"`
+	StoreId      string `form:"store_id"`
+	StartDate    string `form:"start_date"`
+	EndDate      string `form:"end_date"`
 	Limit        int    `form:"limit"`
 	Offset       int    `form:"offset"`
 }

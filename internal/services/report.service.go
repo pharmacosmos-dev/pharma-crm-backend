@@ -221,10 +221,10 @@ func (s *Services) GetProductsReport(ctx context.Context, params *domain.ReportQ
 		"sp.expire_date",
 		"sp.supply_price",
 		"sp.retail_price",
-		"(sp.supply_price / p.unit_per_pack) * ci.unit_quantity AS supply_price_sum",
-		"(sp.retail_price / p.unit_per_pack) * ci.unit_quantity AS retail_price_sum",
+		"(sp.supply_price / p.unit_per_pack) * ci.unit_quantity * CASE WHEN s.sale_type = 'RETURN' THEN -1 ELSE 1 END AS supply_price_sum",
 		"((sp.retail_price - sp.supply_price) / p.unit_per_pack) * ci.unit_quantity AS markup_sum",
-		"(sp.vat_price / p.unit_per_pack) * ci.unit_quantity AS vat_sum",
+		"(sp.retail_price / p.unit_per_pack) * ci.unit_quantity * CASE WHEN s.sale_type = 'RETURN' THEN -1 ELSE 1 END AS retail_price_sum",
+				"(sp.vat_price / p.unit_per_pack) * ci.unit_quantity AS vat_sum",
 
 		"ci.id AS cart_item_id",
 		"ci.unit_quantity",
@@ -232,7 +232,7 @@ func (s *Services) GetProductsReport(ctx context.Context, params *domain.ReportQ
 
 		"s.sale_number",
 		"s.sale_type",
-		"s.total_discount",
+		"ROUND((ci.total_price::numeric / NULLIF(SUM(ci.total_price) OVER (PARTITION BY s.id), 0)) * s.total_discount, 2) * CASE WHEN s.sale_type = 'RETURN' THEN -1 ELSE 1 END AS total_discount",
 		"s.completed_at",
 
 		"e.full_name",
