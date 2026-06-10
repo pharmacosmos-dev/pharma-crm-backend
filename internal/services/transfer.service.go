@@ -483,6 +483,7 @@ func (s *Services) TransferDetailList(param *domain.ReturnDetailParam) ([]domain
 		Select(`
 			transfer_details.id,
 			transfer_details.product_id,
+			transfer_details.store_product_id,
 			transfer_details.transfer_id,
 			transfer_details.received_count,
 			transfer_details.accepted_count,

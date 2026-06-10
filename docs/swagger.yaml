@@ -11396,6 +11396,11 @@ paths:
         in: query
         name: store_id
         type: string
+      - description: 'Entry type filter: 1=import, 2=inventory, 4=sale, 5=return,
+          6=transfer, 7=return_sale'
+        in: query
+        name: entry_type
+        type: integer
       produces:
       - application/json
       responses:

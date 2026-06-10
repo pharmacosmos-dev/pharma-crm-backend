@@ -1412,9 +1412,16 @@ LIMIT ? OFFSET ?;
 		timeArgs = append(timeArgs, params.EndDate.UTC())
 	}
 
+	var entryTypeFilter string
+	var entryTypeArgs []any
+	if params.EntryType != 0 {
+		entryTypeFilter = " AND entry_type = ?"
+		entryTypeArgs = append(entryTypeArgs, params.EntryType)
+	}
+
 	outerWhere := ""
-	if timeFilter != "" {
-		outerWhere = "WHERE 1=1" + timeFilter
+	if timeFilter != "" || entryTypeFilter != "" {
+		outerWhere = "WHERE 1=1" + timeFilter + entryTypeFilter
 	}
 
 	// dynamic query conditions
@@ -1422,6 +1429,7 @@ LIMIT ? OFFSET ?;
 		query = fmt.Sprintf(baseQuery, "", "", "", "", "", "", "", "", "", outerWhere)
 		args = []any{params.ProducerId}
 		args = append(args, timeArgs...)
+		args = append(args, entryTypeArgs...)
 		args = append(args, params.Limit, params.Offset)
 
 	} else if params.StoreId != "" && params.CompanyId == "" {
@@ -1451,6 +1459,7 @@ LIMIT ? OFFSET ?;
 			params.StoreId, // transfer_out_pending_data
 		}
 		args = append(args, timeArgs...)
+		args = append(args, entryTypeArgs...)
 		args = append(args, params.Limit, params.Offset)
 
 	} else if params.StoreId == "" && params.CompanyId != "" {
@@ -1480,6 +1489,7 @@ LIMIT ? OFFSET ?;
 			params.CompanyId, // transfer_out_pending_data
 		}
 		args = append(args, timeArgs...)
+		args = append(args, entryTypeArgs...)
 		args = append(args, params.Limit, params.Offset)
 
 	} else { // both storeId and companyId
@@ -1509,6 +1519,7 @@ LIMIT ? OFFSET ?;
 			params.StoreId, params.CompanyId, // transfer_out_pending_data
 		}
 		args = append(args, timeArgs...)
+		args = append(args, entryTypeArgs...)
 		args = append(args, params.Limit, params.Offset)
 	}
 

@@ -181,6 +181,7 @@ type ProductQueryParam struct {
 	ExpiryTo        string      `form:"expiry_to"`
 	StoreIds        []string    `from:"store_ids"`
 	CompanyIds      []string    `form:"company_ids"`
+	EntryType       int         `form:"entry_type"`
 	Limit           int         `form:"limit"`
 	Offset          int         `form:"offset"`
 	StartDate       *CustomTime `form:"start_date"`

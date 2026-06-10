@@ -17785,6 +17785,12 @@ const docTemplate = `{
                         "description": "Store Id",
                         "name": "store_id",
                         "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Entry type filter: 1=import, 2=inventory, 4=sale, 5=return, 6=transfer, 7=return_sale",
+                        "name": "entry_type",
+                        "in": "query"
                     }
                 ],
                 "responses": {

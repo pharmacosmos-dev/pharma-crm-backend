@@ -1276,6 +1276,7 @@ func (h *ProductHandler) AttachBarcode(c *gin.Context) {
 // @Param 		limit query int false "Limit"
 // @Param 		offset query int false "Offset"
 // @Param 		store_id query string false "Store Id"
+// @Param 		entry_type query int false "Entry type filter: 1=import, 2=inventory, 4=sale, 5=return, 6=transfer, 7=return_sale"
 // @Success 200 {object} v1.Response
 // @Failure 400 {object} v1.Response
 // @Failure 500 {object} v1.Response
