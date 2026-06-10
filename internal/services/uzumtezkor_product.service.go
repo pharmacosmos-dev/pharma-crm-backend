@@ -3,6 +3,7 @@ package services
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"github.com/pharma-crm-backend/domain"
 )
@@ -124,21 +125,79 @@ func (s *Services) BulkUpdateOnlinePriceFromExcel(ctx context.Context, items []d
 	return updated, notFound, nil
 }
 
-// GetOnlineProducts — CRM uchun narx tarixi
+// CreateOnlinePrice — CRM dan yangi online_products_price qatori qo'shadi.
+// material_code orqali product_id topiladi; topilmasa xato qaytariladi.
+func (s *Services) CreateOnlinePrice(ctx context.Context, req *domain.CreateOnlinePriceRequest, createdBy string) error {
+	var createdByVal interface{}
+	if createdBy != "" {
+		createdByVal = createdBy
+	}
+
+	result := s.db.WithContext(ctx).Exec(`
+		INSERT INTO online_products_price (product_id, material_code, type, retail_price, created_by)
+		SELECT p.id, ?, ?, ?, ?
+		FROM products p
+		WHERE p.material_code::text = ?
+		LIMIT 1`,
+		req.MaterialCode,
+		req.Type,
+		req.RetailPrice,
+		createdByVal,
+		req.MaterialCode,
+	)
+	if result.Error != nil {
+		s.log.Errorf("failed to create online price material_code=%s: %v", req.MaterialCode, result.Error)
+		return domain.InternalServerError
+	}
+	if result.RowsAffected == 0 {
+		return fmt.Errorf("product with material_code=%s not found", req.MaterialCode)
+	}
+
+	return nil
+}
+
+// GetOnlineProducts — CRM uchun narx tarixi (products bilan left join)
 func (s *Services) GetOnlineProducts(ctx context.Context, params *domain.UzumTezkorProductQueryParam) ([]domain.OnlineProductsPrice, int64, error) {
-	var result []domain.OnlineProductsPrice
+	var tmp []struct {
+		Id             string     `gorm:"id"`
+		ProductId      string     `gorm:"product_id"`
+		MaterialCode   string     `gorm:"material_code"`
+		Type           string     `gorm:"type"`
+		RetailPrice    float64    `gorm:"retail_price"`
+		CreatedBy      *string    `gorm:"created_by"`
+		CreatedAt      *time.Time `gorm:"created_at"`
+		UpdatedAt      *time.Time `gorm:"updated_at"`
+		UpdatedBy      *string    `gorm:"updated_by"`
+		ProductName    string     `gorm:"product_name"`
+		ProductBarcode string     `gorm:"product_barcode"`
+	}
 	var total int64
 
-	q := s.db.WithContext(ctx).Table("online_products_price")
+	q := s.db.WithContext(ctx).
+		Table("online_products_price opp").
+		Select(
+			"opp.id",
+			"opp.product_id",
+			"opp.material_code",
+			"opp.type",
+			"opp.retail_price",
+			"opp.created_by",
+			"opp.created_at",
+			"opp.updated_at",
+			"opp.updated_by",
+			"p.name AS product_name",
+			"p.barcode AS product_barcode",
+		).
+		Joins("LEFT JOIN products p ON opp.product_id = p.id")
 
 	if params.Type != "" {
-		q = q.Where("type = ?", params.Type)
+		q = q.Where("opp.type = ?", params.Type)
 	}
 	if params.ProductId != "" {
-		q = q.Where("product_id = ?", params.ProductId)
+		q = q.Where("opp.product_id = ?", params.ProductId)
 	}
 	if params.MaterialCode != "" {
-		q = q.Where("material_code = ?", params.MaterialCode)
+		q = q.Where("opp.material_code = ?", params.MaterialCode)
 	}
 
 	if err := q.Count(&total).Error; err != nil {
@@ -146,11 +205,31 @@ func (s *Services) GetOnlineProducts(ctx context.Context, params *domain.UzumTez
 		return nil, 0, domain.InternalServerError
 	}
 
-	if err := q.Order("created_at DESC").
+	if err := q.Order("opp.created_at DESC").
 		Limit(params.Limit).Offset(params.Offset).
-		Find(&result).Error; err != nil {
+		Find(&tmp).Error; err != nil {
 		s.log.Errorf("failed to get online_products_price: %v", err)
 		return nil, 0, domain.InternalServerError
+	}
+
+	result := make([]domain.OnlineProductsPrice, 0, len(tmp))
+	for _, item := range tmp {
+		result = append(result, domain.OnlineProductsPrice{
+			Id:           item.Id,
+			ProductId:    item.ProductId,
+			MaterialCode: item.MaterialCode,
+			Type:         item.Type,
+			RetailPrice:  item.RetailPrice,
+			CreatedBy:    item.CreatedBy,
+			CreatedAt:    item.CreatedAt,
+			UpdatedAt:    item.UpdatedAt,
+			UpdatedBy:    item.UpdatedBy,
+			Product: domain.NewNullStruct(domain.OnlineProductSummary{
+				Id:      item.ProductId,
+				Name:    item.ProductName,
+				Barcode: item.ProductBarcode,
+			}, item.ProductId != ""),
+		})
 	}
 
 	return result, total, nil

@@ -23,11 +23,47 @@ func (h *UzumTezkorProductHandler) UzumTezkorProductRoutes(r *gin.RouterGroup) {
 	umtkproduct := r.Group("/uzumtezkor-products")
 	{
 		umtkproduct.GET("/list", h.List)
+		umtkproduct.POST("/create", h.Create)
 		umtkproduct.PUT("/update-price", h.UpdatePrice)
 		umtkproduct.POST("/upload-product-price-excel", h.UploadExcel)
 	}
 }
 
+
+// Create godoc
+// @Summary		Create new online product price record (CRM)
+// @Tags		UzumTezkor Products
+// @Security	BearerAuth
+// @Accept		json
+// @Produce		json
+// @Param		body body domain.CreateOnlinePriceRequest true "material_code, type, retail_price"
+// @Success		201 {object} v1.Response
+// @Failure		400 {object} v1.Response
+// @Failure		500 {object} v1.Response
+// @Router		/uzumtezkor-products/create [post]
+func (h *UzumTezkorProductHandler) Create(c *gin.Context) {
+	user := h.service.GetSignedUser(c)
+	if user == nil {
+		handleServiceResponse(c, UNAUTHORIZED, domain.UnauthorizedError)
+		return
+	}
+
+	var req domain.CreateOnlinePriceRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		handleResponse(c, BadRequest, err.Error())
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
+	defer cancel()
+
+	if err := h.service.CreateOnlinePrice(ctx, &req, user.UserId); err != nil {
+		handleServiceResponse(c, nil, err)
+		return
+	}
+
+	handleResponse(c, CREATED, "CREATED")
+}
 
 // UpdatePrice godoc
 // @Summary		Update online product price by material_code (CRM)

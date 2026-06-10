@@ -29533,6 +29533,56 @@ const docTemplate = `{
                 }
             }
         },
+        "/uzumtezkor-products/create": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "UzumTezkor Products"
+                ],
+                "summary": "Create new online product price record (CRM)",
+                "parameters": [
+                    {
+                        "description": "material_code, type, retail_price",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/domain.CreateOnlinePriceRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    }
+                }
+            }
+        },
         "/uzumtezkor-products/list": {
             "get": {
                 "security": [
@@ -30803,6 +30853,25 @@ const docTemplate = `{
                     "items": {
                         "$ref": "#/definitions/domain.ProductRequestOnecDto"
                     }
+                }
+            }
+        },
+        "domain.CreateOnlinePriceRequest": {
+            "type": "object",
+            "required": [
+                "material_code",
+                "retail_price",
+                "type"
+            ],
+            "properties": {
+                "material_code": {
+                    "type": "string"
+                },
+                "retail_price": {
+                    "type": "number"
+                },
+                "type": {
+                    "type": "string"
                 }
             }
         },
