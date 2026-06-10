@@ -3,7 +3,7 @@ package v1
 import (
 	"context"
 	"strings"
-
+	"github.com/pharma-crm-backend/pkg/utils"
 	"github.com/gin-gonic/gin"
 	"github.com/pharma-crm-backend/domain"
 	"github.com/pharma-crm-backend/domain/constants"
@@ -218,5 +218,7 @@ func (h *UzumTezkorProductHandler) List(c *gin.Context) {
 		return
 	}
 
-	handleResponse(c, OK, result, total)
+	data := utils.ListResponse(result, total, params.Limit, params.Offset)
+
+	handleResponse(c, OK, data)
 }
