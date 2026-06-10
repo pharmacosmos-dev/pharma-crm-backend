@@ -171,7 +171,7 @@ func (s *Services) GetOnlineProducts(ctx context.Context, params *domain.UzumTez
 
 	// sl_agg: uzum_tez_kor orqali yakunlangan buyurtmalar (stage=9, online_status=3)
 	slJoin := fmt.Sprintf(`LEFT JOIN (
-		SELECT ci.product_id, COALESCE(SUM(ci.quantity), 0) AS sold_quantity
+		SELECT ci.product_id, COALESCE(SUM(ci.unit_quantity), 0) AS sold_quantity
 		FROM cart_items ci
 		JOIN sales s ON ci.sale_id = s.id
 		WHERE s.uzum_tez_kor > 0
