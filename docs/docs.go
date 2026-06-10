@@ -26600,6 +26600,12 @@ const docTemplate = `{
                         "description": "is_franchise",
                         "name": "is_franchise",
                         "in": "query"
+                    },
+                    {
+                        "type": "boolean",
+                        "description": "Filter by online order stores",
+                        "name": "is_online_order",
+                        "in": "query"
                     }
                 ],
                 "responses": {
@@ -29600,7 +29606,7 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "Platform type (uzum, yandex_eda)",
+                        "description": "Platform type (uzum, yandex_eda, noor)",
                         "name": "type",
                         "in": "query"
                     },
@@ -29612,8 +29618,8 @@ const docTemplate = `{
                     },
                     {
                         "type": "string",
-                        "description": "Material code",
-                        "name": "material_code",
+                        "description": "Search term (barcode, material_code, or product name)",
+                        "name": "search",
                         "in": "query"
                     },
                     {

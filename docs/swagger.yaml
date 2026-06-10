@@ -19343,6 +19343,10 @@ paths:
         in: query
         name: is_franchise
         type: boolean
+      - description: Filter by online order stores
+        in: query
+        name: is_online_order
+        type: boolean
       produces:
       - application/json
       responses:
@@ -21164,7 +21168,7 @@ paths:
   /uzumtezkor-products/list:
     get:
       parameters:
-      - description: Platform type (uzum, yandex_eda)
+      - description: Platform type (uzum, yandex_eda, noor)
         in: query
         name: type
         type: string
@@ -21172,9 +21176,9 @@ paths:
         in: query
         name: product_id
         type: string
-      - description: Material code
+      - description: Search term (barcode, material_code, or product name)
         in: query
-        name: material_code
+        name: search
         type: string
       - description: Filter by store; also scopes store_quantity and sold_quantity
         in: query
