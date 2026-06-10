@@ -79,6 +79,7 @@ type SaleQueryParams struct {
 	UzumTezKor      bool        `form:"uzum_tez_kor"`
 	IsCorporate     bool        `form:"is_corporate"`
 	Stage           int         `form:"stage"`
+	ProductId       string      `form:"product_id"`
 }
 
 // SaleRequest structure for create

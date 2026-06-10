@@ -2229,8 +2229,6 @@ func (s *Services) GetOnlinePendingSales(ctx context.Context, params *domain.Sal
 		Where("s.online_status IN(?)", constants.OnlinePendingStages).
 		Where("s.type = ?", constants.SaleTypeOnline).
 		Where("s.is_active = TRUE")
-	
-
 	if params.StoreId != "" {
 		qb = qb.Where("s.store_id = ?", params.StoreId)
 	}
@@ -2600,6 +2598,13 @@ func (s *Services) GetOnlineOrders(ctx context.Context, params *domain.SaleQuery
 
 	if params.EndDate != nil && !params.EndDate.GetTime().IsZero() {
 		qb = qb.Where("s.created_at <= ?", params.EndDate.UTC())
+	}
+
+	if params.ProductId != "" {
+		qb = qb.Where(
+			"EXISTS (SELECT 1 FROM cart_items ci JOIN store_products sp ON ci.store_product_id = sp.id WHERE ci.sale_id = s.id AND sp.product_id = ?)",
+			params.ProductId,
+		)
 	}
 
 	var totalCount int64

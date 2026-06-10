@@ -18159,6 +18159,10 @@ paths:
         in: query
         name: stage
         type: integer
+      - description: Product ID
+        in: query
+        name: product_id
+        type: string
       produces:
       - application/json
       responses:

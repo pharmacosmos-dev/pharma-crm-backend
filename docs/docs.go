@@ -24806,6 +24806,12 @@ const docTemplate = `{
                         "description": "Stage",
                         "name": "stage",
                         "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Product ID",
+                        "name": "product_id",
+                        "in": "query"
                     }
                 ],
                 "responses": {

@@ -828,6 +828,7 @@ func (h *SaleHandler) DMEDGetPrescriptions(c *gin.Context) {
 // @Param 		 end_date query string false "End Date"
 // @Param        status query string false "Status"
 // @Param 		 stage query int false "Stage"
+// @Param 		 product_id query string false "Product ID"
 // @Success      200 {object} v1.Response
 // @Failure      400 {object} v1.Response
 // @Failure      500 {object} v1.Response
