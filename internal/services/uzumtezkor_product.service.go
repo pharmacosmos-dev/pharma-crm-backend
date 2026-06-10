@@ -169,14 +169,12 @@ func (s *Services) GetOnlineProducts(ctx context.Context, params *domain.UzumTez
 	}
 	spJoin += " GROUP BY sp.product_id) sp_agg ON sp_agg.product_id = opp.product_id"
 
-	// sl_agg: uzum orqali yakunlangan buyurtmalar (stage=9, online_status=3)
+	// sl_agg: uzum_tez_kor orqali yakunlangan buyurtmalar (stage=9, online_status=3)
 	slJoin := fmt.Sprintf(`LEFT JOIN (
 		SELECT ci.product_id, COALESCE(SUM(ci.quantity), 0) AS sold_quantity
 		FROM cart_items ci
 		JOIN sales s ON ci.sale_id = s.id
-		JOIN stores st ON s.store_id = st.id
-		WHERE st.is_online_order = true
-		  AND s.service_type  = 'uzum'
+		WHERE s.uzum_tez_kor > 0
 		  AND s.online_status = %d
 		  AND s.stage         = %d`,
 		constants.SaleOnlineStageCompleted,
