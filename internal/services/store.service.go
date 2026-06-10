@@ -100,6 +100,10 @@ func (s *Services) GetStores(ctx context.Context, params *domain.StoreQueryParam
 		qb = qb.Where("stores.company_id IN (SELECT id FROM companies WHERE is_franchise = ?)", *params.IsFranchise)
 	}
 
+	if params.IsOnlineOrder != nil {
+		qb = qb.Where("stores.is_online_order = ?", *params.IsOnlineOrder)
+	}
+
 	totalCount := int64(0)
 	if err := qb.Count(&totalCount).Error; err != nil {
 		s.log.Errorf("could not count stores: %v", err)

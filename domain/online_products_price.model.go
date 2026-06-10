@@ -50,7 +50,7 @@ type UzumTezkorProductRepriceFromOnecRequest struct {
 type UzumTezkorProductQueryParam struct {
 	Type         string `form:"type"`
 	ProductId    string `form:"product_id"`
-	MaterialCode string `form:"material_code"`
+	Search       string `form:"search"`
 	StoreId      string `form:"store_id"`
 	StartDate    string `form:"start_date"`
 	EndDate      string `form:"end_date"`

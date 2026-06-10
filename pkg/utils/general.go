@@ -95,9 +95,12 @@ func DefineProductSearchQuery(search string) string {
 	barcodeRegex := regexp.MustCompile(`^\d{4,15}$`)
 	nameCategoryRegex := regexp.MustCompile(`^[a-zA-Zа-яА-ЯёЁ\s-]+$`)
 	markingRegex := regexp.MustCompile(`^.{31}$`)
+	materialCode := regexp.MustCompile(`^[0-9]{5}$`)
 	switch {
 	case barcodeRegex.MatchString(search):
 		return "barcode"
+	case materialCode.MatchString(search):
+		return "material_code"
 	case nameCategoryRegex.MatchString(search):
 		return "name/category"
 	case markingRegex.MatchString(search):

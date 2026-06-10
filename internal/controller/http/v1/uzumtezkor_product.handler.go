@@ -194,9 +194,9 @@ func (h *UzumTezkorProductHandler) UploadExcel(c *gin.Context) {
 // @Tags		UzumTezkor Products
 // @Security	BearerAuth
 // @Produce		json
-// @Param		type          query string false "Platform type (uzum, yandex_eda)"
+// @Param		type          query string false "Platform type (uzum, yandex_eda, noor)"
 // @Param		product_id    query string false "Product ID"
-// @Param		material_code query string false "Material code"
+// @Param		search        query string false "Search term (barcode, material_code, or product name)"
 // @Param		store_id      query string false "Filter by store; also scopes store_quantity and sold_quantity"
 // @Param		start_date    query string false "Sales start date (2006-01-02)"
 // @Param		end_date      query string false "Sales end date (2006-01-02)"

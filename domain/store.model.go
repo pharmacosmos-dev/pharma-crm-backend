@@ -95,11 +95,12 @@ type UpdateOnlineOrderRequest struct {
 }
 
 type StoreQueryParams struct {
-	CompanyId    string   `form:"company_id"`
-	CompanyIds   []string `form:"-"`
-	StoreId      string   `form:"-"`
-	Search       string   `form:"search"`
-	IsFranchise  *bool    `form:"is_franchise"`
-	Limit        int      `form:"limit"`
-	Offset       int      `form:"offset"`
+	CompanyId     string   `form:"company_id"`
+	CompanyIds    []string `form:"-"`
+	StoreId       string   `form:"-"`
+	Search        string   `form:"search"`
+	IsFranchise   *bool    `form:"is_franchise"`
+	IsOnlineOrder *bool    `form:"is_online_order"`
+	Limit         int      `form:"limit"`
+	Offset        int      `form:"offset"`
 }

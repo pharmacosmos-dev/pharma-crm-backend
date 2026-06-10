@@ -3,8 +3,10 @@ package services
 import (
 	"context"
 	"fmt"
-	"github.com/pharma-crm-backend/domain/constants"
+
 	"github.com/pharma-crm-backend/domain"
+	"github.com/pharma-crm-backend/domain/constants"
+	"github.com/pharma-crm-backend/pkg/utils"
 )
 
 // InsertOnlinePricesFromOnec — 1C dan material_code + price oladi, product_id topib insert qiladi.
@@ -203,9 +205,17 @@ func (s *Services) GetOnlineProducts(ctx context.Context, params *domain.UzumTez
     if params.ProductId != "" {
         qb = qb.Where("opp.product_id = ?", params.ProductId)
     }
-    if params.MaterialCode != "" {
-        qb = qb.Where("opp.material_code = ?", params.MaterialCode)
-    }
+	if params.Search != "" {
+		search := fmt.Sprintf("%%%s%%", params.Search)
+		switch utils.DefineProductSearchQuery(params.Search) {
+		case "barcode":
+			qb = qb.Where("p.barcode LIKE ?", search)
+		case "material_code":
+			qb = qb.Where("opp.material_code LIKE ?", search)
+		default:
+			qb = qb.Where("p.name ILIKE ?", search)
+		}
+	}
 
     var total int64
     if err := qb.Count(&total).Error; err != nil {
