@@ -156,46 +156,46 @@ func (s *Services) CreateOnlinePrice(ctx context.Context, req *domain.CreateOnli
 }
 
 func (s *Services) GetOnlineProducts(ctx context.Context, params *domain.UzumTezkorProductQueryParam) ([]domain.OnlineProductsPrice, int64, error) {
-   
-    // sp_agg — named args bilan xavfsiz
-    spSQL := `LEFT JOIN (
-        SELECT sp.product_id, COALESCE(SUM(sp.quantity::numeric), 0) AS store_quantity
-        FROM store_products sp
-        JOIN stores st ON sp.store_id = st.id
-        WHERE st.is_online_order = true
-          AND ('' = @store_id OR sp.store_id = @store_id)
-        GROUP BY sp.product_id
-    ) sp_agg ON sp_agg.product_id = opp.product_id`
+	// sp_agg: is_online_order do'konlar bo'yicha ombor qoldig'i
+	spJoin := `LEFT JOIN (
+		SELECT sp.product_id, COALESCE(SUM(sp.unit_quantity), 0) AS store_quantity
+		FROM store_products sp
+		JOIN stores st ON sp.store_id = st.id
+		WHERE st.is_online_order = true`
+	if params.StoreId != "" {
+		spJoin += fmt.Sprintf(" AND sp.store_id = '%s'", params.StoreId)
+	}
+	spJoin += " GROUP BY sp.product_id) sp_agg ON sp_agg.product_id = opp.product_id"
 
-    // sl_agg — barcha params xavfsiz
-    slSQL := `LEFT JOIN (
-        SELECT ci.product_id, COALESCE(SUM(ci.quantity), 0) AS sold_quantity
-        FROM cart_items ci
-        JOIN sales s ON ci.sale_id = s.id
-        JOIN stores st ON s.store_id = st.id
-        WHERE st.is_online_order = true
-          AND s.service_type  = 'uzum'
-          AND s.online_status = @online_status
-          AND s.stage         = @stage
-          AND ('' = @store_id   OR s.store_id   = @store_id)
-          AND ('' = @start_date OR s.created_at >= @start_date)
-          AND ('' = @end_date   OR s.created_at <= @end_date)
-        GROUP BY ci.product_id
-    ) sl_agg ON sl_agg.product_id = opp.product_id`
+	// sl_agg: uzum orqali yakunlangan buyurtmalar (stage=9, online_status=3)
+	slJoin := fmt.Sprintf(`LEFT JOIN (
+		SELECT ci.product_id, COALESCE(SUM(ci.quantity), 0) AS sold_quantity
+		FROM cart_items ci
+		JOIN sales s ON ci.sale_id = s.id
+		JOIN stores st ON s.store_id = st.id
+		WHERE st.is_online_order = true
+		  AND s.service_type  = 'uzum'
+		  AND s.online_status = %d
+		  AND s.stage         = %d`,
+		constants.SaleOnlineStageCompleted,
+		constants.SaleStageFinished,
+	)
+	if params.StoreId != "" {
+		slJoin += fmt.Sprintf(" AND s.store_id = '%s'", params.StoreId)
+	}
+	if params.StartDate != "" {
+		slJoin += fmt.Sprintf(" AND s.created_at >= '%s'", params.StartDate)
+	}
+	if params.EndDate != "" {
+		slJoin += fmt.Sprintf(" AND s.created_at <= '%s'", params.EndDate)
+	}
+	slJoin += " GROUP BY ci.product_id) sl_agg ON sl_agg.product_id = opp.product_id"
 
-    args := map[string]any{
-        "store_id":      params.StoreId,
-        "start_date":    params.StartDate,
-        "end_date":      params.EndDate,
-        "online_status": constants.SaleOnlineStageCompleted, // = 3
-        "stage":         constants.SaleStageFinished,        // = 9
-    }
-
-    qb := s.db.WithContext(ctx).
-        Table("online_products_price opp").
-        Joins("LEFT JOIN products p ON p.id = opp.product_id").
-        Joins(spSQL, args).
-        Joins(slSQL, args)
+	qb := s.db.WithContext(ctx).
+		Table("online_products_price opp").
+		Joins("LEFT JOIN products p ON p.id = opp.product_id").
+		Joins(spJoin).
+		Joins(slJoin)
 
     if params.Type != "" {
         qb = qb.Where("opp.type = ?", params.Type)
@@ -226,6 +226,7 @@ func (s *Services) GetOnlineProducts(ctx context.Context, params *domain.UzumTez
 		"opp.updated_by",
         "p.name    AS product_name",
         "p.barcode AS product_barcode",
+		"COALESCE(p.photos[1], '') AS product_photo",
         "p.unit_per_pack",
         "COALESCE(sp_agg.store_quantity, 0) AS store_quantity",
         "COALESCE(sl_agg.sold_quantity,  0) AS sold_quantity",
@@ -244,6 +245,7 @@ func (s *Services) GetOnlineProducts(ctx context.Context, params *domain.UzumTez
             Id:      res[i].ProductId,
             Name:    res[i].ProductName,
             Barcode: res[i].ProductBarcode,
+			Photos:  res[i].ProductPhoto,
         }, res[i].ProductId != "")
 
         qty, upack := int(res[i].StoreQuantity), res[i].UnitPerPack

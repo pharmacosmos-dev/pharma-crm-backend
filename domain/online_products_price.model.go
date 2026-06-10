@@ -19,6 +19,7 @@ type OnlineProductsPrice struct {
 	UnitPerPack    int                              `gorm:"column:unit_per_pack"   json:"unit_per_pack"`
 	ProductName    string                           `gorm:"column:product_name"    json:"-"`
 	ProductBarcode string                           `gorm:"column:product_barcode" json:"-"`
+	ProductPhoto   string                           `gorm:"column:product_photo"   json:"-"`
 	Product        NullStruct[OnlineProductSummary] `gorm:"-"                      json:"product"`
 }
 
@@ -31,6 +32,7 @@ type OnlineProductSummary struct {
 	Id      string `json:"id"`
 	Name    string `json:"name"`
 	Barcode string `json:"barcode"`
+	Photos  string `json:"photos" nilable:"true"`
 }
 
 // 1C dan keluvchi narx item
