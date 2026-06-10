@@ -506,15 +506,16 @@ func (s *Services) TransferDetailList(param *domain.ReturnDetailParam) ([]domain
 			p.name,
 			p.material_code,
 			p.unit_per_pack,
-			p.barcode,
+			COALESCE(sp.barcode, p.barcode) AS barcode,
 			ut.short_name
 			`).
 		Joins("JOIN products p ON transfer_details.product_id = p.id").
+		Joins("JOIN store_products sp ON transfer_details.store_product_id = sp.id").
 		Joins("LEFT JOIN unit_types ut ON p.unit_type_id = ut.id").
 		Where("transfer_details.transfer_id = ?", param.TransferId)
 
 	if param.Search != "" {
-		query = query.Where("p.name ILIKE ? OR p.barcode LIKE ?", "%"+param.Search+"%", "%"+param.Search+"%")
+		query = query.Where("p.name ILIKE ? OR COALESCE(sp.barcode, p.barcode) LIKE ?", "%"+param.Search+"%", "%"+param.Search+"%")
 	}
 	// filter with inventory stats
 	if param.Type != "" {
