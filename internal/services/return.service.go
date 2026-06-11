@@ -711,7 +711,7 @@ func (s *Services) SendReturn(ctx context.Context, returnId string, userId strin
 	}
 
 	// update return
-	query := `UPDATE transfers SET status = ?, updated_by = ? driver_office = ? WHERE id = ?`
+	query := `UPDATE transfers SET status = ?, updated_by = ?, driver_office = ? WHERE id = ?`
 	err = tx.WithContext(ctx).Exec(query, constants.GeneralStatusSent, userId, DriverName, returnId).Error
 	if err != nil {
 		_ = tx.Rollback()
