@@ -401,8 +401,8 @@ func (s *Services) DashboardPayments(ctx context.Context, params *domain.Dashboa
 			"COUNT(1) FILTER (WHERE s.alif > 0) AS alif_count",
 			"SUM(s.uzum) AS uzum",
 			"COUNT(1) FILTER (WHERE s.uzum > 0) AS uzum_count",
-			"SUM(s.uzum_tez_kor) AS uzum_tezkor",
-			"COUNT(1) FILTER (WHERE s.uzum_tez_kor > 0) AS uzum_tezkor_count",
+			"SUM(s.uzum_tez_kor) AS uzum_tez_kor",
+			"COUNT(1) FILTER (WHERE s.uzum_tez_kor > 0) AS uzum_tez_kor_count",
 		).
 		Table("sales s").
 		Where("s.stage IN(?)", constants.FinishedSaleStages)
@@ -438,7 +438,7 @@ func (s *Services) DashboardPayments(ctx context.Context, params *domain.Dashboa
 		PaymePrevius  float64 `gorm:"payme_previus"`
 		AlifPrevius   float64 `gorm:"alif_previus"`
 		UzumPrevius   float64 `gorm:"uzum_previus"`
-		UzumTRPrevius float64 `gorm:"uzum_tezkor_previus"`
+		UzumTRPrevius float64 `gorm:"uzum_tez_kor_previus"`
 	}
 
 	qbPrev := s.db.WithContext(ctx).
@@ -450,7 +450,7 @@ func (s *Services) DashboardPayments(ctx context.Context, params *domain.Dashboa
 			"SUM(s.payme) AS payme_previus",
 			"SUM(s.alif) AS alif_previus",
 			"SUM(s.uzum) AS uzum_previus",
-			"SUM(s.uzum_tez_kor) AS uzum_tezkor_previus",
+			"SUM(s.uzum_tez_kor) AS uzum_tez_kor_previus",
 		).
 		Table("sales s").
 		Where("s.stage IN(?)", constants.FinishedSaleStages).

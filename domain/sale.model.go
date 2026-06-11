@@ -242,7 +242,7 @@ type FinalPaymentType struct {
 	PaymentTypeID string  `gorm:"payment_type_id" json:"payment_type_id"`
 	Amount        float64 `gorm:"amount" json:"amount"`
 	ReturnAmount  float64 `gorm:"return_amount" json:"return_amount"`
-	AppType       string  `gorm:"app_type" json:"app_type" example:"click|payme|uzum|uzum_tezkor"`
+	AppType       string  `gorm:"app_type" json:"app_type" example:"click|payme|uzum|uzum_tez_kor"`
 	Type          string  `gorm:"type" json:"type" example:"card|cash|app"`
 	OtpData       string  `gorm:"otp_data" json:"otp_data"`
 }

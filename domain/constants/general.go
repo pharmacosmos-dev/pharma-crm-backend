@@ -171,7 +171,7 @@ const (
 	PaymentTypeClick       = "click"
 	PaymentTypePayme       = "payme"
 	PaymentTypeUzum        = "uzum"
-	PaymentTypeUzumTezkor  = "uzumtezkor"
+	PaymentTypeUzumTezkor  = "uzum_tez_kor"
 	PaymentTypeOnlineOrder = "online_order"
 	PaymentTypeAlif        = "alif"
 	PaymentTypeHumo        = "humo"

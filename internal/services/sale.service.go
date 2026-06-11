@@ -1859,7 +1859,7 @@ func (s *Services) GetSales(ctx context.Context, params *domain.SaleQueryParams,
 				OR (pt.front_name = 'payme' AND s.payme > 0)
 				OR (pt.front_name = 'alif' AND s.alif > 0)
 				OR (pt.front_name = 'uzum' AND s.uzum > 0)
-				OR (pt.front_name = 'uzum_tezkor' AND s.uzum_tez_kor > 0)
+				OR (pt.front_name = 'uzum_tez_kor' AND s.uzum_tez_kor > 0)
 				OR (pt.front_name = 'loyalty_card' AND s.loyalty_card > 0)
 			)
 		)`, params.PaymentTypeId)
