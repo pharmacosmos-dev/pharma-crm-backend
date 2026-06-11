@@ -2981,59 +2981,100 @@ func (h *HelperHandler) UploadUzumTezkorPrice(c *gin.Context) {
 	}
 	defer xlsx.Close()
 
-	sheetName := xlsx.GetSheetName(0)
-	rows, err := xlsx.GetRows(sheetName)
-	if err != nil {
-		handleResponse(c, InternalError, "Failed to get rows")
+	// find the sheet with the most rows (handles multi-sheet workbooks and pivot tables)
+	var rows [][]string
+	for _, name := range xlsx.GetSheetList() {
+		r, err := xlsx.GetRows(name)
+		if err != nil {
+			continue
+		}
+		if len(r) > len(rows) {
+			rows = r
+		}
+	}
+	if len(rows) == 0 {
+		handleResponse(c, InternalError, "Failed to read any sheet")
 		return
 	}
 
-	inserted := 0
-	skipped := 0
+	type NotFoundItem struct {
+		MaterialCode string `json:"material_code"`
+		Name         string `json:"name"`
+	}
 
-	for _, row := range rows[1:] { // Skip header
-		if len(row) < 3 {
-			skipped++
-			continue
+	inserted := 0
+	updated := 0
+	skippedInvalid := 0
+	var notFound []NotFoundItem
+
+	dataRows := rows[1:] // skip header
+	for _, row := range dataRows {
+		// pad row to at least 3 elements to avoid index out of range
+		for len(row) < 3 {
+			row = append(row, "")
 		}
 
-		productName := strings.TrimSpace(row[0])   // A: name
-		materialCode := strings.TrimSpace(row[1])  // B: material_code
+		productName := strings.TrimSpace(row[0])                           // A: name
+		materialCode := strings.TrimSpace(row[1])                          // B: material_code
 		priceStr := strings.ReplaceAll(strings.TrimSpace(row[2]), ",", "") // C: retail_price
 		price := cast.ToFloat64(priceStr)
-		if productName == "" || price <= 0 {
-			skipped++
+
+		materialCodeInt := cast.ToInt64(cast.ToFloat64(materialCode))
+		if materialCodeInt == 0 || price <= 0 {
+			skippedInvalid++
 			continue
 		}
 
 		var product struct {
-			Id string `gorm:"id"`
+			Id string `gorm:"column:id"`
 		}
 		if err := h.db.Raw(`
-			SELECT id FROM products
-			WHERE name ILIKE ?
+			SELECT id FROM products WHERE material_code = ? LIMIT 1
+		`, materialCodeInt).Scan(&product).Error; err != nil || product.Id == "" {
+			h.log.Warnf("Product not found by material_code %q, skipping", materialCode)
+			notFound = append(notFound, NotFoundItem{
+				MaterialCode: materialCode,
+				Name:         productName,
+			})
+			continue
+		}
+
+		var existing struct {
+			Id string `gorm:"column:id"`
+		}
+		h.db.Raw(`
+			SELECT id FROM online_products_price
+			WHERE product_id = ? AND type = 'uzum'
+			ORDER BY created_at DESC
 			LIMIT 1
-		`, productName).Scan(&product).Error; err != nil || product.Id == "" {
-			h.log.Warnf("Product not found by name %q, skipping", productName)
-			skipped++
-			continue
-		}
+		`, product.Id).Scan(&existing)
 
-		if err := h.db.Exec(`
-			INSERT INTO online_products_price (product_id, material_code, retail_price, type, created_at)
-			VALUES (?, ?, ?, 'uzum', NOW())
-		`, product.Id, materialCode, price).Error; err != nil {
-			h.log.Warnf("Failed to insert uzum price for product %q: %v", productName, err)
-			skipped++
-			continue
+		if existing.Id != "" {
+			if err := h.db.Exec(`
+				UPDATE online_products_price SET retail_price = ?, updated_at = NOW() WHERE id = ?
+			`, price, existing.Id).Error; err != nil {
+				h.log.Warnf("Failed to update uzum price for material_code %q: %v", materialCode, err)
+				continue
+			}
+			updated++
+		} else {
+			if err := h.db.Exec(`
+				INSERT INTO online_products_price (product_id, material_code, retail_price, type, created_at)
+				VALUES (?, ?, ?, 'uzum', NOW())
+			`, product.Id, materialCode, price).Error; err != nil {
+				h.log.Warnf("Failed to insert uzum price for material_code %q: %v", materialCode, err)
+				continue
+			}
+			inserted++
 		}
-
-		inserted++
 	}
 
 	handleResponse(c, OK, gin.H{
-		"inserted": inserted,
-		"skipped":  skipped,
+		"total_rows":      len(dataRows),
+		"inserted":        inserted,
+		"updated":         updated,
+		"skipped_invalid": skippedInvalid,
+		"not_found":       notFound,
 	})
 }
 

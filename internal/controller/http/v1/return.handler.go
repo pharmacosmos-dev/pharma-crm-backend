@@ -7,7 +7,7 @@ import (
 	"strconv"
 	"sync"
 	"time"
-	"strings"
+	//"strings"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -409,14 +409,15 @@ func (h *ReturnHandler) Send(c *gin.Context) {
 	}
 
 	var req domain.SendTransferRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		handleServiceResponse(c, BadRequest, domain.InvalidRequestBodyError)
-		return
-	}
-	if strings.TrimSpace(req.DriverName) == "" {
-		handleServiceResponse(c, BadRequest, domain.BadRequestError)
-		return
-	}
+	_ = c.ShouldBindJSON(&req)
+	// if err := c.ShouldBindJSON(&req); err != nil {
+	// 	handleServiceResponse(c, BadRequest, domain.InvalidRequestBodyError)
+	// 	return
+	// }
+	// if strings.TrimSpace(req.DriverName) == "" {
+	// 	handleServiceResponse(c, BadRequest, domain.BadRequestError)
+	// 	return
+	// }
 
 	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
 	defer cancel()
@@ -496,16 +497,19 @@ func (h *ReturnHandler) Confirm(c *gin.Context) {
 		handleServiceResponse(c, nil, domain.InvalidQueryError)
 		return
 	}
+	// var req domain.ConfirmTransferRequest
+	// if err := c.ShouldBindJSON(&req); err != nil {
+	// 	handleServiceResponse(c, BadRequest, domain.InvalidRequestBodyError)
+	// 	return
+	// }
+	// if strings.TrimSpace(req.DriverName) == "" {
+	// 	handleServiceResponse(c, BadRequest, domain.BadRequestError)
+	// 	return
+	// }
+
 
 	var req domain.ConfirmTransferRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		handleServiceResponse(c, BadRequest, domain.InvalidRequestBodyError)
-		return
-	}
-	if strings.TrimSpace(req.DriverName) == "" {
-		handleServiceResponse(c, BadRequest, domain.BadRequestError)
-		return
-	}
+	_ = c.ShouldBindJSON(&req)
 
 	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
 	defer cancel()
@@ -514,7 +518,6 @@ func (h *ReturnHandler) Confirm(c *gin.Context) {
 	mu.Lock()
 	defer mu.Unlock()
 
-	// confirm return service
 	err := h.service.ConfirmReturn(ctx, id, user.UserId, req.DriverName)
 	if err != nil {
 		handleServiceResponse(c, nil, err)
@@ -1009,10 +1012,11 @@ func (h *ReturnHandler) EditStatusToChecking(c *gin.Context) {
 	}
 
 	var req domain.EditStatusToCheckingRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		handleServiceResponse(c, BadRequest, domain.InvalidRequestBodyError)
-		return
-	}
+	_ = c.ShouldBindJSON(&req)
+	// if err := c.ShouldBindJSON(&req); err != nil {
+	// 	handleServiceResponse(c, BadRequest, domain.InvalidRequestBodyError)
+	// 	return
+	// }
 	
 	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
 	defer cancel()
