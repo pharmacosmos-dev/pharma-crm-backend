@@ -7,6 +7,7 @@ import (
 	"strconv"
 	"sync"
 	"time"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -407,6 +408,16 @@ func (h *ReturnHandler) Send(c *gin.Context) {
 		return
 	}
 
+	var req domain.SendTransferRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		handleServiceResponse(c, BadRequest, domain.InvalidRequestBodyError)
+		return
+	}
+	if strings.TrimSpace(req.DriverName) == "" {
+		handleServiceResponse(c, BadRequest, domain.BadRequestError)
+		return
+	}
+
 	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
 	defer cancel()
 
@@ -416,7 +427,7 @@ func (h *ReturnHandler) Send(c *gin.Context) {
 	defer mu.Unlock()
 
 	// confirm return service
-	err := h.service.SendReturn(ctx, id, user.UserId)
+	err := h.service.SendReturn(ctx, id, user.UserId, req.DriverName)
 	if err != nil {
 		if notAddErr, ok := err.(*domain.NotAdditionError); ok {
 			handleResponse(c, CONFLICT, notAddErr.Data)
@@ -486,6 +497,16 @@ func (h *ReturnHandler) Confirm(c *gin.Context) {
 		return
 	}
 
+	var req domain.ConfirmTransferRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		handleServiceResponse(c, BadRequest, domain.InvalidRequestBodyError)
+		return
+	}
+	if strings.TrimSpace(req.DriverName) == "" {
+		handleServiceResponse(c, BadRequest, domain.BadRequestError)
+		return
+	}
+
 	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
 	defer cancel()
 
@@ -494,7 +515,7 @@ func (h *ReturnHandler) Confirm(c *gin.Context) {
 	defer mu.Unlock()
 
 	// confirm return service
-	err := h.service.ConfirmReturn(ctx, id, user.UserId)
+	err := h.service.ConfirmReturn(ctx, id, user.UserId, req.DriverName)
 	if err != nil {
 		handleServiceResponse(c, nil, err)
 		return
@@ -986,11 +1007,17 @@ func (h *ReturnHandler) EditStatusToChecking(c *gin.Context) {
 		handleServiceResponse(c, BadRequest, domain.InvalidQueryError)
 		return
 	}
+
+	var req domain.EditStatusToCheckingRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		handleServiceResponse(c, BadRequest, domain.InvalidRequestBodyError)
+		return
+	}
 	
 	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
 	defer cancel()
 
-	err := h.service.EditStatusToCheckingReturn(ctx, id, user.UserId)
+	err := h.service.EditStatusToCheckingReturn(ctx, id, user.UserId, &req)
 	if err != nil {
 		handleServiceResponse(c, nil, err)
 		return

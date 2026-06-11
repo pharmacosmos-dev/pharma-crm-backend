@@ -597,25 +597,25 @@ func (s *Services) ReturnDetailList(param *domain.ReturnDetailParam) ([]domain.R
 			transfer_details.created_at, 
 			transfer_details.updated_at,
 			transfer_details.expected_count,
+			transfer_details.expected_pack,
+			transfer_details.expected_unit,
 			transfer_details.scanned_count,
 			transfer_details.accepted_count,
 			transfer_details.onec_count,
-			-- FLOOR(transfer_details.expected_count) AS expected_count,
-			-- ROUND(MOD(transfer_details.expected_count * p.unit_per_pack, p.unit_per_pack), 0) AS expected_unit,
-			-- FLOOR(transfer_details.scanned_count) AS scanned_count,
-			-- ROUND(MOD(transfer_details.scanned_count * p.unit_per_pack, p.unit_per_pack), 0) AS scanned_unit,
-			-- FLOOR(transfer_details.accepted_count) AS accepted_count,
-			-- FLOOR(transfer_details.onec_count) AS onec_count,
-			-- ROUND(MOD(transfer_details.accepted_count * p.unit_per_pack, p.unit_per_pack), 0) AS accepted_unit,
+			FLOOR(transfer_details.received_count)::integer AS received_pack,
+			ROUND((transfer_details.received_count - FLOOR(transfer_details.received_count)) * p.unit_per_pack)::integer AS received_unit,
+			FLOOR(transfer_details.scanned_count)::integer AS scanned_pack,
+			ROUND((transfer_details.scanned_count - FLOOR(transfer_details.scanned_count)) * p.unit_per_pack)::integer AS scanned_unit,
 			ROUND(transfer_details.received_count*transfer_details.retail_price, 2) AS received_sum,
 			ROUND(transfer_details.scanned_count*transfer_details.retail_price, 2) AS scanned_sum,
-    		p.name, 
-			p.material_code, 
-			p.unit_per_pack, 
-			p.barcode, 
-			ut.short_name, 
+    		p.name,
+			p.material_code,
+			p.unit_per_pack,
+			COALESCE(sp.barcode, p.barcode) AS barcode,
+			ut.short_name,
 			pr.name AS producer`).
 		Joins("JOIN products p ON transfer_details.product_id = p.id").
+		Joins("JOIN store_products sp ON transfer_details.store_product_id = sp.id").
 		Joins("LEFT JOIN producers pr ON p.producer_id = pr.id").
 		Joins("LEFT JOIN unit_types ut ON p.unit_type_id = ut.id").
 		Where("transfer_details.transfer_id = ?", param.ReturnId)
@@ -623,13 +623,13 @@ func (s *Services) ReturnDetailList(param *domain.ReturnDetailParam) ([]domain.R
 	if param.Search != "" {
 		switch utils.DefineProductSearchQuery(param.Search) {
 		case "barcode":
-			query = query.Where("p.barcode = ?", param.Search)
+			query = query.Where("COALESCE(sp.barcode, p.barcode) = ?", param.Search)
 		case "name/category":
 			param.Search = fmt.Sprintf("%%%s%%", param.Search)
 			query = query.Where("p.name ILIKE ?", param.Search)
 		default:
 			param.Search = fmt.Sprintf("%%%s%%", param.Search)
-			query = query.Where("p.name ILIKE ? OR p.barcode LIKE ?", param.Search, param.Search)
+			query = query.Where("p.name ILIKE ? OR COALESCE(sp.barcode, p.barcode) LIKE ?", param.Search, param.Search)
 		}
 	}
 	// filter with return stats
@@ -688,7 +688,7 @@ func (s *Services) ReturnDetailStatsCount(param *domain.ReturnDetailParam) (doma
 }
 
 // send return
-func (s *Services) SendReturn(ctx context.Context, returnId string, userId string) error {
+func (s *Services) SendReturn(ctx context.Context, returnId string, userId string, DriverName string) error {
 	// start transaction
 	tx := s.db.Begin()
 	defer func() {
@@ -711,8 +711,8 @@ func (s *Services) SendReturn(ctx context.Context, returnId string, userId strin
 	}
 
 	// update return
-	query := `UPDATE transfers SET status = ?, updated_by = ? WHERE id = ?`
-	err = tx.WithContext(ctx).Exec(query, constants.GeneralStatusSent, userId, returnId).Error
+	query := `UPDATE transfers SET status = ?, updated_by = ? driver_office = ? WHERE id = ?`
+	err = tx.WithContext(ctx).Exec(query, constants.GeneralStatusSent, userId, DriverName, returnId).Error
 	if err != nil {
 		_ = tx.Rollback()
 		s.log.Errorf("could not update return %v", err)
@@ -868,14 +868,15 @@ func (s *Services) ReSendReturnToOnec(ctx context.Context, returnId string) erro
 	return nil
 }
 
-func (s *Services) EditStatusToCheckingReturn(ctx context.Context, Id string, userId string) error {
+func (s *Services) EditStatusToCheckingReturn(ctx context.Context, Id string, userId string, req *domain.EditStatusToCheckingRequest) error {
 	err := s.db.WithContext(ctx).Exec(`
 		UPDATE transfers
 		SET status         = ?,
 		    updated_by     = ?,
+			driver_store_a = ?,
 		    updated_at     = NOW()
 		WHERE id = ?`,
-		constants.GeneralStatusChecking, userId,
+		constants.GeneralStatusChecking, userId, req.DriverName,
 		Id,
 	).Error
 	if err != nil {
@@ -887,7 +888,7 @@ func (s *Services) EditStatusToCheckingReturn(ctx context.Context, Id string, us
 }
 
 // confirm return
-func (s *Services) ConfirmReturn(ctx context.Context, returnId, userId string) error {
+func (s *Services) ConfirmReturn(ctx context.Context, returnId, userId string, driverName string) error {
 	// start transaction
 	tx := s.db.Begin()
 	defer func() {
@@ -911,8 +912,8 @@ func (s *Services) ConfirmReturn(ctx context.Context, returnId, userId string) e
 	}
 
 	// update confirm return
-	query := `UPDATE transfers SET status = ?, accepted_by = ?, accepted_at = NOW() WHERE id = ? RETURNING *`
-	err = tx.WithContext(ctx).Raw(query, constants.GeneralStatusSentOnec, userId, returnId).Scan(&transfer).Error
+	query := `UPDATE transfers SET status = ?, accepted_by = ?, driver_store_b = ?, accepted_at = NOW() WHERE id = ? RETURNING *`
+	err = tx.WithContext(ctx).Raw(query, constants.GeneralStatusSentOnec, userId, driverName, returnId).Scan(&transfer).Error
 	if err != nil {
 		_ = tx.Rollback()
 		s.log.Errorf("could not update return: %v", err)

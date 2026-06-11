@@ -69,9 +69,14 @@ type ReturnDetail struct {
 	StoreProductId string     `gorm:"store_product_id" json:"store_product_id"`
 	UnitPerPack    int        `gorm:"unit_per_pack" json:"unit_per_pack"`
 	ReceivedCount  float64    `gorm:"received_count" json:"received_count"`
+	ReceivedPack   int        `gorm:"received_pack" json:"received_pack"`
+	ReceivedUnit   int        `gorm:"received_unit" json:"received_unit"`
 	ExpectedCount  float64    `gorm:"expected_count" json:"expected_count"`
-	ScannedCount   float64    `gorm:"scanned_count" json:"scanned_pack"`
-	ScannedUnit    float64    `gorm:"scanned_unit" json:"scanned_unit"`
+	ExpectedPack   *int       `gorm:"expected_pack" json:"expected_pack"`
+	ExpectedUnit   *int       `gorm:"expected_unit" json:"expected_unit"`
+	ScannedCount   float64    `gorm:"scanned_count" json:"scanned_count"`
+	ScannedPack    int        `gorm:"scanned_pack" json:"scanned_pack"`
+	ScannedUnit    int        `gorm:"scanned_unit" json:"scanned_unit"`
 	AcceptedCount  float64    `gorm:"accepted_count" json:"accepted_count"`
 	AcceptedUnit   float64    `gorm:"accepted_unit" json:"accepted_unit"`
 	OnecCount      float64    `gorm:"onec_count" json:"onec_count"`

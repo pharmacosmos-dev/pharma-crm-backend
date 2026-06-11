@@ -31243,7 +31243,7 @@ const docTemplate = `{
                 },
                 "app_type": {
                     "type": "string",
-                    "example": "click|payme|uzum|uzum_tezkor"
+                    "example": "click|payme|uzum|uzum_tez_kor"
                 },
                 "otp_data": {
                     "type": "string"

@@ -566,7 +566,7 @@ definitions:
       amount:
         type: number
       app_type:
-        example: click|payme|uzum|uzum_tezkor
+        example: click|payme|uzum|uzum_tez_kor
         type: string
       otp_data:
         type: string
