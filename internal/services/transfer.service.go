@@ -809,21 +809,32 @@ func (s *Services) SendTransferToOnec(ctx context.Context, transferId string) er
 	return nil
 }
 
-// check accepted_count is not null
+// check accepted_count is not null and equals scanned_count
 func (s *Services) CheckAcceptedCount(ctx context.Context, transferId string) error {
-	var count int64
+	var nullCount int64
 	err := s.db.WithContext(ctx).Table("transfer_details").
 		Where("transfer_id = ? AND accepted_count IS NULL", transferId).
-		Count(&count).Error
-
+		Count(&nullCount).Error
 	if err != nil {
 		s.log.Error("failed to check accepted_count nulls:", err)
 		return domain.InternalServerError
 	}
-
-	if count > 0 {
+	if nullCount > 0 {
 		return domain.AcceptedCountError
 	}
+
+	var notEqualScannedCount int64
+	err = s.db.WithContext(ctx).Table("transfer_details").
+		Where("transfer_id = ? AND accepted_count != scanned_count", transferId).
+		Count(&notEqualScannedCount).Error
+	if err != nil {
+		s.log.Error("failed to check accepted_count mismatch:", err)
+		return domain.InternalServerError
+	}
+	if notEqualScannedCount > 0 {
+		return domain.AcceptedCountMismatchError
+	}
+
 	return nil
 }
 

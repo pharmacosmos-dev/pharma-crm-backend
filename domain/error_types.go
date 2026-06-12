@@ -20,6 +20,7 @@ var (
 	InvalidSaleAmount            = NewError(http.StatusBadRequest, "invalid.sale.amount")
 	SerialOrMarkingRequiredError = NewError(http.StatusBadRequest, "serial.or.marking.required")
 	AcceptedCountError           = NewError(http.StatusBadRequest, "accepted.count.is.null")
+	AcceptedCountMismatchError   = NewError(http.StatusBadRequest, "accepted.count.not.equal.scanned.count")
 	DuplicateError               = NewError(http.StatusBadRequest, "duplicate")
 	IncorrectOTPError            = NewError(http.StatusBadRequest, "incorrect.otp")
 	IncorrectCardExpiryDateError = NewError(http.StatusBadRequest, "incorrect.expiry.date")
