@@ -524,14 +524,22 @@ func (s *Services) TransferDetailList(param *domain.ReturnDetailParam) ([]domain
 	// filter with inventory stats
 	if param.Type != "" {
 		switch param.Type {
-		case "shortage":
-			query = query.Where("transfer_details.received_count > transfer_details.scanned_count")
+		// case "shortage":
+		// 	query = query.Where("transfer_details.received_count > transfer_details.scanned_count")
 		case "expected":
 			query = query.Where("transfer_details.expected_count > 0")
+		case "not_expected":
+			query = query.Where("transfer_details.expected_count = 0")
 		case "scanned":
 			query = query.Where("transfer_details.scanned_count > 0")
-		case "surplus":
-			query = query.Where("transfer_details.scanned_count > transfer_details.received_count")
+		case "not_scanned":
+			query = query.Where("transfer_details.scanned_count = 0")
+		case "accepted":
+			query = query.Where("transfer_details.accepted_count > 0")
+		case "not_accepted":
+			query = query.Where("transfer_details.accepted_count = 0")	
+		// case "surplus":
+		// 	query = query.Where("transfer_details.scanned_count > transfer_details.received_count")
 
 		}
 	}
