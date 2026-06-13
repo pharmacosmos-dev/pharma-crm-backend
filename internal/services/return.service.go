@@ -486,12 +486,16 @@ func (s *Services) ReturnList(ctx context.Context, param *domain.ReturnParam) ([
 		Preload("AcceptedBy").
 		Preload("CommentBy").
 		Select(`
-			transfers.*, 
+			transfers.*,
 			SUM(trd.scanned_count) AS return_count,
 			SUM(trd.received_count-trd.scanned_count) AS shortage,
 			SUM(CASE WHEN trd.accepted_count > trd.received_count THEN trd.accepted_count - trd.received_count ELSE 0 END) AS surplus,
-			SUM(trd.scanned_count*trd.supply_price) AS received_supply_sum,
-			SUM(trd.scanned_count*trd.retail_price) AS received_retail_sum,
+			SUM(trd.received_count*trd.supply_price) AS received_supply_sum,
+			SUM(trd.received_count*trd.retail_price) AS received_retail_sum,
+			SUM(trd.expected_count*trd.supply_price) AS expected_supply_sum,
+			SUM(trd.expected_count*trd.retail_price) AS expected_retail_sum,
+			SUM(trd.scanned_count*trd.supply_price)  AS scanned_supply_sum,
+			SUM(trd.scanned_count*trd.retail_price)  AS scanned_retail_sum,
 			SUM(trd.accepted_count*trd.supply_price) AS accepted_supply_sum,
 			SUM(trd.accepted_count*trd.retail_price) AS accepted_retail_sum
 			`).
@@ -516,6 +520,12 @@ func (s *Services) ReturnList(ctx context.Context, param *domain.ReturnParam) ([
 	if param.Status != "" {
 		query = query.Where("transfers.status = ?", param.Status)
 	}
+
+	if param.IsAuto != nil {
+		query = query.Where("transfers.is_auto = ?", *param.IsAuto)
+	}
+
+
 	// complete query
 	err := query.
 		Group("transfers.id").

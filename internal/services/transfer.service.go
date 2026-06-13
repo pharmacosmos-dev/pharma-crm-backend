@@ -346,6 +346,10 @@ func (s *Services) TransferList(ctx context.Context, params *domain.ReturnParam)
 		query = query.Where("t.type = ?", params.Type)
 	}
 
+	if params.IsAuto != nil {
+		query = query.Where("t.is_auto = ?", *params.IsAuto)
+	}
+
 	if params.CreatorId != "" {
 		query = query.Where("t.created_by = ?", params.CreatorId)
 	}

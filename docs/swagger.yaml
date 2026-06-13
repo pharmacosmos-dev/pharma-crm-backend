@@ -16706,6 +16706,14 @@ paths:
         in: query
         name: status
         type: string
+      - description: type
+        in: query
+        name: type
+        type: string
+      - description: is_auto
+        in: query
+        name: is_auto
+        type: boolean
       produces:
       - application/json
       responses:
@@ -20157,6 +20165,10 @@ paths:
         in: query
         name: type
         type: string
+      - description: is_auto
+        in: query
+        name: is_auto
+        type: boolean
       - description: creator_id
         in: query
         name: creator_id

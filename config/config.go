@@ -15,6 +15,7 @@ type (
 		PG          `yaml:"postgres"`
 		Secret      `yaml:"secret"`
 		Integration `yaml:"integration"`
+		Telegram    `yaml:"telegram"`
 	}
 
 	// App -.
@@ -23,6 +24,12 @@ type (
 		Version string `env-required:"true" yaml:"version" env:"APP_VERSION"`
 		Port    string `env-required:"true" yaml:"port" env:"HTTP_PORT"`
 		Level   string `env-required:"true" yaml:"log_level"   env:"LOG_LEVEL"`
+		Env     string `yaml:"env" env:"APP_ENV"`
+	}
+	// Telegram -.
+	Telegram struct {
+		BotToken  string `yaml:"bot_token" env:"TELEGRAM_BOT_TOKEN"`
+		ChannelID string `yaml:"channel_id" env:"TELEGRAM_CHANNEL_ID"`
 	}
 	// Token Secret Key -.
 	Secret struct {
@@ -77,6 +84,10 @@ func Load() Config {
 	c.App.Version = cast.ToString(GetOrReturnDefaultValue("APP_VERSION", "1.0.0"))
 	c.App.Port = cast.ToString(GetOrReturnDefaultValue("HTTP_PORT", "8080"))
 	c.App.Level = cast.ToString(GetOrReturnDefaultValue("LOG_LEVEL", "debug"))
+	c.App.Env = cast.ToString(GetOrReturnDefaultValue("APP_ENV", "DEV"))
+
+	c.Telegram.BotToken = cast.ToString(GetOrReturnDefaultValue("TELEGRAM_BOT_TOKEN", ""))
+	c.Telegram.ChannelID = cast.ToString(GetOrReturnDefaultValue("TELEGRAM_CHANNEL_ID", ""))
 
 	c.PG.DbHost = cast.ToString(GetOrReturnDefaultValue("PG_HOST", "localhost"))
 	c.PG.DbPort = cast.ToString(GetOrReturnDefaultValue("PG_PORT", "5432"))

@@ -103,6 +103,7 @@ type ReturnParam struct {
 	CompanyId  string `form:"company_id"`
 	Status     string `form:"status"`
 	Type       string `form:"type"`
+	IsAuto     *bool  `form:"is_auto"`
 	CreatorId  string `form:"creator_id"`
 	Search     string `form:"search"`
 	StartDate  string `form:"start_date"`
@@ -118,6 +119,7 @@ type ReturnDetailParam struct {
 	Limit      int    `form:"limit"`
 	Offset     int    `form:"offset"`
 	Type       string `form:"type"`
+	IsAuto     bool   `form:"is_auto"`
 }
 
 type ReturnDetailStatus struct {

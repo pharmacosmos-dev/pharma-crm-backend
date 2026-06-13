@@ -136,6 +136,8 @@ func (h *ReturnHandler) Get(c *gin.Context) {
 // @Param   store_id query string false "STORE ID"
 // @Param   search 	query string false "SEARCH KEY"
 // @Param   status 	query string false "STATUS (0->new|1->sent|2->completed)"
+// @Param   type		query string false "type"
+// @Param   is_auto		query boolean false "is_auto"
 // @Success 200 {object} v1.Response
 // @Failure 400 {object} v1.Response
 // @Failure 500 {object} v1.Response

@@ -22465,6 +22465,18 @@ const docTemplate = `{
                         "description": "STATUS (0-\u003enew|1-\u003esent|2-\u003ecompleted)",
                         "name": "status",
                         "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "type",
+                        "name": "type",
+                        "in": "query"
+                    },
+                    {
+                        "type": "boolean",
+                        "description": "is_auto",
+                        "name": "is_auto",
+                        "in": "query"
                     }
                 ],
                 "responses": {
@@ -27812,6 +27824,12 @@ const docTemplate = `{
                         "type": "string",
                         "description": "type",
                         "name": "type",
+                        "in": "query"
+                    },
+                    {
+                        "type": "boolean",
+                        "description": "is_auto",
+                        "name": "is_auto",
                         "in": "query"
                     },
                     {

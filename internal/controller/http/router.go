@@ -61,6 +61,7 @@ func NewRouter(option Options, hub *ws.Hub) {
 	option.Gin.Use(uzumBasicAuth.BasicAuthMiddleware)
 	option.Gin.Use(gin.Logger())
 	option.Gin.Use(gin.Recovery())
+	option.Gin.Use(middleware.TelegramErrorLogger(option.Cfg))
 	gin.ErrorLogger()
 	// JWTHandler
 	jwtHandler := token.JWTHandler{
