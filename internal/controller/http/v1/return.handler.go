@@ -7,7 +7,7 @@ import (
 	"strconv"
 	"sync"
 	"time"
-	//"strings"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -411,15 +411,14 @@ func (h *ReturnHandler) Send(c *gin.Context) {
 	}
 
 	var req domain.SendTransferRequest
-	_ = c.ShouldBindJSON(&req)
-	// if err := c.ShouldBindJSON(&req); err != nil {
-	// 	handleServiceResponse(c, BadRequest, domain.InvalidRequestBodyError)
-	// 	return
-	// }
-	// if strings.TrimSpace(req.DriverName) == "" {
-	// 	handleServiceResponse(c, BadRequest, domain.BadRequestError)
-	// 	return
-	// }
+	if err := c.ShouldBindJSON(&req); err != nil {
+		handleServiceResponse(c, BadRequest, domain.InvalidRequestBodyError)
+		return
+	}
+	if strings.TrimSpace(req.DriverName) == "" {
+		handleServiceResponse(c, BadRequest, domain.BadRequestError)
+		return
+	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
 	defer cancel()
@@ -499,19 +498,15 @@ func (h *ReturnHandler) Confirm(c *gin.Context) {
 		handleServiceResponse(c, nil, domain.InvalidQueryError)
 		return
 	}
-	// var req domain.ConfirmTransferRequest
-	// if err := c.ShouldBindJSON(&req); err != nil {
-	// 	handleServiceResponse(c, BadRequest, domain.InvalidRequestBodyError)
-	// 	return
-	// }
-	// if strings.TrimSpace(req.DriverName) == "" {
-	// 	handleServiceResponse(c, BadRequest, domain.BadRequestError)
-	// 	return
-	// }
-
-
 	var req domain.ConfirmTransferRequest
-	_ = c.ShouldBindJSON(&req)
+	if err := c.ShouldBindJSON(&req); err != nil {
+		handleServiceResponse(c, BadRequest, domain.InvalidRequestBodyError)
+		return
+	}
+	if strings.TrimSpace(req.DriverName) == "" {
+		handleServiceResponse(c, BadRequest, domain.BadRequestError)
+		return
+	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
 	defer cancel()
@@ -520,7 +515,14 @@ func (h *ReturnHandler) Confirm(c *gin.Context) {
 	mu.Lock()
 	defer mu.Unlock()
 
-	err := h.service.ConfirmReturn(ctx, id, user.UserId, req.DriverName)
+	// check is accepted_count is not null
+	err := h.service.CheckAcceptedCount(ctx, id)
+	if err != nil {
+		handleServiceResponse(c, nil, err)
+		return
+	}
+
+	err = h.service.ConfirmReturn(ctx, id, user.UserId, req.DriverName)
 	if err != nil {
 		handleServiceResponse(c, nil, err)
 		return
@@ -1014,11 +1016,10 @@ func (h *ReturnHandler) EditStatusToChecking(c *gin.Context) {
 	}
 
 	var req domain.EditStatusToCheckingRequest
-	_ = c.ShouldBindJSON(&req)
-	// if err := c.ShouldBindJSON(&req); err != nil {
-	// 	handleServiceResponse(c, BadRequest, domain.InvalidRequestBodyError)
-	// 	return
-	// }
+	if err := c.ShouldBindJSON(&req); err != nil {
+		handleServiceResponse(c, BadRequest, domain.InvalidRequestBodyError)
+		return
+	}
 	
 	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
 	defer cancel()
