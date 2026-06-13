@@ -20169,9 +20169,9 @@ paths:
         in: query
         name: is_auto
         type: boolean
-      - description: creator_id
+      - description: created_by
         in: query
-        name: creator_id
+        name: created_by
         type: string
       - description: start_date
         in: query

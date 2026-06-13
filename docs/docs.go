@@ -27834,8 +27834,8 @@ const docTemplate = `{
                     },
                     {
                         "type": "string",
-                        "description": "creator_id",
-                        "name": "creator_id",
+                        "description": "created_by",
+                        "name": "created_by",
                         "in": "query"
                     },
                     {

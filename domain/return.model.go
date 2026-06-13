@@ -104,7 +104,7 @@ type ReturnParam struct {
 	Status     string `form:"status"`
 	Type       string `form:"type"`
 	IsAuto     *bool  `form:"is_auto"`
-	CreatorId  string `form:"creator_id"`
+	CreatorId  string `form:"created_by"`
 	Search     string `form:"search"`
 	StartDate  string `form:"start_date"`
 	EndDate    string `form:"end_date"`
