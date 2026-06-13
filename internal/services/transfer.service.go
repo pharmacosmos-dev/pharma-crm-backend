@@ -818,6 +818,13 @@ func (s *Services) SendTransferToOnec(ctx context.Context, transferId string) er
 		return err
 	}
 
+	if transfer.Status == constants.GeneralStatusFailedSentOnec {
+		if upErr := s.db.WithContext(ctx).Exec(`UPDATE transfers SET status = ? WHERE id = ?`,
+			constants.GeneralStatusCompleted, transferId).Error; upErr != nil {
+			s.log.Errorf("SendTransferToOnec: could not reset status for %s: %v", transferId, upErr)
+		}
+	}
+
 	return nil
 }
 
@@ -869,7 +876,7 @@ func (s *Services) ConfirmTransfer(ctx context.Context, transferId string, userI
 		return domain.InternalServerError
 	}
 
-	if transfer.Status == constants.GeneralStatusCompleted {
+	if transfer.Status == constants.GeneralStatusCompleted || transfer.Status == constants.GeneralStatusFailedSentOnec {
 		_ = tx.Rollback()
 		return domain.AlreadyCompletedError
 	}
@@ -1022,13 +1029,18 @@ func (s *Services) ConfirmTransfer(ctx context.Context, transferId string, userI
 	dataOnec.Apteka.StoreCode = toStore.StoreCode
 	dataOnec.AptekaOtkud.Name = fromStore.Name
 	dataOnec.AptekaOtkud.StoreCode = fromStore.StoreCode
-	if s.cfg.OnecApiUrl != "test" {
-		// send inventory products data to 1C
-		go s.DoRequestOnec(context.Background(), dataOnec, constants.OnecPathPerekit)
-		// if err != nil {
-		//    s.log.Errorf("could not send transfer to onec: %v", err)
-		// }
-	}
+	go func() {
+		if s.cfg.OnecApiUrl != "test" {
+			return
+		}
+		if err := s.DoRequestOnec(context.Background(), dataOnec, constants.OnecPathPerekit); err != nil {
+			s.log.Errorf("ConfirmTransfer: 1C error for transfer %s: %v", transferId, err)
+			if upErr := s.db.Exec(`UPDATE transfers SET status = ? WHERE id = ?`,
+				constants.GeneralStatusFailedSentOnec, transferId).Error; upErr != nil {
+				s.log.Errorf("ConfirmTransfer: could not mark transfer %s as failed_sent_to_1c: %v", transferId, upErr)
+			}
+		}
+	}()
 	return nil
 }
 

@@ -854,13 +854,14 @@ func (s *Services) ReSendReturnToOnec(ctx context.Context, returnId string) erro
 		JOIN products p ON td.product_id = p.id
 		LEFT JOIN producers pr ON p.producer_id = pr.id
 		WHERE 
-			td.transfer_id = ? AND tr.status IN(?,?) AND tr.from_store_id = ?;
+			td.transfer_id = ? AND tr.status IN(?,?,?) AND tr.from_store_id = ?;
 	`
 	var returnData domain.ReturnData1C
 	err = s.db.WithContext(ctx).
 		Raw(query, returnId,
 			constants.GeneralStatusSentOnec,
 			constants.GeneralStatusCompleted,
+			constants.GeneralStatusFailedSentOnec,
 			returnInfo.FromStoreId).
 		Scan(&returnData.Товары).Error
 	if err != nil {
@@ -883,6 +884,13 @@ func (s *Services) ReSendReturnToOnec(ctx context.Context, returnId string) erro
 	if err != nil {
 		s.log.Errorf("could not resend return request: %v", err)
 		return domain.InternalServerError
+	}
+
+	if returnInfo.Status == constants.GeneralStatusFailedSentOnec {
+		if upErr := s.db.WithContext(ctx).Exec(`UPDATE transfers SET status = ? WHERE id = ?`,
+			constants.GeneralStatusCompleted, returnId).Error; upErr != nil {
+			s.log.Errorf("ReSendReturnToOnec: could not reset status for %s: %v", returnId, upErr)
+		}
 	}
 
 	return nil
@@ -926,7 +934,7 @@ func (s *Services) ConfirmReturn(ctx context.Context, returnId, userId string, d
 		return domain.InternalServerError
 	}
 	// check if return is already confirmed
-	if transfer.Status == constants.GeneralStatusSentOnec {
+	if transfer.Status == constants.GeneralStatusCompleted || transfer.Status == constants.GeneralStatusSentOnec || transfer.Status == constants.GeneralStatusFailedSentOnec {
 		_ = tx.Rollback()
 		return domain.AlreadyCompletedError
 	}
@@ -1015,10 +1023,18 @@ func (s *Services) ConfirmReturn(ctx context.Context, returnId, userId string, d
 		return domain.InternalServerError
 	}
 
-	if s.cfg.OnecApiUrl != "test" {
-		// send return to 1C
-		go s.DoRequestOnec(context.Background(), returnData, constants.OnecPathVozvrat)
-	}
+	go func() {
+		if s.cfg.OnecApiUrl != "test" {
+			return
+		}
+		if err := s.DoRequestOnec(context.Background(), returnData, constants.OnecPathVozvrat); err != nil {
+			s.log.Errorf("ConfirmReturn: 1C error for return %s: %v", returnId, err)
+			if upErr := s.db.Exec(`UPDATE transfers SET status = ? WHERE id = ?`,
+				constants.GeneralStatusFailedSentOnec, returnId).Error; upErr != nil {
+				s.log.Errorf("ConfirmReturn: could not mark return %s as failed_sent_to_1c: %v", returnId, upErr)
+			}
+		}
+	}()
 
 	go s.updateStocksAfterVozvratFinished(returnId, transfer.FromStoreId)
 

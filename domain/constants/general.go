@@ -195,8 +195,9 @@ const (
 	GeneralStatusChecking   = "checking"
 	GeneralStatusDrafted    = "drafted"
 	GeneralStatusWriteOff   = "writeoff"
-	GeneralStatusSentOnec   = "sent-to-1c"
-	GeneralStatusDeclined   = "DECLINED"
+	GeneralStatusSentOnec         = "sent-to-1c"
+	GeneralStatusFailedSentOnec   = "failed_sent_to_1c"
+	GeneralStatusDeclined         = "DECLINED"
 	GeneralStatusTaxFree    = "tax_free"
 
 	// Online sale status
