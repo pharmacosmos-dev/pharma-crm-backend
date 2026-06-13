@@ -18,8 +18,12 @@ type Return struct {
 	ReceivedCount     float64    `gorm:"received_count" json:"received_count"`
 	ReceivedSupplySum float64    `gorm:"received_supply_sum" json:"received_supply_sum"`
 	ReceivedRetailSum float64    `gorm:"received_retail_sum" json:"received_retail_sum"`
+	ExpectedSupplySum float64    `gorm:"expected_supply_sum" json:"expected_supply_sum"`
+	ExpectedRetailSum float64    `gorm:"expected_retail_sum" json:"expected_retail_sum"`
 	AcceptedSupplySum float64    `gorm:"accepted_supply_sum" json:"accepted_supply_sum"`
 	AcceptedRetailSum float64    `gorm:"accepted_retail_sum" json:"accepted_retail_sum"`
+	ScannedSupplySum  float64    `gorm:"scanned_supply_sum" json:"scanned_supply_sum"`
+	ScannedRetailSum  float64    `gorm:"scanned_retail_sum" json:"scanned_retail_sum"`
 	CreatedById       string     `gorm:"column:created_by" json:"created_by_id"`
 	UpdatedById       string     `gorm:"column:updated_by" json:"updated_by_id"`
 	AcceptedById      string     `gorm:"column:accepted_by" json:"accepted_by_id"`
