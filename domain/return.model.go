@@ -30,6 +30,9 @@ type Return struct {
 	CreatedAt         *time.Time `gorm:"created_at" json:"created_at"`
 	UpdatedAt         *time.Time `gorm:"updated_at" json:"updated_at"`
 	AcceptedAt        *time.Time `gorm:"accepted_at" json:"accepted_at"`
+	DriverOffice      string     `gorm:"driver_office" json:"driver_office"`
+	DriverStoreA      string     `gorm:"driver_store_a" json:"driver_store_a"`
+	DriverStoreB      string     `gorm:"driver_store_b" json:"driver_store_b"`
 	Store             *Store     `gorm:"foreignKey:FromStoreId" json:"store"`
 	CreatedBy         *Employee  `gorm:"foreignKey:CreatedById" json:"created_by"`
 	UpdatedBy         *Employee  `gorm:"foreignKey:UpdatedById" json:"updated_by"`
