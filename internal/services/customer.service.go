@@ -233,42 +233,42 @@ func (s *Services) GetCustomers(ctx context.Context, params *domain.QueryParam, 
 
 		SId   string `gorm:"s_id"`
 		SName string `gorm:"s_name"`
-		//SalesCount24h int64 `gorm:"sales_count_24h"`
+		SalesCount24h int64 `gorm:"sales_count_24h"`
 	}
 
 	// Start building the query
+	baseSelect := []string{
+		"c.id",
+		"c.public_id",
+		"c.store_id",
+		"c.tag_id",
+		"c.first_name",
+		"c.last_name",
+		"c.full_name",
+		"c.phone",
+		"c.birthday",
+		"c.gender",
+		"c.balance",
+		"c.spending_from_balance",
+		"c.discount_card",
+		"c.discount_percent",
+		"c.loyalty_card_barcode",
+		"c.loyalty_card_percent",
+		"c.loyalty_card_level_id",
+		"c.loyalty_card_type",
+		"c.loyalty_card_created_by",
+		"c.loyalty_card_created_at",
+		"c.telegram_chat_id",
+		"c.created_at",
+		"c.updated_at",
+		"s.id AS s_id",
+		"s.name AS s_name",
+		"t.id AS t_id",
+		"t.name AS t_name",
+	}
+
 	query := s.db.
-		Select(
-			"c.id",
-			"c.public_id",
-			"c.store_id",
-			"c.tag_id",
-			"c.first_name",
-			"c.last_name",
-			"c.full_name",
-			"c.phone",
-			"c.birthday",
-			"c.gender",
-			"c.balance",
-			"c.spending_from_balance",
-			"c.discount_card",
-			"c.discount_percent",
-			"c.loyalty_card_barcode",
-			"c.loyalty_card_percent",
-			"c.loyalty_card_level_id",
-			"c.loyalty_card_type",
-			"c.loyalty_card_created_by",
-			"c.loyalty_card_created_at",
-			"c.telegram_chat_id",
-			"c.created_at",
-			"c.updated_at",
-
-			"s.id AS s_id",
-			"s.name AS s_name",
-
-			"t.id AS t_id",
-			"t.name AS t_name",
-		).Table("customers c").
+		Table("customers c").
 		Joins("LEFT JOIN stores s ON c.store_id = s.id").
 		Joins("LEFT JOIN tags t ON c.tag_id = t.id").
 		Where("c.is_active = true")
@@ -279,6 +279,16 @@ func (s *Services) GetCustomers(ctx context.Context, params *domain.QueryParam, 
 		} else {
 			query = query.Where("c.public_id::text ilike ? or c.phone::text ilike ? or c.full_name ilike ?", "%"+params.Search+"%", "%"+params.Search+"%", "%"+params.Search+"%")
 		}
+		query = query.
+			Select(append(baseSelect, "COALESCE(sc.sales_count_24h, 0) AS sales_count_24h")).
+			Joins(`LEFT JOIN (
+				SELECT customer_id, COUNT(*) AS sales_count_24h
+				FROM sales
+				WHERE stage = 9 AND created_at >= CURRENT_DATE
+				GROUP BY customer_id
+			) sc ON sc.customer_id = c.id`)
+	} else {
+		query = query.Select(append(baseSelect, "0 AS sales_count_24h"))
 	}
 
 	if params.StoreID != "" {
@@ -334,7 +344,7 @@ func (s *Services) GetCustomers(ctx context.Context, params *domain.QueryParam, 
 			TelegramChatId:       row.TelegramChatId,
 			CreatedAt:            row.CreatedAt,
 			UpdatedAt:            row.UpdatedAt,
-			// SalesCount24h:        row.SalesCount24h,
+			SalesCount24h:        row.SalesCount24h,
 			Store: &domain.Store{
 				Id:   row.SId,
 				Name: row.SName,
