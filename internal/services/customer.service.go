@@ -268,7 +268,7 @@ func (s *Services) GetCustomers(ctx context.Context, params *domain.QueryParam, 
 
 			"t.id AS t_id",
 			"t.name AS t_name",
-			"(SELECT COUNT(*) FROM sales s2 WHERE s2.customer_id = c.id AND s2.created_at >= NOW() - INTERVAL '24 hours') AS sales_count_24h",
+			"(SELECT COUNT(*) FROM sales s2 WHERE s2.customer_id = c.id AND s2.stage = 9 AND s2.created_at >= CURRENT_DATE) AS sales_count_24h",
 		).Table("customers c").
 		Joins("LEFT JOIN stores s ON c.store_id = s.id").
 		Joins("LEFT JOIN tags t ON c.tag_id = t.id").
