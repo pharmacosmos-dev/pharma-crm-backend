@@ -41,44 +41,42 @@ func (s *Services) GetNomenclature(ctx context.Context, storeId string, page, li
 	var products []ProductWithStore
 
 	query := `
-		SELECT 
+		SELECT
 			p.id AS product_id,
-			p.name, 
-			p.barcode, 
-			p.description, 
-			p.photos, 
-			p.unit_per_pack, 
+			p.name,
+			p.barcode,
+			p.description,
+			p.photos,
+			p.unit_per_pack,
 			p.is_marking,
 			p.mxik,
 			p.unit_code,
 			p.requires_prescription,
-			sp.id AS id,
-			COALESCE(osp.retail_price, sp.retail_price) AS retail_price,
-			sp.unit_quantity, 
-			sp.vat,
-			sp.expire_date AS expired_date,
-			sp.store_id,
-			c.id as category_id, 
+			COALESCE(sp.id, '') AS id,
+			opp.retail_price AS retail_price,
+			COALESCE(sp.unit_quantity, 0) AS unit_quantity,
+			COALESCE(sp.vat, 0) AS vat,
+			COALESCE(sp.expire_date, '') AS expired_date,
+			COALESCE(sp.store_id, '') AS store_id,
+			c.id as category_id,
 			c.name as category_name,
 			COALESCE(cnt.name, '') AS country
 		FROM (
 			SELECT DISTINCT ON (product_id) *
+			FROM online_products_price
+			WHERE type = 'uzum'
+			ORDER BY product_id, created_at DESC
+		) opp
+		INNER JOIN products p ON p.id = opp.product_id
+		LEFT JOIN (
+			SELECT DISTINCT ON (product_id) *
 			FROM store_products
 			WHERE store_id = ?
 			ORDER BY product_id, unit_quantity DESC
-		) sp
-		INNER JOIN products p ON p.id = sp.product_id
-		JOIN LATERAL (
-			SELECT retail_price
-			FROM online_products_price
-			WHERE product_id = p.id
-			  AND type = 'uzum'
-			ORDER BY created_at DESC
-			LIMIT 1
-		) osp ON true
+		) sp ON sp.product_id = p.id
 		LEFT JOIN categories c ON p.category_id = c.id
 		LEFT JOIN countries cnt ON p.country_id = cnt.id
-		WHERE sp.unit_quantity / p.unit_per_pack > 0 AND p.requires_prescription = false
+		WHERE p.requires_prescription = false
 	`
 	if limit > 0 && page > 0 {
 		query = query + fmt.Sprintf("LIMIT %d OFFSET %d", limit, (page-1)*limit)
