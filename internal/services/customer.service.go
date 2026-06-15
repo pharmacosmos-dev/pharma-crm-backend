@@ -303,7 +303,7 @@ func (s *Services) GetCustomers(ctx context.Context, params *domain.QueryParam, 
 		dataSelectFields = append(baseSelect, "0 AS sales_count_24h")
 	}
 
-	dataQuery = dataQuery.Select(dataSelectFields)
+	dataQuery = dataQuery.Select(strings.Join(dataSelectFields, ", "))
 
 	if params.StoreID != "" {
 		countQuery = countQuery.Where("c.store_id = ?", params.StoreID)
