@@ -122,6 +122,11 @@ func (s *Services) GetNomenclature(ctx context.Context, storeId string, page, li
 			categoryId = *p.CategoryId
 		}
 
+		count := 0
+		if p.UnitPerPack > 0 {
+			count = p.UnitQuantity / p.UnitPerPack
+		}
+
 		// Build item
 		item := domain.NomenclatureItem{
 			Id:         p.ProductId,
@@ -140,6 +145,7 @@ func (s *Services) GetNomenclature(ctx context.Context, storeId string, page, li
 				ExpiresIn:     p.ExpiredDate,
 				VendorCountry: p.Country,
 			},
+			Count:   count,
 			Retsept: p.RequiresPrescription,
 			Measure: domain.NomenclatureMeasure{
 				Unit:    "GRM",

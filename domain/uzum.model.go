@@ -28,6 +28,7 @@ type NomenclatureItem struct {
 	Vat            int                       `json:"vat,omitempty"`
 	Images         []NomenclatureImage       `json:"images"`
 	Description    NomenclatureDescription   `json:"description"`
+	Count          int					     `json:"count"`
 	Retsept        bool                      `json:"requiredPrescription"`
 	Measure        NomenclatureMeasure       `json:"measure"`
 	IsCatchWeight  bool                      `json:"isCatchWeight"`
