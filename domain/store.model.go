@@ -98,6 +98,7 @@ type StoreQueryParams struct {
 	CompanyId     string   `form:"company_id"`
 	CompanyIds    []string `form:"-"`
 	StoreId       string   `form:"-"`
+	StoreIds      []string `form:"-"`
 	Search        string   `form:"search"`
 	IsFranchise   *bool    `form:"is_franchise"`
 	IsOnlineOrder *bool    `form:"is_online"`

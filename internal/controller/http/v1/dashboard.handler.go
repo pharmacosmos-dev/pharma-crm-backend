@@ -817,6 +817,11 @@ func (h *DashboardHandler) SaleStatistic(c *gin.Context) {
 		params.StoreIds = []string{}
 	}
 
+	if user.Role == constants.RoleRopApteka {
+		params.StoreIds = user.StoreIds
+		params.CompanyIds = []string{user.CompanyId}
+	}
+
 	// get dashboard data
 	res, err := h.service.DashboardSaleStatistic(ctx, &params)
 	if err != nil {

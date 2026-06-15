@@ -61,7 +61,7 @@ var (
 
 // Roles slices
 var (
-	AllAdminRoles      = []string{RoleAdmin, RoleSuperAdmin, RoleFounder, RoleAccountant, RoleDirector, RoleAutoZakaz, RoleManager}
+	AllAdminRoles      = []string{RoleAdmin, RoleSuperAdmin, RoleFounder, RoleAccountant, RoleDirector, RoleAutoZakaz, RoleManager, RoleRopApteka}
 	StoreTargetViewAll = []string{RoleAdmin, RoleSuperAdmin, RoleFounder, RoleDirector, RoleManager}
 )
 
@@ -253,6 +253,7 @@ const (
 	RoleHeadOfCashier  = "HEADOFCASHIER"
 	RoleFranchise      = "FRANCHISE"
 	RoleFranchiseAdmin = "FRANCHISE_ADMIN"
+	RoleRopApteka      = "ROP_APTEKA"
 )
 
 // movement type

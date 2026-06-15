@@ -258,6 +258,12 @@ func (h *SaleHandler) GetSales(c *gin.Context) {
 		}
 	}
 
+	if user.Role == constants.RoleRopApteka {
+		params.StoreIds = user.StoreIds
+		params.StoreId = ""
+		params.CompanyId = ""
+	}
+
 	// get sale list data
 	res, totalCount, err := h.service.GetSales(ctx, &params, user)
 	if err != nil {
@@ -544,6 +550,12 @@ func (h *SaleHandler) GetSalesStats(c *gin.Context) {
 		}
 	}
 	// admin: hech qanday filter yo'q — barchasini ko'radi
+
+	if user.Role == constants.RoleRopApteka {
+		params.StoreIds = user.StoreIds
+		params.StoreId = ""
+		params.CompanyId = ""
+	}
 
 	res, err := h.service.GetSalesStats(ctx, &params, user)
 	if err != nil {

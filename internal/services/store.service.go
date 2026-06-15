@@ -92,7 +92,9 @@ func (s *Services) GetStores(ctx context.Context, params *domain.StoreQueryParam
 		qb = qb.Where("stores.company_id = ?", params.CompanyId)
 	}
 
-	if params.StoreId != "" {
+	if len(params.StoreIds) > 0 {
+		qb = qb.Where("stores.id IN (?)", params.StoreIds)
+	} else if params.StoreId != "" {
 		qb = qb.Where("stores.id = ?", params.StoreId)
 	}
 

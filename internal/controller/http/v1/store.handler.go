@@ -159,6 +159,12 @@ func (h *StoreHandler) FetchStores(c *gin.Context) {
 		}
 	}
 
+	if user.Role == constants.RoleRopApteka {
+		params.StoreIds = user.StoreIds
+		params.CompanyId = ""
+		params.StoreId = ""
+	}
+
 	res, totalCount, ids, err := h.service.GetStores(ctx, &params)
 	if err != nil {
 		handleServiceResponse(c, InternalError, err)
