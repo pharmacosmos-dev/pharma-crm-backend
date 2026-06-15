@@ -202,174 +202,161 @@ func (s *Services) CreateCustomerWithPhone(ctx context.Context, req *domain.Noor
 
 // get customer list data
 func (s *Services) GetCustomers(ctx context.Context, params *domain.QueryParam, usedInSalePage bool) ([]domain.Customer, int64, error) {
-	var tmpCustomer []struct {
-		Id                   string     `gorm:"id" json:"id"`
-		PublicId             int        `gorm:"public_id" json:"public_id"`
-		StoreId              string     `gorm:"store_id" json:"store_id"`
-		TagId                string     `gorm:"tag_id" json:"tag_id"`
-		FirstName            string     `gorm:"first_name" json:"first_name"`
-		LastName             string     `gorm:"last_name" json:"last_name"`
-		FullName             string     `gorm:"full_name" json:"full_name"`
-		Phone                string     `gorm:"phone" json:"phone"`
-		Birthday             string     `gorm:"birthday" json:"birthday" example:"2006-01-02"`
-		Gender               string     `gorm:"gender" json:"gender" example:"male/female"`
-		Balance              float64    `gorm:"balance" json:"balance"`
-		SpendingFromBalance  float64    `gorm:"spending_from_balance" json:"spending_from_balance"`
-		DiscountCard         string     `gorm:"discount_card" json:"discount_card"`
-		DiscountPercent      int        `gorm:"discount_percent" json:"discount_percent"`
-		LoyaltyCardBarcode   string     `gorm:"loyalty_card_barcode" json:"loyalty_card_barcode"`
-		LoyaltyCardPercent   int        `gorm:"loyalty_card_percent" json:"loyalty_card_percent"`
-		LoyaltyCardLevelId   string     `gorm:"loyalty_card_level_id" json:"loyalty_card_level_id"`
-		LoyaltyCardType      string     `gorm:"loyalty_card_type" json:"loyalty_card_type"`
-		LoyaltyCardCreatedBy string     `gorm:"loyalty_card_created_by" json:"loyalty_card_created_by"`
-		LoyaltyCardCreatedAt *time.Time `gorm:"loyalty_card_created_at" json:"loyalty_card_created_at"`
-
-		TelegramChatId int64      `gorm:"telegram_chat_id" json:"telegram_chat_id"`
-		CreatedAt      *time.Time `gorm:"created_at" json:"created_at"`
-		UpdatedAt      *time.Time `gorm:"updated_at" json:"updated_at"`
-
-		TId   string `gorm:"t_id"`
-		TName string `gorm:"t_name"`
-
-		IsActive bool `gorm:"is_active"`
-
-		SId   string `gorm:"s_id"`
-		SName string `gorm:"s_name"`
-		SalesCount24h int64 `gorm:"sales_count_24h"`
+	type row struct {
+		Id                   string     `gorm:"column:id"`
+		PublicId             int        `gorm:"column:public_id"`
+		StoreId              string     `gorm:"column:store_id"`
+		TagId                string     `gorm:"column:tag_id"`
+		FirstName            string     `gorm:"column:first_name"`
+		LastName             string     `gorm:"column:last_name"`
+		FullName             string     `gorm:"column:full_name"`
+		Phone                string     `gorm:"column:phone"`
+		Birthday             string     `gorm:"column:birthday"`
+		Gender               string     `gorm:"column:gender"`
+		Balance              float64    `gorm:"column:balance"`
+		SpendingFromBalance  float64    `gorm:"column:spending_from_balance"`
+		DiscountCard         string     `gorm:"column:discount_card"`
+		DiscountPercent      int        `gorm:"column:discount_percent"`
+		LoyaltyCardBarcode   string     `gorm:"column:loyalty_card_barcode"`
+		LoyaltyCardPercent   int        `gorm:"column:loyalty_card_percent"`
+		LoyaltyCardLevelId   string     `gorm:"column:loyalty_card_level_id"`
+		LoyaltyCardType      string     `gorm:"column:loyalty_card_type"`
+		LoyaltyCardCreatedBy string     `gorm:"column:loyalty_card_created_by"`
+		LoyaltyCardCreatedAt *time.Time `gorm:"column:loyalty_card_created_at"`
+		TelegramChatId       int64      `gorm:"column:telegram_chat_id"`
+		CreatedAt            *time.Time `gorm:"column:created_at"`
+		UpdatedAt            *time.Time `gorm:"column:updated_at"`
+		IsActive             bool       `gorm:"column:is_active"`
+		SId                  string     `gorm:"column:s_id"`
+		SName                string     `gorm:"column:s_name"`
+		TId                  string     `gorm:"column:t_id"`
+		TName                string     `gorm:"column:t_name"`
+		SalesCount24h        int64      `gorm:"column:sales_count_24h"`
 	}
 
-	// Start building the query
-	// countQuery — tez (JOIN yo'q), dataQuery — to'liq SELECT bilan
-	countQuery := s.db.
-		Table("customers c").
-		Joins("LEFT JOIN stores s ON c.store_id = s.id").
-		Joins("LEFT JOIN tags t ON c.tag_id = t.id").
-		Where("c.is_active = true")
-
-	baseSelect := []string{
-		"c.id",
-		"c.public_id",
-		"c.store_id",
-		"c.tag_id",
-		"c.first_name",
-		"c.last_name",
-		"c.full_name",
-		"c.phone",
-		"c.birthday",
-		"c.gender",
-		"c.balance",
-		"c.spending_from_balance",
-		"c.discount_card",
-		"c.discount_percent",
-		"c.loyalty_card_barcode",
-		"c.loyalty_card_percent",
-		"c.loyalty_card_level_id",
-		"c.loyalty_card_type",
-		"c.loyalty_card_created_by",
-		"c.loyalty_card_created_at",
-		"c.telegram_chat_id",
-		"c.created_at",
-		"c.updated_at",
-		"c.is_active",
-		"s.id AS s_id",
-		"s.name AS s_name",
-		"t.id AS t_id",
-		"t.name AS t_name",
-	}
-
-	var dataSelectFields []string
-	dataQuery := s.db.
-		Table("customers c").
-		Joins("LEFT JOIN stores s ON c.store_id = s.id").
-		Joins("LEFT JOIN tags t ON c.tag_id = t.id").
-		Where("c.is_active = true")
+	// where shartlarini to'plovchi qism
+	whereClauses := []string{"c.is_active = true"}
+	var args []interface{}
 
 	if params.Search != "" {
 		if usedInSalePage {
-			countQuery = countQuery.Where("c.discount_card = ? or c.loyalty_card_barcode = ?", params.Search, params.Search)
-			dataQuery = dataQuery.Where("c.discount_card = ? or c.loyalty_card_barcode = ?", params.Search, params.Search)
+			whereClauses = append(whereClauses, "(c.discount_card = ? OR c.loyalty_card_barcode = ?)")
+			args = append(args, params.Search, params.Search)
 		} else {
-			countQuery = countQuery.Where("c.public_id::text ilike ? or c.phone::text ilike ? or c.full_name ilike ?", "%"+params.Search+"%", "%"+params.Search+"%", "%"+params.Search+"%")
-			dataQuery = dataQuery.Where("c.public_id::text ilike ? or c.phone::text ilike ? or c.full_name ilike ?", "%"+params.Search+"%", "%"+params.Search+"%", "%"+params.Search+"%")
+			whereClauses = append(whereClauses, "(c.public_id::text ILIKE ? OR c.phone::text ILIKE ? OR c.full_name ILIKE ?)")
+			args = append(args, "%"+params.Search+"%", "%"+params.Search+"%", "%"+params.Search+"%")
 		}
-		dataSelectFields = append(baseSelect, "COALESCE(sc.sales_count_24h, 0) AS sales_count_24h")
-		dataQuery = dataQuery.Joins(`LEFT JOIN (
-			SELECT customer_id, COUNT(*) AS sales_count_24h
-			FROM sales
-			WHERE stage = 9 AND created_at >= CURRENT_DATE
-			GROUP BY customer_id
-		) sc ON sc.customer_id = c.id`)
-	} else {
-		dataSelectFields = append(baseSelect, "0 AS sales_count_24h")
 	}
-
-	dataQuery = dataQuery.Select(strings.Join(dataSelectFields, ", "))
-
 	if params.StoreID != "" {
-		countQuery = countQuery.Where("c.store_id = ?", params.StoreID)
-		dataQuery = dataQuery.Where("c.store_id = ?", params.StoreID)
+		whereClauses = append(whereClauses, "c.store_id = ?")
+		args = append(args, params.StoreID)
 	}
-
 	if params.CompanyId != "" {
-		countQuery = countQuery.Where("s.company_id = ?", params.CompanyId)
-		dataQuery = dataQuery.Where("s.company_id = ?", params.CompanyId)
+		whereClauses = append(whereClauses, "s.company_id = ?")
+		args = append(args, params.CompanyId)
 	}
 
-	var (
-		customers  []domain.Customer
-		totalCount int64
-	)
+	where := strings.Join(whereClauses, " AND ")
 
-	if err := countQuery.WithContext(ctx).Count(&totalCount).Error; err != nil {
+	// count
+	var totalCount int64
+	countSQL := fmt.Sprintf(`
+		SELECT COUNT(*)
+		FROM customers c
+		LEFT JOIN stores s ON c.store_id = s.id
+		LEFT JOIN tags t ON c.tag_id = t.id
+		WHERE %s
+	`, where)
+	if err := s.db.WithContext(ctx).Raw(countSQL, args...).Scan(&totalCount).Error; err != nil {
 		s.log.Errorf("could not count customers: %v", err)
 		return nil, 0, domain.InternalServerError
 	}
 
-	err := dataQuery.WithContext(ctx).
-		Limit(params.Limit).
-		Offset(params.Offset).
-		Order("c.created_at DESC").
-		Find(&tmpCustomer).Error
-	if err != nil {
-		s.log.Errorf("could not get new customer: %v", err)
+	// data
+	var salesJoin string
+	var salesCountField string
+	if params.Search != "" {
+		salesJoin = `LEFT JOIN (
+			SELECT customer_id, COUNT(*) AS sales_count_24h
+			FROM sales
+			WHERE stage = 9 AND created_at >= CURRENT_DATE
+			GROUP BY customer_id
+		) sc ON sc.customer_id = c.id`
+		salesCountField = "COALESCE(sc.sales_count_24h, 0) AS sales_count_24h"
+	} else {
+		salesCountField = "0 AS sales_count_24h"
+	}
+
+	dataArgs := append(args, params.Limit, params.Offset)
+	dataSQL := fmt.Sprintf(`
+		SELECT
+			c.id, c.public_id, c.store_id, c.tag_id,
+			c.first_name, c.last_name, c.full_name, c.phone,
+			c.birthday, c.gender, c.balance, c.spending_from_balance,
+			c.discount_card, c.discount_percent,
+			c.loyalty_card_barcode, c.loyalty_card_percent,
+			c.loyalty_card_level_id, c.loyalty_card_type,
+			c.loyalty_card_created_by, c.loyalty_card_created_at,
+			c.telegram_chat_id, c.created_at, c.updated_at, c.is_active,
+			s.id AS s_id, s.name AS s_name,
+			t.id AS t_id, t.name AS t_name,
+			%s
+		FROM customers c
+		LEFT JOIN stores s ON c.store_id = s.id
+		LEFT JOIN tags t ON c.tag_id = t.id
+		%s
+		WHERE %s
+		ORDER BY c.created_at DESC
+		LIMIT ? OFFSET ?
+	`, salesCountField, salesJoin, where)
+
+	s.log.Infof("GetCustomers dataSQL: %s | args: %v", dataSQL, dataArgs)
+
+	var rows []row
+	if err := s.db.WithContext(ctx).Raw(dataSQL, dataArgs...).Scan(&rows).Error; err != nil {
+		s.log.Errorf("could not get customers: %v", err)
 		return nil, 0, domain.InternalServerError
 	}
 
-	for _, row := range tmpCustomer {
-		customers = append(customers, domain.Customer{
-			Id:                   row.Id,
-			PublicId:             row.PublicId,
-			StoreId:              row.StoreId,
-			TagId:                row.TagId,
-			FirstName:            row.FirstName,
-			LastName:             row.LastName,
-			FullName:             row.FullName,
-			Phone:                row.Phone,
-			Birthday:             row.Birthday,
-			Gender:               row.Gender,
-			Balance:              row.Balance,
-			SpendingFromBalance:  row.SpendingFromBalance,
-			DiscountCard:         row.DiscountCard,
-			DiscountPercent:      row.DiscountPercent,
-			LoyaltyCardBarcode:   row.LoyaltyCardBarcode,
-			LoyaltyCardPercent:   row.LoyaltyCardPercent,
-			LoyaltyCardLevelId:   row.LoyaltyCardLevelId,
-			LoyaltyCardType:      row.LoyaltyCardType,
-			LoyaltyCardCreatedBy: row.LoyaltyCardCreatedBy,
-			LoyaltyCardCreatedAt: row.LoyaltyCardCreatedAt,
-			TelegramChatId:       row.TelegramChatId,
-			CreatedAt:            row.CreatedAt,
-			UpdatedAt:            row.UpdatedAt,
-			IsActive:             row.IsActive,
-			SalesCount24h:        row.SalesCount24h,
-			Store: &domain.Store{
-				Id:   row.SId,
-				Name: row.SName,
-			},
+	if len(rows) > 0 {
+		s.log.Infof("GetCustomers first row sales_count_24h: %d", rows[0].SalesCount24h)
+	}
 
+	customers := make([]domain.Customer, 0, len(rows))
+	for _, r := range rows {
+		customers = append(customers, domain.Customer{
+			Id:                   r.Id,
+			PublicId:             r.PublicId,
+			StoreId:              r.StoreId,
+			TagId:                r.TagId,
+			FirstName:            r.FirstName,
+			LastName:             r.LastName,
+			FullName:             r.FullName,
+			Phone:                r.Phone,
+			Birthday:             r.Birthday,
+			Gender:               r.Gender,
+			Balance:              r.Balance,
+			SpendingFromBalance:  r.SpendingFromBalance,
+			DiscountCard:         r.DiscountCard,
+			DiscountPercent:      r.DiscountPercent,
+			LoyaltyCardBarcode:   r.LoyaltyCardBarcode,
+			LoyaltyCardPercent:   r.LoyaltyCardPercent,
+			LoyaltyCardLevelId:   r.LoyaltyCardLevelId,
+			LoyaltyCardType:      r.LoyaltyCardType,
+			LoyaltyCardCreatedBy: r.LoyaltyCardCreatedBy,
+			LoyaltyCardCreatedAt: r.LoyaltyCardCreatedAt,
+			TelegramChatId:       r.TelegramChatId,
+			CreatedAt:            r.CreatedAt,
+			UpdatedAt:            r.UpdatedAt,
+			IsActive:             r.IsActive,
+			SalesCount24h:        r.SalesCount24h,
+			Store: &domain.Store{
+				Id:   r.SId,
+				Name: r.SName,
+			},
 			Tag: &domain.Tag{
-				Id:   row.TId,
-				Name: row.TName,
+				Id:   r.TId,
+				Name: r.TName,
 			},
 		})
 	}
