@@ -233,6 +233,7 @@ func (s *Services) GetCustomers(ctx context.Context, params *domain.QueryParam, 
 
 		SId   string `gorm:"s_id"`
 		SName string `gorm:"s_name"`
+		SalesCount24h int64 `gorm:"sales_count_24h"`
 	}
 
 	// Start building the query
@@ -267,6 +268,7 @@ func (s *Services) GetCustomers(ctx context.Context, params *domain.QueryParam, 
 
 			"t.id AS t_id",
 			"t.name AS t_name",
+			"(SELECT COUNT(*) FROM sales s2 WHERE s2.customer_id = c.id AND s2.created_at >= CURRENT_DATE) AS sales_count_24h",
 		).Table("customers c").
 		Joins("LEFT JOIN stores s ON c.store_id = s.id").
 		Joins("LEFT JOIN tags t ON c.tag_id = t.id").
@@ -329,7 +331,7 @@ func (s *Services) GetCustomers(ctx context.Context, params *domain.QueryParam, 
 			TelegramChatId:       row.TelegramChatId,
 			CreatedAt:            row.CreatedAt,
 			UpdatedAt:            row.UpdatedAt,
-
+			SalesCount24h:        row.SalesCount24h,
 			Store: &domain.Store{
 				Id:   row.SId,
 				Name: row.SName,
