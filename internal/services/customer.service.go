@@ -231,6 +231,8 @@ func (s *Services) GetCustomers(ctx context.Context, params *domain.QueryParam, 
 		TId   string `gorm:"t_id"`
 		TName string `gorm:"t_name"`
 
+		IsActive bool `gorm:"is_active"`
+
 		SId   string `gorm:"s_id"`
 		SName string `gorm:"s_name"`
 		SalesCount24h int64 `gorm:"sales_count_24h"`
@@ -261,6 +263,7 @@ func (s *Services) GetCustomers(ctx context.Context, params *domain.QueryParam, 
 		"c.telegram_chat_id",
 		"c.created_at",
 		"c.updated_at",
+		"c.is_active",
 		"s.id AS s_id",
 		"s.name AS s_name",
 		"t.id AS t_id",
@@ -279,6 +282,7 @@ func (s *Services) GetCustomers(ctx context.Context, params *domain.QueryParam, 
 		} else {
 			query = query.Where("c.public_id::text ilike ? or c.phone::text ilike ? or c.full_name ilike ?", "%"+params.Search+"%", "%"+params.Search+"%", "%"+params.Search+"%")
 		}
+		// search bo'lganda bugungi sotuv sonini customer bo'yicha bir marta aggregate qilib JOIN qilamiz
 		query = query.
 			Select(append(baseSelect, "COALESCE(sc.sales_count_24h, 0) AS sales_count_24h")).
 			Joins(`LEFT JOIN (
@@ -344,6 +348,7 @@ func (s *Services) GetCustomers(ctx context.Context, params *domain.QueryParam, 
 			TelegramChatId:       row.TelegramChatId,
 			CreatedAt:            row.CreatedAt,
 			UpdatedAt:            row.UpdatedAt,
+			IsActive:             row.IsActive,
 			SalesCount24h:        row.SalesCount24h,
 			Store: &domain.Store{
 				Id:   row.SId,
