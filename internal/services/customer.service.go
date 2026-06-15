@@ -239,6 +239,13 @@ func (s *Services) GetCustomers(ctx context.Context, params *domain.QueryParam, 
 	}
 
 	// Start building the query
+	// countQuery — tez (JOIN yo'q), dataQuery — to'liq SELECT bilan
+	countQuery := s.db.
+		Table("customers c").
+		Joins("LEFT JOIN stores s ON c.store_id = s.id").
+		Joins("LEFT JOIN tags t ON c.tag_id = t.id").
+		Where("c.is_active = true")
+
 	baseSelect := []string{
 		"c.id",
 		"c.public_id",
@@ -270,7 +277,8 @@ func (s *Services) GetCustomers(ctx context.Context, params *domain.QueryParam, 
 		"t.name AS t_name",
 	}
 
-	query := s.db.
+	var dataSelectFields []string
+	dataQuery := s.db.
 		Table("customers c").
 		Joins("LEFT JOIN stores s ON c.store_id = s.id").
 		Joins("LEFT JOIN tags t ON c.tag_id = t.id").
@@ -278,29 +286,33 @@ func (s *Services) GetCustomers(ctx context.Context, params *domain.QueryParam, 
 
 	if params.Search != "" {
 		if usedInSalePage {
-			query = query.Where("c.discount_card = ? or c.loyalty_card_barcode = ?", params.Search, params.Search)
+			countQuery = countQuery.Where("c.discount_card = ? or c.loyalty_card_barcode = ?", params.Search, params.Search)
+			dataQuery = dataQuery.Where("c.discount_card = ? or c.loyalty_card_barcode = ?", params.Search, params.Search)
 		} else {
-			query = query.Where("c.public_id::text ilike ? or c.phone::text ilike ? or c.full_name ilike ?", "%"+params.Search+"%", "%"+params.Search+"%", "%"+params.Search+"%")
+			countQuery = countQuery.Where("c.public_id::text ilike ? or c.phone::text ilike ? or c.full_name ilike ?", "%"+params.Search+"%", "%"+params.Search+"%", "%"+params.Search+"%")
+			dataQuery = dataQuery.Where("c.public_id::text ilike ? or c.phone::text ilike ? or c.full_name ilike ?", "%"+params.Search+"%", "%"+params.Search+"%", "%"+params.Search+"%")
 		}
-		// search bo'lganda bugungi sotuv sonini customer bo'yicha bir marta aggregate qilib JOIN qilamiz
-		query = query.
-			Select(append(baseSelect, "COALESCE(sc.sales_count_24h, 0) AS sales_count_24h")).
-			Joins(`LEFT JOIN (
-				SELECT customer_id, COUNT(*) AS sales_count_24h
-				FROM sales
-				WHERE stage = 9 AND created_at >= CURRENT_DATE
-				GROUP BY customer_id
-			) sc ON sc.customer_id = c.id`)
+		dataSelectFields = append(baseSelect, "COALESCE(sc.sales_count_24h, 0) AS sales_count_24h")
+		dataQuery = dataQuery.Joins(`LEFT JOIN (
+			SELECT customer_id, COUNT(*) AS sales_count_24h
+			FROM sales
+			WHERE stage = 9 AND created_at >= CURRENT_DATE
+			GROUP BY customer_id
+		) sc ON sc.customer_id = c.id`)
 	} else {
-		query = query.Select(append(baseSelect, "0 AS sales_count_24h"))
+		dataSelectFields = append(baseSelect, "0 AS sales_count_24h")
 	}
 
+	dataQuery = dataQuery.Select(dataSelectFields)
+
 	if params.StoreID != "" {
-		query = query.Where("c.store_id = ?", params.StoreID)
+		countQuery = countQuery.Where("c.store_id = ?", params.StoreID)
+		dataQuery = dataQuery.Where("c.store_id = ?", params.StoreID)
 	}
 
 	if params.CompanyId != "" {
-		query = query.Where("s.company_id = ? ", params.CompanyId)
+		countQuery = countQuery.Where("s.company_id = ?", params.CompanyId)
+		dataQuery = dataQuery.Where("s.company_id = ?", params.CompanyId)
 	}
 
 	var (
@@ -308,12 +320,12 @@ func (s *Services) GetCustomers(ctx context.Context, params *domain.QueryParam, 
 		totalCount int64
 	)
 
-	if err := query.WithContext(ctx).Count(&totalCount).Error; err != nil {
+	if err := countQuery.WithContext(ctx).Count(&totalCount).Error; err != nil {
 		s.log.Errorf("could not count customers: %v", err)
 		return nil, 0, domain.InternalServerError
 	}
 
-	err := query.WithContext(ctx).
+	err := dataQuery.WithContext(ctx).
 		Limit(params.Limit).
 		Offset(params.Offset).
 		Order("c.created_at DESC").
