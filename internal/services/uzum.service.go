@@ -60,7 +60,7 @@ func (s *Services) GetNomenclature(ctx context.Context, storeId string, page, li
 			COALESCE(sp.store_id::text, '') AS store_id,
 			c.id as category_id,
 			c.name as category_name,
-			COALESCE(cnt.name, '') AS vendor_country
+			COALESCE(cnt.name, '') AS country
 		FROM (
 			SELECT DISTINCT ON (product_id) *
 			FROM online_products_price
