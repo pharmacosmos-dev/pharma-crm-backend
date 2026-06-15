@@ -159,7 +159,7 @@ func (h *StoreHandler) FetchStores(c *gin.Context) {
 		}
 	}
 
-	if user.Role == constants.RoleRopApteka {
+	if len(user.StoreIds) > 0 {
 		params.StoreIds = user.StoreIds
 		params.CompanyId = ""
 		params.StoreId = ""

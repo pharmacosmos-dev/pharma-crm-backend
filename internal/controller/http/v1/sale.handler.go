@@ -258,7 +258,7 @@ func (h *SaleHandler) GetSales(c *gin.Context) {
 		}
 	}
 
-	if user.Role == constants.RoleRopApteka {
+	if len(user.StoreIds) > 0 {
 		params.StoreIds = user.StoreIds
 		params.StoreId = ""
 		params.CompanyId = ""
@@ -551,7 +551,7 @@ func (h *SaleHandler) GetSalesStats(c *gin.Context) {
 	}
 	// admin: hech qanday filter yo'q — barchasini ko'radi
 
-	if user.Role == constants.RoleRopApteka {
+	if len(user.StoreIds) > 0 {
 		params.StoreIds = user.StoreIds
 		params.StoreId = ""
 		params.CompanyId = ""

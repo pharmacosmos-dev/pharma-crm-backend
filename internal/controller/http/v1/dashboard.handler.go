@@ -817,7 +817,7 @@ func (h *DashboardHandler) SaleStatistic(c *gin.Context) {
 		params.StoreIds = []string{}
 	}
 
-	if user.Role == constants.RoleRopApteka {
+	if len(user.StoreIds) > 0 {
 		params.StoreIds = user.StoreIds
 		params.CompanyIds = []string{user.CompanyId}
 	}
