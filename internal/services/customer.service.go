@@ -233,6 +233,7 @@ func (s *Services) GetCustomers(ctx context.Context, params *domain.QueryParam, 
 		TName                string     `gorm:"column:t_name"`
 		SalesCount24h        int64      `gorm:"column:sales_count_24h"`
 		MonthlySalesSum      float64    `gorm:"column:monthly_sales_sum"`
+		MonthlySalesCount    int64      `gorm:"column:monthly_sales_count"`
 	}
 
 	// where shartlarini to'plovchi qism
@@ -287,15 +288,15 @@ func (s *Services) GetCustomers(ctx context.Context, params *domain.QueryParam, 
 		) sc ON sc.customer_id = c.id`
 		salesCountField = "COALESCE(sc.sales_count_24h, 0) AS sales_count_24h"
 		salesSumtMonth = `LEFT JOIN (
-			SELECT customer_id, SUM(total_amount) AS monthly_sales_sum
+			SELECT customer_id, SUM(total_amount) AS monthly_sales_sum, COUNT(*) AS monthly_sales_count
 			FROM sales
 			WHERE stage = 9 AND completed_at >= NOW() - INTERVAL '1 month'
 			GROUP BY customer_id
 		) ms ON ms.customer_id = c.id`
-		monthlySumField = "COALESCE(ms.monthly_sales_sum, 0) AS monthly_sales_sum"
+		monthlySumField = "COALESCE(ms.monthly_sales_sum, 0) AS monthly_sales_sum, COALESCE(ms.monthly_sales_count, 0) AS monthly_sales_count"
 	} else {
 		salesCountField = "0 AS sales_count_24h"
-		monthlySumField = "0 AS monthly_sales_sum"
+		monthlySumField = "0 AS monthly_sales_sum, 0 AS monthly_sales_count"
 	}
 
 	dataArgs := append(args, params.Limit, params.Offset)
@@ -364,6 +365,7 @@ func (s *Services) GetCustomers(ctx context.Context, params *domain.QueryParam, 
 			IsActive:             r.IsActive,
 			SalesCount24h:        r.SalesCount24h,
 			MonthlySalesSum:      r.MonthlySalesSum,
+			MonthlySalesCount:    r.MonthlySalesCount,
 			Store: &domain.Store{
 				Id:   r.SId,
 				Name: r.SName,
