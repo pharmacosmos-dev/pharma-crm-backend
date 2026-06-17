@@ -284,7 +284,7 @@ func (s *Services) GetProducts(ctx context.Context, params *domain.ProductQueryP
 			MAX(supply_price) AS supply_price,
 			MAX(retail_price) AS retail_price
 		FROM store_products
-		WHERE unit_quantity > 0`
+		WHERE 1=1`
 
 	var spConditions []string
 	if params.StoreId != "" {
@@ -336,6 +336,9 @@ func (s *Services) GetProducts(ctx context.Context, params *domain.ProductQueryP
 			qb = qb.Having("sp_agg.total_quantity/p.unit_per_pack < 3").Having("sp_agg.total_quantity > 0")
 		case "zero-stock":
 			qb = qb.Having("sp_agg.total_quantity IS NULL OR sp_agg.total_quantity = 0")
+			if params.StoreId != "" {
+				qb = qb.Where("EXISTS (SELECT 1 FROM store_products WHERE product_id = p.id AND store_id = ?)", params.StoreId)
+			}
 		case "expired":
 			qb = qb.Where("sp_agg.min_expire_date < ?", now).Having("sp_agg.total_quantity > 0")
 		case "imminent":
