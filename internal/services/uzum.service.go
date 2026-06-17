@@ -44,7 +44,7 @@ func (s *Services) GetNomenclature(ctx context.Context, storeId string, page, li
 		SELECT
 			p.id AS product_id,
 			p.name,
-			p.barcode,
+			COALESCE(NULLIF(p.barcode, ''), pb.barcode, '') AS barcode,
 			p.description,
 			p.photos,
 			p.unit_per_pack,
@@ -76,6 +76,11 @@ func (s *Services) GetNomenclature(ctx context.Context, storeId string, page, li
 		) sp ON sp.product_id = p.id
 		LEFT JOIN categories c ON p.category_id = c.id
 		LEFT JOIN countries cnt ON p.country_id = cnt.id
+		LEFT JOIN (
+			SELECT DISTINCT ON (product_id) product_id, barcode
+			FROM product_barcodes
+			ORDER BY product_id, created_at DESC
+		) pb ON pb.product_id = p.id
 		WHERE p.requires_prescription = false
 	`
 	if limit > 0 && page > 0 {
