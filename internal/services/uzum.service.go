@@ -78,7 +78,7 @@ func (s *Services) GetNomenclature(ctx context.Context, storeId string, page, li
 		LEFT JOIN countries cnt ON p.country_id = cnt.id
 		LEFT JOIN (
 			SELECT DISTINCT ON (product_id) product_id, barcode
-			FROM product_barcodes
+			FROM product_barcodes WHERE barcode IS NOT NULL AND barcode != ''
 			ORDER BY product_id, created_at DESC
 		) pb ON pb.product_id = p.id
 		WHERE p.requires_prescription = false
