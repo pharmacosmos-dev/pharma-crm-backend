@@ -335,7 +335,7 @@ func (s *Services) GetProducts(ctx context.Context, params *domain.ProductQueryP
 		case "low-stock":
 			qb = qb.Having("sp_agg.total_quantity/p.unit_per_pack < 3").Having("sp_agg.total_quantity > 0")
 		case "zero-stock":
-			qb = qb.Having("sp_agg.total_quantity = 0")
+			qb = qb.Having("sp_agg.total_quantity IS NULL OR sp_agg.total_quantity = 0")
 		case "expired":
 			qb = qb.Where("sp_agg.min_expire_date < ?", now).Having("sp_agg.total_quantity > 0")
 		case "imminent":
