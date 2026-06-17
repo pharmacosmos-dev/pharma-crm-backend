@@ -116,6 +116,7 @@ type ReturnParam struct {
 	StartDate  string `form:"start_date"`
 	EndDate    string `form:"end_date"`
 	TransferID string `form:"transfer_id"`
+	IsConflict *bool  `form:"is_conflict"`
 }
 
 // return detail query param structure

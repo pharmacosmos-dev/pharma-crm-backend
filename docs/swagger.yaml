@@ -20135,6 +20135,10 @@ paths:
         in: query
         name: is_auto
         type: boolean
+      - description: is_conflict
+        in: query
+        name: is_conflict
+        type: boolean
       - description: created_by
         in: query
         name: created_by

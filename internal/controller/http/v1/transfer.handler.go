@@ -149,6 +149,7 @@ func (h *TransferHandler) Get(c *gin.Context) {
 // @Param   status 		query string false "status (0->new|1->sent|2->completed)"
 // @Param   type		query string false "type"
 // @Param   is_auto		query boolean false "is_auto"
+// @Param   is_conflict query boolean false "is_conflict"
 // @Param   created_by	query string false "created_by"
 // @Param 	start_date  query string false "start_date"
 // @Param	end_date 	query string false "end_date"

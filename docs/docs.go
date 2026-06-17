@@ -27839,6 +27839,12 @@ const docTemplate = `{
                         "in": "query"
                     },
                     {
+                        "type": "boolean",
+                        "description": "is_conflict",
+                        "name": "is_conflict",
+                        "in": "query"
+                    },
+                    {
                         "type": "string",
                         "description": "created_by",
                         "name": "created_by",

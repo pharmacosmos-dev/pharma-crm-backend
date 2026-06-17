@@ -362,6 +362,12 @@ func (s *Services) TransferList(ctx context.Context, params *domain.ReturnParam)
 		query = query.Where("t.created_at <= ?", params.EndDate)
 	}
 
+	if params.IsConflict != nil && *params.IsConflict {
+		query = query.Having(
+			"SUM(trd.expected_count) != SUM(trd.scanned_count) OR SUM(trd.expected_count) != SUM(trd.accepted_count) OR SUM(trd.scanned_count) != SUM(trd.accepted_count)",
+		)
+	}
+
 	var totalCount int64
 	// complete query
 	err := query.
