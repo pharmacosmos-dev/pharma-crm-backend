@@ -188,6 +188,7 @@ func (h *SaleHandler) Get(c *gin.Context) {
 // @Param offset 			query int false 	"offset"
 // @Param vendor_id 		query string false 	"vendor_id"
 // @Param store_id 			query string false 	"store_id"
+// @Param customer_id 		query string false 	"customer_id"
 // @Param cashbox_id 		query string false 	"cashbox_id"
 // @Param payment_type_id 	query string false 	"payment_type_id"
 // @Param search 			query string false 	"search"

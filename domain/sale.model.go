@@ -80,6 +80,7 @@ type SaleQueryParams struct {
 	IsCorporate     bool        `form:"is_corporate"`
 	Stage           int         `form:"stage"`
 	ProductId       string      `form:"product_id"`
+	CustomerId     string      `form:"customer_id"`
 }
 
 // SaleRequest structure for create

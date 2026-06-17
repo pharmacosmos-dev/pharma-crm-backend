@@ -453,46 +453,6 @@ definitions:
         type: string
     type: object
   domain.EmployeeRequest:
-    properties:
-      birthdate:
-        type: string
-      company_id:
-        type: string
-      first_name:
-        type: string
-      full_name:
-        type: string
-      gender:
-        enum:
-        - male
-        - female
-        type: string
-      language:
-        enum:
-        - uz
-        - en
-        - ru
-        type: string
-      last_name:
-        type: string
-      password:
-        type: string
-      phone:
-        type: string
-      position:
-        description: StoreIds  pq.StringArray `gorm:"type:text[];column:store_ids"
-          json:"store_ids"`
-        type: string
-      role_ids:
-        items:
-          type: string
-        type: array
-      store_id:
-        type: string
-    required:
-    - gender
-    - language
-    - phone
     type: object
   domain.EmployeeTargetUpdateRequest:
     properties:
@@ -944,6 +904,8 @@ definitions:
         $ref: '#/definitions/domain.NomenclatureBarcode'
       categoryId:
         type: string
+      count:
+        type: integer
       description:
         $ref: '#/definitions/domain.NomenclatureDescription'
       id:
@@ -17912,6 +17874,10 @@ paths:
       - description: store_id
         in: query
         name: store_id
+        type: string
+      - description: customer_id
+        in: query
+        name: customer_id
         type: string
       - description: cashbox_id
         in: query

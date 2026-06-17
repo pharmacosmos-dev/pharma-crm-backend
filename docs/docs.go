@@ -24425,6 +24425,12 @@ const docTemplate = `{
                     },
                     {
                         "type": "string",
+                        "description": "customer_id",
+                        "name": "customer_id",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
                         "description": "cashbox_id",
                         "name": "cashbox_id",
                         "in": "query"
@@ -31095,63 +31101,7 @@ const docTemplate = `{
             }
         },
         "domain.EmployeeRequest": {
-            "type": "object",
-            "required": [
-                "gender",
-                "language",
-                "phone"
-            ],
-            "properties": {
-                "birthdate": {
-                    "type": "string"
-                },
-                "company_id": {
-                    "type": "string"
-                },
-                "first_name": {
-                    "type": "string"
-                },
-                "full_name": {
-                    "type": "string"
-                },
-                "gender": {
-                    "type": "string",
-                    "enum": [
-                        "male",
-                        "female"
-                    ]
-                },
-                "language": {
-                    "type": "string",
-                    "enum": [
-                        "uz",
-                        "en",
-                        "ru"
-                    ]
-                },
-                "last_name": {
-                    "type": "string"
-                },
-                "password": {
-                    "type": "string"
-                },
-                "phone": {
-                    "type": "string"
-                },
-                "position": {
-                    "description": "StoreIds  pq.StringArray ` + "`" + `gorm:\"type:text[];column:store_ids\" json:\"store_ids\"` + "`" + `",
-                    "type": "string"
-                },
-                "role_ids": {
-                    "type": "array",
-                    "items": {
-                        "type": "string"
-                    }
-                },
-                "store_id": {
-                    "type": "string"
-                }
-            }
+            "type": "object"
         },
         "domain.EmployeeTargetUpdateRequest": {
             "type": "object",
@@ -31835,6 +31785,9 @@ const docTemplate = `{
                 },
                 "categoryId": {
                     "type": "string"
+                },
+                "count": {
+                    "type": "integer"
                 },
                 "description": {
                     "$ref": "#/definitions/domain.NomenclatureDescription"

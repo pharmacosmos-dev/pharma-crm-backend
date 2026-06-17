@@ -1818,6 +1818,10 @@ func (s *Services) GetSales(ctx context.Context, params *domain.SaleQueryParams,
 		qb = qb.Where("s.cashbox_id = ?", params.CashboxId)
 	}
 
+	if params.CustomerId != "" {
+		qb = qb.Where("s.customer_id = ?", params.CustomerId)
+	}
+
 	if params.StartDate != nil && !params.StartDate.GetTime().IsZero() {
 		qb = qb.Where("s.completed_at >= ?", params.StartDate.UTC())
 	}
