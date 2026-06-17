@@ -232,6 +232,7 @@ func (s *Services) GetCustomers(ctx context.Context, params *domain.QueryParam, 
 		TId                  string     `gorm:"column:t_id"`
 		TName                string     `gorm:"column:t_name"`
 		SalesCount24h        int64      `gorm:"column:sales_count_24h"`
+		MonthlySalesSum      float64    `gorm:"column:monthly_sales_sum"`
 	}
 
 	// where shartlarini to'plovchi qism
@@ -275,6 +276,8 @@ func (s *Services) GetCustomers(ctx context.Context, params *domain.QueryParam, 
 	// data
 	var salesJoin string
 	var salesCountField string
+	var salesSumtMonth string
+	var monthlySumField string
 	if params.Search != "" {
 		salesJoin = `LEFT JOIN (
 			SELECT customer_id, COUNT(*) AS sales_count_24h
@@ -283,8 +286,16 @@ func (s *Services) GetCustomers(ctx context.Context, params *domain.QueryParam, 
 			GROUP BY customer_id
 		) sc ON sc.customer_id = c.id`
 		salesCountField = "COALESCE(sc.sales_count_24h, 0) AS sales_count_24h"
+		salesSumtMonth = `LEFT JOIN (
+			SELECT customer_id, SUM(total_amount) AS monthly_sales_sum
+			FROM sales
+			WHERE stage = 9 AND completed_at >= NOW() - INTERVAL '1 month'
+			GROUP BY customer_id
+		) ms ON ms.customer_id = c.id`
+		monthlySumField = "COALESCE(ms.monthly_sales_sum, 0) AS monthly_sales_sum"
 	} else {
 		salesCountField = "0 AS sales_count_24h"
+		monthlySumField = "0 AS monthly_sales_sum"
 	}
 
 	dataArgs := append(args, params.Limit, params.Offset)
@@ -300,15 +311,17 @@ func (s *Services) GetCustomers(ctx context.Context, params *domain.QueryParam, 
 			c.telegram_chat_id, c.created_at, c.updated_at, c.is_active,
 			s.id AS s_id, s.name AS s_name,
 			t.id AS t_id, t.name AS t_name,
+			%s,
 			%s
 		FROM customers c
 		LEFT JOIN stores s ON c.store_id = s.id
 		LEFT JOIN tags t ON c.tag_id = t.id
 		%s
+		%s
 		WHERE %s
 		ORDER BY c.created_at DESC
 		LIMIT ? OFFSET ?
-	`, salesCountField, salesJoin, where)
+	`, salesCountField, monthlySumField, salesJoin, salesSumtMonth, where)
 
 	s.log.Infof("GetCustomers dataSQL: %s | args: %v", dataSQL, dataArgs)
 
@@ -350,6 +363,7 @@ func (s *Services) GetCustomers(ctx context.Context, params *domain.QueryParam, 
 			UpdatedAt:            r.UpdatedAt,
 			IsActive:             r.IsActive,
 			SalesCount24h:        r.SalesCount24h,
+			MonthlySalesSum:      r.MonthlySalesSum,
 			Store: &domain.Store{
 				Id:   r.SId,
 				Name: r.SName,
