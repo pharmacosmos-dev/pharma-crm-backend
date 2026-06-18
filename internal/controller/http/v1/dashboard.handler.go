@@ -119,12 +119,12 @@ func (h *DashboardHandler) ChartStats(c *gin.Context) {
 	}
 
 	// get dashboard data
-	// res, err := h.service.DashboardChartStats(ctx, &params)
-	// if err != nil {
-	// 	handleServiceResponse(c, nil, err)
-	// 	return
-	// }
-	handleResponse(c, OK, nil)
+	res, err := h.service.DashboardChartStats(ctx, &params)
+	if err != nil {
+		handleServiceResponse(c, nil, err)
+		return
+	}
+	handleResponse(c, OK, res)
 }
 
 // Top Stores godoc
@@ -205,13 +205,13 @@ func (h *DashboardHandler) TopStores(c *gin.Context) {
 	}
 
 	// get dashboard data
-	// res, err := h.service.DashboardTopStores(ctx, &params)
-	// if err != nil {
-	// 	handleServiceResponse(c, InternalError, err)
-	// 	return
-	// }
+	res, err := h.service.DashboardTopStores(ctx, &params)
+	if err != nil {
+		handleServiceResponse(c, InternalError, err)
+		return
+	}
 
-	handleResponse(c, OK, nil)
+	handleResponse(c, OK, res)
 }
 
 // Top Products godoc
@@ -296,12 +296,12 @@ func (h *DashboardHandler) TopProducts(c *gin.Context) {
 		params.StoreIds = []string{}
 	}
 	// get dashboard data
-	// res, err := h.service.DashboardTopProducts(ctx, &params)
-	// if err != nil {
-	// 	handleServiceResponse(c, nil, err)
-	// 	return
-	// }
-	handleResponse(c, OK, nil)
+	res, err := h.service.DashboardTopProducts(ctx, &params)
+	if err != nil {
+		handleServiceResponse(c, nil, err)
+		return
+	}
+	handleResponse(c, OK, res)
 }
 
 // Top Bonus Products godoc
@@ -476,12 +476,12 @@ func (h *DashboardHandler) TopSeller(c *gin.Context) {
 	}
 
 	// get dashboard data
-	// res, err := h.service.DashboardTopSeller(ctx, &params)
-	// if err != nil {
-	// 	handleServiceResponse(c, nil, err)
-	// 	return
-	// }
-	handleResponse(c, OK, nil)
+	res, err := h.service.DashboardTopSeller(ctx, &params)
+	if err != nil {
+		handleServiceResponse(c, nil, err)
+		return
+	}
+	handleResponse(c, OK, res)
 }
 
 // Payments godoc
@@ -562,12 +562,12 @@ func (h *DashboardHandler) Payments(c *gin.Context) {
 		params.StoreIds = []string{}
 	}
 
-	// res, err := h.service.DashboardPayments(ctx, &params)
-	// if err != nil {
-	// 	handleServiceResponse(c, nil, err)
-	// 	return
-	// }
-	handleResponse(c, OK, nil)
+	res, err := h.service.DashboardPayments(ctx, &params)
+	if err != nil {
+		handleServiceResponse(c, nil, err)
+		return
+	}
+	handleResponse(c, OK, res)
 }
 
 // Payments godoc
