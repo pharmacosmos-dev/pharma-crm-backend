@@ -1227,14 +1227,19 @@ func (s *Services) CreateAndSendReturnForOnec(ctx context.Context, req *domain.O
 				toSet = stock.Available
 			}
 
+			rowPack := int(math.Floor(toSet))
+			rowUnit := int(math.Round((toSet - math.Floor(toSet)) * stock.UnitPerPack))
+
 			err = tx.WithContext(ctx).Exec(`
 				INSERT INTO transfer_details (
 					transfer_id, store_product_id, product_id,
 					received_count, expected_count,
+					expected_pack, expected_unit,
 					supply_price, retail_price, expire_date, serial_number
-				) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+				) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 				returnId, stock.StoreProductId, stock.ProductId,
 				stock.Available, toSet,
+				rowPack, rowUnit,
 				stock.SupplyPrice, stock.RetailPrice, stock.ExpireDate, stock.SerialNumber,
 			).Error
 			if err != nil {
