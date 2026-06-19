@@ -1024,7 +1024,7 @@ func (s *Services) ConfirmReturn(ctx context.Context, returnId, userId string, d
 	}
 
 	go func() {
-		if s.cfg.OnecApiUrl != "test" {
+		if s.cfg.OnecApiUrl == "test" {
 			return
 		}
 		if err := s.DoRequestOnec(context.Background(), returnData, constants.OnecPathVozvrat); err != nil {

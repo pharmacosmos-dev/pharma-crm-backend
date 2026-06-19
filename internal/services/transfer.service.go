@@ -1036,7 +1036,7 @@ func (s *Services) ConfirmTransfer(ctx context.Context, transferId string, userI
 	dataOnec.AptekaOtkud.Name = fromStore.Name
 	dataOnec.AptekaOtkud.StoreCode = fromStore.StoreCode
 	go func() {
-		if s.cfg.OnecApiUrl != "test" {
+		if s.cfg.OnecApiUrl == "test" {
 			return
 		}
 		if err := s.DoRequestOnec(context.Background(), dataOnec, constants.OnecPathPerekit); err != nil {
