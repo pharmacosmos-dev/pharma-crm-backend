@@ -1,4 +1,4 @@
-package services
+﻿package services
 
 import (
 	"context"
@@ -230,7 +230,8 @@ func (s *Services) sendReportTo1C(store *domain.Store, date string) error {
 	                    THEN (-1) * ci.total_price
 	                ELSE 0
 	                END
-	    ) AS sum_vat
+	    ) AS sum_vat,
+	    COUNT(CASE WHEN ci.skip_auto_order THEN 1 END) AS skip_auto_order
 	FROM sales s
 	         LEFT JOIN sales s_return
 	                   ON s_return.parent_id = s.id
@@ -289,6 +290,7 @@ func (s *Services) sendReportTo1C(store *domain.Store, date string) error {
 		s.log.Errorf("could not get discount sum: %v", err)
 		return err
 	}
+	expenseData.SkipAutoOrder = buildSkipAutoOrderList(expenseData.Товары)
 	// check expense product length
 	if len(expenseData.Товары) < 1 {
 		return nil
@@ -398,7 +400,8 @@ func (s *Services) sendReportWithNumberTo1C(store *domain.Store, date string) er
 	                    THEN (-1) * ci.total_price
 	                ELSE 0
 	                END
-	    ) AS sum_vat
+	    ) AS sum_vat,
+	    COUNT(CASE WHEN ci.skip_auto_order THEN 1 END) AS skip_auto_order
 	FROM sales s
 	         LEFT JOIN sales s_return
 	                   ON s_return.parent_id = s.id
@@ -457,6 +460,7 @@ func (s *Services) sendReportWithNumberTo1C(store *domain.Store, date string) er
 		s.log.Errorf("could not get discount sum: %v", err)
 		return err
 	}
+	expenseData.SkipAutoOrder = buildSkipAutoOrderList(expenseData.Товары)
 	// check expense product length
 	if len(expenseData.Товары) < 1 {
 		return domain.NotEnoughProductError
@@ -686,7 +690,8 @@ func (s *Services) sendReportToTemporary(store *domain.Store, date string) error
 	                    THEN (-1) * ci.total_price
 	                ELSE 0
 	                END
-	    ) AS sum_vat
+	    ) AS sum_vat,
+	    COUNT(CASE WHEN ci.skip_auto_order THEN 1 END) AS skip_auto_order
 	FROM sales s
 	         LEFT JOIN sales s_return
 	                   ON s_return.parent_id = s.id
@@ -745,6 +750,7 @@ func (s *Services) sendReportToTemporary(store *domain.Store, date string) error
 		s.log.Errorf("could not get discount sum: %v", err)
 		return err
 	}
+	expenseData.SkipAutoOrder = buildSkipAutoOrderList(expenseData.Товары)
 	// check expense product length
 	if len(expenseData.Товары) < 1 {
 		return nil
@@ -762,4 +768,17 @@ func (s *Services) sendReportToTemporary(store *domain.Store, date string) error
 		return err
 	}
 	return nil
+}
+
+func buildSkipAutoOrderList(products []domain.ExpenseProduct) []domain.SkipAutoOrderItem {
+	var result []domain.SkipAutoOrderItem
+	for _, p := range products {
+		if p.SkipAutoOrder > 0 {
+			result = append(result, domain.SkipAutoOrderItem{
+				MaterialCode:  p.MaterialCode,
+				SkipAutoOrder: p.SkipAutoOrder,
+			})
+		}
+	}
+	return result
 }

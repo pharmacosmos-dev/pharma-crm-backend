@@ -198,9 +198,15 @@ type OperationWithStore struct {
 
 // Send Expenses structure
 type SendExpense struct {
-	Document ExpenseDok       `json:"Dok"`
-	Store    Apteka           `json:"Apteka"`
-	Товары   []ExpenseProduct `json:"Товары"`
+	Document      ExpenseDok          `json:"Dok"`
+	Store         Apteka              `json:"Apteka"`
+	Товары        []ExpenseProduct    `json:"Товары"`
+	SkipAutoOrder []SkipAutoOrderItem `json:"SkipAutoOrder"`
+}
+
+type SkipAutoOrderItem struct {
+	MaterialCode  int `json:"material_code"`
+	SkipAutoOrder int `json:"skip_auto_order"`
 }
 
 // expense document structure
@@ -228,4 +234,5 @@ type ExpenseProduct struct {
 	IKPU                string  `gorm:"ikpu" json:"ikpu"`
 	Vat                 string  `gorm:"vat" json:"vat"`
 	VatSum              float64 `gorm:"vat_sum" json:"vat_sum"`
+	SkipAutoOrder       int     `gorm:"skip_auto_order" json:"-"`
 }

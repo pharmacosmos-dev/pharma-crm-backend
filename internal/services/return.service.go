@@ -600,7 +600,6 @@ func (s *Services) ReturnDetailList(param *domain.ReturnDetailParam) ([]domain.R
 			transfer_details.product_id, 
 			transfer_details.store_product_id,
 			transfer_details.serial_number, 
-			transfer_details.expire_date,
 			transfer_details.supply_price, 
 			transfer_details.retail_price,
 			transfer_details.received_count,
@@ -621,6 +620,7 @@ func (s *Services) ReturnDetailList(param *domain.ReturnDetailParam) ([]domain.R
     		p.name,
 			p.material_code,
 			p.unit_per_pack,
+			sp.expired_date,
 			COALESCE(sp.barcode, p.barcode) AS barcode,
 			ut.short_name,
 			pr.name AS producer`).
@@ -957,10 +957,10 @@ func (s *Services) ConfirmReturn(ctx context.Context, returnId, userId string, d
 		p.material_code, 
 		p.name, 
 		p.barcode,
+		sp.expired_date,
 		p.unit_per_pack,
 		COALESCE(pr.code, '') as manufacturer, 
 		td.serial_number AS product_series_number,
-		td.expire_date,
 		td.accepted_count as quantity,
 		td.supply_price AS supply_price_vat,
 		td.retail_price AS retail_price_vat,
@@ -972,6 +972,7 @@ func (s *Services) ConfirmReturn(ctx context.Context, returnId, userId string, d
 	FROM transfer_details td
 		JOIN transfers tr ON td.transfer_id = tr.id
 		JOIN products p ON td.product_id = p.id
+		LEFT JOIN store_products sp ON sp.id = td.store_product_id
 		LEFT JOIN producers pr ON p.producer_id = pr.id
 		WHERE td.transfer_id = ?;
 	`
