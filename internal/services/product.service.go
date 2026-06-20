@@ -1005,7 +1005,7 @@ func (s *Services) GetStoreProductsByProductId(ctx context.Context, params *doma
 	err := query.
 		Limit(params.Limit).
 		Offset(params.Offset).
-		Order("sp.created_at DESC").
+		Order("sp.unit_quantity DESC, st.name ASC").
 		Find(&res).Error
 	if err != nil {
 		s.log.Errorf("could not get store_products by product_id: %v", err)
