@@ -1846,6 +1846,8 @@ func (s *Services) GetSales(ctx context.Context, params *domain.SaleQueryParams,
 	}
 	if params.SaleType == "DISCOUNT" {
 		qb = qb.Where("s.total_discount != 0")
+	} else if params.SaleType == "LOYALTY" {
+		qb = qb.Where("s.cusomers_id IS NOT NULL")
 	} else if params.SaleType != "" {
 		qb = qb.Where("s.sale_type = ?", params.SaleType)
 	}
@@ -2009,6 +2011,10 @@ func (s *Services) GetSalesStats(ctx context.Context, params *domain.SaleQueryPa
 		qb = qb.Where("s.completed_at <= ?", params.EndDate.UTC())
 	}
 
+	if params.CustomerId != "" {
+		qb = qb.Where("s.customer_id = ?", params.CustomerId)
+	}
+
 	if params.Search != "" {
 		if num, err := strconv.Atoi(params.Search); err == nil {
 			// If will be digit
@@ -2018,6 +2024,7 @@ func (s *Services) GetSalesStats(ctx context.Context, params *domain.SaleQueryPa
 			qb = qb.Where("st.name ILIKE ?", "%"+params.Search+"%")
 		}
 	}
+
 	if params.TotalAmountFrom > 0 {
 		qb = qb.Where("s.total_amount >= ?", params.TotalAmountFrom)
 	}
@@ -2026,6 +2033,8 @@ func (s *Services) GetSalesStats(ctx context.Context, params *domain.SaleQueryPa
 	}
 	if params.SaleType == "DISCOUNT" {
 		qb = qb.Where("s.total_discount > 0 AND s.sale_type != 'RETURN' AND s.stage != ?", constants.SaleStageReturnedFinish)
+	} else if params.SaleType == "LOYALTY" {
+		qb = qb.Where("s.cusomers_id IS NOT NULL")	
 	} else if params.SaleType != "" {
 		qb = qb.Where("s.sale_type = ?", params.SaleType)
 	}
