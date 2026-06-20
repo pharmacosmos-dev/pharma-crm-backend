@@ -499,7 +499,7 @@ func (s *Services) TransferDetailList(param *domain.ReturnDetailParam) ([]domain
 			transfer_details.accepted_count,
 			transfer_details.expected_count,
 			transfer_details.scanned_count,
-			transfer_details.expire_date,
+			// transfer_details.expire_date,
 			transfer_details.serial_number,
 			transfer_details.supply_price,
 			transfer_details.retail_price,
@@ -516,6 +516,7 @@ func (s *Services) TransferDetailList(param *domain.ReturnDetailParam) ([]domain
 			p.name,
 			p.material_code,
 			p.unit_per_pack,
+			sp.expire_date,
 			COALESCE(sp.barcode, p.barcode) AS barcode,
 			ut.short_name
 			`).
@@ -906,7 +907,7 @@ func (s *Services) ConfirmTransfer(ctx context.Context, transferId string, userI
 		td.expected_count,
 		td.scanned_count,
 		td.accepted_count,
-		td.expire_date,
+		sp.expire_date,
 		td.serial_number,
 		td.supply_price AS supply_price_vat,
 		td.retail_price AS retail_price_vat,
