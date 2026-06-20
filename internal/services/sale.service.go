@@ -1847,7 +1847,7 @@ func (s *Services) GetSales(ctx context.Context, params *domain.SaleQueryParams,
 	if params.SaleType == "DISCOUNT" {
 		qb = qb.Where("s.total_discount != 0")
 	} else if params.SaleType == "LOYALTY" {
-		qb = qb.Where("s.customer_id IS NOT NULL AND s.customer_id != ''")
+		qb = qb.Where("s.customer_id IS NOT NULL")
 	} else if params.SaleType != "" {
 		qb = qb.Where("s.sale_type = ?", params.SaleType)
 	}
@@ -2035,7 +2035,7 @@ func (s *Services) GetSalesStats(ctx context.Context, params *domain.SaleQueryPa
 	if params.SaleType == "DISCOUNT" {
 		qb = qb.Where("s.total_discount > 0 AND s.sale_type != 'RETURN' AND s.stage != ?", constants.SaleStageReturnedFinish)
 	} else if params.SaleType == "LOYALTY" {
-		qb = qb.Where("s.customer_id IS NOT NULL AND s.customer_id != ''")
+		qb = qb.Where("s.customer_id IS NOT NULL")
 	} else if params.SaleType != "" {
 		qb = qb.Where("s.sale_type = ?", params.SaleType)
 	}
