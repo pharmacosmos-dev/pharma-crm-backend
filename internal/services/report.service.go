@@ -994,7 +994,15 @@ func (s *Services) GetStoreSummaryReport(ctx context.Context, params *domain.Rep
 	`
 
 	var args []any
-	args = append(args, params.StartDate.UTC(), params.EndDate.UTC())
+	var startDate time.Time
+	if params.StartDate != nil && !params.StartDate.GetTime().IsZero() {
+		startDate = params.StartDate.UTC()
+	} else {
+		now := time.Now().UTC()
+		startDate = time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, time.UTC)
+	}
+	endDate := domain.AddDefaultDuration(domain.CustomTime(startDate), params.EndDate).UTC()
+	args = append(args, startDate, endDate)
 	if params.Search != "" {
 		query += " AND st.name LIKE ?"
 		args = append(args, "%"+params.Search+"%")
@@ -1032,7 +1040,15 @@ func (s *Services) GetStoreSummaryReportStats(ctx context.Context, params *domai
 		filter = ""
 	)
 
-	args = append(args, params.StartDate.UTC(), params.EndDate.UTC())
+	var startDateStats time.Time
+	if params.StartDate != nil && !params.StartDate.GetTime().IsZero() {
+		startDateStats = params.StartDate.UTC()
+	} else {
+		now := time.Now().UTC()
+		startDateStats = time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, time.UTC)
+	}
+	endDateStats := domain.AddDefaultDuration(domain.CustomTime(startDateStats), params.EndDate).UTC()
+	args = append(args, startDateStats, endDateStats)
 	if params.Search != "" {
 		filter += " AND st.name LIKE ?"
 		args = append(args, "%"+params.Search+"%")
