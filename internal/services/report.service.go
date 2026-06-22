@@ -642,19 +642,25 @@ func (s *Services) GetTopSellersReport(ctx context.Context, params *domain.Repor
 
 	// Store filter
 	if len(params.StoreIds) > 0 {
-		qb.Where("s.store_id IN (?)", params.StoreIds)
+		qb = qb.Where("s.store_id IN (?)", params.StoreIds)
+	}
+	if params.StoreId != "" {
+		qb = qb.Where("s.store_id = ?", params.StoreId)
+	}
+	if params.CompanyId != "" {
+		qb = qb.Where("st.company_id = ?", params.CompanyId)
 	}
 
 	// Sorting (replaced switch)
 	order := utils.BuildTopSellerOrderClause(params.Order)
 
 	var totalCount int64
-	if err := qb.Count(&totalCount).Error; err != nil {
+	if err := qb.Group("e.id, e.full_name, st.name").Count(&totalCount).Error; err != nil {
 		s.log.Errorf("could not get dashboard top products count: %v", err)
 		return nil, 0, domain.InternalServerError
 	}
 
-	qb = qb.Group("e.id").Order(order).Limit(params.Limit).Offset(params.Offset)
+	qb = qb.Group("e.id, e.full_name, st.name").Order(order).Limit(params.Limit).Offset(params.Offset)
 	var res []domain.TopSeller
 	// Execute query
 	err := qb.Find(&res).Error
