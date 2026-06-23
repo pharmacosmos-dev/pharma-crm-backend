@@ -651,8 +651,9 @@ func (s *Services) GetTopSellersReport(ctx context.Context, params *domain.Repor
 		qb = qb.Where("st.company_id = ?", params.CompanyId)
 	}
 
-	// Sorting (replaced switch)
-	order := utils.BuildTopSellerOrderClause(params.Order)
+	// BuildTopSellerOrderClause returns "ORDER BY x" for raw SQL usage in dashboard;
+	// strip that prefix here since GORM's .Order() adds its own.
+	order := strings.TrimSpace(strings.TrimPrefix(strings.TrimSpace(utils.BuildTopSellerOrderClause(params.Order)), "ORDER BY"))
 
 	var totalCount int64
 	if err := qb.Group("e.id, e.full_name, st.name").Count(&totalCount).Error; err != nil {

@@ -19,7 +19,7 @@ func (s *Services) CreateInventory(ctx context.Context, req *domain.InventoryReq
 	err := s.db.WithContext(ctx).Raw(`
 		SELECT COUNT(*) FROM transfers
 		WHERE (from_store_id = ? OR to_store_id = ?)
-		AND status NOT IN ('new', 'completed', 'canceled', 'sent-to-1c')
+		AND status NOT IN ('new', 'completed', 'canceled', 'sent-to-1c', 'failed_sent_to_1c')
 	`, req.StoreId, req.StoreId).Scan(&unfinishedCount).Error
 	if err != nil {
 		s.log.Errorf("could not check unfinished transfers/returns: %v", err)
