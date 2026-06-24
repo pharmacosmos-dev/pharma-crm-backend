@@ -738,6 +738,12 @@ func (h *ReportHandler) StoreReportAmount(c *gin.Context) {
 		}
 		params.CompanyIds = []string{user.CompanyId}
 	}
+
+	if len(user.StoreIds) > 0 {
+		params.StoreIds = user.StoreIds
+		params.StoreId = ""
+		params.CompanyId = ""
+	}
 	// get store report with payment type amounts
 	res, totalCount, err := h.service.GetStoreAmountReport(ctx, &params)
 	if err != nil {
@@ -895,6 +901,12 @@ func (h *ReportHandler) StoreReportStats(c *gin.Context) {
 			params.StoreId = user.StoreId
 		}
 		params.CompanyIds = []string{user.CompanyId}
+	}
+
+	if len(user.StoreIds) > 0 {
+		params.StoreIds = user.StoreIds
+		params.StoreId = ""
+		params.CompanyId = ""
 	}
 
 	// get store report with payment type amounts

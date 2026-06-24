@@ -270,7 +270,6 @@ func (s *Services) GetProductsReportStats(ctx context.Context, params *domain.Re
 			"ROUND(COALESCE(SUM(CASE WHEN s.sale_type = 'SALE' THEN (ci.total_price - ci.discount_amount)  END), 0), 2) AS total_retail_price_sum",
 			"ROUND(COALESCE(SUM(CASE WHEN s.sale_type = 'RETURN' THEN (ci.total_price - ci.discount_amount)  ELSE 0 END), 0), 2) AS total_retail_price_sum_returned",
 			"ROUND(COALESCE(SUM(ci.discount_amount), 0), 2) AS total_discount_sum",
-			"ROUND(COALESCE(SUM(s.loyalty_card), 0), 2) AS total_loyalty_card_sum",
 		).
 		Table("sales s").
 		Joins("JOIN cart_items ci ON s.id = ci.sale_id").
@@ -307,11 +306,16 @@ func (s *Services) GetProductsReportStats(ctx context.Context, params *domain.Re
 	}
 
 	var res domain.ProductStatusReport
-	err := qb.Take(&res).Error
-	if err != nil {
+	if err := qb.Take(&res).Error; err != nil {
 		s.log.Errorf("coudl not get get products report stats: %v", err)
 		return nil, domain.InternalServerError
 	}
+
+	// qb dagi barcha filterlar saqlab, DISTINCT s.id orqali double-count oldini olish
+	s.db.WithContext(ctx).
+		Table("(?) AS d", qb.Select("DISTINCT s.id, s.loyalty_card")).
+		Select("ROUND(COALESCE(SUM(d.loyalty_card), 0), 2)").
+		Scan(&res.TotalLoyaltyCardSum)
 
 	return &res, nil
 }
