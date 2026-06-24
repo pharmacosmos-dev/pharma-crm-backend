@@ -764,7 +764,7 @@ func (h *ReturnHandler) ExportReturnNakladnoyPDF(c *gin.Context) {
 	}
 
 	// check if return is not completed
-	if returnData.Status != constants.GeneralStatusCompleted && returnData.Status != constants.GeneralStatusSent && returnData.Status != constants.GeneralStatusSentOnec {
+	if returnData.Status != constants.GeneralStatusCompleted && returnData.Status != constants.GeneralStatusChecking && returnData.Status != constants.GeneralStatusSent && returnData.Status != constants.GeneralStatusSentOnec {
 		handleResponse(c, BadRequest, "return.not.completed")
 		return
 	}
@@ -934,12 +934,6 @@ func (h *ReturnHandler) ExportReturnNakladnoyPDF(c *gin.Context) {
 		totalWidth += w
 	}
 	pdf.CellFormat(totalWidth, 7, "Итого: "+formatWithSpaceSeparator(total), "1", 1, "R", false, 0, "")
-
-	if returnData.Comment != "" {
-		pdf.Ln(3)
-		pdf.SetFont("DejaVu", "", 10)
-		pdf.CellFormat(0, 7, "Комментарий: "+returnData.Comment, "", 1, "L", false, 0, "")
-	}
 
 	pdf.SetFont("DejaVu", "B", 10)
 	pdf.Ln(10)
