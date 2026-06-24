@@ -275,13 +275,13 @@ func (s *Services) sendReportTo1C(store *domain.Store, date string) error {
 		return domain.InternalServerError
 	}
 
-	// get total discount
+	// get total discount + loyalty card sum
 	discountQuery := `
     SELECT
-        COALESCE(SUM(s.total_discount), 0) AS discount_sum
+        COALESCE(SUM(s.total_discount), 0) + COALESCE(SUM(s.loyalty_card), 0) AS discount_sum
     FROM sales s
     WHERE s.store_id = ?
-      AND s.stage = 9
+      AND s.stage IN (9, 11)
       AND s.completed_at BETWEEN ? AND ?;
 `
 
@@ -290,6 +290,7 @@ func (s *Services) sendReportTo1C(store *domain.Store, date string) error {
 		s.log.Errorf("could not get discount sum: %v", err)
 		return err
 	}
+
 	expenseData.SkipAutoOrder = buildSkipAutoOrderList(expenseData.Товары)
 	// check expense product length
 	if len(expenseData.Товары) < 1 {
@@ -445,13 +446,13 @@ func (s *Services) sendReportWithNumberTo1C(store *domain.Store, date string) er
 		return domain.InternalServerError
 	}
 
-	// get total discount
+	// get total discount + loyalty card sum
 	discountQuery := `
     SELECT
-        COALESCE(SUM(s.total_discount), 0) AS discount_sum
+        COALESCE(SUM(s.total_discount), 0) + COALESCE(SUM(s.loyalty_card), 0) AS discount_sum
     FROM sales s
     WHERE s.store_id = ?
-      AND s.stage IN(9, 11)
+      AND s.stage IN (9, 11)
       AND s.completed_at BETWEEN ? AND ?;
 `
 
@@ -460,6 +461,7 @@ func (s *Services) sendReportWithNumberTo1C(store *domain.Store, date string) er
 		s.log.Errorf("could not get discount sum: %v", err)
 		return err
 	}
+
 	expenseData.SkipAutoOrder = buildSkipAutoOrderList(expenseData.Товары)
 	// check expense product length
 	if len(expenseData.Товары) < 1 {
@@ -735,13 +737,13 @@ func (s *Services) sendReportToTemporary(store *domain.Store, date string) error
 		return domain.InternalServerError
 	}
 
-	// get total discount
+	// get total discount + loyalty card sum
 	discountQuery := `
     SELECT
-        COALESCE(SUM(s.total_discount), 0) AS discount_sum
+        COALESCE(SUM(s.total_discount), 0) + COALESCE(SUM(s.loyalty_card), 0) AS discount_sum
     FROM sales s
     WHERE s.store_id = ?
-      AND s.stage = 9
+      AND s.stage IN (9, 11)
       AND s.completed_at BETWEEN ? AND ?;
 `
 
@@ -750,6 +752,7 @@ func (s *Services) sendReportToTemporary(store *domain.Store, date string) error
 		s.log.Errorf("could not get discount sum: %v", err)
 		return err
 	}
+
 	expenseData.SkipAutoOrder = buildSkipAutoOrderList(expenseData.Товары)
 	// check expense product length
 	if len(expenseData.Товары) < 1 {
