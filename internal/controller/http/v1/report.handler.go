@@ -440,17 +440,18 @@ func (h *ReportHandler) GetProductsReport(c *gin.Context) {
 		handleServiceResponse(c, BadRequest, domain.InvalidQueryError)
 		return
 	}
-	// bind store_ids
-	if c.Request.Body != nil {
-		_ = c.ShouldBindJSON(&params.StoreIds)
-	}
-
 	// check if employee is not admin or superadmin
 	if !helper.IsAdmin(user) {
 		if user.StoreId != "" {
 			params.StoreId = user.StoreId
 		}
 		params.CompanyId = user.CompanyId
+	}
+
+	if len(user.StoreIds) > 0 {
+		params.StoreIds = user.StoreIds
+		params.StoreId = ""
+		params.CompanyId = ""
 	}
 
 	// get default limit and offset for pagination
@@ -499,17 +500,18 @@ func (h *ReportHandler) GetProductsReportStats(c *gin.Context) {
 		return
 	}
 
-	// parse store_ids from body
-	if c.Request.Body != nil {
-		_ = c.ShouldBindJSON(&params.StoreIds)
-	}
-
 	// check if employee is not admin or superadmin
 	if !helper.IsAdmin(user) {
 		if user.StoreId != "" {
 			params.StoreId = user.StoreId
 		}
 		params.CompanyId = user.CompanyId
+	}
+
+	if len(user.StoreIds) > 0 {
+		params.StoreIds = user.StoreIds
+		params.StoreId = ""
+		params.CompanyId = ""
 	}
 
 	res, err := h.service.GetProductsReportStats(ctx, &params)

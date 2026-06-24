@@ -27,6 +27,7 @@ type ProductStatusReport struct {
 	TotalRetailPriceSum         float64 `json:"total_retail_price_sum"`
 	TotalRetailPriceSumReturned float64 `json:"total_retail_price_sum_returned"`
 	TotalDiscountSum            float64 `json:"total_discount_sum"`
+	TotalLoyaltyCardSum         float64 `json:"total_loyalty_card_sum"`
 }
 
 // Bonus report structure
@@ -51,7 +52,8 @@ type ProductReport struct {
 	UnitPerPack    int        `gorm:"unit_per_pack" json:"unit_per_pack"`
 	ProducerName   string     `gorm:"producer_name" json:"producer_name"`
 	SerialNumber   string     `gorm:"serial_number" json:"serial_number"`
-	TotalDiscount  float64    `gorm:"total_discount" json:"total_discount"`
+	TotalDiscount   float64    `gorm:"total_discount" json:"total_discount"`
+	LoyaltyCardSum  float64    `gorm:"loyalty_card_sum" json:"loyalty_card_sum"`
 	ExpireDate     *time.Time `gorm:"expire_date" json:"expire_date"`
 	Quantity       string     `gorm:"quantity" json:"quantity"`
 	UnitQuantity   int        `gorm:"unit_quantity" json:"unit_quantity"`

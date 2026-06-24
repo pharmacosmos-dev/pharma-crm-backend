@@ -233,6 +233,7 @@ func (s *Services) GetProductsReport(ctx context.Context, params *domain.ReportQ
 		"s.sale_number",
 		"s.sale_type",
 		"ROUND((ci.total_price::numeric / NULLIF(SUM(ci.total_price) OVER (PARTITION BY s.id), 0)) * s.total_discount, 2) * CASE WHEN s.sale_type = 'RETURN' THEN -1 ELSE 1 END AS total_discount",
+		"ROUND((ci.total_price::numeric / NULLIF(SUM(ci.total_price) OVER (PARTITION BY s.id), 0)) * s.loyalty_card, 2) AS loyalty_card_sum",
 		"s.completed_at",
 
 		"e.full_name",
@@ -269,6 +270,7 @@ func (s *Services) GetProductsReportStats(ctx context.Context, params *domain.Re
 			"ROUND(COALESCE(SUM(CASE WHEN s.sale_type = 'SALE' THEN (ci.total_price - ci.discount_amount)  END), 0), 2) AS total_retail_price_sum",
 			"ROUND(COALESCE(SUM(CASE WHEN s.sale_type = 'RETURN' THEN (ci.total_price - ci.discount_amount)  ELSE 0 END), 0), 2) AS total_retail_price_sum_returned",
 			"ROUND(COALESCE(SUM(ci.discount_amount), 0), 2) AS total_discount_sum",
+			"ROUND(COALESCE(SUM(s.loyalty_card), 0), 2) AS total_loyalty_card_sum",
 		).
 		Table("sales s").
 		Joins("JOIN cart_items ci ON s.id = ci.sale_id").
