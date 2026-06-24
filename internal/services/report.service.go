@@ -305,15 +305,17 @@ func (s *Services) GetProductsReportStats(ctx context.Context, params *domain.Re
 		qb = qb.Where("s.completed_at <= ?", params.EndDate.UTC())
 	}
 
+	// Take dan oldin qurilishi kerak — Take qb.Statement.SQL ni cache qiladi
+	loyaltySubQb := qb.Select("DISTINCT s.id, s.loyalty_card")
+
 	var res domain.ProductStatusReport
 	if err := qb.Take(&res).Error; err != nil {
 		s.log.Errorf("coudl not get get products report stats: %v", err)
 		return nil, domain.InternalServerError
 	}
 
-	// qb dagi barcha filterlar saqlab, DISTINCT s.id orqali double-count oldini olish
 	s.db.WithContext(ctx).
-		Table("(?) AS d", qb.Select("DISTINCT s.id, s.loyalty_card")).
+		Table("(?) AS d", loyaltySubQb).
 		Select("ROUND(COALESCE(SUM(d.loyalty_card), 0), 2)").
 		Scan(&res.TotalLoyaltyCardSum)
 
