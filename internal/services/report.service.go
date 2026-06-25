@@ -233,7 +233,6 @@ func (s *Services) GetProductsReport(ctx context.Context, params *domain.ReportQ
 		"s.sale_number",
 		"s.sale_type",
 		"ROUND((ci.total_price::numeric / NULLIF(SUM(ci.total_price) OVER (PARTITION BY s.id), 0)) * s.total_discount, 2) * CASE WHEN s.sale_type = 'RETURN' THEN -1 ELSE 1 END AS total_discount",
-		"ROUND((ci.total_price::numeric / NULLIF(SUM(ci.total_price) OVER (PARTITION BY s.id), 0)) * s.loyalty_card, 2) AS loyalty_card_sum",
 		"s.completed_at",
 
 		"e.full_name",
@@ -310,38 +309,6 @@ func (s *Services) GetProductsReportStats(ctx context.Context, params *domain.Re
 		s.log.Errorf("coudl not get get products report stats: %v", err)
 		return nil, domain.InternalServerError
 	}
-
-	// loyalty_card sales darajasida — cart_items JOIN yo'q alohida query
-	lqb := s.db.WithContext(ctx).
-		Table("sales s").
-		Select("ROUND(COALESCE(SUM(s.loyalty_card), 0), 2)").
-		Where("s.stage IN (?)", constants.FinishedSaleStages)
-	if len(params.StoreIds) > 0 {
-		lqb = lqb.Where("s.store_id IN(?)", params.StoreIds)
-	}
-	if params.CompanyId != "" {
-		lqb = lqb.Joins("JOIN stores st ON s.store_id = st.id").Where("st.company_id = ?", params.CompanyId)
-	}
-	if params.EmployeeId != "" {
-		lqb = lqb.Where("s.employee_id = ?", params.EmployeeId)
-	}
-	if params.ProducerId != "" {
-		lqb = lqb.Where("s.id IN (SELECT ci.sale_id FROM cart_items ci JOIN store_products sp ON ci.store_product_id = sp.id JOIN products p ON sp.product_id = p.id WHERE p.producer_id = ?)", params.ProducerId)
-	}
-	if params.Search != "" {
-		if _, err2 := strconv.Atoi(params.Search); err2 == nil {
-			lqb = lqb.Where("s.sale_number::text LIKE ?", params.Search+"%")
-		} else {
-			lqb = lqb.Where("s.id IN (SELECT ci.sale_id FROM cart_items ci JOIN store_products sp ON ci.store_product_id = sp.id JOIN products p ON sp.product_id = p.id WHERE p.name ILIKE ?)", "%"+params.Search+"%")
-		}
-	}
-	if params.StartDate != nil && !params.StartDate.GetTime().IsZero() {
-		lqb = lqb.Where("s.completed_at >= ?", params.StartDate.UTC())
-	}
-	if params.EndDate != nil && !params.EndDate.GetTime().IsZero() {
-		lqb = lqb.Where("s.completed_at <= ?", params.EndDate.UTC())
-	}
-	lqb.Scan(&res.TotalLoyaltyCardSum)
 
 	return &res, nil
 }
@@ -492,6 +459,7 @@ func (s *Services) GetStoreAmountReport(ctx context.Context, params *domain.Repo
 			"SUM(sa.total_amount) AS total_amount",
 			"SUM(CASE WHEN sa.sale_type = 'RETURN' THEN sa.total_amount * (-1) ELSE 0 END) AS return_amount",
 			"SUM(sa.total_discount) AS discount_amount",
+			"SUM(sa.loyalty_card) AS loyalty_card_amount",
 			"COUNT(DISTINCT sa.id) AS cheque_count",
 		).
 		Limit(params.Limit).
@@ -532,6 +500,8 @@ func (s *Services) ReportByStoreStats(ctx context.Context, params *domain.Report
 			"COUNT(*) FILTER (WHERE sa.alif != 0) AS total_alif_count",
 			"SUM(sa.uzum) AS total_uzum_sum",
 			"COUNT(*) FILTER (WHERE sa.uzum != 0) AS total_uzum_count",
+			"SUM(sa.loyalty_card) AS total_loyalty_card_sum",
+			"COUNT(*) FILTER (WHERE sa.loyalty_card != 0) AS total_loyalty_card_count",
 			"SUM(sa.uzum_tez_kor) AS total_uzum_tez_kor_sum",
 			"COUNT(*) FILTER (WHERE sa.uzum_tez_kor != 0) AS total_uzum_tez_kor_count",
 		).

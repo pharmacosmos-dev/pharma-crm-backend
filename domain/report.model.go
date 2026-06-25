@@ -52,8 +52,7 @@ type ProductReport struct {
 	UnitPerPack    int        `gorm:"unit_per_pack" json:"unit_per_pack"`
 	ProducerName   string     `gorm:"producer_name" json:"producer_name"`
 	SerialNumber   string     `gorm:"serial_number" json:"serial_number"`
-	TotalDiscount   float64    `gorm:"total_discount" json:"total_discount"`
-	LoyaltyCardSum  float64    `gorm:"loyalty_card_sum" json:"loyalty_card_sum"`
+	TotalDiscount  float64    `gorm:"total_discount" json:"total_discount"`
 	ExpireDate     *time.Time `gorm:"expire_date" json:"expire_date"`
 	Quantity       string     `gorm:"quantity" json:"quantity"`
 	UnitQuantity   int        `gorm:"unit_quantity" json:"unit_quantity"`
@@ -107,6 +106,7 @@ type StoreAmount struct {
 	ReturnAmount   float64    `gorm:"return_amount" json:"return_amount"`
 	TotalAmount    float64    `gorm:"total_amount" json:"total_amount"`
 	DiscountAmount float64    `gorm:"discount_amount" json:"discount_amount"`
+	LoyaltyCardAmount  float64   `gorm:"loyalty_card_amount" json:"loyalty_card_amount"`
 	ChequeCount    int        `gorm:"cheque_count" json:"cheque_count"`
 }
 
@@ -133,9 +133,11 @@ type StoreReportStats struct {
 	TotalUzumSum        float64 `gorm:"total_uzum_sum" json:"total_uzum_sum"`
 	TotalUzumTezKorCount int     `gorm:"total_uzum_tez_kor_count" json:"total_uzum_tez_kor_count"`
     TotalUzumTezKorSum  float64 `gorm:"total_uzum_tez_kor_sum" json:"total_uzum_tez_kor_sum"`
-	TotalCashbackSum    float64 `gorm:"total_cashback_sum" json:"total_cashback_sum"`
-	TotalCashbackCount  float64 `gorm:"total_cashback_count" json:"total_cashback_count"`
-	TotalProductCount   int64   `gorm:"total_product_count" json:"total_product_count"`
+	TotalLoyaltyCardSum   float64 `gorm:"total_loyalty_card_sum" json:"total_loyalty_card_sum"`
+	TotalLoyaltyCardCount int     `gorm:"total_loyalty_card_count" json:"total_loyalty_card_count"`
+	TotalCashbackSum      float64 `gorm:"total_cashback_sum" json:"total_cashback_sum"`
+	TotalCashbackCount    float64 `gorm:"total_cashback_count" json:"total_cashback_count"`
+	TotalProductCount     int64   `gorm:"total_product_count" json:"total_product_count"`
 }
 
 type StoreSummary struct {
