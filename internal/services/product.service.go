@@ -1268,7 +1268,7 @@ vozvrat_data AS (
     JOIN transfers tr ON td.transfer_id = tr.id
     JOIN var_data vd ON td.product_id = vd.product_id
     JOIN stores s ON s.id = tr.from_store_id
-    WHERE (tr.status = 'completed' OR tr.status = 'sent-to-1c' OR tr.status = 'failed_sent_to_1c') AND tr.entry_type = 2
+    WHERE (tr.status = 'completed' OR tr.status = 'sent-to-1c') AND tr.entry_type = 2
     %s
     GROUP BY tr.id, s.id, vd.unit_per_pack
 ),
@@ -1289,7 +1289,7 @@ transfer_in_data AS (
     JOIN var_data vd ON td.product_id = vd.product_id
     JOIN stores fs ON fs.id = tr.from_store_id
     JOIN stores ts ON ts.id = tr.to_store_id
-    WHERE (tr.status = 'completed' OR tr.status = 'sent-to-1c' OR tr.status = 'failed_sent_to_1c') AND tr.entry_type = 1
+    WHERE (tr.status = 'completed' OR tr.status = 'sent-to-1c') AND tr.entry_type = 1
     %s
     GROUP BY tr.id, fs.id, ts.id, vd.unit_per_pack
  ),
@@ -1311,7 +1311,7 @@ transfer_in_data AS (
     JOIN var_data vd ON td.product_id = vd.product_id
     JOIN stores fs ON fs.id = tr.from_store_id
     JOIN stores ts ON ts.id = tr.to_store_id
-    WHERE (tr.status = 'completed' OR tr.status = 'sent-to-1c' OR tr.status = 'failed_sent_to_1c') AND tr.entry_type = 1
+    WHERE (tr.status = 'completed' OR tr.status = 'sent-to-1c') AND tr.entry_type = 1
     %s
     GROUP BY tr.id, fs.id, ts.id, vd.unit_per_pack
  ),
