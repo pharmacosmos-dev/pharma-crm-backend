@@ -935,6 +935,12 @@ func (h *ReturnHandler) ExportReturnNakladnoyPDF(c *gin.Context) {
 	}
 	pdf.CellFormat(totalWidth, 7, "Итого: "+formatWithSpaceSeparator(total), "1", 1, "R", false, 0, "")
 
+	if returnData.Comment != "" {
+		pdf.Ln(3)
+		pdf.SetFont("DejaVu", "", 10)
+		pdf.CellFormat(0, 7, "Комментарий: "+returnData.Comment, "", 1, "L", false, 0, "")
+	}
+	
 	pdf.SetFont("DejaVu", "B", 10)
 	pdf.Ln(10)
 	pdf.CellFormat(100, 7, "Руководитель предприятия: _______________", "", 0, "L", false, 0, "")
