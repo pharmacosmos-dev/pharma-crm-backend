@@ -1,90 +1,37 @@
-name: Pharma-backend CI/CD
+name: Backend Deploy Staging
 
 on:
   push:
     branches: [ staging ]
-  pull_request:
-    branches: [ staging ]
-
-env:
-  REPO_NAME: ${{ github.repository }}
-  CONTAINER_NAME: pharma-backend
-  DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}
-  DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
-  SSH_HOST: ${{ secrets.DEV_SERVER_IP }}
-  SSH_USER: ${{ secrets.DEV_SERVER_USERNAME }}
-  SSH_KEY: ${{ secrets.DEV_SSH_PRIVATE_KEY }}
-  SSH_PASS: ${{ secrets.DEV_SERVER_PASSWORD }}
-  DB_URL: ${{ secrets.DEV_PHARMA_DATABASE_URL }}
-  PORT: 8090:8090
 
 jobs:
-  build_and_push:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v3
-
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-
-      - name: Log in to Docker Hub
-        uses: docker/login-action@v3
-        with:
-          username: ${{ env.DOCKER_USERNAME }}
-          password: ${{ env.DOCKER_PASSWORD }}
-
-      - name: Build and push Docker image
-        uses: docker/build-push-action@v5
-        with:
-          context: .
-          push: true
-          tags: "${{ env.DOCKER_USERNAME }}/pharma-backend:${{ github.sha }}"
-          cache-from: type=registry,ref=${{ env.DOCKER_USERNAME }}/pharma-backend:buildcache
-          cache-to: type=registry,ref=${{ env.DOCKER_USERNAME }}/pharma-backend:buildcache,mode=max
-  
-  migrate:
-    needs: build_and_push
-    runs-on: ubuntu-latest
-    steps:
-      - name: Run migrations on server
-        uses: appleboy/ssh-action@master
-        with:
-          host: "${{ env.SSH_HOST }}"
-          username: "${{ env.SSH_USER }}"
-          key: "${{ env.SSH_KEY }}"
-          script: |
-            set -e
-            docker login -u ${{ env.DOCKER_USERNAME }} -p ${{ env.DOCKER_PASSWORD }}
-            # ensure image is present
-            docker pull "${{ env.DOCKER_USERNAME }}/pharma-backend:${{ github.sha }}"
-            # Option A (recommended if migrations are backward-compatible):
-            # run migrations without stopping the old app
-            docker run --rm \
-              --env-file /var/www/app/.env \
-              -v /var/www/app/.env:/var/www/app/.env \
-              --network host \
-              "${{ env.DOCKER_USERNAME }}/pharma-backend:${{ github.sha }}" \
-              /app/scripts/run_migration.sh
-
   deploy:
-    needs: build_and_push
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
+
     steps:
-      - name: Executing remote SSH commands to deploy
-        uses: appleboy/ssh-action@master
-        with:
-          host: "${{ env.SSH_HOST }}"
-          username: "${{ env.SSH_USER }}"
-          key: "${{ env.SSH_KEY }}"
-          script: |
-            docker login -u ${{ env.DOCKER_USERNAME }} -p ${{ env.DOCKER_PASSWORD }}
-            docker pull "${{ env.DOCKER_USERNAME }}/pharma-backend:${{ github.sha }}"
-            docker stop "${{ env.CONTAINER_NAME }}" || true
-            docker rm "${{ env.CONTAINER_NAME }}" || true
-            docker run -d --name "${{ env.CONTAINER_NAME }}" \
-              --network host -p "${{ env.PORT }}" \
-              --env-file /var/www/app/.env \
-              -v /var/www/app/uploads:/app/uploads \
-              -v /var/www/app/logger:/logger \
-              "${{ env.DOCKER_USERNAME }}/pharma-backend:${{ github.sha }}"
+      - uses: actions/checkout@v4
+
+      - name: Build backend image
+        run: |
+          docker build -t pharma-backend:staging .
+
+      - name: Run migrations
+        run: |
+          docker run --rm \
+            --network host \
+            --env-file /var/www/app/.env \
+            -v /var/www/app/.env:/var/www/app/.env \
+            pharma-backend:staging \
+            /app/scripts/run_migration.sh
+
+      - name: Deploy backend
+        run: |
+          docker rm -f pharma-backend || true
+          docker run -d \
+            --name pharma-backend \
+            --network host \
+            --restart unless-stopped \
+            --env-file /var/www/app/.env \
+            -v /var/www/app/uploads:/app/uploads \
+            -v /var/www/app/logger:/logger \
+            pharma-backend:staging
