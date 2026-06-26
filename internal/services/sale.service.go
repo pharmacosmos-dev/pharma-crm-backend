@@ -2604,10 +2604,10 @@ func (s *Services) GetOnlineOrders(ctx context.Context, params *domain.SaleQuery
 
 	if params.OnlineStatus != nil {
 		qb = qb.Where("s.online_status = ?", *params.OnlineStatus)
-	}
-
-	if params.Status != "" {
-		qb = qb.Where("s.status = ?", params.Status)
+	} else if params.Status != "" {
+		if onlineStatus, err := strconv.Atoi(params.Status); err == nil {
+			qb = qb.Where("s.online_status = ?", onlineStatus)
+		}
 	}
 
 	if params.StartDate != nil && !params.StartDate.GetTime().IsZero() {
