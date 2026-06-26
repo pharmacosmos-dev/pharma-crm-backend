@@ -483,9 +483,12 @@ type UpdateOnlineSale struct {
 }
 
 type OnlineOrderStatistic struct {
-	TotalCount     int64   `json:"total_count"`
-	TotalAmount    float64 `json:"total_amount"`
-	WaitingCount   int64   `json:"waiting_count"`
-	CompletedCount int64   `json:"completed_count"`
-	CancelledCount int64   `json:"cancelled_count"`
+	TotalCount      int64   `json:"total_count"`
+	TotalAmount     float64 `json:"total_amount"`
+	WaitingCount    int64   `json:"waiting_count"`
+	WaitingAmount   float64 `json:"waiting_amount"`
+	CompletedCount  int64   `json:"completed_count"`
+	CompletedAmount float64 `json:"completed_amount"`
+	CancelledCount  int64   `json:"cancelled_count"`
+	CancelledAmount float64 `json:"cancelled_amount"`
 }

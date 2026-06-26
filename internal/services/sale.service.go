@@ -2698,12 +2698,18 @@ func (s *Services) GetOnlineOrderStatistic(ctx context.Context, params *domain.S
 			COUNT(*) AS total_count,
 			COALESCE(SUM(s.total_amount), 0) AS total_amount,
 			COUNT(*) FILTER (WHERE s.online_status = %d) AS waiting_count,
+			COALESCE(SUM(s.total_amount) FILTER (WHERE s.online_status = %d), 0) AS waiting_amount,
 			COUNT(*) FILTER (WHERE s.online_status = %d) AS completed_count,
-			COUNT(*) FILTER (WHERE s.online_status = %d) AS cancelled_count
+			COALESCE(SUM(s.total_amount) FILTER (WHERE s.online_status = %d), 0) AS completed_amount,
+			COUNT(*) FILTER (WHERE s.online_status = %d) AS cancelled_count,
+			COALESCE(SUM(s.total_amount) FILTER (WHERE s.online_status = %d), 0) AS cancelled_amount
 		FROM sales s
 		WHERE %s`,
 		constants.SaleOnlineStageWaiting,
+		constants.SaleOnlineStageWaiting,
 		constants.SaleOnlineStageCompleted,
+		constants.SaleOnlineStageCompleted,
+		constants.SaleOnlineStageCanceled,
 		constants.SaleOnlineStageCanceled,
 		conditions,
 	)
