@@ -787,27 +787,35 @@ func (s *Services) DashboardImportStatistic(ctx context.Context, params *domain.
 }
 
 func (s *Services) DashboardStockImportStatistic(ctx context.Context, params *domain.DashboardQueryParam) (*domain.DashboardStockStatistic, error) {
-	qb := s.db.WithContext(ctx).
-		Select("COALESCE(SUM((sp.retail_price / NULLIF(sp.unit_per_pack, 0)) * sp.unit_quantity), 0) AS total_import_amount").
-		Table("store_products sp").
-		Joins("JOIN stores st ON sp.store_id = st.id").
-		Where("sp.unit_quantity > 0")
+	// import_details.store_product_id = store_products.id orqali import narxini olamiz
+	query := `
+		SELECT COALESCE(SUM((idet.retail_price / NULLIF(idet.unit_per_pack, 0)) * sp.unit_quantity), 0) AS total_import_amount
+		FROM store_products sp
+		JOIN import_details idet ON idet.store_product_id = sp.id
+		JOIN stores st ON sp.store_id = st.id
+		WHERE sp.unit_quantity > 0`
+
+	var args []any
 
 	if params.StartDate != nil && !params.StartDate.GetTime().IsZero() {
-		qb = qb.Where("sp.created_at >= ?", params.StartDate.UTC())
+		query += " AND sp.created_at >= ?"
+		args = append(args, params.StartDate.UTC())
 	}
 	if params.EndDate != nil && !params.EndDate.GetTime().IsZero() {
-		qb = qb.Where("sp.created_at <= ?", params.EndDate.UTC())
+		query += " AND sp.created_at <= ?"
+		args = append(args, params.EndDate.UTC())
 	}
 	if len(params.StoreIds) > 0 {
-		qb = qb.Where("sp.store_id IN(?)", params.StoreIds)
+		query += " AND sp.store_id IN (?)"
+		args = append(args, params.StoreIds)
 	}
 	if len(params.CompanyIds) > 0 {
-		qb = qb.Where("st.company_id IN(?)", params.CompanyIds)
+		query += " AND st.company_id IN (?)"
+		args = append(args, params.CompanyIds)
 	}
 
 	var res domain.DashboardStockStatistic
-	if err := qb.Scan(&res).Error; err != nil {
+	if err := s.db.WithContext(ctx).Raw(query, args...).Scan(&res).Error; err != nil {
 		s.log.Errorf("could not get stock statistic: %v", err)
 		return nil, domain.InternalServerError
 	}
