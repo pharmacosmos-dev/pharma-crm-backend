@@ -755,29 +755,46 @@ func (s *Services) DashboardNetProfitStatistic(ctx context.Context, params *doma
 
 // get dashboard count and amount data
 func (s *Services) DashboardImportStatistic(ctx context.Context, params *domain.DashboardQueryParam) (*domain.DashboardImportStatistic, error) {
-	qb := s.db.WithContext(ctx).
-		Select(
-			"SUM(im.received_sum) AS import_amount",
-			"SUM(CASE WHEN im.created_at < NOW() - interval '24 hour' THEN im.received_sum ELSE 0 END) AS expired_import_amount",
-		).
-		Table("imports im").
-		Joins("JOIN stores st ON im.store_id = st.id").
-		Where("im.entry_type = ?", constants.ProductMovementImport).
-		Where("im.status = ?", constants.GeneralStatusNew)
-
-	// filter by several store ids
-	if len(params.StoreIds) > 0 {
-		qb = qb.Where("im.store_id IN(?)", params.StoreIds)
+	// total_import_amount uchun date sharti CASE ichida — SELECT da keladi, shuning uchun args da birinchi
+	totalDateCond := "true"
+	var args []any
+	if params.StartDate != nil {
+		totalDateCond += " AND im.created_at >= ?"
+		args = append(args, params.StartDate)
+	}
+	if params.EndDate != nil {
+		totalDateCond += " AND im.created_at <= ?"
+		args = append(args, params.EndDate)
 	}
 
+	// WHERE args
+	args = append(args, constants.ProductMovementImport)
+
+	query := fmt.Sprintf(`
+		SELECT
+			COALESCE(SUM(CASE WHEN im.status = 'new' THEN im.received_sum ELSE 0 END), 0)
+				AS import_amount,
+			COALESCE(SUM(CASE WHEN im.status = 'new' AND im.created_at < NOW() - interval '24 hour' THEN im.received_sum ELSE 0 END), 0)
+				AS expired_import_amount,
+			COALESCE(SUM(CASE WHEN im.status = 'completed' AND %s THEN im.received_sum ELSE 0 END), 0)
+				AS total_import_amount
+		FROM imports im
+		JOIN stores st ON im.store_id = st.id
+		WHERE im.entry_type = ?
+	`, totalDateCond)
+
+	if len(params.StoreIds) > 0 {
+		query += " AND im.store_id IN (?)"
+		args = append(args, params.StoreIds)
+	}
 	if len(params.CompanyIds) > 0 {
-		qb = qb.Where("st.company_id IN(?)", params.CompanyIds)
+		query += " AND st.company_id IN (?)"
+		args = append(args, params.CompanyIds)
 	}
 
 	var res domain.DashboardImportStatistic
-	err := qb.Take(&res).Error
-	if err != nil {
-		s.log.Errorf("could not get import_count for_24: %v", err)
+	if err := s.db.WithContext(ctx).Raw(query, args...).Take(&res).Error; err != nil {
+		s.log.Errorf("could not get import statistic: %v", err)
 		return nil, domain.InternalServerError
 	}
 

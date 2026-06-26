@@ -157,7 +157,7 @@ func (s *Services) CreateOnlinePrice(ctx context.Context, req *domain.CreateOnli
 	return nil
 }
 
-func (s *Services) GetOnlineProducts(ctx context.Context, params *domain.UzumTezkorProductQueryParam) ([]domain.OnlineProductsPrice, int64, error) {
+func (s *Services) GetOnlineProductsList(ctx context.Context, params *domain.UzumTezkorProductQueryParam) ([]domain.OnlineProductsPrice, int64, error) {
 	// sp_agg: is_online_order do'konlar bo'yicha ombor qoldig'i
 	spJoin := `LEFT JOIN (
 		SELECT sp.product_id, COALESCE(SUM(sp.unit_quantity), 0) AS store_quantity
@@ -268,3 +268,6 @@ func (s *Services) GetOnlineProducts(ctx context.Context, params *domain.UzumTez
 
     return res, total, nil
 }
+
+// func (s *Services) GetOnlineProductsStats(ctx context.Context, params *domain.UzumTezkorProductQueryParam) (domain.OnlineProductsStats, error) {
+// 	var stats domain.OnlineProductsStats
