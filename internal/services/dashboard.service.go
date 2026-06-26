@@ -758,13 +758,13 @@ func (s *Services) DashboardImportStatistic(ctx context.Context, params *domain.
 	// total_import_amount uchun date sharti CASE ichida — SELECT da keladi, shuning uchun args da birinchi
 	totalDateCond := "true"
 	var args []any
-	if params.StartDate != nil {
+	if params.StartDate != nil && !params.StartDate.GetTime().IsZero() {
 		totalDateCond += " AND im.created_at >= ?"
-		args = append(args, params.StartDate)
+		args = append(args, params.StartDate.UTC())
 	}
-	if params.EndDate != nil {
+	if params.EndDate != nil && !params.EndDate.GetTime().IsZero() {
 		totalDateCond += " AND im.created_at <= ?"
-		args = append(args, params.EndDate)
+		args = append(args, params.EndDate.UTC())
 	}
 
 	// WHERE args
