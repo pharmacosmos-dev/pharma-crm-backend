@@ -24949,6 +24949,12 @@ const docTemplate = `{
                         "description": "End Date",
                         "name": "end_date",
                         "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Product ID",
+                        "name": "product_id",
+                        "in": "query"
                     }
                 ],
                 "responses": {

@@ -1576,7 +1576,7 @@ func (s *Services) GetSaleOne(ctx context.Context, saleId string) (*domain.SaleR
 			"s.customer_id",
 			"s.cashbox_id",
 			"s.sale_number",
-			"s.total_amount",
+			"COALESCE(NULLIF(s.total_amount, 0), (SELECT COALESCE(SUM(ci.total_price), 0) FROM cart_items ci WHERE ci.sale_id = s.id)) AS total_amount",
 			"s.total_discount",
 			"s.returned_amount",
 			"s.cash",
@@ -2565,7 +2565,7 @@ func (s *Services) GetOnlineOrders(ctx context.Context, params *domain.SaleQuery
 			"s.id",
 			"s.sale_number",
 			"s.vendor_order_id",
-			"s.total_amount",
+			"COALESCE(NULLIF(s.total_amount, 0), (SELECT COALESCE(SUM(ci.total_price), 0) FROM cart_items ci WHERE ci.sale_id = s.id)) AS total_amount",
 			"s.total_discount",
 			"s.payment_type",
 			"s.stage",
@@ -2691,6 +2691,11 @@ func (s *Services) GetOnlineOrderStatistic(ctx context.Context, params *domain.S
 	if params.EndDate != nil && !params.EndDate.GetTime().IsZero() {
 		conditions += " AND s.created_at <= ?"
 		args = append(args, params.EndDate.UTC())
+	}
+
+	if params.ProductId != "" {
+		conditions += " AND EXISTS (SELECT 1 FROM cart_items ci JOIN store_products sp ON ci.store_product_id = sp.id WHERE ci.sale_id = s.id AND sp.product_id = ?)"
+		args = append(args, params.ProductId)
 	}
 
 	query := fmt.Sprintf(`

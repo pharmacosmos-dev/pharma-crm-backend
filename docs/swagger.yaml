@@ -18215,6 +18215,10 @@ paths:
         in: query
         name: end_date
         type: string
+      - description: Product ID
+        in: query
+        name: product_id
+        type: string
       produces:
       - application/json
       responses:

@@ -889,6 +889,7 @@ func (h *SaleHandler) FetchOnlineOrders(c *gin.Context) {
 // @Param 		 store_id query string false "Store ID"
 // @Param 		 start_date query string false "Start Date"
 // @Param 		 end_date query string false "End Date"
+// @Param 		 product_id query string false "Product ID"
 // @Success      200 {object} v1.Response
 // @Failure      400 {object} v1.Response
 // @Failure      500 {object} v1.Response
