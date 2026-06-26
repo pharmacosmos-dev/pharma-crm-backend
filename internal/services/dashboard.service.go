@@ -799,12 +799,8 @@ func (s *Services) DashboardStockImportStatistic(ctx context.Context, params *do
 	var args []any
 
 	if params.StartDate != nil && !params.StartDate.GetTime().IsZero() {
-		query += " AND sp.created_at >= ?"
-		args = append(args, params.StartDate.UTC())
-	}
-	if params.EndDate != nil && !params.EndDate.GetTime().IsZero() {
 		query += " AND sp.created_at <= ?"
-		args = append(args, params.EndDate.UTC())
+		args = append(args, params.StartDate.UTC())
 	}
 	if len(params.StoreIds) > 0 {
 		query += " AND sp.store_id IN (?)"
