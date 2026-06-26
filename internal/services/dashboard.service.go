@@ -755,50 +755,53 @@ func (s *Services) DashboardNetProfitStatistic(ctx context.Context, params *doma
 
 // get dashboard count and amount data
 func (s *Services) DashboardImportStatistic(ctx context.Context, params *domain.DashboardQueryParam) (*domain.DashboardImportStatistic, error) {
-	// total_import_amount uchun date sharti CASE ichida — SELECT da keladi, shuning uchun args da birinchi
-	totalDateCond := "true"
-	var args []any
-	if params.StartDate != nil && !params.StartDate.GetTime().IsZero() {
-		totalDateCond += " AND im.created_at >= ?"
-		args = append(args, params.StartDate.UTC())
-	}
-	if params.EndDate != nil && !params.EndDate.GetTime().IsZero() {
-		totalDateCond += " AND im.created_at <= ?"
-		args = append(args, params.EndDate.UTC())
-	}
-
-	// WHERE args
-	args = append(args, constants.ProductMovementImport)
-
-	query := fmt.Sprintf(`
-		SELECT
-			COALESCE(SUM(CASE WHEN im.status = 'new' THEN im.received_sum ELSE 0 END), 0)
-				AS import_amount,
-			COALESCE(SUM(CASE WHEN im.status = 'new' AND im.created_at < NOW() - interval '24 hour' THEN im.received_sum ELSE 0 END), 0)
-				AS expired_import_amount,
-			COALESCE(SUM(CASE WHEN im.status = 'completed' AND %s THEN im.received_sum ELSE 0 END), 0)
-				AS total_import_amount
-		FROM imports im
-		JOIN stores st ON im.store_id = st.id
-		WHERE im.entry_type = ?
-	`, totalDateCond)
+	// 1. Eski logika: status='new' kutilayotgan importlar (o'zgartirilmagan)
+	qb := s.db.WithContext(ctx).
+		Select(
+			"COALESCE(SUM(im.received_sum), 0) AS import_amount",
+			"COALESCE(SUM(CASE WHEN im.created_at < NOW() - interval '24 hour' THEN im.received_sum ELSE 0 END), 0) AS expired_import_amount",
+		).
+		Table("imports im").
+		Joins("JOIN stores st ON im.store_id = st.id").
+		Where("im.entry_type = ?", constants.ProductMovementImport).
+		Where("im.status = ?", constants.GeneralStatusNew)
 
 	if len(params.StoreIds) > 0 {
-		query += " AND im.store_id IN (?)"
-		args = append(args, params.StoreIds)
+		qb = qb.Where("im.store_id IN(?)", params.StoreIds)
 	}
 	if len(params.CompanyIds) > 0 {
-		query += " AND st.company_id IN (?)"
-		args = append(args, params.CompanyIds)
+		qb = qb.Where("st.company_id IN(?)", params.CompanyIds)
 	}
 
 	var res domain.DashboardImportStatistic
-	if err := s.db.WithContext(ctx).Raw(query, args...).Take(&res).Error; err != nil {
+	if err := qb.Take(&res).Error; err != nil {
 		s.log.Errorf("could not get import statistic: %v", err)
 		return nil, domain.InternalServerError
 	}
-
 	res.NotLast24HImportAmount = res.ExpiredImportAmount
+
+	// 2. Yangi: store_products da unit_quantity > 0 bo'lganlarning umumiy summasi
+	stockQb := s.db.WithContext(ctx).
+		Select("COALESCE(SUM((sp.retail_price / NULLIF(sp.unit_per_pack, 0)) * sp.unit_quantity), 0) AS total_import_amount").
+		Table("store_products sp").
+		Joins("JOIN stores st ON sp.store_id = st.id").
+		Where("sp.unit_quantity > 0")
+
+	if len(params.StoreIds) > 0 {
+		stockQb = stockQb.Where("sp.store_id IN(?)", params.StoreIds)
+	}
+	if len(params.CompanyIds) > 0 {
+		stockQb = stockQb.Where("st.company_id IN(?)", params.CompanyIds)
+	}
+
+	var stockRes struct {
+		TotalImportAmount float64 `gorm:"column:total_import_amount"`
+	}
+	if err := stockQb.Take(&stockRes).Error; err != nil {
+		s.log.Errorf("could not get stock total amount: %v", err)
+		return nil, domain.InternalServerError
+	}
+	res.TotalImportAmount = stockRes.TotalImportAmount
 
 	return &res, nil
 }
