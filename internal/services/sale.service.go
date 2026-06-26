@@ -2602,6 +2602,10 @@ func (s *Services) GetOnlineOrders(ctx context.Context, params *domain.SaleQuery
 		qb = qb.Where("s.stage = ?", params.Stage)
 	}
 
+	if params.OnlineStatus != nil {
+		qb = qb.Where("s.online_status = ?", *params.OnlineStatus)
+	}
+
 	if params.Status != "" {
 		qb = qb.Where("s.status = ?", params.Status)
 	}
@@ -2668,6 +2672,50 @@ func (s *Services) GetOnlineOrders(ctx context.Context, params *domain.SaleQuery
 	}
 
 	return res, totalCount, nil
+}
+
+func (s *Services) GetOnlineOrderStatistic(ctx context.Context, params *domain.SaleQueryParams) (*domain.OnlineOrderStatistic, error) {
+	conditions := "s.type = ? AND s.is_active = ?"
+	args := []interface{}{constants.SaleTypeOnline, true}
+
+	if params.StoreId != "" {
+		conditions += " AND s.store_id = ?"
+		args = append(args, params.StoreId)
+	}
+
+	if params.StartDate != nil && !params.StartDate.GetTime().IsZero() {
+		conditions += " AND s.created_at >= ?"
+		args = append(args, params.StartDate.UTC())
+	}
+
+	if params.EndDate != nil && !params.EndDate.GetTime().IsZero() {
+		conditions += " AND s.created_at <= ?"
+		args = append(args, params.EndDate.UTC())
+	}
+
+	query := fmt.Sprintf(`
+		SELECT
+			COUNT(*) AS total_count,
+			COALESCE(SUM(s.total_amount), 0) AS total_amount,
+			COUNT(*) FILTER (WHERE s.online_status = %d) AS waiting_count,
+			COUNT(*) FILTER (WHERE s.online_status = %d) AS completed_count,
+			COUNT(*) FILTER (WHERE s.online_status = %d) AS cancelled_count
+		FROM sales s
+		WHERE %s`,
+		constants.SaleOnlineStageWaiting,
+		constants.SaleOnlineStageCompleted,
+		constants.SaleOnlineStageCanceled,
+		conditions,
+	)
+
+	var result domain.OnlineOrderStatistic
+	err := s.db.WithContext(ctx).Raw(query, args...).Scan(&result).Error
+	if err != nil {
+		s.log.Errorf("could not get online order statistic: %v", err)
+		return nil, domain.InternalServerError
+	}
+
+	return &result, nil
 }
 
 // region Delete

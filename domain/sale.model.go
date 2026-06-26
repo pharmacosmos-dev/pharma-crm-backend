@@ -79,8 +79,9 @@ type SaleQueryParams struct {
 	UzumTezKor      bool        `form:"uzum_tez_kor"`
 	IsCorporate     bool        `form:"is_corporate"`
 	Stage           int         `form:"stage"`
+	OnlineStatus    *int        `form:"online_status"`
 	ProductId       string      `form:"product_id"`
-	CustomerId     string      `form:"customer_id"`
+	CustomerId      string      `form:"customer_id"`
 }
 
 // SaleRequest structure for create
@@ -479,4 +480,12 @@ type OnlineOrderStore struct {
 
 type UpdateOnlineSale struct {
 	OnlineStatus int `json:"online_status" binding:"required"`
+}
+
+type OnlineOrderStatistic struct {
+	TotalCount     int64   `json:"total_count"`
+	TotalAmount    float64 `json:"total_amount"`
+	WaitingCount   int64   `json:"waiting_count"`
+	CompletedCount int64   `json:"completed_count"`
+	CancelledCount int64   `json:"cancelled_count"`
 }

@@ -18168,6 +18168,10 @@ paths:
         in: query
         name: stage
         type: integer
+      - description: Online Status (1=new, 2=pending, 3=completed, 4=waiting, -1=canceled)
+        in: query
+        name: online_status
+        type: integer
       - description: Product ID
         in: query
         name: product_id
@@ -18190,6 +18194,45 @@ paths:
       security:
       - BearerAuth: []
       summary: Fetch online orders
+      tags:
+      - sales
+  /sale/online-orders/statistic:
+    get:
+      consumes:
+      - application/json
+      description: Returns total count, total amount, waiting/completed/cancelled
+        counts
+      parameters:
+      - description: Store ID
+        in: query
+        name: store_id
+        type: string
+      - description: Start Date
+        in: query
+        name: start_date
+        type: string
+      - description: End Date
+        in: query
+        name: end_date
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Online order statistics
       tags:
       - sales
   /sale/online-status/{sale_id}:

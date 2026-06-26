@@ -226,33 +226,3 @@ func (h *UzumTezkorProductHandler) List(c *gin.Context) {
 	handleResponse(c, OK, data)
 }
 
-
-// // Stats godoc
-// // @Summary		Get UzumTezkor product stats (CRM)
-// // @Tags		UzumTezkor Products
-// // @Security	BearerAuth
-// // @Produce		json
-// // @Param		type          query string false "Platform type (uzum, yandex_eda, noor)"
-// // @Param		product_id    query string false "Product ID"
-// // @Param		store_id      query string false "Filter by store; also scopes store_quantity and sold_quantity"
-// // @Param		start_date    query string false "Sales start date (2006-01-02)"
-// // @Param		end_date      query string false "Sales end date (2006-01-02)"
-// // @Success		200 {object} v1.Response
-// // @Router		/uzumtezkor-products/stats [get]
-// func (h *UzumTezkorProductHandler) Stats(c *gin.Context) {
-// 	var params domain.UzumTezkorProductQueryParam
-// 	if err := c.ShouldBindQuery(&params); err != nil {
-// 		handleResponse(c, BadRequest, err.Error())
-// 		return
-// 	}
-
-// 	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
-// 	defer cancel()
-
-// 	result, err := h.service.GetOnlineProductsStats(ctx, &params)
-// 	if err != nil {
-// 		handleServiceResponse(c, nil, err)
-// 		return
-// 	}
-// 	handleResponse(c, OK, result)
-// }

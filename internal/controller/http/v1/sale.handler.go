@@ -53,6 +53,7 @@ func (h *SaleHandler) SaleRoutes(r *gin.RouterGroup) {
 		sale.POST("/asil-belgi-barcode-confirm/:id", h.AsilBelgiBarcodeConfirm)
 		sale.PUT("/pending/:id", h.PendingSale)
 		sale.GET("/online-orders", h.FetchOnlineOrders)
+		sale.GET("/online-orders/statistic", h.FetchOnlineOrderStatistic)
 		sale.PATCH("/online-status/:sale_id", h.UpdateOnlineSaleStatus)
 	}
 }
@@ -841,6 +842,7 @@ func (h *SaleHandler) DMEDGetPrescriptions(c *gin.Context) {
 // @Param 		 end_date query string false "End Date"
 // @Param        status query string false "Status"
 // @Param 		 stage query int false "Stage"
+// @Param 		 online_status query int false "Online Status (1=new, 2=pending, 3=completed, 4=waiting, -1=canceled)"
 // @Param 		 product_id query string false "Product ID"
 // @Success      200 {object} v1.Response
 // @Failure      400 {object} v1.Response
@@ -875,6 +877,45 @@ func (h *SaleHandler) FetchOnlineOrders(c *gin.Context) {
 	data := utils.ListResponse(res, totalCount, params.Limit, params.Offset)
 
 	handleResponse(c, OK, data)
+}
+
+// FetchOnlineOrderStatistic godoc
+// @Summary      Online order statistics
+// @Description  Returns total count, total amount, waiting/completed/cancelled counts
+// @Tags         sales
+// @Accept       json
+// @Produce      json
+// @Security     BearerAuth
+// @Param 		 store_id query string false "Store ID"
+// @Param 		 start_date query string false "Start Date"
+// @Param 		 end_date query string false "End Date"
+// @Success      200 {object} v1.Response
+// @Failure      400 {object} v1.Response
+// @Failure      500 {object} v1.Response
+// @Router       /sale/online-orders/statistic [GET]
+func (h *SaleHandler) FetchOnlineOrderStatistic(c *gin.Context) {
+	user := h.service.GetSignedUser(c)
+	if user.UserId == "" {
+		handleServiceResponse(c, UNAUTHORIZED, domain.UnauthorizedError)
+		return
+	}
+
+	var params domain.SaleQueryParams
+	if err := c.ShouldBindQuery(&params); err != nil {
+		handleServiceResponse(c, nil, domain.InvalidQueryError)
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
+	defer cancel()
+
+	res, err := h.service.GetOnlineOrderStatistic(ctx, &params)
+	if err != nil {
+		handleServiceResponse(c, nil, err)
+		return
+	}
+
+	handleResponse(c, OK, res)
 }
 
 // region Update

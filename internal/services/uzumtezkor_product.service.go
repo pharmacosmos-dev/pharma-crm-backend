@@ -268,6 +268,3 @@ func (s *Services) GetOnlineProductsList(ctx context.Context, params *domain.Uzu
 
     return res, total, nil
 }
-
-// func (s *Services) GetOnlineProductsStats(ctx context.Context, params *domain.UzumTezkorProductQueryParam) (domain.OnlineProductsStats, error) {
-// 	var stats domain.OnlineProductsStats
