@@ -807,7 +807,7 @@ func (s *Services) DashboardStockImportStatistic(ctx context.Context, params *do
 	}
 
 	var res domain.DashboardStockStatistic
-	if err := qb.Take(&res).Error; err != nil {
+	if err := qb.Scan(&res).Error; err != nil {
 		s.log.Errorf("could not get stock statistic: %v", err)
 		return nil, domain.InternalServerError
 	}
