@@ -2698,23 +2698,29 @@ func (s *Services) GetOnlineOrderStatistic(ctx context.Context, params *domain.S
 		args = append(args, params.ProductId)
 	}
 
+	realAmount := "COALESCE(NULLIF(s.total_amount, 0), (SELECT COALESCE(SUM(ci.total_price), 0) FROM cart_items ci WHERE ci.sale_id = s.id))"
+
 	query := fmt.Sprintf(`
 		SELECT
 			COUNT(*) AS total_count,
-			COALESCE(SUM(s.total_amount), 0) AS total_amount,
+			COALESCE(SUM(%s), 0) AS total_amount,
 			COUNT(*) FILTER (WHERE s.online_status = %d) AS waiting_count,
-			COALESCE(SUM(s.total_amount) FILTER (WHERE s.online_status = %d), 0) AS waiting_amount,
+			COALESCE(SUM(%s) FILTER (WHERE s.online_status = %d), 0) AS waiting_amount,
 			COUNT(*) FILTER (WHERE s.online_status = %d) AS completed_count,
-			COALESCE(SUM(s.total_amount) FILTER (WHERE s.online_status = %d), 0) AS completed_amount,
+			COALESCE(SUM(%s) FILTER (WHERE s.online_status = %d), 0) AS completed_amount,
 			COUNT(*) FILTER (WHERE s.online_status = %d) AS cancelled_count,
-			COALESCE(SUM(s.total_amount) FILTER (WHERE s.online_status = %d), 0) AS cancelled_amount
+			COALESCE(SUM(%s) FILTER (WHERE s.online_status = %d), 0) AS cancelled_amount
 		FROM sales s
 		WHERE %s`,
+		realAmount,
 		constants.SaleOnlineStageWaiting,
+		realAmount,
 		constants.SaleOnlineStageWaiting,
 		constants.SaleOnlineStageCompleted,
+		realAmount,
 		constants.SaleOnlineStageCompleted,
 		constants.SaleOnlineStageCanceled,
+		realAmount,
 		constants.SaleOnlineStageCanceled,
 		conditions,
 	)
