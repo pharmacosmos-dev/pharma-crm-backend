@@ -1491,6 +1491,8 @@ definitions:
     properties:
       total_discount_sum:
         type: number
+      total_loyalty_card_sum:
+        type: number
       total_quantity:
         type: number
       total_quantity_returned:
@@ -5156,6 +5158,39 @@ paths:
       security:
       - BearerAuth: []
       summary: Get total count stats
+      tags:
+      - dashboard
+  /dashboard/stock-import-statistic:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Start date (RFC3339)
+        in: query
+        name: start_date
+        type: string
+      - description: End date (RFC3339)
+        in: query
+        name: end_date
+        type: string
+      - description: Franchise filter
+        in: query
+        name: is_franchise
+        type: boolean
+      - description: Pharma filter
+        in: query
+        name: is_pharma
+        type: boolean
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Get stock total amount statistic
       tags:
       - dashboard
   /dashboard/top-products:

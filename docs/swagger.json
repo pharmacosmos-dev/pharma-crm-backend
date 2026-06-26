@@ -4590,6 +4590,59 @@
                 }
             }
         },
+        "/dashboard/stock-import-statistic": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "dashboard"
+                ],
+                "summary": "Get stock total amount statistic",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Start date (RFC3339)",
+                        "name": "start_date",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "End date (RFC3339)",
+                        "name": "end_date",
+                        "in": "query"
+                    },
+                    {
+                        "type": "boolean",
+                        "description": "Franchise filter",
+                        "name": "is_franchise",
+                        "in": "query"
+                    },
+                    {
+                        "type": "boolean",
+                        "description": "Pharma filter",
+                        "name": "is_pharma",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    }
+                }
+            }
+        },
         "/dashboard/top-products": {
             "post": {
                 "security": [
@@ -32669,6 +32722,9 @@
             "type": "object",
             "properties": {
                 "total_discount_sum": {
+                    "type": "number"
+                },
+                "total_loyalty_card_sum": {
                     "type": "number"
                 },
                 "total_quantity": {

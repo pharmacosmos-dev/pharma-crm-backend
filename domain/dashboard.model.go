@@ -242,6 +242,10 @@ type DashboardImportStatistic struct {
 	ExpiredImportAmount    float64 `gorm:"expired_import_amount" json:"-"`
 }
 
+type DashboardStockStatistic struct {
+	TotalImportAmount float64 `gorm:"total_import_amount" json:"total_import_amount"`
+}
+
 type DashboardCountStatsBonus struct {
 	BonusAmount       float64 `gorm:"bonus_amount" json:"bonus_amount"`
 	BeforeBonusAmount float64 `gorm:"before_bonus_amount" json:"before_bonus_amount"`

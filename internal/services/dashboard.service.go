@@ -755,54 +755,62 @@ func (s *Services) DashboardNetProfitStatistic(ctx context.Context, params *doma
 
 // get dashboard count and amount data
 func (s *Services) DashboardImportStatistic(ctx context.Context, params *domain.DashboardQueryParam) (*domain.DashboardImportStatistic, error) {
-	// 1. Eski logika: status='new' kutilayotgan importlar (o'zgartirilmagan)
 	qb := s.db.WithContext(ctx).
 		Select(
-			"COALESCE(SUM(im.received_sum), 0) AS import_amount",
-			"COALESCE(SUM(CASE WHEN im.created_at < NOW() - interval '24 hour' THEN im.received_sum ELSE 0 END), 0) AS expired_import_amount",
+			"SUM(im.received_sum) AS import_amount",
+			"SUM(CASE WHEN im.created_at < NOW() - interval '24 hour' THEN im.received_sum ELSE 0 END) AS expired_import_amount",
 		).
 		Table("imports im").
 		Joins("JOIN stores st ON im.store_id = st.id").
 		Where("im.entry_type = ?", constants.ProductMovementImport).
 		Where("im.status = ?", constants.GeneralStatusNew)
 
+	// filter by several store ids
 	if len(params.StoreIds) > 0 {
 		qb = qb.Where("im.store_id IN(?)", params.StoreIds)
 	}
+
 	if len(params.CompanyIds) > 0 {
 		qb = qb.Where("st.company_id IN(?)", params.CompanyIds)
 	}
 
 	var res domain.DashboardImportStatistic
-	if err := qb.Take(&res).Error; err != nil {
-		s.log.Errorf("could not get import statistic: %v", err)
+	err := qb.Take(&res).Error
+	if err != nil {
+		s.log.Errorf("could not get import_count for_24: %v", err)
 		return nil, domain.InternalServerError
 	}
+
 	res.NotLast24HImportAmount = res.ExpiredImportAmount
 
-	// 2. Yangi: store_products da unit_quantity > 0 bo'lganlarning umumiy summasi
-	stockQb := s.db.WithContext(ctx).
+	return &res, nil
+}
+
+func (s *Services) DashboardStockImportStatistic(ctx context.Context, params *domain.DashboardQueryParam) (*domain.DashboardStockStatistic, error) {
+	qb := s.db.WithContext(ctx).
 		Select("COALESCE(SUM((sp.retail_price / NULLIF(sp.unit_per_pack, 0)) * sp.unit_quantity), 0) AS total_import_amount").
 		Table("store_products sp").
 		Joins("JOIN stores st ON sp.store_id = st.id").
 		Where("sp.unit_quantity > 0")
 
+	if params.StartDate != nil && !params.StartDate.GetTime().IsZero() {
+		qb = qb.Where("sp.created_at >= ?", params.StartDate.UTC())
+	}
+	if params.EndDate != nil && !params.EndDate.GetTime().IsZero() {
+		qb = qb.Where("sp.created_at <= ?", params.EndDate.UTC())
+	}
 	if len(params.StoreIds) > 0 {
-		stockQb = stockQb.Where("sp.store_id IN(?)", params.StoreIds)
+		qb = qb.Where("sp.store_id IN(?)", params.StoreIds)
 	}
 	if len(params.CompanyIds) > 0 {
-		stockQb = stockQb.Where("st.company_id IN(?)", params.CompanyIds)
+		qb = qb.Where("st.company_id IN(?)", params.CompanyIds)
 	}
 
-	var stockRes struct {
-		TotalImportAmount float64 `gorm:"column:total_import_amount"`
-	}
-	if err := stockQb.Take(&stockRes).Error; err != nil {
-		s.log.Errorf("could not get stock total amount: %v", err)
+	var res domain.DashboardStockStatistic
+	if err := qb.Take(&res).Error; err != nil {
+		s.log.Errorf("could not get stock statistic: %v", err)
 		return nil, domain.InternalServerError
 	}
-	res.TotalImportAmount = stockRes.TotalImportAmount
-
 	return &res, nil
 }
 
