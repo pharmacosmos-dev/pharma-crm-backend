@@ -468,9 +468,6 @@ func (s *Services) InventoryDetailList(ctx context.Context, params *domain.Inven
 		ROUND(SUM(imd.retail_price_vat * (imd.received_count/p.unit_per_pack)), 2) AS total_current_sum,
 		ROUND(SUM(imd.retail_price_vat * (imd.scanned_count/p.unit_per_pack)), 2) AS total_fact_sum,
 		ROUND(SUM(imd.retail_price_vat * ((imd.scanned_count - imd.received_count)/p.unit_per_pack)), 2) AS total_difference_sum,
-		ROUND(SUM(COALESCE(li.retail_price, 0) * (imd.received_count/p.unit_per_pack)), 2) AS total_import_current_sum,
-		ROUND(SUM(COALESCE(li.retail_price, 0) * (imd.scanned_count/p.unit_per_pack)), 2) AS total_import_fact_sum,
-		ROUND(SUM(COALESCE(li.retail_price, 0) * ((imd.scanned_count - imd.received_count)/p.unit_per_pack)), 2) AS total_import_difference_sum,
 		ROUND(SUM(imd.scanned_count/p.unit_per_pack)) AS scanned,
         ROUND(SUM((imd.received_count - imd.scanned_count)/p.unit_per_pack)) AS shortage,
         ROUND(SUM(imd.received_count/p.unit_per_pack)) AS "all",
@@ -479,15 +476,6 @@ func (s *Services) InventoryDetailList(ctx context.Context, params *domain.Inven
 	FROM import_details imd
 	JOIN products p ON imd.product_id = p.id
 	LEFT JOIN producers pr ON p.producer_id = pr.id
-	LEFT JOIN (
-		SELECT DISTINCT ON (imd2.product_id)
-			imd2.product_id,
-			imd2.retail_price
-		FROM import_details imd2
-		JOIN imports imp2 ON imp2.id = imd2.import_id
-		WHERE imp2.entry_type = 1
-		ORDER BY imd2.product_id, imp2.created_at DESC
-	) li ON li.product_id = imd.product_id
 	`
 
 	if params.Search != "" {

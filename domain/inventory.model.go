@@ -121,19 +121,16 @@ type InventoryAddProduct struct {
 }
 
 type InventoryDetailSum struct {
-	TotalFactCount          float64 `gorm:"total_fact_count" json:"total_fact_count"`
-	TotalFactSum            float64 `gorm:"total_fact_sum" json:"total_fact_sum"`
-	TotalCurrentCount       float64 `gorm:"total_current_count" json:"total_current_count"`
-	TotalCurrentSum         float64 `gorm:"total_current_sum" json:"total_current_sum"`
-	TotalDifferenceSum      float64 `gorm:"total_difference_sum" json:"total_difference_sum"`
-	TotalImportCurrentSum   float64 `gorm:"total_import_current_sum" json:"total_import_current_sum"`
-	TotalImportFactSum      float64 `gorm:"total_import_fact_sum" json:"total_import_fact_sum"`
-	TotalImportDifferenceSum float64 `gorm:"total_import_difference_sum" json:"total_import_difference_sum"`
-	Scanned                 int     `gorm:"scanned" json:"scanned"`
-	Shortage                int     `gorm:"shortage" json:"shortage"`
-	All                     int     `gorm:"all" json:"all"`
-	Surplus                 int     `gorm:"surplus" json:"surplus"`
-	Accepted                int     `gorm:"accepted" json:"accepted"`
+	TotalFactCount     float64 `gorm:"total_fact_count" json:"total_fact_count"`
+	TotalFactSum       float64 `gorm:"total_fact_sum" json:"total_fact_sum"`
+	TotalCurrentCount  float64 `gorm:"total_current_count" json:"total_current_count"`
+	TotalCurrentSum    float64 `gorm:"total_current_sum" json:"total_current_sum"`
+	TotalDifferenceSum float64 `gorm:"total_difference_sum" json:"total_difference_sum"`
+	Scanned            int     `gorm:"scanned" json:"scanned"`
+	Shortage           int     `gorm:"shortage" json:"shortage"`
+	All                int     `gorm:"all" json:"all"`
+	Surplus            int     `gorm:"surplus" json:"surplus"`
+	Accepted           int     `gorm:"accepted" json:"accepted"`
 }
 
 type InventoryDetailStats struct {
