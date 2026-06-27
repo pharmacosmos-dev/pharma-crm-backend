@@ -1,11 +1,12 @@
 package middleware
 
 import (
+	"errors"
 	"net/http"
 	"strings"
 
-	jwtg "github.com/dgrijalva/jwt-go"
 	"github.com/gin-gonic/gin"
+	jwtv5 "github.com/golang-jwt/jwt/v5"
 	"github.com/pharma-crm-backend/config"
 	"github.com/pharma-crm-backend/pkg/etc"
 	"github.com/pharma-crm-backend/pkg/token"
@@ -40,7 +41,7 @@ func (m *MiddlewareHandler) NewAuth() gin.HandlerFunc {
 		allow, err := m.CheckPermission(c)
 		if err != nil {
 			// Handle JWT-related errors
-			if jwtErr, ok := err.(*jwtg.ValidationError); ok && jwtErr.Errors == jwtg.ValidationErrorExpired {
+			if errors.Is(err, jwtv5.ErrTokenExpired) {
 				m.RequireRefresh(c)
 				return
 			}
