@@ -789,7 +789,7 @@ func (s *Services) DashboardImportStatistic(ctx context.Context, params *domain.
 func (s *Services) DashboardStockImportStatistic(ctx context.Context, params *domain.DashboardQueryParam) (*domain.DashboardStockStatistic, error) {
 	// store_products.import_detail_id = import_details.id orqali import narxini olamiz
 	query := `
-		SELECT COALESCE(SUM((idet.retail_price_vat / NULLIF(p.unit_per_pack, 0)) * sp.unit_quantity), 0) AS total_import_amount
+		SELECT COALESCE(SUM((idet.retail_price / NULLIF(p.unit_per_pack, 0)) * sp.unit_quantity), 0) AS total_import_amount
 		FROM store_products sp
 		JOIN import_details idet ON idet.id = sp.import_detail_id
 		JOIN products p ON p.id = sp.product_id

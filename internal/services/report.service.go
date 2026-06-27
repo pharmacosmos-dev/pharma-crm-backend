@@ -992,7 +992,7 @@ func (s *Services) GetStoreSummaryReport(ctx context.Context, params *domain.Rep
 	import_stock_cte AS (
 			SELECT
 					sp.store_id,
-					ROUND(SUM(sp.unit_quantity * (idet.retail_price / NULLIF(p.unit_per_pack, 0))), 2) AS import_stock_amount
+					ROUND(SUM((idet.retail_price / NULLIF(p.unit_per_pack, 0)) * sp.unit_quantity), 2) AS import_stock_amount
 			FROM store_products sp
 				JOIN products p ON sp.product_id = p.id
 				JOIN import_details idet ON idet.id = sp.import_detail_id
@@ -1117,7 +1117,7 @@ func (s *Services) GetStoreSummaryReportStats(ctx context.Context, params *domai
 	import_stock_cte AS (
 		SELECT
 			sp.store_id,
-			ROUND(SUM(sp.unit_quantity * (idet.retail_price / NULLIF(p.unit_per_pack, 0))), 2) AS import_stock_amount
+			ROUND(SUM((idet.retail_price / NULLIF(p.unit_per_pack, 0)) * sp.unit_quantity), 2) AS import_stock_amount
 		FROM store_products sp
 			JOIN products p ON sp.product_id = p.id
 			JOIN import_details idet ON idet.id = sp.import_detail_id
