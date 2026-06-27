@@ -141,20 +141,26 @@ type StoreReportStats struct {
 }
 
 type StoreSummary struct {
-	Name           string  `json:"name"`
-	SaleAmount     float64 `json:"sale_amount"`
-	DiscountAmount float64 `gorm:"discount_amount" json:"discount_amount"`
-	ImportAmount   float64 `json:"import_amount"`
-	StockAmount    float64 `json:"stock_amount"`
-	Total          float64 `json:"total"`
+	Name                string  `json:"name"`
+	SaleAmount          float64 `json:"sale_amount"`
+	DiscountAmount      float64 `gorm:"discount_amount" json:"discount_amount"`
+	LoyaltyCardAmount   float64 `gorm:"loyalty_card_amount" json:"loyalty_card_amount"`
+	ImportAmount        float64 `json:"import_amount"`
+	StockAmount         float64 `json:"stock_amount"`
+	ImportStocAmount    float64 `gorm:"import_stock_amount" json:"import_stock_amount"`
+	Total               float64 `json:"total"`
+	ImportTotal         float64 `gorm:"import_total" json:"import_total"`
 }
 
 type StoreSummaryStats struct {
-	TotalSaleAmount     float64 `json:"total_sale_amount"`
-	TotalDiscountAmount float64 `gorm:"total_discount_amount" json:"total_discount_amount"`
-	TotalImportAmount   float64 `json:"total_import_amount"`
-	TotalStockAmount    float64 `json:"total_stock_amount"`
-	Total               float64 `json:"total"`
+	TotalSaleAmount        float64 `json:"total_sale_amount"`
+	TotalDiscountAmount    float64 `gorm:"total_discount_amount" json:"total_discount_amount"`
+	TotalLoyaltyCardAmount float64 `gorm:"total_loyalty_card_amount" json:"total_loyalty_card_amount"`
+	TotalImportAmount      float64 `json:"total_import_amount"`
+	TotalStockAmount       float64 `json:"total_stock_amount"`
+	TotalImportStockAmount float64 `gorm:"total_import_stock_amount" json:"total_import_stock_amount"`
+	Total                  float64 `json:"total"`
+	ImportTotal            float64 `gorm:"import_total" json:"import_total"`
 }
 
 type StoreProductsReport struct {
