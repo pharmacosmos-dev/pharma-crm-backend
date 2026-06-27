@@ -9995,6 +9995,67 @@ const docTemplate = `{
                 }
             }
         },
+        "/inventory-detail/stats": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Returns total sums and counts for a specific inventory, including import price-based sums",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Inventory"
+                ],
+                "summary": "Get inventory detail total stats",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Inventory ID",
+                        "name": "inventory_id",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/v1.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/domain.InventoryDetailTotalStats"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    }
+                }
+            }
+        },
         "/inventory-detail/upload-excel": {
             "post": {
                 "security": [
@@ -31680,6 +31741,44 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "retail_price": {
+                    "type": "number"
+                }
+            }
+        },
+        "domain.InventoryDetailTotalStats": {
+            "type": "object",
+            "properties": {
+                "accepted": {
+                    "type": "integer"
+                },
+                "all": {
+                    "type": "integer"
+                },
+                "scanned": {
+                    "type": "integer"
+                },
+                "shortage": {
+                    "type": "integer"
+                },
+                "surplus": {
+                    "type": "integer"
+                },
+                "total_current_sum": {
+                    "type": "number"
+                },
+                "total_difference_sum": {
+                    "type": "number"
+                },
+                "total_fact_sum": {
+                    "type": "number"
+                },
+                "total_import_current_sum": {
+                    "type": "number"
+                },
+                "total_import_difference_sum": {
+                    "type": "number"
+                },
+                "total_import_fact_sum": {
                     "type": "number"
                 }
             }

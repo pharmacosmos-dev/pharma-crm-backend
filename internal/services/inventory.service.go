@@ -566,6 +566,43 @@ func (s *Services) InventoryDetailList(ctx context.Context, params *domain.Inven
 	return res, totalSumData, totalCount, nil
 }
 
+func (s *Services) InventoryDetailTotalStats(ctx context.Context, params *domain.InventoryParam) (*domain.InventoryDetailTotalStats, error) {
+	var res domain.InventoryDetailTotalStats
+
+	query := `
+	SELECT
+		ROUND(SUM(imd.retail_price_vat * (imd.received_count/p.unit_per_pack)), 2) AS total_current_sum,
+		ROUND(SUM(imd.retail_price_vat * (imd.scanned_count/p.unit_per_pack)), 2) AS total_fact_sum,
+		ROUND(SUM(imd.retail_price_vat * ((imd.scanned_count - imd.received_count)/p.unit_per_pack)), 2) AS total_difference_sum,
+		ROUND(SUM(COALESCE(li.retail_price, 0) * (imd.received_count/p.unit_per_pack)), 2) AS total_import_current_sum,
+		ROUND(SUM(COALESCE(li.retail_price, 0) * (imd.scanned_count/p.unit_per_pack)), 2) AS total_import_fact_sum,
+		ROUND(SUM(COALESCE(li.retail_price, 0) * ((imd.scanned_count - imd.received_count)/p.unit_per_pack)), 2) AS total_import_difference_sum,
+		ROUND(SUM(imd.scanned_count/p.unit_per_pack)) AS scanned,
+		ROUND(SUM((imd.received_count - imd.scanned_count)/p.unit_per_pack)) AS shortage,
+		ROUND(SUM(imd.received_count/p.unit_per_pack)) AS "all",
+		ROUND(SUM(CASE WHEN imd.scanned_count > imd.received_count THEN (imd.scanned_count - imd.received_count)/p.unit_per_pack ELSE 0 END)) AS surplus,
+		ROUND(SUM(imd.accepted_count/p.unit_per_pack)) AS accepted
+	FROM import_details imd
+	JOIN products p ON imd.product_id = p.id
+	LEFT JOIN (
+		SELECT DISTINCT ON (imd2.product_id)
+			imd2.product_id,
+			imd2.retail_price
+		FROM import_details imd2
+		JOIN imports imp2 ON imp2.id = imd2.import_id
+		WHERE imp2.entry_type = 1
+		ORDER BY imd2.product_id, imp2.created_at DESC
+	) li ON li.product_id = imd.product_id
+	WHERE imd.import_id = ?`
+
+	err := s.db.WithContext(ctx).Raw(query, params.InventoryId).Scan(&res).Error
+	if err != nil {
+		s.log.Errorf("could not get inventory detail total stats: %v", err)
+		return nil, domain.InternalServerError
+	}
+	return &res, nil
+}
+
 // get inventory detail list
 func (s *Services) InventoryDetailedFlow(ctx context.Context, params *domain.InventoryParam) ([]domain.InventoryDetail, domain.InventoryDetailSum, int64, error) {
 	var (

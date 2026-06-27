@@ -44,6 +44,7 @@ func (h *InventoryHandler) InventoryRoutes(r *gin.RouterGroup) {
 	detail := r.Group("inventory-detail")
 	{
 		detail.GET("/list", h.InventoryDetailList)
+		detail.GET("/stats", h.InventoryDetailStats)
 		detail.GET("/detailed-flow", h.InventoryDetailedFlow)
 		detail.GET("/export-excel", h.InventoryDetailExport)
 		detail.POST("/upload-excel", h.InventoryDetailUpload)
@@ -656,6 +657,37 @@ func (h *InventoryHandler) InventoryDetailList(c *gin.Context) {
 	}
 
 	handleResponse(c, OK, data)
+}
+
+// InventoryDetailStats godoc
+// @Summary      Get inventory detail total stats
+// @Description  Returns total sums and counts for a specific inventory, including import price-based sums
+// @Tags         Inventory
+// @Security     BearerAuth
+// @Accept       json
+// @Produce      json
+// @Param        inventory_id  query     string  true   "Inventory ID"
+// @Success      200           {object}  v1.Response{data=domain.InventoryDetailTotalStats}
+// @Failure      400           {object}  v1.Response
+// @Failure      500           {object}  v1.Response
+// @Router       /inventory-detail/stats [get]
+func (h *InventoryHandler) InventoryDetailStats(c *gin.Context) {
+	var params domain.InventoryParam
+	if err := c.ShouldBindQuery(&params); err != nil {
+		handleServiceResponse(c, BadRequest, domain.InvalidQueryError)
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
+	defer cancel()
+
+	res, err := h.service.InventoryDetailTotalStats(ctx, &params)
+	if err != nil {
+		handleServiceResponse(c, InternalError, err)
+		return
+	}
+
+	handleResponse(c, OK, res)
 }
 
 // Get List

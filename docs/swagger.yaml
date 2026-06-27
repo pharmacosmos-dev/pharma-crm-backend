@@ -720,6 +720,31 @@ definitions:
       retail_price:
         type: number
     type: object
+  domain.InventoryDetailTotalStats:
+    properties:
+      accepted:
+        type: integer
+      all:
+        type: integer
+      scanned:
+        type: integer
+      shortage:
+        type: integer
+      surplus:
+        type: integer
+      total_current_sum:
+        type: number
+      total_difference_sum:
+        type: number
+      total_fact_sum:
+        type: number
+      total_import_current_sum:
+        type: number
+      total_import_difference_sum:
+        type: number
+      total_import_fact_sum:
+        type: number
+    type: object
   domain.InventoryRequest:
     properties:
       created_by:
@@ -8605,6 +8630,43 @@ paths:
       security:
       - BearerAuth: []
       summary: Get Price options
+      tags:
+      - Inventory
+  /inventory-detail/stats:
+    get:
+      consumes:
+      - application/json
+      description: Returns total sums and counts for a specific inventory, including
+        import price-based sums
+      parameters:
+      - description: Inventory ID
+        in: query
+        name: inventory_id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/v1.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/domain.InventoryDetailTotalStats'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Get inventory detail total stats
       tags:
       - Inventory
   /inventory-detail/upload-excel:

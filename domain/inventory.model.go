@@ -141,6 +141,20 @@ type InventoryDetailStats struct {
 	Accepted int `gorm:"accepted" json:"accepted"`
 }
 
+type InventoryDetailTotalStats struct {
+	TotalCurrentSum          float64 `gorm:"total_current_sum" json:"total_current_sum"`
+	TotalFactSum             float64 `gorm:"total_fact_sum" json:"total_fact_sum"`
+	TotalDifferenceSum       float64 `gorm:"total_difference_sum" json:"total_difference_sum"`
+	TotalImportCurrentSum    float64 `gorm:"total_import_current_sum" json:"total_import_current_sum"`
+	TotalImportFactSum       float64 `gorm:"total_import_fact_sum" json:"total_import_fact_sum"`
+	TotalImportDifferenceSum float64 `gorm:"total_import_difference_sum" json:"total_import_difference_sum"`
+	Scanned                  int     `gorm:"scanned" json:"scanned"`
+	Shortage                 int     `gorm:"shortage" json:"shortage"`
+	All                      int     `gorm:"all" json:"all"`
+	Surplus                  int     `gorm:"surplus" json:"surplus"`
+	Accepted                 int     `gorm:"accepted" json:"accepted"`
+}
+
 // 1C request Structure
 type InventoryProduct1C struct {
 	MaterialCode        int        `gorm:"material_code" json:"material_code"`
