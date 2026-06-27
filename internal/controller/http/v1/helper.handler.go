@@ -55,6 +55,7 @@ func (h *HelperHandler) HelperRoutes(r *gin.RouterGroup) {
 		helper.POST("/upload-uzum-tezkor-price", h.UploadUzumTezkorPrice)
 		helper.POST("/check-online-price-by-ids", h.CheckOnlinePriceByIds)
 		helper.POST("/check-products-by-material-code", h.CheckProductsByMaterialCode)
+		helper.POST("/upload-product-categories", h.UploadProductCategories)
 		// helper.POST("/upload-category", h.UploadCategory)
 		// helper.POST("/upload-customer", h.UploadCustomer)
 		// helper.POST("/upload-import", h.UploadImport)
@@ -3077,5 +3078,111 @@ func (h *HelperHandler) UploadUzumTezkorPrice(c *gin.Context) {
 		"not_found":       notFound,
 	})
 }
+
+// UploadProductCategories godoc
+// @Summary      Excel orqali mahsulotlar category_id sini yangilash
+// @Description  Excel fayldan material_code va category_id ni o'qib, products jadvalidagi category_id ni yangilaydi. A ustun: material_code, B ustun: category_id (UUID)
+// @Tags         helper
+// @Security     BearerAuth
+// @Accept       multipart/form-data
+// @Produce      json
+// @Param        file formData file true "Excel file (.xlsx) — A: material_code, B: category_id"
+// @Success      200 {object} v1.Response
+// @Failure      400 {object} v1.Response
+// @Failure      500 {object} v1.Response
+// @Router       /helper/upload-product-categories [post]
+func (h *HelperHandler) UploadProductCategories(c *gin.Context) {
+	var file domain.File
+	if err := c.ShouldBind(&file); err != nil {
+		handleResponse(c, BadRequest, err.Error())
+		return
+	}
+
+	ext := filepath.Ext(file.File.Filename)
+	if ext != ".xlsx" && ext != ".xls" {
+		handleResponse(c, BadRequest, "Unsupported file format")
+		return
+	}
+
+	newFilename := uuid.New().String() + ext
+	savePath := filepath.Join("uploads", newFilename)
+	if err := c.SaveUploadedFile(file.File, savePath); err != nil {
+		handleResponse(c, InternalError, "Failed to save file")
+		return
+	}
+	defer os.Remove(savePath)
+
+	xlsx, err := excelize.OpenFile(savePath)
+	if err != nil {
+		handleResponse(c, BadRequest, "Failed to open Excel file")
+		return
+	}
+	defer xlsx.Close()
+
+	sheetName := xlsx.GetSheetName(0)
+	rows, err := xlsx.GetRows(sheetName)
+	if err != nil {
+		handleResponse(c, InternalError, "Failed to get rows")
+		return
+	}
+
+	tx := h.db.Begin()
+	updated := 0
+	notFound := 0
+	skipped := 0
+
+	for _, row := range rows[1:] { // Skip header
+		if len(row) < 2 {
+			skipped++
+			continue
+		}
+
+		materialCode := parseIntComma(row[0])
+		categoryID := strings.TrimSpace(row[1])
+
+		if materialCode == 0 || categoryID == "" {
+			skipped++
+			continue
+		}
+
+		var categoryCount int64
+		if err := tx.Table("categories").Where("id = ?", categoryID).Count(&categoryCount).Error; err != nil || categoryCount == 0 {
+			h.log.Warnf("Category not found: %s", categoryID)
+			notFound++
+			continue
+		}
+
+		result := tx.Exec(`
+			UPDATE products
+			SET category_id = ?,
+			    updated_at = now()
+			WHERE material_code = ?
+		`, categoryID, materialCode)
+
+		if result.Error != nil {
+			h.log.Warnf("Failed to update category_id for material_code %d: %v", materialCode, result.Error)
+			continue
+		}
+
+		if result.RowsAffected > 0 {
+			updated++
+		} else {
+			notFound++
+		}
+	}
+
+	if err := tx.Commit().Error; err != nil {
+		handleResponse(c, InternalError, err.Error())
+		return
+	}
+
+	handleResponse(c, OK, gin.H{
+		"updated":   updated,
+		"not_found": notFound,
+		"skipped":   skipped,
+	})
+}
+
+
 
 

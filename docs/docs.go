@@ -8142,6 +8142,55 @@ const docTemplate = `{
                 }
             }
         },
+        "/helper/upload-product-categories": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Excel fayldan material_code va category_id ni o'qib, products jadvalidagi category_id ni yangilaydi. A ustun: material_code, B ustun: category_id (UUID)",
+                "consumes": [
+                    "multipart/form-data"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "helper"
+                ],
+                "summary": "Excel orqali mahsulotlar category_id sini yangilash",
+                "parameters": [
+                    {
+                        "type": "file",
+                        "description": "Excel file (.xlsx) — A: material_code, B: category_id",
+                        "name": "file",
+                        "in": "formData",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    }
+                }
+            }
+        },
         "/helper/upload-product-country": {
             "post": {
                 "security": [
