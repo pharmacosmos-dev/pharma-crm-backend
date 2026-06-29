@@ -245,8 +245,9 @@ type DashboardStockStatistic struct {
 	TotalImportAmount      float64 `gorm:"column:total_import_amount" json:"total_import_amount"`
 	TotalImportCount       float64 `gorm:"column:total_import_count" json:"total_import_count"`
 	PriceRevaluationAmount float64 `gorm:"column:price_revaluation_amount" json:"price_revaluation_amount"`
-	UnmatchedAmount        float64 `gorm:"column:unmatched_amount" json:"unmatched_amount"`
-	UnmatchedCount         float64 `gorm:"column:unmatched_count" json:"unmatched_count"`
+	UnmatchedAmount             float64 `gorm:"column:unmatched_amount" json:"unmatched_amount"`
+	UnmatchedCount              float64 `gorm:"column:unmatched_count" json:"unmatched_count"`
+	UntrackedPriceChangeAmount  float64 `gorm:"column:untracked_price_change_amount" json:"untracked_price_change_amount"`
 }
 
 type DashboardCountStatsBonus struct {
