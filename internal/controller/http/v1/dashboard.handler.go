@@ -1013,7 +1013,7 @@ func (h *DashboardHandler) ImportStatistic(c *gin.Context) {
 // @Success 200 {object} v1.Response
 // @Router /dashboard/stock-import-statistic [post]
 func (h *DashboardHandler) StockImportStatistic(c *gin.Context) {
-	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
+	ctx, cancel := context.WithTimeout(context.Background(), constants.ContextTimeoutForReports)
 	defer cancel()
 
 	user := h.service.GetSignedUser(c)
