@@ -798,7 +798,9 @@ func (s *Services) DashboardStockImportStatistic(ctx context.Context, params *do
 		SELECT
 			COALESCE(SUM((COALESCE(idet.retail_price, td.retail_price) / NULLIF(p.unit_per_pack, 0)) * sp.unit_quantity), 0) AS total_import_amount,
 			COALESCE(SUM(sp.unit_quantity), 0) AS total_import_count,
-			COALESCE(SUM((ra.price_diff_sum / NULLIF(p.unit_per_pack, 0)) * sp.unit_quantity), 0) AS price_revaluation_amount
+			COALESCE(SUM((ra.price_diff_sum / NULLIF(p.unit_per_pack, 0)) * sp.unit_quantity), 0) AS price_revaluation_amount,
+			COALESCE(SUM(CASE WHEN idet.id IS NULL AND td.id IS NULL THEN (sp.retail_price / NULLIF(p.unit_per_pack, 0)) * sp.unit_quantity ELSE 0 END), 0) AS unmatched_amount,
+			COALESCE(SUM(CASE WHEN idet.id IS NULL AND td.id IS NULL THEN sp.unit_quantity ELSE 0 END), 0) AS unmatched_count
 		FROM store_products sp
 		LEFT JOIN import_details idet ON idet.id = sp.import_detail_id
 		LEFT JOIN transfer_details td ON td.id = sp.import_detail_id
