@@ -789,12 +789,20 @@ func (s *Services) DashboardImportStatistic(ctx context.Context, params *domain.
 func (s *Services) DashboardStockImportStatistic(ctx context.Context, params *domain.DashboardQueryParam) (*domain.DashboardStockStatistic, error) {
 	// store_products.import_detail_id import_details.id yoki transfer_details.id ga ishora qilishi mumkin
 	query := `
+		WITH revaluation_agg AS (
+			SELECT store_product_id, SUM(new_retail_price - old_retail_price) AS price_diff_sum
+			FROM price_revalution_details
+			WHERE new_retail_price > 0
+			GROUP BY store_product_id
+		)
 		SELECT
 			COALESCE(SUM((COALESCE(idet.retail_price, td.retail_price) / NULLIF(p.unit_per_pack, 0)) * sp.unit_quantity), 0) AS total_import_amount,
-			COALESCE(SUM(sp.unit_quantity), 0) AS total_import_count
+			COALESCE(SUM(sp.unit_quantity), 0) AS total_import_count,
+			COALESCE(SUM((ra.price_diff_sum / NULLIF(p.unit_per_pack, 0)) * sp.unit_quantity), 0) AS price_revaluation_amount
 		FROM store_products sp
 		LEFT JOIN import_details idet ON idet.id = sp.import_detail_id
 		LEFT JOIN transfer_details td ON td.id = sp.import_detail_id
+		LEFT JOIN revaluation_agg ra ON ra.store_product_id = sp.id
 		JOIN products p ON p.id = sp.product_id
 		JOIN stores st ON sp.store_id = st.id
 		WHERE sp.unit_quantity > 0`
