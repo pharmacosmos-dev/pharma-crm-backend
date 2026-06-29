@@ -5427,6 +5427,48 @@ paths:
       summary: Get all transaction stats
       tags:
       - dashboard
+  /dashboard/untracked-price-changes:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Start date (RFC3339)
+        in: query
+        name: start_date
+        type: string
+      - description: Limit
+        in: query
+        name: limit
+        type: integer
+      - description: Offset
+        in: query
+        name: offset
+        type: integer
+      - description: Product name search
+        in: query
+        name: search
+        type: string
+      - description: Franchise filter
+        in: query
+        name: is_franchise
+        type: boolean
+      - description: Pharma filter
+        in: query
+        name: is_pharma
+        type: boolean
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: List store_products whose retail_price changed outside the repricing
+        audit trail
+      tags:
+      - dashboard
   /discount-card:
     post:
       consumes:

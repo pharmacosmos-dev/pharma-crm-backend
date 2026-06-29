@@ -250,6 +250,20 @@ type DashboardStockStatistic struct {
 	UntrackedPriceChangeAmount  float64 `gorm:"column:untracked_price_change_amount" json:"untracked_price_change_amount"`
 }
 
+// UntrackedPriceChangeItem - bitta store_product bo'yicha repricing audit'siz narx o'zgarishi tafsiloti
+type UntrackedPriceChangeItem struct {
+	StoreProductId         string  `gorm:"store_product_id" json:"store_product_id"`
+	ProductName            string  `gorm:"product_name" json:"product_name"`
+	StoreName              string  `gorm:"store_name" json:"store_name"`
+	UnitQuantity           float64 `gorm:"unit_quantity" json:"unit_quantity"`
+	UnitPerPack            int     `gorm:"unit_per_pack" json:"unit_per_pack"`
+	BaselinePrice          float64 `gorm:"baseline_price" json:"baseline_price"`
+	CurrentPrice           float64 `gorm:"current_price" json:"current_price"`
+	TrackedRevaluationDiff float64 `gorm:"tracked_revaluation_diff" json:"tracked_revaluation_diff"`
+	UntrackedDiff          float64 `gorm:"untracked_diff" json:"untracked_diff"`
+	UntrackedAmount        float64 `gorm:"untracked_amount" json:"untracked_amount"`
+}
+
 type DashboardCountStatsBonus struct {
 	BonusAmount       float64 `gorm:"bonus_amount" json:"bonus_amount"`
 	BeforeBonusAmount float64 `gorm:"before_bonus_amount" json:"before_bonus_amount"`

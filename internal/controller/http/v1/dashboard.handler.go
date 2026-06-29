@@ -37,6 +37,7 @@ func (h *DashboardHandler) DashboardRoutes(r *gin.RouterGroup) {
 		dashboard.POST("/net-profit-statistic", h.NetProfitStatistic)
 		dashboard.POST("/import-statistic", h.ImportStatistic)
 		dashboard.POST("/stock-import-statistic", h.StockImportStatistic)
+		dashboard.POST("/untracked-price-changes", h.UntrackedPriceChanges)
 		dashboard.POST("/product-statistic", h.ProductStatistic)
 		dashboard.POST("/employee-bonus", h.EmployeeBonus)
 		dashboard.POST("/loyalty_card-statistic", h.LoyaltyCardStatistic)
@@ -1061,6 +1062,78 @@ func (h *DashboardHandler) StockImportStatistic(c *gin.Context) {
 	}
 
 	res, err := h.service.DashboardStockImportStatistic(ctx, &params)
+	if err != nil {
+		handleServiceResponse(c, InternalError, err)
+		return
+	}
+
+	handleResponse(c, OK, res)
+}
+
+// UntrackedPriceChanges godoc
+// @Summary List store_products whose retail_price changed outside the repricing audit trail
+// @Tags dashboard
+// @Security BearerAuth
+// @Accept json
+// @Produce json
+// @Param start_date   query string false "Start date (RFC3339)"
+// @Param limit         query int    false "Limit"
+// @Param offset        query int    false "Offset"
+// @Param search        query string false "Product name search"
+// @Param is_franchise query bool   false "Franchise filter"
+// @Param is_pharma    query bool   false "Pharma filter"
+// @Success 200 {object} v1.Response
+// @Router /dashboard/untracked-price-changes [post]
+func (h *DashboardHandler) UntrackedPriceChanges(c *gin.Context) {
+	ctx, cancel := context.WithTimeout(context.Background(), constants.ContextTimeoutForReports)
+	defer cancel()
+
+	user := h.service.GetSignedUser(c)
+	if user.UserId == "" {
+		handleServiceResponse(c, nil, domain.UnauthorizedError)
+		return
+	}
+
+	var params domain.DashboardQueryParam
+	if err := c.ShouldBindQuery(&params); err != nil {
+		handleServiceResponse(c, BadRequest, domain.InvalidQueryError)
+		return
+	}
+	params.Limit, params.Offset = defaultLimitOffset(params.Limit, params.Offset)
+
+	var body domain.DashboardBody
+	if c.Request.Body != nil {
+		_ = c.ShouldBindJSON(&body)
+	}
+	params.StoreIds = body.StoreIds
+	params.CompanyIds = body.CompanyIds
+
+	var isAdmin bool
+	if !helper.IsAdmin(user) {
+		if len(body.StoreIds) > 0 {
+			params.StoreIds = body.StoreIds
+		} else if user.StoreId != "" {
+			params.StoreIds = []string{user.StoreId}
+		}
+		params.CompanyIds = []string{user.CompanyId}
+	} else {
+		isAdmin = true
+	}
+
+	if !isAdmin && user.Role == constants.RoleFranchise {
+		params.CompanyIds, _ = h.service.GetCompanyIds(ctx, true)
+		if len(body.StoreIds) == 0 {
+			params.StoreIds = []string{}
+		}
+	} else if isAdmin && params.IsFranchise != nil && *params.IsFranchise {
+		params.CompanyIds, _ = h.service.GetCompanyIds(ctx, true)
+		params.StoreIds = []string{}
+	} else if isAdmin && params.IsPharma != nil && *params.IsPharma {
+		params.CompanyIds, _ = h.service.GetCompanyIds(ctx, false)
+		params.StoreIds = []string{}
+	}
+
+	res, err := h.service.DashboardUntrackedPriceChanges(ctx, &params)
 	if err != nil {
 		handleServiceResponse(c, InternalError, err)
 		return

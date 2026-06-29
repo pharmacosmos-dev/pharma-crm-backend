@@ -837,6 +837,66 @@ func (s *Services) DashboardStockImportStatistic(ctx context.Context, params *do
 	return &res, nil
 }
 
+// list store_products whose retail_price changed outside of the formal repricing audit trail
+func (s *Services) DashboardUntrackedPriceChanges(ctx context.Context, params *domain.DashboardQueryParam) ([]domain.UntrackedPriceChangeItem, error) {
+	query := `
+		WITH revaluation_agg AS (
+			SELECT store_product_id, SUM(new_retail_price - old_retail_price) AS price_diff_sum
+			FROM price_revalution_details
+			WHERE new_retail_price > 0
+			GROUP BY store_product_id
+		)
+		SELECT
+			sp.id AS store_product_id,
+			p.name AS product_name,
+			st.name AS store_name,
+			sp.unit_quantity,
+			p.unit_per_pack,
+			COALESCE(idet.retail_price_vat, td.retail_price) AS baseline_price,
+			sp.retail_price AS current_price,
+			COALESCE(ra.price_diff_sum, 0) AS tracked_revaluation_diff,
+			(sp.retail_price - COALESCE(idet.retail_price_vat, td.retail_price)) - COALESCE(ra.price_diff_sum, 0) AS untracked_diff,
+			ROUND((((sp.retail_price - COALESCE(idet.retail_price_vat, td.retail_price)) - COALESCE(ra.price_diff_sum, 0)) / NULLIF(p.unit_per_pack, 0)) * sp.unit_quantity, 2) AS untracked_amount
+		FROM store_products sp
+		JOIN products p ON p.id = sp.product_id
+		JOIN stores st ON sp.store_id = st.id
+		LEFT JOIN import_details idet ON idet.id = sp.import_detail_id
+		LEFT JOIN transfer_details td ON td.id = sp.import_detail_id
+		LEFT JOIN revaluation_agg ra ON ra.store_product_id = sp.id
+		WHERE sp.unit_quantity > 0
+			AND (idet.id IS NOT NULL OR td.id IS NOT NULL)
+			AND ROUND((sp.retail_price - COALESCE(idet.retail_price_vat, td.retail_price)) - COALESCE(ra.price_diff_sum, 0), 2) <> 0`
+
+	var args []any
+
+	if params.StartDate != nil && !params.StartDate.GetTime().IsZero() {
+		query += " AND sp.created_at <= ?"
+		args = append(args, params.StartDate.UTC())
+	}
+	if len(params.StoreIds) > 0 {
+		query += " AND sp.store_id IN (?)"
+		args = append(args, params.StoreIds)
+	}
+	if len(params.CompanyIds) > 0 {
+		query += " AND st.company_id IN (?)"
+		args = append(args, params.CompanyIds)
+	}
+	if params.Search != "" {
+		query += " AND p.name ILIKE ?"
+		args = append(args, "%"+params.Search+"%")
+	}
+
+	query += " ORDER BY ABS(untracked_amount) DESC LIMIT ? OFFSET ?"
+	args = append(args, params.Limit, params.Offset)
+
+	var res []domain.UntrackedPriceChangeItem
+	if err := s.db.WithContext(ctx).Raw(query, args...).Scan(&res).Error; err != nil {
+		s.log.Errorf("could not get untracked price changes: %v", err)
+		return nil, domain.InternalServerError
+	}
+	return res, nil
+}
+
 // get dashboard count and amount data
 func (s *Services) DashboardProductStatistic(ctx context.Context, params *domain.DashboardQueryParam) (*domain.DashboardProductStatistic, error) {
 	// declarations
