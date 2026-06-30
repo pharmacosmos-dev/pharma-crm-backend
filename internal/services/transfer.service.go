@@ -615,23 +615,6 @@ func (s *Services) SendTransfer(ctx context.Context, transferId string, userId s
 		return domain.AlreadySentError
 	}
 
-	if !transfer.IsAuto {
-		var notScannedCount int64
-		err = tx.WithContext(ctx).Raw(`
-			SELECT COUNT(*) FROM transfer_details
-			WHERE transfer_id = ? AND expected_count > 0 AND scanned_count = 0
-		`, transferId).Scan(&notScannedCount).Error
-		if err != nil {
-			_ = tx.Rollback()
-			s.log.Errorf("could not check scanned_count for transfer(%s): %v", transferId, err)
-			return domain.InternalServerError
-		}
-		if notScannedCount > 0 {
-			_ = tx.Rollback()
-			return domain.ScannedCountZeroError
-		}
-	}
-
 	// update confirm inventory
 	query := `UPDATE transfers SET status = ?, updated_by = ?, driver_office = ? WHERE id = ?`
 	err = tx.WithContext(ctx).Exec(query, constants.GeneralStatusSent, userId, DriverName, transferId).Error
@@ -712,10 +695,25 @@ func (s *Services) EditStatusToCheckingTransfer(ctx context.Context, Id string, 
 	var transfer struct {
 		ToStoreId string `gorm:"to_store_id"`
 		Name      string `gorm:"name"`
+		IsAuto    bool   `gorm:"is_auto"`
 	}
-	if err := s.db.WithContext(ctx).Raw("SELECT to_store_id, name FROM transfers WHERE id = ?", Id).Scan(&transfer).Error; err != nil {
+	if err := s.db.WithContext(ctx).Raw("SELECT to_store_id, name, is_auto FROM transfers WHERE id = ?", Id).Scan(&transfer).Error; err != nil {
 		s.log.Errorf("could not get transfer(%s): %v", Id, err)
 		return domain.InternalServerError
+	}
+
+	if !transfer.IsAuto {
+		var notScannedCount int64
+		if err := s.db.WithContext(ctx).Raw(`
+			SELECT COUNT(*) FROM transfer_details
+			WHERE transfer_id = ? AND expected_count > 0 AND scanned_count = 0
+		`, Id).Scan(&notScannedCount).Error; err != nil {
+			s.log.Errorf("could not check scanned_count for transfer(%s): %v", Id, err)
+			return domain.InternalServerError
+		}
+		if notScannedCount > 0 {
+			return domain.ScannedCountZeroError
+		}
 	}
 
 	result := s.db.WithContext(ctx).Exec(`
