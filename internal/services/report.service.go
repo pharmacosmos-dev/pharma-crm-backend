@@ -988,8 +988,8 @@ func (s *Services) GetStoreSummaryReport(ctx context.Context, params *domain.Rep
 				JOIN products p ON sp.product_id = p.id
 					WHERE sp.unit_quantity > 0
 			GROUP BY sp.store_id
-	)
-	-- , import_stock_cte AS (
+	),
+	-- import_stock_cte AS (
 	-- 		SELECT
 	-- 				sp.store_id,
 	-- 				ROUND(SUM((idet.retail_price / NULLIF(p.unit_per_pack, 0)) * sp.unit_quantity), 2) AS import_stock_amount
@@ -1113,8 +1113,8 @@ func (s *Services) GetStoreSummaryReportStats(ctx context.Context, params *domai
 			JOIN products p ON sp.product_id = p.id
 				WHERE sp.unit_quantity > 0
 		GROUP BY sp.store_id
-	)
-	-- , import_stock_cte AS (
+	),
+	-- import_stock_cte AS (
 	-- 	SELECT
 	-- 		sp.store_id,
 	-- 		ROUND(SUM((idet.retail_price / NULLIF(p.unit_per_pack, 0)) * sp.unit_quantity), 2) AS import_stock_amount
