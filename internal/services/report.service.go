@@ -988,7 +988,7 @@ func (s *Services) GetStoreSummaryReport(ctx context.Context, params *domain.Rep
 				JOIN products p ON sp.product_id = p.id
 					WHERE sp.unit_quantity > 0
 			GROUP BY sp.store_id
-	),
+	)
 	-- import_stock_cte AS (
 	-- 		SELECT
 	-- 				sp.store_id,
