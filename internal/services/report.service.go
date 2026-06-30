@@ -988,17 +988,17 @@ func (s *Services) GetStoreSummaryReport(ctx context.Context, params *domain.Rep
 				JOIN products p ON sp.product_id = p.id
 					WHERE sp.unit_quantity > 0
 			GROUP BY sp.store_id
-	),
-	import_stock_cte AS (
-			SELECT
-					sp.store_id,
-					ROUND(SUM((idet.retail_price / NULLIF(p.unit_per_pack, 0)) * sp.unit_quantity), 2) AS import_stock_amount
-			FROM store_products sp
-				JOIN products p ON sp.product_id = p.id
-				JOIN import_details idet ON idet.id = sp.import_detail_id
-			WHERE sp.unit_quantity > 0
-			GROUP BY sp.store_id
 	)
+	-- , import_stock_cte AS (
+	-- 		SELECT
+	-- 				sp.store_id,
+	-- 				ROUND(SUM((idet.retail_price / NULLIF(p.unit_per_pack, 0)) * sp.unit_quantity), 2) AS import_stock_amount
+	-- 		FROM store_products sp
+	-- 			JOIN products p ON sp.product_id = p.id
+	-- 			JOIN import_details idet ON idet.id = sp.import_detail_id
+	-- 		WHERE sp.unit_quantity > 0
+	-- 		GROUP BY sp.store_id
+	-- )
 	SELECT
 			st.name AS name,
 			COALESCE(s.sale_amount, 0) AS sale_amount,
@@ -1006,14 +1006,14 @@ func (s *Services) GetStoreSummaryReport(ctx context.Context, params *domain.Rep
 			COALESCE(s.loyalty_card_amount, 0) AS loyalty_card_amount,
 			COALESCE(i.import_amount, 0) AS import_amount,
 			COALESCE(k.stock_amount, 0) AS stock_amount,
-			COALESCE(isk.import_stock_amount, 0) AS import_stock_amount,
-			ROUND(COALESCE(s.sale_amount, 0) - COALESCE(s.discount_amount, 0) - COALESCE(s.loyalty_card_amount, 0) + COALESCE(i.import_amount, 0) + COALESCE(k.stock_amount, 0), 2) AS total,
-			ROUND(COALESCE(s.sale_amount, 0) - COALESCE(s.discount_amount, 0) - COALESCE(s.loyalty_card_amount, 0) + COALESCE(i.import_amount, 0) + COALESCE(isk.import_stock_amount, 0), 2) AS import_total
+			-- COALESCE(isk.import_stock_amount, 0) AS import_stock_amount,
+			ROUND(COALESCE(s.sale_amount, 0) - COALESCE(s.discount_amount, 0) - COALESCE(s.loyalty_card_amount, 0) + COALESCE(i.import_amount, 0) + COALESCE(k.stock_amount, 0), 2) AS total
+			-- , ROUND(COALESCE(s.sale_amount, 0) - COALESCE(s.discount_amount, 0) - COALESCE(s.loyalty_card_amount, 0) + COALESCE(i.import_amount, 0) + COALESCE(isk.import_stock_amount, 0), 2) AS import_total
 	FROM stores st
 	LEFT JOIN sale_cte s ON st.id = s.store_id
 	LEFT JOIN import_cte i ON st.id = i.store_id
 	LEFT JOIN stock_cte k ON st.id = k.store_id
-	LEFT JOIN import_stock_cte isk ON st.id = isk.store_id
+	-- LEFT JOIN import_stock_cte isk ON st.id = isk.store_id
 	WHERE st.is_active = true
 	`
 
@@ -1113,17 +1113,17 @@ func (s *Services) GetStoreSummaryReportStats(ctx context.Context, params *domai
 			JOIN products p ON sp.product_id = p.id
 				WHERE sp.unit_quantity > 0
 		GROUP BY sp.store_id
-	),
-	import_stock_cte AS (
-		SELECT
-			sp.store_id,
-			ROUND(SUM((idet.retail_price / NULLIF(p.unit_per_pack, 0)) * sp.unit_quantity), 2) AS import_stock_amount
-		FROM store_products sp
-			JOIN products p ON sp.product_id = p.id
-			JOIN import_details idet ON idet.id = sp.import_detail_id
-		WHERE sp.unit_quantity > 0
-		GROUP BY sp.store_id
-	),
+	)
+	-- , import_stock_cte AS (
+	-- 	SELECT
+	-- 		sp.store_id,
+	-- 		ROUND(SUM((idet.retail_price / NULLIF(p.unit_per_pack, 0)) * sp.unit_quantity), 2) AS import_stock_amount
+	-- 	FROM store_products sp
+	-- 		JOIN products p ON sp.product_id = p.id
+	-- 		JOIN import_details idet ON idet.id = sp.import_detail_id
+	-- 	WHERE sp.unit_quantity > 0
+	-- 	GROUP BY sp.store_id
+	-- ),
 	store_summary AS (
 		SELECT
 			st.name AS name,
@@ -1132,14 +1132,14 @@ func (s *Services) GetStoreSummaryReportStats(ctx context.Context, params *domai
 			COALESCE(s.loyalty_card_amount, 0) AS loyalty_card_amount,
 			COALESCE(i.import_amount, 0) AS import_amount,
 			COALESCE(k.stock_amount, 0) AS stock_amount,
-			COALESCE(isk.import_stock_amount, 0) AS import_stock_amount,
-			ROUND(COALESCE(s.sale_amount, 0) - COALESCE(s.discount_amount, 0) - COALESCE(s.loyalty_card_amount, 0) + COALESCE(i.import_amount, 0) + COALESCE(k.stock_amount, 0), 2) AS total,
-			ROUND(COALESCE(s.sale_amount, 0) - COALESCE(s.discount_amount, 0) - COALESCE(s.loyalty_card_amount, 0) + COALESCE(i.import_amount, 0) + COALESCE(isk.import_stock_amount, 0), 2) AS import_total
+			-- COALESCE(isk.import_stock_amount, 0) AS import_stock_amount,
+			ROUND(COALESCE(s.sale_amount, 0) - COALESCE(s.discount_amount, 0) - COALESCE(s.loyalty_card_amount, 0) + COALESCE(i.import_amount, 0) + COALESCE(k.stock_amount, 0), 2) AS total
+			-- , ROUND(COALESCE(s.sale_amount, 0) - COALESCE(s.discount_amount, 0) - COALESCE(s.loyalty_card_amount, 0) + COALESCE(i.import_amount, 0) + COALESCE(isk.import_stock_amount, 0), 2) AS import_total
 		FROM stores st
 		LEFT JOIN sale_cte s ON st.id = s.store_id
 		LEFT JOIN import_cte i ON st.id = i.store_id
 		LEFT JOIN stock_cte k ON st.id = k.store_id
-		LEFT JOIN import_stock_cte isk ON st.id = isk.store_id
+		-- LEFT JOIN import_stock_cte isk ON st.id = isk.store_id
 		WHERE st.is_active = true
 		%s
 	)
@@ -1149,9 +1149,8 @@ func (s *Services) GetStoreSummaryReportStats(ctx context.Context, params *domai
 		SUM(loyalty_card_amount) AS total_loyalty_card_amount,
 		SUM(import_amount) AS total_import_amount,
 		SUM(stock_amount) AS total_stock_amount,
-		SUM(import_stock_amount) AS total_import_stock_amount,
-		SUM(total) AS total,
-		SUM(import_total) AS import_total
+		SUM(total) AS total
+		-- , SUM(import_stock_amount) AS total_import_stock_amount, SUM(import_total) AS import_total
 	FROM store_summary
 	`, filter)
 

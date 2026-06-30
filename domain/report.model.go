@@ -147,7 +147,7 @@ type StoreSummary struct {
 	LoyaltyCardAmount   float64 `gorm:"loyalty_card_amount" json:"loyalty_card_amount"`
 	ImportAmount        float64 `json:"import_amount"`
 	StockAmount         float64 `json:"stock_amount"`
-	ImportStocAmount    float64 `gorm:"import_stock_amount" json:"import_stock_amount"`
+	//ImportStocAmount    float64 `gorm:"import_stock_amount" json:"import_stock_amount"`
 	Total               float64 `json:"total"`
 	ImportTotal         float64 `gorm:"import_total" json:"import_total"`
 }
@@ -158,7 +158,7 @@ type StoreSummaryStats struct {
 	TotalLoyaltyCardAmount float64 `gorm:"total_loyalty_card_amount" json:"total_loyalty_card_amount"`
 	TotalImportAmount      float64 `json:"total_import_amount"`
 	TotalStockAmount       float64 `json:"total_stock_amount"`
-	TotalImportStockAmount float64 `gorm:"total_import_stock_amount" json:"total_import_stock_amount"`
+	//TotalImportStockAmount float64 `gorm:"total_import_stock_amount" json:"total_import_stock_amount"`
 	Total                  float64 `json:"total"`
 	ImportTotal            float64 `gorm:"import_total" json:"import_total"`
 }
