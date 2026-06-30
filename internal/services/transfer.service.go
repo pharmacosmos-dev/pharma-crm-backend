@@ -615,6 +615,23 @@ func (s *Services) SendTransfer(ctx context.Context, transferId string, userId s
 		return domain.AlreadySentError
 	}
 
+	if !transfer.IsAuto {
+		var notScannedCount int64
+		err = tx.WithContext(ctx).Raw(`
+			SELECT COUNT(*) FROM transfer_details
+			WHERE transfer_id = ? AND expected_count > 0 AND scanned_count = 0
+		`, transferId).Scan(&notScannedCount).Error
+		if err != nil {
+			_ = tx.Rollback()
+			s.log.Errorf("could not check scanned_count for transfer(%s): %v", transferId, err)
+			return domain.InternalServerError
+		}
+		if notScannedCount > 0 {
+			_ = tx.Rollback()
+			return domain.ScannedCountZeroError
+		}
+	}
+
 	// update confirm inventory
 	query := `UPDATE transfers SET status = ?, updated_by = ?, driver_office = ? WHERE id = ?`
 	err = tx.WithContext(ctx).Exec(query, constants.GeneralStatusSent, userId, DriverName, transferId).Error
