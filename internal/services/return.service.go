@@ -142,6 +142,7 @@ func (s *Services) UpdateReturnDetailQuantity(ctx context.Context, req *domain.R
 		ExpectedCount float64 `gorm:"expected_count"`
 		ScannedCount  float64 `gorm:"scanned_count"`
 		AcceptedCount float64 `gorm:"accepted_count"`
+		RejectedCount float64 `gorm:"rejection_count"`
 	}
 	err := s.db.WithContext(ctx).Raw(`
 	SELECT
@@ -191,7 +192,7 @@ func (s *Services) UpdateReturnDetailQuantity(ctx context.Context, req *domain.R
 		switch req.Status {
 		case "rejection":
 			transferLog.Stage = constants.TransferLogStageChecking
-			if count != returnDetail.AcceptedCount {
+			if count != returnDetail.RejectedCount {
 				return errors.New("invalid.quantity")
 			}
 			err = s.db.WithContext(ctx).Exec(`
