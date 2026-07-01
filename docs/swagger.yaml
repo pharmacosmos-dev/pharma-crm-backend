@@ -1969,6 +1969,13 @@ definitions:
         minimum: 0
         type: integer
     type: object
+  domain.UpdateImportBlockRequest:
+    properties:
+      id:
+        type: string
+      is_blocked:
+        type: boolean
+    type: object
   domain.UpdateIsMarking:
     properties:
       id:
@@ -8278,40 +8285,6 @@ paths:
       summary: First imports
       tags:
       - imports
-  /import/{id}/block:
-    patch:
-      description: Set is_blocked true or false for an import
-      parameters:
-      - description: Import ID
-        in: path
-        name: id
-        required: true
-        type: string
-      - description: Block status
-        in: query
-        name: is_blocked
-        required: true
-        type: boolean
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/v1.Response'
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/v1.Response'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/v1.Response'
-      security:
-      - BearerAuth: []
-      summary: Update import block status
-      tags:
-      - imports
   /import/export-excel:
     get:
       consumes:
@@ -8488,6 +8461,38 @@ paths:
       security:
       - BearerAuth: []
       summary: Get import status stats
+      tags:
+      - imports
+  /import/update-block:
+    patch:
+      consumes:
+      - application/json
+      description: Set is_blocked true or false for an import
+      parameters:
+      - description: Block request
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/domain.UpdateImportBlockRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Update import block status
       tags:
       - imports
   /inventory:

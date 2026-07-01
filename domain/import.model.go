@@ -50,6 +50,11 @@ type ImportStatusSummary struct {
 	NewReceivedCount           float64 `json:"new_received_count"`
 }
 
+type UpdateImportBlockRequest struct {
+	Id        string `json:"id"`
+	IsBlocked bool   `json:"is_blocked"`
+}
+
 // ImportRequest structure
 type ImportRequest struct {
 	Id             string `gorm:"id" json:"id"`
