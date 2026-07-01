@@ -1211,7 +1211,7 @@ func (s *Services) ConfirmRejection(ctx context.Context, returnId, userId string
 		    updated_at        = NOW()
 		WHERE id = ?`,
 		returnId,
-		req.DriverRejection,
+		req.DriverName,
 		userId,
 		constants.GeneralStatusCompleted,
 		returnId,

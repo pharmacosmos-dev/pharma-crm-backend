@@ -151,7 +151,7 @@ type ReturnDetailStatus struct {
 }
 
 type ConfirmRejectionRequest struct {
-	DriverRejection string `json:"driver_rejection"`
+	DriverName string `json:"driver_name"`
 }
 
 type ReturnAddProduct struct {
