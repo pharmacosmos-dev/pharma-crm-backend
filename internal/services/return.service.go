@@ -150,6 +150,7 @@ func (s *Services) UpdateReturnDetailQuantity(ctx context.Context, req *domain.R
 		td.expected_count,
 		td.scanned_count,
 		td.accepted_count,
+		td.rejection_count,
 		p.id AS product_id,
 		p.unit_per_pack
 	FROM transfer_details td
