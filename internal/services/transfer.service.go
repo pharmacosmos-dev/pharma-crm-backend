@@ -850,7 +850,7 @@ func (s *Services) SendTransferToOnec(ctx context.Context, transferId string) er
 }
 
 // check accepted_count is not null and equals scanned_count
-func (s *Services) CheckAcceptedCount(ctx context.Context, transferId string) error {
+func (s *Services) CheckTransferAcceptedCount(ctx context.Context, transferId string) error {
 	var nullCount int64
 	err := s.db.WithContext(ctx).Table("transfer_details").
 		Where("transfer_id = ? AND accepted_count IS NULL", transferId).

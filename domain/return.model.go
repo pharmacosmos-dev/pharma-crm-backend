@@ -84,9 +84,12 @@ type ReturnDetail struct {
 	ScannedCount   float64    `gorm:"scanned_count" json:"scanned_count"`
 	ScannedPack    int        `gorm:"scanned_pack" json:"scanned_pack"`
 	ScannedUnit    int        `gorm:"scanned_unit" json:"scanned_unit"`
-	AcceptedCount  float64    `gorm:"accepted_count" json:"accepted_count"`
-	AcceptedUnit   float64    `gorm:"accepted_unit" json:"accepted_unit"`
-	OnecCount      float64    `gorm:"onec_count" json:"onec_count"`
+	AcceptedCount   float64    `gorm:"accepted_count" json:"accepted_count"`
+	AcceptedUnit    float64    `gorm:"accepted_unit" json:"accepted_unit"`
+	OnecCount       float64    `gorm:"onec_count" json:"onec_count"`
+	RejectionCount  float64    `gorm:"rejection_count" json:"rejection_count"`
+	RejectionPack   int        `gorm:"rejection_pack" json:"rejection_pack"`
+	RejectionUnit   int        `gorm:"rejection_unit" json:"rejection_unit"`
 	Name           string     `gorm:"name" json:"name"`
 	MaterialCode   int        `gorm:"material_code" json:"material_code"`
 	Barcode        string     `gorm:"barcode" json:"barcode"`
@@ -143,6 +146,10 @@ type ReturnDetailStatus struct {
 	SurplusRetailSum  float64 `gorm:"surplus_retail_sum" json:"surplus_retail_sum"`
 }
 
+type ConfirmRejectionRequest struct {
+	DriverRejection string `json:"driver_rejection"`
+}
+
 type ReturnAddProduct struct {
 	Id          string   `gorm:"id" json:"id"`
 	TransferId  string   `gorm:"transfer_id" json:"transfer_id"`
@@ -156,6 +163,7 @@ type ReturnAddProduct struct {
 }
 
 type ReturnDetail1C struct {
+	Id                  string     `gorm:"id" json:"id"`
 	MaterialCode        int        `gorm:"material_code" json:"material_code"`
 	Name                string     `gorm:"name" json:"name"`
 	Barcode             string     `gorm:"barcode" json:"barcode"`

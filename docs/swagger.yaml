@@ -305,6 +305,11 @@ definitions:
       sale_id:
         type: string
     type: object
+  domain.ConfirmRejectionRequest:
+    properties:
+      driver_rejection:
+        type: string
+    type: object
   domain.CreateDiscountCardRequest:
     properties:
       barcode:
@@ -16670,6 +16675,43 @@ paths:
       security:
       - BearerAuth: []
       summary: Cancel Return
+      tags:
+      - Return
+  /return/confirm-rejection/{id}:
+    post:
+      consumes:
+      - application/json
+      description: Accepts rejected items, restores stock, sets status to completed
+      parameters:
+      - description: Return ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Rejection details
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/domain.ConfirmRejectionRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Confirm rejection for a return
       tags:
       - Return
   /return/confirm/{id}:

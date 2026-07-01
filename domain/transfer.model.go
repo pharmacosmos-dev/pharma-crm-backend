@@ -32,6 +32,9 @@ type Transfer struct {
 	CreatedById       string                       `gorm:"column:created_by" json:"created_by_id"`
 	UpdatedById       string                       `gorm:"column:updated_by" json:"updated_by_id"`
 	AcceptedById      string                       `gorm:"column:accepted_by" json:"accepted_by_id"`
+	RejectionCount    float64                      `gorm:"rejection_count" json:"rejection_count"`
+	DriverRejection   string                       `gorm:"driver_rejection" json:"driver_rejection"`
+	RejectionById     string                       `gorm:"rejection_by" json:"rejection_by_id"`
 	FromStore         NullStruct[TransferStore]    `gorm:"-" json:"store"`
 	ToStore           NullStruct[TransferStore]    `gorm:"-" json:"to_store"`
 	CreatedBy         NullStruct[TransferEmployee] `gorm:"-" json:"created_by"`
@@ -98,6 +101,11 @@ type TransferDetail struct {
 	IsMarking      bool       `gorm:"is_marking" json:"is_marking"`
 	ScannedPack    int        `gorm:"scanned_pack" json:"scanned_pack"`
 	ScannedUnit    int        `gorm:"scanned_unit" json:"scanned_unit"`
+	AcceptedPack    int     `gorm:"accepted_pack" json:"accepted_pack"`
+	AcceptedUnit    int     `gorm:"accepted_unit" json:"accepted_unit"`
+	RejectionCount  float64 `gorm:"rejection_count" json:"rejection_count"`
+	RejectionPack   int     `gorm:"rejection_pack" json:"rejection_pack"`
+	RejectionUnit   int     `gorm:"rejection_unit" json:"rejection_unit"`
 	// Pack+Unit input (NULL = old transfer, NOT NULL = new transfer with explicit pack/unit entry)
 	ExpectedPack *int `gorm:"expected_pack" json:"expected_pack"`
 	ExpectedUnit *int `gorm:"expected_unit" json:"expected_unit"`

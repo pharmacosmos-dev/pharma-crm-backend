@@ -41,6 +41,7 @@ func (h *ReturnHandler) ReturnRoutes(r *gin.RouterGroup) {
 		returned.POST("/send/:id", h.Send)
 		returned.POST("/send1c/:id", h.ResendReturnToOnec)
 		returned.POST("/confirm/:id", h.Confirm)
+		returned.POST("/confirm-rejection/:id", h.ConfirmRejection)
 		returned.POST("/cancel/:id", h.Cancel)
 		returned.GET("/export-nakladnoy", h.ExportReturnNakladnoyPDF)
 		returned.PUT("/update-by-barcode/:id", h.UpdateByBarcode)
@@ -516,7 +517,7 @@ func (h *ReturnHandler) Confirm(c *gin.Context) {
 	defer mu.Unlock()
 
 	// check is accepted_count is not null
-	err := h.service.CheckAcceptedCount(ctx, id)
+	err := h.service.CheckReturnAcceptedCount(ctx, id)
 	if err != nil {
 		handleServiceResponse(c, nil, err)
 		return
@@ -529,6 +530,46 @@ func (h *ReturnHandler) Confirm(c *gin.Context) {
 	}
 
 	handleResponse(c, OK, "CONFIRMED")
+}
+
+// ConfirmRejection godoc
+// @Summary Confirm rejection for a return
+// @Description Accepts rejected items, restores stock, sets status to completed
+// @Tags Return
+// @Security     BearerAuth
+// @Accept  json
+// @Produce json
+// @Param   id   path   string                        true "Return ID"
+// @Param   body body   domain.ConfirmRejectionRequest true "Rejection details"
+// @Success 200 {object} v1.Response
+// @Failure 400 {object} v1.Response
+// @Failure 500 {object} v1.Response
+// @Router /return/confirm-rejection/{id} [POST]
+func (h *ReturnHandler) ConfirmRejection(c *gin.Context) {
+	user := h.service.GetSignedUser(c)
+	if user.UserId == "" {
+		handleServiceResponse(c, nil, domain.UnauthorizedError)
+		return
+	}
+	id := c.Param("id")
+	if id == "" {
+		handleServiceResponse(c, nil, domain.InvalidQueryError)
+		return
+	}
+	var req domain.ConfirmRejectionRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		handleServiceResponse(c, BadRequest, domain.InvalidRequestBodyError)
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
+	defer cancel()
+
+	if err := h.service.ConfirmRejection(ctx, id, user.UserId, &req); err != nil {
+		handleServiceResponse(c, nil, err)
+		return
+	}
+	handleResponse(c, OK, "REJECTION_CONFIRMED")
 }
 
 // cancel return

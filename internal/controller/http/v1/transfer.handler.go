@@ -720,7 +720,7 @@ func (h *TransferHandler) Confirm(c *gin.Context) {
 	defer mu.Unlock()
 
 	// check is accepted_count is not null
-	err := h.service.CheckAcceptedCount(ctx, id)
+	err := h.service.CheckTransferAcceptedCount(ctx, id)
 	if err != nil {
 		handleServiceResponse(c, nil, err)
 		return

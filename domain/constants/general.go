@@ -197,6 +197,7 @@ const (
 	GeneralStatusWriteOff   = "writeoff"
 	GeneralStatusSentOnec         = "sent-to-1c"
 	GeneralStatusFailedSentOnec   = "failed_sent_to_1c"
+	GeneralStatusRejection        = "rejection"
 	GeneralStatusDeclined         = "DECLINED"
 	GeneralStatusTaxFree    = "tax_free"
 

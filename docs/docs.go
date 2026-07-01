@@ -22421,6 +22421,64 @@ const docTemplate = `{
                 }
             }
         },
+        "/return/confirm-rejection/{id}": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Accepts rejected items, restores stock, sets status to completed",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Return"
+                ],
+                "summary": "Confirm rejection for a return",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Return ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Rejection details",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/domain.ConfirmRejectionRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    }
+                }
+            }
+        },
         "/return/confirm/{id}": {
             "post": {
                 "security": [
@@ -31180,6 +31238,14 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "sale_id": {
+                    "type": "string"
+                }
+            }
+        },
+        "domain.ConfirmRejectionRequest": {
+            "type": "object",
+            "properties": {
+                "driver_rejection": {
                     "type": "string"
                 }
             }

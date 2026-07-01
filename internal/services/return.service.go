@@ -189,14 +189,28 @@ func (s *Services) UpdateReturnDetailQuantity(ctx context.Context, req *domain.R
 		count := math.Round((float64(pack)+float64(unit)/returnDetail.UnitPerPack)*10000) / 10000
 
 		switch req.Status {
-		case "checking":
-			// accepted_count always mirrors scanned_count exactly
+		case "rejection":
 			transferLog.Stage = constants.TransferLogStageChecking
 			err = s.db.WithContext(ctx).Exec(`
 				UPDATE transfer_details
-				SET accepted_count = scanned_count, updated_at = NOW()
+				SET rejection_pack = ?, rejection_unit = ?, updated_at = NOW()
 				WHERE id = ? AND transfer_id = ?
-			`, req.Id, req.TransferId).Error
+			`, pack, unit, req.Id, req.TransferId).Error
+		case "checking":
+			transferLog.Stage = constants.TransferLogStageChecking
+			if transferType == constants.TransferTypeReturn {
+				err = s.db.WithContext(ctx).Exec(`
+					UPDATE transfer_details
+					SET accepted_count = ?, accepted_pack = ?, accepted_unit = ?, updated_at = NOW()
+					WHERE id = ? AND transfer_id = ?
+				`, count, pack, unit, req.Id, req.TransferId).Error
+			} else {
+				err = s.db.WithContext(ctx).Exec(`
+					UPDATE transfer_details
+					SET accepted_count = scanned_count, updated_at = NOW()
+					WHERE id = ? AND transfer_id = ?
+				`, req.Id, req.TransferId).Error
+			}
 		case "get":
 			transferLog.Stage = constants.TransferLogStageSent
 			if count > returnDetail.ExpectedCount {
@@ -611,6 +625,9 @@ func (s *Services) ReturnDetailList(param *domain.ReturnDetailParam) ([]domain.R
 			transfer_details.scanned_count,
 			transfer_details.accepted_count,
 			transfer_details.onec_count,
+			transfer_details.rejection_count,
+			transfer_details.rejection_pack,
+			transfer_details.rejection_unit,
 			FLOOR(transfer_details.received_count)::integer AS received_pack,
 			ROUND((transfer_details.received_count - FLOOR(transfer_details.received_count)) * p.unit_per_pack)::integer AS received_unit,
 			FLOOR(transfer_details.scanned_count)::integer AS scanned_pack,
@@ -658,7 +675,9 @@ func (s *Services) ReturnDetailList(param *domain.ReturnDetailParam) ([]domain.R
 		case "accepted":
 			query = query.Where("transfer_details.accepted_count > 0")
 		case "not_accepted":
-			query = query.Where("transfer_details.accepted_count = 0")	
+			query = query.Where("transfer_details.accepted_count = 0")
+		case "rejection":
+			query = query.Where("transfer_details.rejection_count > 0")
 		// case "surplus":
 		// 	query = query.Where("transfer_details.scanned_count > transfer_details.received_count")
 
@@ -956,18 +975,9 @@ func (s *Services) ConfirmReturn(ctx context.Context, returnId, userId string, d
 		return domain.InternalServerError
 	}
 	// check if return is already confirmed
-	if transfer.Status == constants.GeneralStatusCompleted || transfer.Status == constants.GeneralStatusSentOnec || transfer.Status == constants.GeneralStatusFailedSentOnec {
+	if transfer.Status == constants.GeneralStatusCompleted || transfer.Status == constants.GeneralStatusSentOnec || transfer.Status == constants.GeneralStatusFailedSentOnec || transfer.Status == constants.GeneralStatusRejection {
 		_ = tx.Rollback()
 		return domain.AlreadyCompletedError
-	}
-
-	// update confirm return
-	query := `UPDATE transfers SET status = ?, accepted_by = ?, driver_store_b = ?, accepted_at = NOW() WHERE id = ? RETURNING *`
-	err = tx.WithContext(ctx).Raw(query, constants.GeneralStatusSentOnec, userId, driverName, returnId).Scan(&transfer).Error
-	if err != nil {
-		_ = tx.Rollback()
-		s.log.Errorf("could not update return: %v", err)
-		return domain.InternalServerError
 	}
 
 	var returnData domain.ReturnData1C
@@ -998,9 +1008,9 @@ func (s *Services) ConfirmReturn(ctx context.Context, returnId, userId string, d
 		LEFT JOIN producers pr ON p.producer_id = pr.id
 		WHERE td.transfer_id = ?;
 	`
-	// get return data
 	err = tx.WithContext(ctx).Raw(query2, returnId).Scan(&returnData.Товары).Error
 	if err != nil {
+		_ = tx.Rollback()
 		s.log.Errorf("could not get return data %v", err)
 		return domain.InternalServerError
 	}
@@ -1011,19 +1021,56 @@ func (s *Services) ConfirmReturn(ctx context.Context, returnId, userId string, d
 		return domain.NotEnoughProductError
 	}
 
+	// check if any row has rejection (scanned_count != accepted_count)
+	hasRejection := false
 	for _, p := range returnData.Товары {
-		err = tx.WithContext(ctx).
-			Exec(`
-		UPDATE store_products
-		SET
-			unit_quantity = unit_quantity + ?
-		WHERE id = ?;`,
-				(p.ExpectedCount-p.AcceptedCount)*float64(p.UnitPerPack),
-				p.StoreProductId).Error
-		if err != nil {
-			_ = tx.Rollback()
-			s.log.Errorf("could not update store_product on return confirm: %v", err)
-			return domain.InternalServerError
+		if p.ScannedCount != p.AcceptedCount {
+			hasRejection = true
+			break
+		}
+	}
+
+	newStatus := constants.GeneralStatusSentOnec
+	if hasRejection {
+		newStatus = constants.GeneralStatusRejection
+	}
+
+	// update confirm return
+	query := `UPDATE transfers SET status = ?, accepted_by = ?, driver_store_b = ?, accepted_at = NOW() WHERE id = ? RETURNING *`
+	err = tx.WithContext(ctx).Raw(query, newStatus, userId, driverName, returnId).Scan(&transfer).Error
+	if err != nil {
+		_ = tx.Rollback()
+		s.log.Errorf("could not update return: %v", err)
+		return domain.InternalServerError
+	}
+
+	for _, p := range returnData.Товары {
+		// add back only items not even scanned (expected - scanned);
+		// rejected items (scanned - accepted) stay out of stock until ConfirmRejection
+		addBack := (p.ExpectedCount - p.ScannedCount) * float64(p.UnitPerPack)
+		if addBack > 0 {
+			err = tx.WithContext(ctx).
+				Exec(`UPDATE store_products SET unit_quantity = unit_quantity + ? WHERE id = ?`,
+					addBack, p.StoreProductId).Error
+			if err != nil {
+				_ = tx.Rollback()
+				s.log.Errorf("could not update store_product on return confirm: %v", err)
+				return domain.InternalServerError
+			}
+		}
+
+		// write rejection_count per detail row
+		if p.ScannedCount != p.AcceptedCount {
+			rejectionCount := p.ScannedCount - p.AcceptedCount
+			err = tx.WithContext(ctx).Exec(`
+				UPDATE transfer_details
+				SET rejection_count = ?, updated_at = NOW()
+				WHERE id = ?`, rejectionCount, p.Id).Error
+			if err != nil {
+				_ = tx.Rollback()
+				s.log.Errorf("could not update transfer_detail rejection_count: %v", err)
+				return domain.InternalServerError
+			}
 		}
 	}
 	var store domain.Store
@@ -1061,6 +1108,98 @@ func (s *Services) ConfirmReturn(ctx context.Context, returnId, userId string, d
 
 	go s.updateStocksAfterVozvratFinished(returnId, transfer.FromStoreId)
 
+	return nil
+}
+
+func (s *Services) CheckReturnAcceptedCount(ctx context.Context, transferId string) error {
+	var nullCount int64
+	err := s.db.WithContext(ctx).Table("transfer_details").
+		Where("transfer_id = ? AND accepted_count IS NULL", transferId).
+		Count(&nullCount).Error
+	if err != nil {
+		s.log.Error("failed to check accepted_count nulls:", err)
+		return domain.InternalServerError
+	}
+	if nullCount > 0 {
+		return domain.AcceptedCountError
+	}
+
+	return nil
+}
+
+func (s *Services) ConfirmRejection(ctx context.Context, returnId, userId string, req *domain.ConfirmRejectionRequest) error {
+	tx := s.db.Begin()
+	defer func() {
+		if r := recover(); r != nil {
+			_ = tx.Rollback()
+		}
+	}()
+
+	var transfer domain.Transfer
+	if err := tx.WithContext(ctx).Take(&transfer, "id = ?", returnId).Error; err != nil {
+		_ = tx.Rollback()
+		s.log.Errorf("could not get return(%s): %v", returnId, err)
+		return domain.InternalServerError
+	}
+	if transfer.Status != constants.GeneralStatusRejection {
+		_ = tx.Rollback()
+		return domain.ConflictError
+	}
+
+	// fetch all rejected details from DB and add back stock
+	var rejectedDetails []struct {
+		StoreProductId string  `gorm:"column:store_product_id"`
+		UnitPerPack    float64 `gorm:"column:unit_per_pack"`
+		RejectionCount float64 `gorm:"column:rejection_count"`
+	}
+	if err := tx.WithContext(ctx).Raw(`
+		SELECT td.store_product_id, p.unit_per_pack, td.rejection_count
+		FROM transfer_details td
+		JOIN products p ON td.product_id = p.id
+		WHERE td.transfer_id = ? AND td.rejection_count > 0
+	`, returnId).Scan(&rejectedDetails).Error; err != nil {
+		_ = tx.Rollback()
+		s.log.Errorf("could not get rejection details for return(%s): %v", returnId, err)
+		return domain.InternalServerError
+	}
+
+	for _, d := range rejectedDetails {
+		addBack := d.RejectionCount * d.UnitPerPack
+		if addBack > 0 {
+			if err := tx.WithContext(ctx).Exec(`
+				UPDATE store_products SET unit_quantity = unit_quantity + ? WHERE id = ?`,
+				addBack, d.StoreProductId).Error; err != nil {
+				_ = tx.Rollback()
+				s.log.Errorf("could not restore rejection stock: %v", err)
+				return domain.InternalServerError
+			}
+		}
+	}
+
+	// sum up rejection_count for transfers
+	if err := tx.WithContext(ctx).Exec(`
+		UPDATE transfers
+		SET rejection_count  = (SELECT COALESCE(SUM(rejection_count), 0) FROM transfer_details WHERE transfer_id = ?),
+		    driver_rejection  = ?,
+		    rejection_by      = ?,
+		    status            = ?,
+		    updated_at        = NOW()
+		WHERE id = ?`,
+		returnId,
+		req.DriverRejection,
+		userId,
+		constants.GeneralStatusCompleted,
+		returnId,
+	).Error; err != nil {
+		_ = tx.Rollback()
+		s.log.Errorf("could not complete rejection for return(%s): %v", returnId, err)
+		return domain.InternalServerError
+	}
+
+	if err := tx.Commit().Error; err != nil {
+		s.log.Errorf("could not commit ConfirmRejection transaction: %v", err)
+		return domain.InternalServerError
+	}
 	return nil
 }
 
