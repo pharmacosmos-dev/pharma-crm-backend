@@ -41,6 +41,7 @@ type Return struct {
 	UpdatedBy         *Employee  `gorm:"foreignKey:UpdatedById" json:"updated_by"`
 	AcceptedBy        *Employee  `gorm:"foreignKey:AcceptedById" json:"accepted_by"`
 	CommentBy         *Employee  `gorm:"foreignKey:CommentById" json:"comment_by"`
+	RejectionBy       *Employee  `gorm:"foreignKey:RejectionById" json:"rejection_by"`
 }
 
 type TransferBarcodeRequest struct {

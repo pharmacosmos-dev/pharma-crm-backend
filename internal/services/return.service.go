@@ -504,6 +504,7 @@ func (s *Services) ReturnList(ctx context.Context, param *domain.ReturnParam) ([
 		Preload("CreatedBy").
 		Preload("UpdatedBy").
 		Preload("AcceptedBy").
+		Preload("RejectionBy").
 		Preload("CommentBy").
 		Select(`
 			transfers.id,

@@ -6,4 +6,4 @@ ALTER TABLE transfer_details
 ALTER TABLE transfers
     ADD COLUMN IF NOT EXISTS "rejection_count"    FLOAT DEFAULT 0,
     ADD COLUMN IF NOT EXISTS "driver_rejection"   TEXT,
-    ADD COLUMN IF NOT EXISTS "rejection_by"       UUID;
+    ADD COLUMN IF NOT EXISTS "rejection_by"       UUID REFERENCES employees("id");
