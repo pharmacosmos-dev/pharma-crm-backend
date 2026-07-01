@@ -458,6 +458,7 @@ func (s *Services) GetImports(ctx context.Context, params *domain.ImportQueryPar
 		DocumentNumber    string     `gorm:"document_number"`
 		DocumentYear      int        `gorm:"document_year"`
 		Status            string     `gorm:"status"`
+		IsBlocked         bool       `gorm:"column:is_blocked"`
 		ImportDate        *time.Time `gorm:"import_date"`
 		AcceptedAmount    float64    `gorm:"accepted_amount"`
 		ReceivedAmount    float64    `gorm:"received_amount"`
@@ -529,6 +530,7 @@ func (s *Services) GetImports(ctx context.Context, params *domain.ImportQueryPar
 			"im.document_number",
 			"im.document_year",
 			"im.status",
+			"im.is_blocked",
 			"im.import_date",
 			"im.received_count AS received_count",
 			"im.received_sum AS received_amount_vat",
@@ -561,6 +563,7 @@ func (s *Services) GetImports(ctx context.Context, params *domain.ImportQueryPar
 			DocumentNumber:    item.DocumentNumber,
 			DocumentYear:      item.DocumentYear,
 			Status:            item.Status,
+			IsBlocked:         item.IsBlocked,
 			ReceivedCount:     item.ReceivedCount,
 			ReceivedAmountVat: item.ReceivedAmountVat,
 			AcceptedCount:     item.AcceptedCount,
