@@ -1093,7 +1093,7 @@ func (s *Services) ConfirmReturn(ctx context.Context, returnId, userId string, d
 
 		// write rejection_count per detail row
 		if p.ScannedCount != p.AcceptedCount {
-			rejectionCount := p.ScannedCount - p.AcceptedCount
+			rejectionCount := math.Round((p.ScannedCount-p.AcceptedCount)*10000) / 10000
 			err = tx.WithContext(ctx).Exec(`
 				UPDATE transfer_details
 				SET rejection_count = ?, updated_at = NOW()
