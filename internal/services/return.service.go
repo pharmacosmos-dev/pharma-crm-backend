@@ -191,6 +191,9 @@ func (s *Services) UpdateReturnDetailQuantity(ctx context.Context, req *domain.R
 		switch req.Status {
 		case "rejection":
 			transferLog.Stage = constants.TransferLogStageChecking
+			if count != returnDetail.AcceptedCount {
+				return errors.New("invalid.quantity")
+			}
 			err = s.db.WithContext(ctx).Exec(`
 				UPDATE transfer_details
 				SET rejection_pack = ?, rejection_unit = ?, updated_at = NOW()
@@ -198,6 +201,9 @@ func (s *Services) UpdateReturnDetailQuantity(ctx context.Context, req *domain.R
 			`, pack, unit, req.Id, req.TransferId).Error
 		case "checking":
 			transferLog.Stage = constants.TransferLogStageChecking
+			if count > returnDetail.ScannedCount {
+				return errors.New("invalid.quantity")
+			}
 			if transferType == constants.TransferTypeReturn {
 				err = s.db.WithContext(ctx).Exec(`
 					UPDATE transfer_details
