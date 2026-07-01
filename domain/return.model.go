@@ -16,6 +16,7 @@ type Return struct {
 	ScannedCount      float64    `gorm:"scanned_count" json:"scanned_count"`
 	ExpectedCount     float64    `gorm:"expected_count" json:"expected_count"`
 	ReceivedCount     float64    `gorm:"received_count" json:"received_count"`
+	AcceptedCount     float64    `gorm:"accepted_count" json:"accepted_count"`
 	RejectionCount    float64    `gorm:"column:rejection_count" json:"rejection_count"`
 	DriverRejection   string     `gorm:"column:driver_rejection" json:"driver_rejection"`
 	RejectionById     string     `gorm:"column:rejection_by" json:"rejection_by_id"`
