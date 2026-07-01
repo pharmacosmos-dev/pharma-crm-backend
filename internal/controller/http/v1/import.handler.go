@@ -33,7 +33,7 @@ func (h *ImportHandler) ImportRoutes(r *gin.RouterGroup) {
 		imports.GET("/list", h.List)
 		imports.GET("/list-status", h.ListStatus)
 		imports.GET("/export-excel", h.ExportImports)
-		imports.PATCH("/:id/block", h.UpdateImportBlock)
+		imports.PATCH("/update-block", h.UpdateImportBlock)
 	}
 	importDetail := r.Group("/import-detail")
 	{
@@ -1057,31 +1057,24 @@ func (h *ImportHandler) getImportLock(importId string) *sync.Mutex {
 // @Description Set is_blocked true or false for an import
 // @Tags imports
 // @Security     BearerAuth
+// @Accept json
 // @Produce json
-// @Param id path string true "Import ID"
-// @Param is_blocked query boolean true "Block status"
+// @Param body body domain.UpdateImportBlockRequest true "Block request"
 // @Success 200 {object} v1.Response
 // @Failure 400 {object} v1.Response
 // @Failure 500 {object} v1.Response
-// @Router /import/{id}/block [PATCH]
+// @Router /import/update-block [PATCH]
 func (h *ImportHandler) UpdateImportBlock(c *gin.Context) {
-	id := c.Param("id")
-	if id == "" {
-		handleServiceResponse(c, nil, domain.InvalidQueryError)
+	var req domain.UpdateImportBlockRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		handleServiceResponse(c, BadRequest, domain.InvalidRequestBodyError)
 		return
 	}
-
-	isBlockedStr := c.Query("is_blocked")
-	if isBlockedStr == "" {
-		handleServiceResponse(c, nil, domain.InvalidQueryError)
-		return
-	}
-	isBlocked := isBlockedStr == "true"
 
 	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
 	defer cancel()
 
-	if err := h.service.UpdateImportIsBlocked(ctx, id, isBlocked); err != nil {
+	if err := h.service.UpdateImportIsBlocked(ctx, req.Id, req.IsBlocked); err != nil {
 		handleServiceResponse(c, nil, err)
 		return
 	}

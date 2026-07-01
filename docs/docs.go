@@ -9661,14 +9661,14 @@ const docTemplate = `{
                 }
             }
         },
-        "/import/{id}": {
-            "get": {
+        "/import/update-block": {
+            "patch": {
                 "security": [
                     {
                         "BearerAuth": []
                     }
                 ],
-                "description": "First imports",
+                "description": "Set is_blocked true or false for an import",
                 "consumes": [
                     "application/json"
                 ],
@@ -9678,14 +9678,16 @@ const docTemplate = `{
                 "tags": [
                     "imports"
                 ],
-                "summary": "First imports",
+                "summary": "Update import block status",
                 "parameters": [
                     {
-                        "type": "string",
-                        "description": "ID",
-                        "name": "id",
-                        "in": "path",
-                        "required": true
+                        "description": "Block request",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/domain.UpdateImportBlockRequest"
+                        }
                     }
                 ],
                 "responses": {
@@ -9710,34 +9712,30 @@ const docTemplate = `{
                 }
             }
         },
-        "/import/{id}/block": {
-            "patch": {
+        "/import/{id}": {
+            "get": {
                 "security": [
                     {
                         "BearerAuth": []
                     }
                 ],
-                "description": "Set is_blocked true or false for an import",
+                "description": "First imports",
+                "consumes": [
+                    "application/json"
+                ],
                 "produces": [
                     "application/json"
                 ],
                 "tags": [
                     "imports"
                 ],
-                "summary": "Update import block status",
+                "summary": "First imports",
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "Import ID",
+                        "description": "ID",
                         "name": "id",
                         "in": "path",
-                        "required": true
-                    },
-                    {
-                        "type": "boolean",
-                        "description": "Block status",
-                        "name": "is_blocked",
-                        "in": "query",
                         "required": true
                     }
                 ],
@@ -33815,6 +33813,17 @@ const docTemplate = `{
                     "type": "integer",
                     "maximum": 100,
                     "minimum": 0
+                }
+            }
+        },
+        "domain.UpdateImportBlockRequest": {
+            "type": "object",
+            "properties": {
+                "id": {
+                    "type": "string"
+                },
+                "is_blocked": {
+                    "type": "boolean"
                 }
             }
         },
