@@ -500,19 +500,40 @@ func (s *Services) ReturnList(ctx context.Context, param *domain.ReturnParam) ([
 		Preload("AcceptedBy").
 		Preload("CommentBy").
 		Select(`
-			transfers.*,
-			SUM(trd.scanned_count) AS return_count,
-			SUM(trd.received_count-trd.scanned_count) AS shortage,
-			SUM(CASE WHEN trd.accepted_count > trd.received_count THEN trd.accepted_count - trd.received_count ELSE 0 END) AS surplus,
-			SUM(trd.received_count*trd.supply_price) AS received_supply_sum,
-			SUM(trd.received_count*trd.retail_price) AS received_retail_sum,
-			SUM(trd.expected_count*trd.supply_price) AS expected_supply_sum,
-			SUM(trd.expected_count*trd.retail_price) AS expected_retail_sum,
-			SUM(trd.scanned_count*trd.supply_price)  AS scanned_supply_sum,
-			SUM(trd.scanned_count*trd.retail_price)  AS scanned_retail_sum,
-			SUM(trd.accepted_count*trd.supply_price) AS accepted_supply_sum,
-			SUM(trd.accepted_count*trd.retail_price) AS accepted_retail_sum
-			`).
+			transfers.id,
+			transfers.public_id,
+			transfers.from_store_id,
+			transfers.name,
+			transfers.status,
+			transfers.comment,
+			transfers.comment_by,
+			transfers.is_auto,
+			transfers.driver_office,
+			transfers.driver_store_a,
+			transfers.driver_store_b,
+			transfers.created_by,
+			transfers.updated_by,
+			transfers.accepted_by,
+			transfers.rejection_by,
+			transfers.driver_rejection,
+			transfers.created_at,
+			transfers.updated_at,
+			transfers.accepted_at,
+			COALESCE(SUM(trd.received_count), 0)                  AS received_count,
+			COALESCE(SUM(trd.expected_count), 0)                  AS expected_count,
+			COALESCE(SUM(trd.scanned_count), 0)                   AS scanned_count,
+			COALESCE(SUM(trd.scanned_count), 0)                   AS return_count,
+			COALESCE(SUM(trd.accepted_count), 0)                  AS accepted_count,
+			COALESCE(SUM(trd.rejection_count), 0)                 AS rejection_count,
+			COALESCE(SUM(trd.received_count*trd.supply_price), 0) AS received_supply_sum,
+			COALESCE(SUM(trd.received_count*trd.retail_price), 0) AS received_retail_sum,
+			COALESCE(SUM(trd.expected_count*trd.supply_price), 0) AS expected_supply_sum,
+			COALESCE(SUM(trd.expected_count*trd.retail_price), 0) AS expected_retail_sum,
+			COALESCE(SUM(trd.scanned_count*trd.supply_price), 0)  AS scanned_supply_sum,
+			COALESCE(SUM(trd.scanned_count*trd.retail_price), 0)  AS scanned_retail_sum,
+			COALESCE(SUM(trd.accepted_count*trd.supply_price), 0) AS accepted_supply_sum,
+			COALESCE(SUM(trd.accepted_count*trd.retail_price), 0) AS accepted_retail_sum
+		`).
 		Joins("LEFT JOIN transfer_details trd ON transfers.id = trd.transfer_id").
 		Where("transfers.entry_type = ?", 2)
 	// filter by store id

@@ -13,6 +13,7 @@ type Transfer struct {
 	ExpectedCount     float64                      `gorm:"expected_count" json:"expected_count"`
 	ScannedCount      float64                      `gorm:"scanned_count" json:"scanned_count"`
 	AcceptedCount     float64                      `gorm:"accepted_count" json:"accepted_count"`
+	RejectionCount    float64                      `gorm:"rejection_count" json:"rejection_count"`
 	Comment           string                       `gorm:"comment" json:"comment"`
 	CreatedAt         *time.Time                   `gorm:"created_at" json:"created_at"`
 	UpdatedAt         *time.Time                   `gorm:"updated_at" json:"updated_at"`
@@ -25,6 +26,9 @@ type Transfer struct {
 	AcceptedRetailSum float64                      `gorm:"accepted_retail_sum" json:"accepted_retail_sum"`
 	ScannedSupplySum  float64                      `gorm:"scanned_supply_sum" json:"scanned_supply_sum"`
 	ScannedRetailSum  float64                      `gorm:"scanned_retail_sum" json:"scanned_retail_sum"`
+	RejectedSupplySum float64                      `gorm:"rejected_supply_sum" json:"rejected_supply_sum"`
+	RejectedRetailSum float64                      `gorm:"rejected_retail_sum" json:"rejected_retail_sum"`
+	CommentById       string                       `gorm:"column:comment_by" json:"comment_by_id"`
 	IsAuto            bool                         `gorm:"is_auto" json:"is_auto"`
 	DriverOffice      string                       `gorm:"driver_office" json:"driver_office"`
 	DriverStoreA      string                       `gorm:"driver_store_a" json:"driver_store_a"`
@@ -32,7 +36,6 @@ type Transfer struct {
 	CreatedById       string                       `gorm:"column:created_by" json:"created_by_id"`
 	UpdatedById       string                       `gorm:"column:updated_by" json:"updated_by_id"`
 	AcceptedById      string                       `gorm:"column:accepted_by" json:"accepted_by_id"`
-	RejectionCount    float64                      `gorm:"rejection_count" json:"rejection_count"`
 	DriverRejection   string                       `gorm:"driver_rejection" json:"driver_rejection"`
 	RejectionById     string                       `gorm:"rejection_by" json:"rejection_by_id"`
 	FromStore         NullStruct[TransferStore]    `gorm:"-" json:"store"`
