@@ -142,7 +142,7 @@ func (s *Services) UpdateReturnDetailQuantity(ctx context.Context, req *domain.R
 		ExpectedCount float64 `gorm:"expected_count"`
 		ScannedCount  float64 `gorm:"scanned_count"`
 		AcceptedCount float64 `gorm:"accepted_count"`
-		RejectedCount float64 `gorm:"rejection_count"`
+		RejectedCount float64 `gorm:"column:rejection_count"`
 	}
 	err := s.db.WithContext(ctx).Raw(`
 	SELECT
