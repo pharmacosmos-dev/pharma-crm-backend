@@ -652,8 +652,6 @@ func (s *Services) ReturnDetailList(param *domain.ReturnDetailParam) ([]domain.R
 			transfer_details.expected_unit,
 			transfer_details.scanned_count,
 			transfer_details.accepted_count,
-			transfer_details.rejection_pack,
-			transfer_details.rejection_unit,
 			transfer_details.onec_count,
 			transfer_details.rejection_count,
 			transfer_details.rejection_pack,
