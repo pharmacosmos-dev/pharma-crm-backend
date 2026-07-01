@@ -307,7 +307,7 @@ definitions:
     type: object
   domain.ConfirmRejectionRequest:
     properties:
-      driver_rejection:
+      driver_name:
         type: string
     type: object
   domain.CreateDiscountCardRequest:
@@ -700,6 +700,8 @@ definitions:
         type: string
       import_date:
         type: string
+      is_blocked:
+        type: boolean
       status:
         type: string
       store_id:
@@ -8274,6 +8276,40 @@ paths:
       security:
       - BearerAuth: []
       summary: First imports
+      tags:
+      - imports
+  /import/{id}/block:
+    patch:
+      description: Set is_blocked true or false for an import
+      parameters:
+      - description: Import ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Block status
+        in: query
+        name: is_blocked
+        required: true
+        type: boolean
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Update import block status
       tags:
       - imports
   /import/export-excel:

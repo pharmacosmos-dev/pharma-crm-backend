@@ -27,6 +27,7 @@ type Import struct {
 	ImportDate        *time.Time                 `gorm:"import_date" json:"import_date"`
 	CreatedAt         *time.Time                 `gorm:"created_at" json:"created_at"`
 	UpdatedAt         *time.Time                 `gorm:"updated_at" json:"updated_at"`
+	IsBlocked         bool                       `gorm:"column:is_blocked" json:"is_blocked"`
 	Store             NullStruct[ImportStore]    `gorm:"-" json:"store"`
 	Sender            NullStruct[ImportEmployee] `gorm:"-" json:"sender"`
 	Receiver          NullStruct[ImportEmployee] `gorm:"-" json:"receiver"`
@@ -56,6 +57,7 @@ type ImportRequest struct {
 	Status         string `gorm:"status" json:"status"`
 	ImportDate     string `gorm:"import_date" json:"import_date"`
 	DocumentNumber string `gorm:"document_number" json:"document_number"`
+	IsBlocked      bool   `gorm:"is_blocked" json:"is_blocked"`
 }
 
 // ImportDetail structure

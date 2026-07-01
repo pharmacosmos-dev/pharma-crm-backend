@@ -64,6 +64,11 @@ func (s *Services) AcceptImport(ctx context.Context, importId string, userId str
 		return domain.InternalServerError
 	}
 
+	if res.IsBlocked {
+		_ = tx.Rollback()
+		return domain.BadRequestError
+	}
+
 	if res.Status == constants.GeneralStatusCompleted {
 		_ = tx.Rollback()
 		return domain.AlreadyCompletedError
@@ -124,6 +129,18 @@ func (s *Services) AcceptImport(ctx context.Context, importId string, userId str
 
 	go s.createOrUpdateStocksAfterImportConfirm(res.Id, res.StoreId)
 
+	return nil
+}
+
+func (s *Services) UpdateImportIsBlocked(ctx context.Context, importId string, isBlocked bool) error {
+	err := s.db.WithContext(ctx).Exec(
+		`UPDATE imports SET is_blocked = ?, updated_at = NOW() WHERE id = ?`,
+		isBlocked, importId,
+	).Error
+	if err != nil {
+		s.log.Errorf("could not update import is_blocked(%s): %v", importId, err)
+		return domain.InternalServerError
+	}
 	return nil
 }
 

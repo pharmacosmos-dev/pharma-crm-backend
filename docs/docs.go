@@ -9710,6 +9710,59 @@ const docTemplate = `{
                 }
             }
         },
+        "/import/{id}/block": {
+            "patch": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Set is_blocked true or false for an import",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "imports"
+                ],
+                "summary": "Update import block status",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Import ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "boolean",
+                        "description": "Block status",
+                        "name": "is_blocked",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    }
+                }
+            }
+        },
         "/inventory": {
             "post": {
                 "security": [
@@ -31245,7 +31298,7 @@ const docTemplate = `{
         "domain.ConfirmRejectionRequest": {
             "type": "object",
             "properties": {
-                "driver_rejection": {
+                "driver_name": {
                     "type": "string"
                 }
             }
@@ -31836,6 +31889,9 @@ const docTemplate = `{
                 },
                 "import_date": {
                     "type": "string"
+                },
+                "is_blocked": {
+                    "type": "boolean"
                 },
                 "status": {
                     "type": "string"

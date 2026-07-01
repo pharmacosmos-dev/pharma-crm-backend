@@ -48,6 +48,7 @@ func (s *Services) CreateImportFromOnec(ctx context.Context, req *domain.CreateO
 	importId, err := s.createNewImportOnImportingOnec(ctx, tx, &domain.ImportRequest{
 		StoreID:        store.Id,
 		DocumentNumber: req.Dok.DocumentNumber,
+		IsBlocked:      req.Apteka.Franshiza,
 	})
 	if err != nil {
 		_ = tx.Rollback()
@@ -112,8 +113,8 @@ func (s *Services) getOrCreateStoreByStoreCode(ctx context.Context, tx *gorm.DB,
 func (s *Services) createNewImportOnImportingOnec(ctx context.Context, tx *gorm.DB, req *domain.ImportRequest) (string, error) {
 	var importId string
 	// create new import
-	query := `INSERT INTO imports(store_id, status, import_date, document_number) VALUES(?, ?, ?, ?) RETURNING id;`
-	err := tx.WithContext(ctx).Raw(query, req.StoreID, constants.GeneralStatusNew, time.Now(), req.DocumentNumber).Scan(&importId).Error
+	query := `INSERT INTO imports(store_id, status, import_date, document_number, is_blocked) VALUES(?, ?, ?, ?, ?) RETURNING id;`
+	err := tx.WithContext(ctx).Raw(query, req.StoreID, constants.GeneralStatusNew, time.Now(), req.DocumentNumber, req.IsBlocked).Scan(&importId).Error
 	if err != nil {
 		if errors.Is(err, gorm.ErrDuplicatedKey) || strings.Contains(err.Error(), "unique constraint") {
 			s.log.Errorf("duplicate document_number: %v", err)
