@@ -25,4 +25,5 @@ type QueryParam struct {
 	TotalAmountFrom float64 `form:"total_amount_from"`
 	Status          string  `form:"status"`
 	SaleType        string  `form:"sale_type"` // for sales
+	MaxPrice        *bool   `form:"max_price"`
 }

@@ -334,6 +334,10 @@ func (s *Services) RepricingDetailList(repricingID int, param *domain.QueryParam
 		searchKey := "%" + param.Search + "%"
 		args = append(args, searchKey, searchKey)
 	}
+	// filter only products with max_price set
+	if param.MaxPrice != nil && *param.MaxPrice {
+		search += " AND COALESCE(p.max_price, 0) > 0 "
+	}
 
 	query = `
 	SELECT
