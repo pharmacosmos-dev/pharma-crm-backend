@@ -196,6 +196,7 @@ type AcceptImport1CResponse struct {
 // import detail query params
 type ImportQueryParams struct {
 	StoreId            string   `form:"store_id"`
+	StoreIds           []string `form:"store_ids"`
 	CompanyId          string   `form:"company_id"`
 	ImportId           string   `form:"import_id"`
 	Search             string   `form:"search"`

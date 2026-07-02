@@ -152,6 +152,12 @@ func (h *ImportHandler) List(c *gin.Context) {
 		params.CompanyId = user.CompanyId
 	}
 
+	if len(user.StoreIds) > 0 {
+		params.StoreIds = user.StoreIds
+		params.StoreId = ""
+		params.CompanyId = ""
+	}
+
 	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
 	defer cancel()
 

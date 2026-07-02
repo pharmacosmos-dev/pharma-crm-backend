@@ -1960,6 +1960,15 @@ definitions:
       unit_label:
         type: string
     type: object
+  domain.UpdateCustomerBlockRequest:
+    properties:
+      id:
+        type: string
+      is_blocked:
+        type: boolean
+    required:
+    - id
+    type: object
   domain.UpdateDiscountCardRequest:
     properties:
       customer_id:
@@ -4706,6 +4715,38 @@ paths:
       summary: Soft delete a customer
       tags:
       - customers
+  /customer/update-block:
+    patch:
+      consumes:
+      - application/json
+      description: Set is_blocked true or false for a customer
+      parameters:
+      - description: Block request
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/domain.UpdateCustomerBlockRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Update customer block status
+      tags:
+      - customer
   /dashboard/bonus-products:
     post:
       description: Get bonus products

@@ -486,7 +486,9 @@ func (s *Services) GetImports(ctx context.Context, params *domain.ImportQueryPar
 		params.Search = fmt.Sprintf("%%%s%%", params.Search)
 		qb = qb.Where("im.document_number ILIKE ? OR im.public_id::text LIKE ?", params.Search, params.Search)
 	}
-	if params.StoreId != "" {
+	if len(params.StoreIds) > 0 {
+		qb = qb.Where("im.store_id IN (?)", params.StoreIds)
+	} else if params.StoreId != "" {
 		qb = qb.Where("im.store_id = ?", params.StoreId)
 	}
 	if params.CompanyId != "" {
@@ -603,7 +605,9 @@ func (s *Services) GetImportsStats(ctx context.Context, params *domain.ImportQue
 		Table("imports im").
 		Joins("JOIN stores st ON im.store_id = st.id")
 
-	if params.StoreId != "" {
+	if len(params.StoreIds) > 0 {
+		qb = qb.Where("im.store_id IN (?)", params.StoreIds)
+	} else if params.StoreId != "" {
 		qb = qb.Where("im.store_id = ?", params.StoreId)
 	}
 	if params.CompanyId != "" {
