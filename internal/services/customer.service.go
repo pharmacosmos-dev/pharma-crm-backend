@@ -227,6 +227,7 @@ func (s *Services) GetCustomers(ctx context.Context, params *domain.QueryParam, 
 		CreatedAt            *time.Time `gorm:"column:created_at"`
 		UpdatedAt            *time.Time `gorm:"column:updated_at"`
 		IsActive             bool       `gorm:"column:is_active"`
+		IsBlocked            bool       `gorm:"column:is_blocked"`
 		SId                  string     `gorm:"column:s_id"`
 		SName                string     `gorm:"column:s_name"`
 		TId                  string     `gorm:"column:t_id"`
@@ -256,6 +257,10 @@ func (s *Services) GetCustomers(ctx context.Context, params *domain.QueryParam, 
 	if params.CompanyId != "" {
 		whereClauses = append(whereClauses, "s.company_id = ?")
 		args = append(args, params.CompanyId)
+	}
+	if params.IsBlocked != nil {
+		whereClauses = append(whereClauses, "c.is_blocked = ?")
+		args = append(args, *params.IsBlocked)
 	}
 
 	where := strings.Join(whereClauses, " AND ")
@@ -309,7 +314,7 @@ func (s *Services) GetCustomers(ctx context.Context, params *domain.QueryParam, 
 			c.loyalty_card_barcode, c.loyalty_card_percent,
 			c.loyalty_card_level_id, c.loyalty_card_type,
 			c.loyalty_card_created_by, c.loyalty_card_created_at,
-			c.telegram_chat_id, c.created_at, c.updated_at, c.is_active,
+			c.telegram_chat_id, c.created_at, c.updated_at, c.is_active, c.is_blocked,
 			s.id AS s_id, s.name AS s_name,
 			t.id AS t_id, t.name AS t_name,
 			%s,
@@ -363,6 +368,7 @@ func (s *Services) GetCustomers(ctx context.Context, params *domain.QueryParam, 
 			CreatedAt:            r.CreatedAt,
 			UpdatedAt:            r.UpdatedAt,
 			IsActive:             r.IsActive,
+			IsBlocked:            r.IsBlocked,
 			SalesCount24h:        r.SalesCount24h,
 			MonthlySalesSum:      r.MonthlySalesSum,
 			MonthlySalesCount:    r.MonthlySalesCount,
@@ -704,4 +710,16 @@ func (s *Services) UpdateCustomer(ctx context.Context, req *domain.CustomerReque
 	}
 
 	return &res, nil
+}
+
+func (s *Services) UpdateCustomerIsBlocked(ctx context.Context, customerID string, isBlocked bool) error {
+	err := s.db.WithContext(ctx).Exec(
+		`UPDATE customers SET is_blocked = ?, updated_at = NOW() WHERE id = ?`,
+		isBlocked, customerID,
+	).Error
+	if err != nil {
+		s.log.Errorf("could not update customer is_blocked(%s): %v", customerID, err)
+		return domain.InternalServerError
+	}
+	return nil
 }

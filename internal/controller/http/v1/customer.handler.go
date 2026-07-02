@@ -36,6 +36,7 @@ func (h *CustomerHandler) CustomerRoutes(r *gin.RouterGroup) {
 		customer.PUT("/:id", h.Update)
 		customer.DELETE("/soft-delete", h.SoftDelete)
 		customer.DELETE("/hard-delete", h.HardDelete)
+		customer.PATCH("/update-block", h.UpdateBlock)
 	}
 	tag := r.Group("/tag")
 	{
@@ -588,4 +589,33 @@ func (h *CustomerHandler) TagList(c *gin.Context) {
 	data := utils.ListResponse(res, totalCount, limit, offset)
 
 	handleResponse(c, OK, data)
+}
+
+// UpdateBlock godoc
+// @Summary Update customer block status
+// @Description Set is_blocked true or false for a customer
+// @Tags customer
+// @Security     BearerAuth
+// @Accept json
+// @Produce json
+// @Param body body domain.UpdateCustomerBlockRequest true "Block request"
+// @Success 200 {object} v1.Response
+// @Failure 400 {object} v1.Response
+// @Failure 500 {object} v1.Response
+// @Router /customer/update-block [PATCH]
+func (h *CustomerHandler) UpdateBlock(c *gin.Context) {
+	var req domain.UpdateCustomerBlockRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		handleServiceResponse(c, BadRequest, domain.InvalidRequestBodyError)
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
+	defer cancel()
+
+	if err := h.service.UpdateCustomerIsBlocked(ctx, req.Id, req.IsBlocked); err != nil {
+		handleServiceResponse(c, nil, err)
+		return
+	}
+	handleResponse(c, OK, "UPDATED")
 }

@@ -21,6 +21,7 @@ var (
 	SerialOrMarkingRequiredError = NewError(http.StatusBadRequest, "serial.or.marking.required")
 	AcceptedCountError           = NewError(http.StatusBadRequest, "accepted.count.is.null")
 	AcceptedCountMismatchError   = NewError(http.StatusBadRequest, "accepted.count.not.equal.scanned.count")
+	RejectedCountMismatchError   = NewError(http.StatusBadRequest, "rejected.count.not.equal.rejected.items.count")
 	ScannedCountZeroError        = NewError(http.StatusBadRequest, "scanned.count.is.zero")
 	DuplicateError               = NewError(http.StatusBadRequest, "duplicate")
 	IncorrectOTPError            = NewError(http.StatusBadRequest, "incorrect.otp")

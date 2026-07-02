@@ -40,6 +40,12 @@ type Customer struct {
 	MonthlySalesSum      float64    `gorm:"monthly_sales_sum" json:"monthly_sales_sum"`
 	MonthlySalesCount    int64      `gorm:"monthly_sales_count" json:"monthly_sales_count"`
 	IsActive             bool       `gorm:"is_active" json:"is_active"`
+	IsBlocked            bool       `gorm:"is_blocked" json:"is_blocked"`
+}
+
+type UpdateCustomerBlockRequest struct {
+	Id        string `json:"id" binding:"required"`
+	IsBlocked bool   `json:"is_blocked"`
 }
 
 type DiscountCardWithCustomer struct {
