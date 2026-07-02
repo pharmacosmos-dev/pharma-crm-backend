@@ -151,11 +151,10 @@ func (s *Services) createOrGetProductAndImportDetails(
 	storeId string,
 ) error {
 	for i := range products {
-		// get producer by code
-		producer, err := s.GetProducerByCode(ctx, tx, products[i].Manufacturer)
+		// find or create producer by name
+		producerId, err := s.findOrCreateProducerByName(ctx, tx, products[i].Manufacturer)
 		if err != nil {
-			s.log.Errorf("could not get producer by code on importing: %v", err)
-			return domain.InternalServerError
+			return err
 		}
 
 		// find or create country, get its id
@@ -192,7 +191,7 @@ func (s *Services) createOrGetProductAndImportDetails(
 			products[i].MaterialCode,
 			products[i].Name,
 			products[i].Barcode,
-			producer.Id,
+			producerId,
 			products[i].Ikpu,
 			products[i].Mar,
 			companyId,

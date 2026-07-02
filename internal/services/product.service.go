@@ -107,6 +107,24 @@ func (s *Services) CreateProducer(ctx context.Context, tx *gorm.DB, code string)
 	return &producer, nil
 }
 
+func (s *Services) findOrCreateProducerByName(ctx context.Context, tx *gorm.DB, name string) (string, error) {
+	var producerId string
+	err := tx.WithContext(ctx).Raw(`SELECT id FROM producers WHERE name = ? LIMIT 1`, name).Scan(&producerId).Error
+	if err != nil {
+		s.log.Errorf("could not find producer by name: %v", err)
+		return "", domain.InternalServerError
+	}
+	if producerId != "" {
+		return producerId, nil
+	}
+	err = tx.WithContext(ctx).Raw(`INSERT INTO producers (name) VALUES (?) RETURNING id`, name).Scan(&producerId).Error
+	if err != nil {
+		s.log.Errorf("could not create producer by name: %v", err)
+		return "", domain.InternalServerError
+	}
+	return producerId, nil
+}
+
 // Create
 func (s *Services) CreateProductPhotoAlert(req *domain.ProductPhotoAlertCreate) error {
 	alert := domain.CreateProductPhotoAlert{
