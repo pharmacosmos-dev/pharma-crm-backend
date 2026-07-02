@@ -1178,6 +1178,26 @@ func (s *Services) ConfirmRejection(ctx context.Context, returnId, userId string
 		return domain.ConflictError
 	}
 
+	// validate that every rejected detail has been fully scanned:
+	// computed count from rejection_pack + rejection_unit must equal rejection_count
+	var invalidCount int64
+	if err := tx.WithContext(ctx).Raw(`
+		SELECT COUNT(*)
+		FROM transfer_details td
+		JOIN products p ON td.product_id = p.id
+		WHERE td.transfer_id = ?
+		  AND td.rejection_count > 0
+		  AND ROUND((td.rejection_pack + td.rejection_unit::numeric / p.unit_per_pack) * 10000) / 10000 != td.rejection_count
+	`, returnId).Scan(&invalidCount).Error; err != nil {
+		_ = tx.Rollback()
+		s.log.Errorf("could not validate rejection pack/unit for return(%s): %v", returnId, err)
+		return domain.InternalServerError
+	}
+	if invalidCount > 0 {
+		_ = tx.Rollback()
+		return domain.AcceptedCountMismatchError
+	}
+
 	// fetch all rejected details from DB and add back stock
 	var rejectedDetails []struct {
 		StoreProductId string  `gorm:"column:store_product_id"`
