@@ -1180,6 +1180,26 @@ func (s *Services) AddSaleBonuses(sale *domain.Sale, req []domain.CartItemWithPr
 			return
 		}
 	}
+
+	// update customer's daily sale counter, resets when the calendar day changes
+	if sale.CustomerId != "" {
+		err := s.db.Exec(`
+		UPDATE customers
+		SET
+			today_sales_count = CASE
+				WHEN today_first_sale_at IS NULL OR today_first_sale_at::date <> CURRENT_DATE THEN 1
+				ELSE today_sales_count + 1
+			END,
+			today_first_sale_at = CASE
+				WHEN today_first_sale_at IS NULL OR today_first_sale_at::date <> CURRENT_DATE THEN NOW()
+				ELSE today_first_sale_at
+			END
+		WHERE id = ?`, sale.CustomerId).Error
+		if err != nil {
+			s.log.Errorf("could not update customer daily sale stats: %v", err)
+			return
+		}
+	}
 }
 
 func (s *Services) RemoveBonusBySaleId(saleId string) {

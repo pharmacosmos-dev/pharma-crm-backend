@@ -1,0 +1,2 @@
+ALTER TABLE "customers" ADD COLUMN IF NOT EXISTS "today_first_sale_at" TIMESTAMP;
+ALTER TABLE "customers" ADD COLUMN IF NOT EXISTS "today_sales_count" INTEGER NOT NULL DEFAULT 0;

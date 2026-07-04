@@ -228,6 +228,8 @@ func (s *Services) GetCustomers(ctx context.Context, params *domain.QueryParam, 
 		UpdatedAt            *time.Time `gorm:"column:updated_at"`
 		IsActive             bool       `gorm:"column:is_active"`
 		IsBlocked            bool       `gorm:"column:is_blocked"`
+		TodayFirstSaleAt     *time.Time `gorm:"column:today_first_sale_at"`
+		TodaySaleCount       int        `gorm:"column:today_sales_count"`
 		SId                  string     `gorm:"column:s_id"`
 		SName                string     `gorm:"column:s_name"`
 		TId                  string     `gorm:"column:t_id"`
@@ -329,6 +331,7 @@ func (s *Services) GetCustomers(ctx context.Context, params *domain.QueryParam, 
 			c.loyalty_card_level_id, c.loyalty_card_type,
 			c.loyalty_card_created_by, c.loyalty_card_created_at,
 			c.telegram_chat_id, c.created_at, c.updated_at, c.is_active, c.is_blocked,
+			c.today_first_sale_at, c.today_sales_count,
 			s.id AS s_id, s.name AS s_name,
 			t.id AS t_id, t.name AS t_name,
 			%s,
@@ -383,6 +386,8 @@ func (s *Services) GetCustomers(ctx context.Context, params *domain.QueryParam, 
 			UpdatedAt:            r.UpdatedAt,
 			IsActive:             r.IsActive,
 			IsBlocked:            r.IsBlocked,
+			TodayFirstSaleAt:        r.TodayFirstSaleAt,
+			TodaySaleCount:            r.TodaySaleCount,
 			SalesCount24h:        r.SalesCount24h,
 			MonthlySalesSum:      r.MonthlySalesSum,
 			MonthlySalesCount:    r.MonthlySalesCount,

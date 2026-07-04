@@ -41,6 +41,8 @@ type Customer struct {
 	MonthlySalesCount    int64      `gorm:"monthly_sales_count" json:"monthly_sales_count"`
 	IsActive             bool       `gorm:"is_active" json:"is_active"`
 	IsBlocked            bool       `gorm:"is_blocked" json:"is_blocked"`
+	TodayFirstSaleAt     *time.Time `gorm:"today_first_sale_at" json:"today_first_sale_at"`
+	TodaySaleCount       int        `gorm:"today_sales_count" json:"today_sales_count"`
 }
 
 type UpdateCustomerBlockRequest struct {
