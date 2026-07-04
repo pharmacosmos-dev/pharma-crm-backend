@@ -261,6 +261,8 @@ func (s *Services) GetCustomers(ctx context.Context, params *domain.QueryParam, 
 	if params.IsBlocked != nil {
 		whereClauses = append(whereClauses, "c.is_blocked = ?")
 		args = append(args, *params.IsBlocked)
+	} else if params.Order != "" {
+		whereClauses = append(whereClauses, "c.is_blocked = false")
 	}
 
 	where := strings.Join(whereClauses, " AND ")
@@ -304,6 +306,18 @@ func (s *Services) GetCustomers(ctx context.Context, params *domain.QueryParam, 
 		monthlySumField = "0 AS monthly_sales_sum, 0 AS monthly_sales_count"
 	}
 
+	orderBy := "c.created_at DESC"
+	switch params.Order {
+	case "+balance":
+		orderBy = "c.balance DESC"
+	case "-balance":
+		orderBy = "c.balance ASC"
+	case "+spending_from_balance":
+		orderBy = "c.spending_from_balance DESC"
+	case "-spending_from_balance":
+		orderBy = "c.spending_from_balance ASC"
+	}
+
 	dataArgs := append(args, params.Limit, params.Offset)
 	dataSQL := fmt.Sprintf(`
 		SELECT
@@ -325,9 +339,9 @@ func (s *Services) GetCustomers(ctx context.Context, params *domain.QueryParam, 
 		%s
 		%s
 		WHERE %s
-		ORDER BY c.created_at DESC
+		ORDER BY %s
 		LIMIT ? OFFSET ?
-	`, salesCountField, monthlySumField, salesJoin, salesSumtMonth, where)
+	`, salesCountField, monthlySumField, salesJoin, salesSumtMonth, where, orderBy)
 
 	s.log.Infof("GetCustomers dataSQL: %s | args: %v", dataSQL, dataArgs)
 
