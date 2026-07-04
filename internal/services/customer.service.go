@@ -234,7 +234,6 @@ func (s *Services) GetCustomers(ctx context.Context, params *domain.QueryParam, 
 		SName                string     `gorm:"column:s_name"`
 		TId                  string     `gorm:"column:t_id"`
 		TName                string     `gorm:"column:t_name"`
-		SalesCount24h        int64      `gorm:"column:sales_count_24h"`
 		MonthlySalesSum      float64    `gorm:"column:monthly_sales_sum"`
 		MonthlySalesCount    int64      `gorm:"column:monthly_sales_count"`
 	}
@@ -284,18 +283,9 @@ func (s *Services) GetCustomers(ctx context.Context, params *domain.QueryParam, 
 	}
 
 	// data
-	var salesJoin string
-	var salesCountField string
 	var salesSumtMonth string
 	var monthlySumField string
 	if params.Search != "" {
-		salesJoin = `LEFT JOIN (
-			SELECT customer_id, COUNT(*) AS sales_count_24h
-			FROM sales
-			WHERE stage = 9 AND created_at >= CURRENT_DATE
-			GROUP BY customer_id
-		) sc ON sc.customer_id = c.id`
-		salesCountField = "COALESCE(sc.sales_count_24h, 0) AS sales_count_24h"
 		salesSumtMonth = `LEFT JOIN (
 			SELECT customer_id, SUM(total_amount) AS monthly_sales_sum, COUNT(*) AS monthly_sales_count
 			FROM sales
@@ -304,7 +294,6 @@ func (s *Services) GetCustomers(ctx context.Context, params *domain.QueryParam, 
 		) ms ON ms.customer_id = c.id`
 		monthlySumField = "COALESCE(ms.monthly_sales_sum, 0) AS monthly_sales_sum, COALESCE(ms.monthly_sales_count, 0) AS monthly_sales_count"
 	} else {
-		salesCountField = "0 AS sales_count_24h"
 		monthlySumField = "0 AS monthly_sales_sum, 0 AS monthly_sales_count"
 	}
 
@@ -334,17 +323,15 @@ func (s *Services) GetCustomers(ctx context.Context, params *domain.QueryParam, 
 			c.today_first_sale_at, c.today_sales_count,
 			s.id AS s_id, s.name AS s_name,
 			t.id AS t_id, t.name AS t_name,
-			%s,
 			%s
 		FROM customers c
 		LEFT JOIN stores s ON c.store_id = s.id
 		LEFT JOIN tags t ON c.tag_id = t.id
 		%s
-		%s
 		WHERE %s
 		ORDER BY %s
 		LIMIT ? OFFSET ?
-	`, salesCountField, monthlySumField, salesJoin, salesSumtMonth, where, orderBy)
+	`, monthlySumField, salesSumtMonth, where, orderBy)
 
 	s.log.Infof("GetCustomers dataSQL: %s | args: %v", dataSQL, dataArgs)
 
@@ -355,7 +342,7 @@ func (s *Services) GetCustomers(ctx context.Context, params *domain.QueryParam, 
 	}
 
 	if len(rows) > 0 {
-		s.log.Infof("GetCustomers first row sales_count_24h: %d", rows[0].SalesCount24h)
+		s.log.Infof("GetCustomers first row monthly_sales_count: %d", rows[0].MonthlySalesCount)
 	}
 
 	customers := make([]domain.Customer, 0, len(rows))
@@ -386,9 +373,8 @@ func (s *Services) GetCustomers(ctx context.Context, params *domain.QueryParam, 
 			UpdatedAt:            r.UpdatedAt,
 			IsActive:             r.IsActive,
 			IsBlocked:            r.IsBlocked,
-			TodayFirstSaleAt:        r.TodayFirstSaleAt,
-			TodaySaleCount:            r.TodaySaleCount,
-			SalesCount24h:        r.SalesCount24h,
+			TodayFirstSaleAt:     r.TodayFirstSaleAt,
+			TodaySaleCount:       r.TodaySaleCount,
 			MonthlySalesSum:      r.MonthlySalesSum,
 			MonthlySalesCount:    r.MonthlySalesCount,
 			Store: &domain.Store{
