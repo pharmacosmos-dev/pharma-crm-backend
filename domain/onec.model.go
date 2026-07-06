@@ -23,7 +23,7 @@ type Document struct {
 type Apteka struct {
 	StoreCode int    `gorm:"store_code" json:"store_code"`
 	Name      string `gorm:"name" json:"name"`
-	Franshiza bool   `gorm:"franshiza" json:"franshiza"`
+	Franshise bool   `gorm:"franshiza" json:"franshise"`
 }
 
 // Request structure for 1C API

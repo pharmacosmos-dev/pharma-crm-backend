@@ -30942,7 +30942,7 @@ const docTemplate = `{
         "domain.Apteka": {
             "type": "object",
             "properties": {
-                "franshiza": {
+                "franshise": {
                     "type": "boolean"
                 },
                 "name": {

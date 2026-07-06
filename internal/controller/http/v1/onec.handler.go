@@ -25,17 +25,17 @@ func (h *Handler) NewProductOnecHandler(r *gin.RouterGroup) {
 
 func (h *ProductOnecHandler) ProductOnecRoutes(r *gin.RouterGroup) {
 	onec := r.Group("/product1c")
-	// onec.Use(OnecRequestLogger(h.db, h.log))
+	logger := OnecRequestLogger(h.db, h.log)
 	{
 		onec.POST("", h.Create)
 		onec.GET("/list", h.ListProductByStoreCode)
-		onec.POST("/repricing", h.ProductRepricing)
-		onec.POST("/multi-repricing", h.MultiProductRepricing)
-		onec.POST("/quantity", h.UpdateQuantity)
+		onec.POST("/repricing", logger, h.ProductRepricing)
+		onec.POST("/multi-repricing", logger, h.MultiProductRepricing)
+		onec.POST("/quantity", logger, h.UpdateQuantity)
 		onec.POST("/token-asil-belgi", h.GetToken)
-		onec.POST("/max-price-changing", h.CreateMaxPriceChanging)
+		onec.POST("/max-price-changing", logger, h.CreateMaxPriceChanging)
 		onec.POST("/barcode/create-or-update", h.CreateOrUpdateBarcodes)
-		onec.POST("/uzumtezkor/repricing-products", h.InsertFromOnec)
+		onec.POST("/uzumtezkor/repricing-products", logger, h.InsertFromOnec)
 		onec.POST("/transfer/create-and-send", h.CreateAndSendForOnec)
 		onec.POST("/return/create-and-send", h.CreateAndSendReturnForOnec)
 	}
