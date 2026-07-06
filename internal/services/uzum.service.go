@@ -645,3 +645,4 @@ func (s *Services) GetRestaurants(ctx context.Context, limit, page int) ([]domai
 
 	return stores, nil
 }
+

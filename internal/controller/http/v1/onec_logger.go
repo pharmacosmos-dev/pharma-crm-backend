@@ -13,19 +13,19 @@ import (
 )
 
 const (
-	onecLogInsertTimeout  = 3 * time.Second
-	onecLogUpdateTimeout  = 5 * time.Second
-	onecLogMaxResponseKB  = 512 * 1024 // 512 KB dan katta response saqlanmaydi
+	logInsertTimeout = 3 * time.Second
+	logUpdateTimeout = 5 * time.Second
+	logMaxResponseKB = 512 * 1024
 )
 
-type onecResponseWriter struct {
+type requestLogWriter struct {
 	gin.ResponseWriter
 	body      *bytes.Buffer
 	truncated bool
 }
 
-func (w *onecResponseWriter) Write(b []byte) (int, error) {
-	if w.body.Len() < onecLogMaxResponseKB {
+func (w *requestLogWriter) Write(b []byte) (int, error) {
+	if w.body.Len() < logMaxResponseKB {
 		w.body.Write(b)
 	} else {
 		w.truncated = true
@@ -33,7 +33,8 @@ func (w *onecResponseWriter) Write(b []byte) (int, error) {
 	return w.ResponseWriter.Write(b)
 }
 
-func OnecRequestLogger(db *gorm.DB, log *logger.Logger) gin.HandlerFunc {
+// newRequestLogger — generic middleware, istalgan tablega log yozadi
+func newRequestLogger(db *gorm.DB, log *logger.Logger, table string) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		var payload json.RawMessage
 
@@ -65,18 +66,18 @@ func OnecRequestLogger(db *gorm.DB, log *logger.Logger) gin.HandlerFunc {
 		method := c.Request.Method + " " + c.FullPath()
 		ipAddress := c.ClientIP()
 
-		// INSERT with timeout — DB ishlamasa handler baribir ishlaydi
 		var logID string
-		insertCtx, insertCancel := context.WithTimeout(context.Background(), onecLogInsertTimeout)
+		insertCtx, insertCancel := context.WithTimeout(context.Background(), logInsertTimeout)
 		defer insertCancel()
+		//nolint:gosec
 		if err := db.WithContext(insertCtx).Raw(
-			`INSERT INTO onec_requests (method, payload, token, ip_address) VALUES (?, ?, ?, ?) RETURNING id`,
+			`INSERT INTO `+table+` (method, payload, token, ip_address) VALUES (?, ?, ?, ?) RETURNING id`,
 			method, payload, token, ipAddress,
 		).Scan(&logID).Error; err != nil {
-			log.Errorf("onec_logger: could not insert log: %v", err)
+			log.Errorf("%s logger: could not insert log: %v", table, err)
 		}
 
-		blw := &onecResponseWriter{body: &bytes.Buffer{}, ResponseWriter: c.Writer, truncated: false}
+		blw := &requestLogWriter{body: &bytes.Buffer{}, ResponseWriter: c.Writer, truncated: false}
 		c.Writer = blw
 
 		start := time.Now()
@@ -91,9 +92,8 @@ func OnecRequestLogger(db *gorm.DB, log *logger.Logger) gin.HandlerFunc {
 		truncated := blw.truncated
 		statusCode := c.Writer.Status()
 
-		// async: client already got response, update log in background
 		go func() {
-			ctx, cancel := context.WithTimeout(context.Background(), onecLogUpdateTimeout)
+			ctx, cancel := context.WithTimeout(context.Background(), logUpdateTimeout)
 			defer cancel()
 
 			var responsePayload json.RawMessage
@@ -104,12 +104,21 @@ func OnecRequestLogger(db *gorm.DB, log *logger.Logger) gin.HandlerFunc {
 			} else {
 				responsePayload = json.RawMessage(`{}`)
 			}
+			//nolint:gosec
 			if err := db.WithContext(ctx).Exec(
-				`UPDATE onec_requests SET response = ?, status_code = ?, duration_ms = ?, updated_at = NOW() WHERE id = ?`,
+				`UPDATE `+table+` SET response = ?, status_code = ?, duration_ms = ?, updated_at = NOW() WHERE id = ?`,
 				responsePayload, statusCode, durationMs, logID,
 			).Error; err != nil {
-				log.Errorf("onec_logger: could not update log: %v", err)
+				log.Errorf("%s logger: could not update log: %v", table, err)
 			}
 		}()
 	}
+}
+
+func OnecRequestLogger(db *gorm.DB, log *logger.Logger) gin.HandlerFunc {
+	return newRequestLogger(db, log, "onec_requests")
+}
+
+func UzumOrderLogger(db *gorm.DB, log *logger.Logger) gin.HandlerFunc {
+	return newRequestLogger(db, log, "uzum_order_logs")
 }

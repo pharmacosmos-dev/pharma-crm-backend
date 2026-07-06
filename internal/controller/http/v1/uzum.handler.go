@@ -24,7 +24,7 @@ func (h *UzumHandler) UzumRoutes(r *gin.RouterGroup) {
 	product.GET("/nomenclature/:storeId/composition", h.GetNomenclature)
 	product.GET("/nomenclature/:storeId/availability", h.GetAvailability)
 
-	r.POST("/order", h.CreateOrder)
+	r.POST("/order", UzumOrderLogger(h.db, h.log), h.CreateOrder)
 	r.GET("/order/:orderId", h.GetOrder)
 	r.GET("/order/:orderId/status", h.GetOrderStatus)
 	r.PUT("/order/:orderId", h.UpdateOrder)
