@@ -585,7 +585,7 @@ func (h *ReportHandler) GetProductsReportExcel(c *gin.Context) {
 	f.SetSheetName("Sheet1", sheetName)
 
 	// Headerlar
-	headers := []string{"ID", "Филиал", "Наименование", "Производитель", "Серия", "Срок Годности", "Кол-во", "Цена прихода", "Цена продажная", "Сумма прихода", "Сумма продажная", "Сумма наценки", "Сумма НДС", "Общее Сумма скидка", "Дата продажи", "Время продажи", "Пользователь", "ID ЧЕКА", "МК кол-во"}
+	headers := []string{"ID", "Филиал", "Наименование", "Производитель", "Серия", "Срок Годности", "Кол-во", "Цена прихода", "Цена продажная", "Сумма прихода", "Сумма продажная", "Сумма наценки", "Сумма НДС", "Общее Сумма скидка", "Накопительная", "Дата продажи", "Время продажи", "Пользователь", "ID ЧЕКА", "МК кол-во"}
 
 	err = setExcelHeaders(f, sheetName, headers)
 	if err != nil {
@@ -615,11 +615,12 @@ func (h *ReportHandler) GetProductsReportExcel(c *gin.Context) {
 		f.SetCellValue(sheetName, "L"+row, value.MarkupSum)
 		f.SetCellValue(sheetName, "M"+row, value.VatSum)
 		f.SetCellValue(sheetName, "N"+row, value.TotalDiscount)
-		f.SetCellValue(sheetName, "O"+row, value.CompletedAt.Add(time.Hour*5).Format(time.DateOnly))
-		f.SetCellValue(sheetName, "P"+row, value.CompletedAt.Add(time.Hour*5).Format(time.TimeOnly))
-		f.SetCellValue(sheetName, "Q"+row, value.FullName)
-		f.SetCellValue(sheetName, "R"+row, helper.SaleTypeToRussian(value.SaleType, value.SaleNumber))
-		f.SetCellValue(sheetName, "S"+row, value.MarkingCount)
+		f.SetCellValue(sheetName, "O"+row, value.LoyaltyCardAmount)
+		f.SetCellValue(sheetName, "P"+row, value.CompletedAt.Add(time.Hour*5).Format(time.DateOnly))
+		f.SetCellValue(sheetName, "Q"+row, value.CompletedAt.Add(time.Hour*5).Format(time.TimeOnly))
+		f.SetCellValue(sheetName, "R"+row, value.FullName)
+		f.SetCellValue(sheetName, "S"+row, helper.SaleTypeToRussian(value.SaleType, value.SaleNumber))
+		f.SetCellValue(sheetName, "T"+row, value.MarkingCount)
 	}
 
 	saveExcelToUploads(c, f, *h.log, "Sale_details")
