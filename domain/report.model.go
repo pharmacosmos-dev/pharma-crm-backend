@@ -53,6 +53,7 @@ type ProductReport struct {
 	ProducerName   string     `gorm:"producer_name" json:"producer_name"`
 	SerialNumber   string     `gorm:"serial_number" json:"serial_number"`
 	TotalDiscount  float64    `gorm:"total_discount" json:"total_discount"`
+	LoyaltyCardAmount float64 `gorm:"loyalty_card_amount" json:"loyalty_card_amount"`
 	ExpireDate     *time.Time `gorm:"expire_date" json:"expire_date"`
 	Quantity       string     `gorm:"quantity" json:"quantity"`
 	UnitQuantity   int        `gorm:"unit_quantity" json:"unit_quantity"`

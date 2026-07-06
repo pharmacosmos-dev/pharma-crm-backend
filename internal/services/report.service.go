@@ -233,6 +233,7 @@ func (s *Services) GetProductsReport(ctx context.Context, params *domain.ReportQ
 		"s.sale_number",
 		"s.sale_type",
 		"ROUND((ci.total_price::numeric / NULLIF(SUM(ci.total_price) OVER (PARTITION BY s.id), 0)) * s.total_discount, 2) * CASE WHEN s.sale_type = 'RETURN' THEN -1 ELSE 1 END AS total_discount",
+		"ROUND((ci.total_price::numeric / NULLIF(SUM(ci.total_price) OVER (PARTITION BY s.id), 0)) * s.loyalty_card, 2) * CASE WHEN s.sale_type = 'RETURN' THEN -1 ELSE 1 END AS loyalty_card_amount",
 		"s.completed_at",
 
 		"e.full_name",
@@ -262,13 +263,14 @@ func (s *Services) GetProductsReport(ctx context.Context, params *domain.ReportQ
 }
 
 func (s *Services) GetProductsReportStats(ctx context.Context, params *domain.ReportQueryParam) (*domain.ProductStatusReport, error) {
-	qb := s.db.WithContext(ctx).
+	rows := s.db.WithContext(ctx).
 		Select(
-			"COALESCE(SUM(CASE WHEN s.sale_type ='SALE' THEN (ci.unit_quantity / p.unit_per_pack) ELSE 0 END), 0) AS total_quantity",
-			"COALESCE(SUM(CASE WHEN s.sale_type = 'RETURN' THEN (ci.unit_quantity / p.unit_per_pack) ELSE 0 END), 0) AS total_quantity_returned",
-			"ROUND(COALESCE(SUM(CASE WHEN s.sale_type = 'SALE' THEN (ci.total_price - ci.discount_amount)  END), 0), 2) AS total_retail_price_sum",
-			"ROUND(COALESCE(SUM(CASE WHEN s.sale_type = 'RETURN' THEN (ci.total_price - ci.discount_amount)  ELSE 0 END), 0), 2) AS total_retail_price_sum_returned",
-			"ROUND(COALESCE(SUM(ci.discount_amount), 0), 2) AS total_discount_sum",
+			"s.sale_type",
+			"ci.unit_quantity",
+			"p.unit_per_pack",
+			"ci.total_price",
+			"ci.discount_amount",
+			"ROUND((ci.total_price::numeric / NULLIF(SUM(ci.total_price) OVER (PARTITION BY s.id), 0)) * s.loyalty_card, 2) AS loyalty_card_share",
 		).
 		Table("sales s").
 		Joins("JOIN cart_items ci ON s.id = ci.sale_id").
@@ -276,33 +278,44 @@ func (s *Services) GetProductsReportStats(ctx context.Context, params *domain.Re
 		Joins("JOIN products p ON sp.product_id = p.id")
 
 	// filters
-	qb = qb.Where("s.stage IN (?)", constants.FinishedSaleStages)
+	rows = rows.Where("s.stage IN (?)", constants.FinishedSaleStages)
 
 	if params.Search != "" {
 		if _, err := strconv.Atoi(params.Search); err == nil {
-			qb = qb.Where("s.sale_number::text LIKE ?", params.Search+"%")
+			rows = rows.Where("s.sale_number::text LIKE ?", params.Search+"%")
 		} else {
-			qb = qb.Where("p.name ILIKE ?", "%"+params.Search+"%")
+			rows = rows.Where("p.name ILIKE ?", "%"+params.Search+"%")
 		}
 	}
 	if len(params.StoreIds) > 0 {
-		qb = qb.Where("s.store_id IN(?)", params.StoreIds)
+		rows = rows.Where("s.store_id IN(?)", params.StoreIds)
 	}
 	if params.CompanyId != "" {
-		qb = qb.Joins("JOIN stores st ON s.store_id = st.id").Where("st.company_id = ?", params.CompanyId)
+		rows = rows.Joins("JOIN stores st ON s.store_id = st.id").Where("st.company_id = ?", params.CompanyId)
 	}
 	if params.EmployeeId != "" {
-		qb = qb.Where("s.employee_id = ?", params.EmployeeId)
+		rows = rows.Where("s.employee_id = ?", params.EmployeeId)
 	}
 	if params.ProducerId != "" {
-		qb = qb.Where("p.producer_id = ?", params.ProducerId)
+		rows = rows.Where("p.producer_id = ?", params.ProducerId)
 	}
 	if params.StartDate != nil && !params.StartDate.GetTime().IsZero() {
-		qb = qb.Where("s.completed_at >= ?", params.StartDate.UTC())
+		rows = rows.Where("s.completed_at >= ?", params.StartDate.UTC())
 	}
 	if params.EndDate != nil && !params.EndDate.GetTime().IsZero() {
-		qb = qb.Where("s.completed_at <= ?", params.EndDate.UTC())
+		rows = rows.Where("s.completed_at <= ?", params.EndDate.UTC())
 	}
+
+	qb := s.db.WithContext(ctx).
+		Table("(?) as t", rows).
+		Select(
+			"COALESCE(SUM(CASE WHEN t.sale_type ='SALE' THEN (t.unit_quantity / t.unit_per_pack) ELSE 0 END), 0) AS total_quantity",
+			"COALESCE(SUM(CASE WHEN t.sale_type = 'RETURN' THEN (t.unit_quantity / t.unit_per_pack) ELSE 0 END), 0) AS total_quantity_returned",
+			"ROUND(COALESCE(SUM(CASE WHEN t.sale_type = 'SALE' THEN (t.total_price - t.discount_amount)  END), 0), 2) AS total_retail_price_sum",
+			"ROUND(COALESCE(SUM(CASE WHEN t.sale_type = 'RETURN' THEN (t.total_price - t.discount_amount)  ELSE 0 END), 0), 2) AS total_retail_price_sum_returned",
+			"ROUND(COALESCE(SUM(t.discount_amount), 0), 2) AS total_discount_sum",
+			"ROUND(COALESCE(SUM(t.loyalty_card_share), 0), 2) AS total_loyalty_card_sum",
+		)
 
 	var res domain.ProductStatusReport
 	if err := qb.Take(&res).Error; err != nil {
