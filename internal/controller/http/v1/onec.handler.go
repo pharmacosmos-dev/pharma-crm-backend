@@ -25,7 +25,7 @@ func (h *Handler) NewProductOnecHandler(r *gin.RouterGroup) {
 
 func (h *ProductOnecHandler) ProductOnecRoutes(r *gin.RouterGroup) {
 	onec := r.Group("/product1c")
-	onec.Use(OnecRequestLogger(h.db, h.log))
+	// onec.Use(OnecRequestLogger(h.db, h.log))
 	{
 		onec.POST("", h.Create)
 		onec.GET("/list", h.ListProductByStoreCode)
