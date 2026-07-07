@@ -120,7 +120,7 @@ func (s *Services) GetReturnLogs(ctx context.Context, params *domain.LogParams) 
 
 func (s *Services) getOnecRequestLogs(ctx context.Context, params *domain.LogParams, providerType string, where string, args ...any) ([]domain.Log, int64, error) {
 	qb := s.db.WithContext(ctx).
-		Select("id::TEXT AS id", "? AS provider_type", "method", "payload", "response", "created_at", providerType).
+		Select("id::TEXT AS id, ? AS provider_type, method, payload, response, created_at", providerType).
 		Table("onec_requests").
 		Where(where, args...)
 
