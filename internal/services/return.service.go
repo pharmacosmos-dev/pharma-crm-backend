@@ -1125,18 +1125,7 @@ func (s *Services) ConfirmReturn(ctx context.Context, returnId, userId string, d
 		return domain.InternalServerError
 	}
 
-	go func() {
-		if s.cfg.OnecApiUrl == "test" {
-			return
-		}
-		if err := s.DoRequestOnec(context.Background(), returnData, constants.OnecPathVozvrat); err != nil {
-			s.log.Errorf("ConfirmReturn: 1C error for return %s: %v", returnId, err)
-			if upErr := s.db.Exec(`UPDATE transfers SET status = ? WHERE id = ?`,
-				constants.GeneralStatusFailedSentOnec, returnId).Error; upErr != nil {
-				s.log.Errorf("ConfirmReturn: could not mark return %s as failed_sent_to_1c: %v", returnId, upErr)
-			}
-		}
-	}()
+	go s.sendReturnToOnec(returnId, returnData)
 
 	go s.updateStocksAfterVozvratFinished(returnId, transfer.FromStoreId)
 
@@ -1503,4 +1492,71 @@ func (s *Services) CreateAndSendReturnForOnec(ctx context.Context, req *domain.O
 		ReturnId:    returnId,
 		Unfulfilled: unfulfilled,
 	}, nil
+}
+
+func (s *Services) sendReturnToOnec(returnId string, returnData any) {
+	if s.cfg.OnecApiUrl == "test" {
+		return
+	}
+
+	logID := s.saveOnecLog("POST "+constants.OnecPathVozvrat, returnId)
+
+	err := s.DoRequestOnec(context.Background(), returnData, constants.OnecPathVozvrat)
+
+	s.updateOnecLog(logID, err)
+
+	if err != nil {
+		s.log.Errorf("ConfirmReturn: 1C error for return(%s): %v", returnId, err)
+		if dbErr := s.db.Exec(
+			`UPDATE transfers SET status = ? WHERE id = ?`,
+			constants.GeneralStatusFailedSentOnec, returnId,
+		).Error; dbErr != nil {
+			s.log.Errorf("ConfirmReturn: could not mark return(%s) as failed: %v", returnId, dbErr)
+		}
+	}
+}
+
+func (s *Services) saveOnecLog(method, returnId string) string {
+	payload := fmt.Sprintf(`{"return_id":"%s","path":"%s"}`, returnId, method)
+	var logID string
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+	_ = s.db.WithContext(ctx).Raw(
+		`INSERT INTO onec_requests (method, payload) VALUES (?, ?) RETURNING id`,
+		method, payload,
+	).Scan(&logID).Error
+	return logID
+}
+
+func (s *Services) updateOnecLog(logID string, err error) {
+	if logID == "" {
+		return
+	}
+
+	statusCode, response := onecLogResult(err)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	_ = s.db.WithContext(ctx).Exec(
+		`UPDATE onec_requests SET response = ?, status_code = ?, updated_at = NOW() WHERE id = ?`,
+		response, statusCode, logID,
+	).Error
+}
+
+func onecLogResult(err error) (statusCode int, response string) {
+	if err == nil {
+		return 200, `{"status":"ok"}`
+	}
+
+	// parse HTTP status from: "1C returned non-success status 404: ..."
+	var parsed int
+	fmt.Sscanf(err.Error(), "1C returned non-success status %d:", &parsed)
+	if parsed > 0 {
+		statusCode = parsed
+	} else {
+		statusCode = 500
+	}
+
+	response = fmt.Sprintf(`{"error":%q}`, err.Error())
+	return statusCode, response
 }

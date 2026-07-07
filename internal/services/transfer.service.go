@@ -1050,19 +1050,30 @@ func (s *Services) ConfirmTransfer(ctx context.Context, transferId string, userI
 	dataOnec.Apteka.StoreCode = toStore.StoreCode
 	dataOnec.AptekaOtkud.Name = fromStore.Name
 	dataOnec.AptekaOtkud.StoreCode = fromStore.StoreCode
-	go func() {
-		if s.cfg.OnecApiUrl == "test" {
-			return
-		}
-		if err := s.DoRequestOnec(context.Background(), dataOnec, constants.OnecPathPerekit); err != nil {
-			s.log.Errorf("ConfirmTransfer: 1C error for transfer %s: %v", transferId, err)
-			if upErr := s.db.Exec(`UPDATE transfers SET status = ? WHERE id = ?`,
-				constants.GeneralStatusFailedSentOnec, transferId).Error; upErr != nil {
-				s.log.Errorf("ConfirmTransfer: could not mark transfer %s as failed_sent_to_1c: %v", transferId, upErr)
-			}
-		}
-	}()
+	go s.sendTransferToOnec(transferId, dataOnec)
 	return nil
+}
+
+func (s *Services) sendTransferToOnec(transferId string, transferData any) {
+	if s.cfg.OnecApiUrl == "test" {
+		return
+	}
+
+	logID := s.saveOnecLog("POST "+constants.OnecPathPerekit, transferId)
+
+	err := s.DoRequestOnec(context.Background(), transferData, constants.OnecPathPerekit)
+
+	s.updateOnecLog(logID, err)
+
+	if err != nil {
+		s.log.Errorf("ConfirmTransfer: 1C error for transfer(%s): %v", transferId, err)
+		if dbErr := s.db.Exec(
+			`UPDATE transfers SET status = ? WHERE id = ?`,
+			constants.GeneralStatusFailedSentOnec, transferId,
+		).Error; dbErr != nil {
+			s.log.Errorf("ConfirmTransfer: could not mark transfer(%s) as failed: %v", transferId, dbErr)
+		}
+	}
 }
 
 // SendTransferAll sets expected_count for all details (dona-based) and sends the transfer in one step.
