@@ -94,13 +94,13 @@ func (s *Services) GetUzumLogs(ctx context.Context, params *domain.LogParams) ([
 
 func (s *Services) GetRevolutionLogs(ctx context.Context, params *domain.LogParams) ([]domain.Log, int64, error) {
 	return s.getOnecRequestLogs(ctx, params, "revolution",
-		"method IN (?, ?)", "POST /product1c/repricing", "POST /product1c/multi-repricing",
+		"method IN (?, ?)", "POST /v1/product1c/repricing", "POST /v1/product1c/multi-repricing",
 	)
 }
 
 func (s *Services) GetMaxPriceLogs(ctx context.Context, params *domain.LogParams) ([]domain.Log, int64, error) {
 	return s.getOnecRequestLogs(ctx, params, "max_price",
-		"method = ?", "POST /product1c/max-price-changing",
+		"method = ?", "POST /v1/product1c/max-price-changing",
 	)
 }
 
