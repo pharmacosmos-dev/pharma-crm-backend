@@ -1192,9 +1192,11 @@ func (s *Services) ConfirmRejection(ctx context.Context, returnId, userId string
 		StoreProductId string  `gorm:"column:store_product_id"`
 		UnitPerPack    float64 `gorm:"column:unit_per_pack"`
 		RejectionCount float64 `gorm:"column:rejection_count"`
+		RejectionPack  float64 `gorm:"column:rejection_pack"`
+		RejectionUnit  float64 `gorm:"column:rejection_unit"`
 	}
 	if err := tx.WithContext(ctx).Raw(`
-		SELECT td.store_product_id, p.unit_per_pack, td.rejection_count
+		SELECT td.store_product_id, p.unit_per_pack, td.rejection_count, td.rejection_pack, td.rejection_unit
 		FROM transfer_details td
 		JOIN products p ON td.product_id = p.id
 		WHERE td.transfer_id = ? AND td.rejection_count > 0
@@ -1205,7 +1207,7 @@ func (s *Services) ConfirmRejection(ctx context.Context, returnId, userId string
 	}
 
 	for _, d := range rejectedDetails {
-		addBack := d.RejectionCount * d.UnitPerPack
+		addBack := d.RejectionPack*d.UnitPerPack + d.RejectionUnit
 		if addBack > 0 {
 			if err := tx.WithContext(ctx).Exec(`
 				UPDATE store_products SET unit_quantity = unit_quantity + ? WHERE id = ?`,
