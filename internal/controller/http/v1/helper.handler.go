@@ -48,6 +48,7 @@ func (h *HelperHandler) HelperRoutes(r *gin.RouterGroup) {
 		helper.POST("/epos", h.EposTransmitter)
 		helper.POST("/upload-product-barcodes", h.UploadProductBarcodes)
 		helper.POST("/upload-store-products", h.UploadStoreProducts)
+		helper.POST("/upload-product-producer", h.UploadProductProducer)
 		helper.POST("/upload-store-terminals", h.UploadTerminalIDs)
 		helper.POST("/upload-requires-prescription", h.UploadRequiresPrescription)
 		helper.POST("/upload-is-return", h.UploadIsReturn)
@@ -596,6 +597,137 @@ func (h *HelperHandler) UploadStoreProducts(c *gin.Context) {
 	})
 }
 
+// UploadProductProducer godoc
+// @Summary Upload product producer excel
+// @Description Excel columns: 1) name, 2) material_code, 3) producer_name. Finds producer by name (creates it if missing) and sets products.producer_id by material_code
+// @Tags helper
+// @Security BearerAuth
+// @Accept multipart/form-data
+// @Produce json
+// @Param file formData file true "Excel file (.xlsx) with name, material_code, producer_name columns"
+// @Success 200 {object} v1.Response
+// @Failure 400 {object} v1.Response
+// @Failure 500 {object} v1.Response
+// @Router /helper/upload-product-producer [POST]
+func (h *HelperHandler) UploadProductProducer(c *gin.Context) {
+	var file domain.File
+	if err := c.ShouldBind(&file); err != nil {
+		handleResponse(c, BadRequest, err.Error())
+		return
+	}
+
+	ext := filepath.Ext(file.File.Filename)
+	if ext != ".xlsx" && ext != ".xls" {
+		handleResponse(c, BadRequest, "Unsupported file format")
+		return
+	}
+
+	newFilename := uuid.New().String() + ext
+	savePath := filepath.Join("uploads", newFilename)
+	if err := c.SaveUploadedFile(file.File, savePath); err != nil {
+		handleResponse(c, InternalError, "Failed to save file")
+		return
+	}
+	defer os.Remove(savePath)
+
+	xlsx, err := excelize.OpenFile(savePath)
+	if err != nil {
+		handleResponse(c, BadRequest, "Failed to open Excel file")
+		return
+	}
+	defer xlsx.Close()
+
+	sheetName := xlsx.GetSheetName(0)
+	rows, err := xlsx.GetRows(sheetName)
+	if err != nil {
+		handleResponse(c, InternalError, "Failed to get Excel rows")
+		return
+	}
+
+	// cache producer_name(lowercase) -> producer_id to avoid repeated lookups
+	producerCache := make(map[string]string)
+	updated, created := 0, 0
+	var skippedRows []map[string]any
+
+	for idx, row := range rows[1:] {
+		rowNumber := idx + 2
+		if len(row) < 3 {
+			skippedRows = append(skippedRows, map[string]any{
+				"row":    rowNumber,
+				"reason": "not enough columns",
+				"data":   row,
+			})
+			continue
+		}
+
+		materialCode := parseIntComma(row[1])
+		producerName := normalizeName(strings.TrimSpace(row[2]))
+		if materialCode == 0 || producerName == "" {
+			skippedRows = append(skippedRows, map[string]any{
+				"row":    rowNumber,
+				"reason": "empty material_code or producer_name",
+				"data":   row,
+			})
+			continue
+		}
+
+		cacheKey := strings.ToLower(producerName)
+		producerID, ok := producerCache[cacheKey]
+		if !ok {
+			err = h.db.Raw(`SELECT id FROM producers WHERE LOWER(name) = LOWER(?) LIMIT 1`, producerName).Scan(&producerID).Error
+			if err != nil {
+				h.log.Errorf("could not get producer by name(%s): %v", producerName, err)
+				skippedRows = append(skippedRows, map[string]any{
+					"row":    rowNumber,
+					"reason": err.Error(),
+					"data":   row,
+				})
+				continue
+			}
+			if producerID == "" {
+				err = h.db.Raw(`INSERT INTO producers(name) VALUES (?) RETURNING id`, producerName).Scan(&producerID).Error
+				if err != nil {
+					h.log.Errorf("could not create producer(%s): %v", producerName, err)
+					skippedRows = append(skippedRows, map[string]any{
+						"row":    rowNumber,
+						"reason": err.Error(),
+						"data":   row,
+					})
+					continue
+				}
+				created++
+			}
+			producerCache[cacheKey] = producerID
+		}
+
+		result := h.db.Exec(`UPDATE products SET producer_id = ?, updated_at = now() WHERE material_code = ?`,
+			producerID, materialCode)
+		if result.Error != nil {
+			h.log.Errorf("could not update product(material_code=%d) producer: %v", materialCode, result.Error)
+			skippedRows = append(skippedRows, map[string]any{
+				"row":    rowNumber,
+				"reason": result.Error.Error(),
+				"data":   row,
+			})
+			continue
+		}
+		if result.RowsAffected == 0 {
+			skippedRows = append(skippedRows, map[string]any{
+				"row":    rowNumber,
+				"reason": "product not found for material_code",
+				"data":   row,
+			})
+			continue
+		}
+		updated++
+	}
+
+	handleResponse(c, OK, gin.H{
+		"updated":           updated,
+		"producers_created": created,
+		"skipped":           skippedRows,
+	})
+}
 
 func transferIsMarking(isMarking string) bool {
 	if strings.TrimSpace(isMarking) == "Да" {
