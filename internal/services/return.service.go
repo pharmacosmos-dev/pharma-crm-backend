@@ -1125,7 +1125,17 @@ func (s *Services) ConfirmReturn(ctx context.Context, returnId, userId string, d
 		return domain.InternalServerError
 	}
 
-	go s.sendReturnToOnec(returnId, returnData)
+	// only accepted items go to 1C; fully rejected lines (accepted_count = 0) must not be sent
+	onecData := returnData
+	onecData.Товары = make([]domain.ReturnDetail1C, 0, len(returnData.Товары))
+	for _, p := range returnData.Товары {
+		if p.AcceptedCount > 0 {
+			onecData.Товары = append(onecData.Товары, p)
+		}
+	}
+	if len(onecData.Товары) > 0 {
+		go s.sendReturnToOnec(returnId, onecData)
+	}
 
 	go s.updateStocksAfterVozvratFinished(returnId, transfer.FromStoreId)
 
