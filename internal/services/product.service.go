@@ -1315,7 +1315,7 @@ sales_data AS (
         sa.completed_at AS created_at,
         st.name AS store_name,
         CASE WHEN sa.sale_type = 'SALE' THEN SUM(ci.unit_quantity) * (-1) ELSE SUM(ci.unit_quantity) END AS quantity,
-		CASE WHEN sa.sale_type = 'SALE' THEN sa.total_amount * (-1) ELSE sa.total_amount END as sum,
+		CASE WHEN sa.sale_type = 'SALE' THEN SUM(ci.total_price) * (-1) ELSE SUM(ci.total_price) END as sum,
         sa.sale_type AS name,
         sa.status,
         NULL::jsonb AS metadata,
@@ -2145,7 +2145,7 @@ sales_data AS (
 return_sales_data AS (
     SELECT
         SUM(ci.unit_quantity)::INTEGER AS return_sale_count,
-        sum(sa.total_amount * (-1)) AS return_sale_amount
+        sum(ci.total_price * (-1)) AS return_sale_amount
     FROM sales sa
         JOIN stores st ON st.id = sa.store_id
         JOIN cart_items ci ON ci.sale_id = sa.id
@@ -2546,7 +2546,7 @@ return_sales_data AS (
     SELECT
         vd.product_id,
         SUM(ci.unit_quantity)::INTEGER         AS return_sale_count,
-        SUM(sa.total_amount * (-1))            AS return_sale_amount
+        SUM(ci.total_price * (-1))             AS return_sale_amount
     FROM sales sa
         JOIN stores st     ON st.id = sa.store_id
         JOIN cart_items ci ON ci.sale_id = sa.id
