@@ -304,15 +304,25 @@ func (s *Services) GetProducts(ctx context.Context, params *domain.ProductQueryP
 		FROM store_products
 		WHERE 1=1`
 
+	hasImportDateFilter := params.StartDate != nil && !params.StartDate.GetTime().IsZero() &&
+		params.EndDate != nil && !params.EndDate.GetTime().IsZero()
+
 	var spConditions []string
 	if params.StoreId != "" {
 		spConditions = append(spConditions, fmt.Sprintf("store_id = '%s'", params.StoreId))
-	}
-	if params.StartDate != nil {
-		spConditions = append(spConditions, fmt.Sprintf("created_at >= '%s'", params.StartDate.GetTime().UTC().Format(time.RFC3339)))
-	}
-	if params.EndDate != nil {
-		spConditions = append(spConditions, fmt.Sprintf("created_at <= '%s'", params.EndDate.GetTime().UTC().Format(time.RFC3339)))
+	} else if hasImportDateFilter {
+		// store_id berilmagan, sana berilgan bo'lsa - faqat shu davrda import bo'lgan do'konlar hisobga olinadi
+		spConditions = append(spConditions, fmt.Sprintf(
+			`store_id IN (
+				SELECT DISTINCT im.store_id FROM imports im
+				JOIN import_details imd ON im.id = imd.import_id
+				WHERE imd.product_id = store_products.product_id
+				  AND im.entry_type = 1 AND im.status = 'completed'
+				  AND im.created_at >= '%s' AND im.created_at <= '%s'
+			)`,
+			params.StartDate.GetTime().UTC().Format(time.RFC3339),
+			params.EndDate.GetTime().UTC().Format(time.RFC3339),
+		))
 	}
 	if len(spConditions) > 0 {
 		storeJoin += " AND " + strings.Join(spConditions, " AND ")
@@ -332,6 +342,17 @@ func (s *Services) GetProducts(ctx context.Context, params *domain.ProductQueryP
 
 	if params.ProducerId != "" {
 		qb = qb.Where("p.producer_id = ?", params.ProducerId)
+	}
+	if params.StoreId != "" && hasImportDateFilter {
+		// store_id va sana ikkalasi ham berilgan bo'lsa - faqat shu davrda
+		// shu do'konga import bo'lgan mahsulotlar chiqadi
+		qb = qb.Where(`EXISTS (
+			SELECT 1 FROM imports im
+			JOIN import_details imd ON im.id = imd.import_id
+			WHERE imd.product_id = p.id AND im.store_id = ?
+			  AND im.entry_type = 1 AND im.status = 'completed'
+			  AND im.created_at >= ? AND im.created_at <= ?
+		)`, params.StoreId, params.StartDate.UTC(), params.EndDate.UTC())
 	}
 	if params.NoBarcode {
 		qb = qb.Where("p.barcode IS NULL OR p.barcode = ''")
@@ -972,6 +993,32 @@ func (s *Services) GetProducerByCode(ctx context.Context, tx *gorm.DB, code stri
 }
 
 func (s *Services) GetStoreProductsByProductId(ctx context.Context, params *domain.ProductQueryParam, user *domain.EmployeeClaims) ([]domain.StoreProduct, int64, error) {
+	hasImportDateFilter := params.StartDate != nil && !params.StartDate.GetTime().IsZero() &&
+		params.EndDate != nil && !params.EndDate.GetTime().IsZero()
+
+	// store_id + sana berilganda, shu do'konda shu mahsulot import bo'lganmi tekshiramiz;
+	// bo'lmasa og'ir so'rovni ishga tushirmasdan bo'sh natija qaytaramiz
+	if params.StoreId != "" && hasImportDateFilter {
+		var exists bool
+		err := s.db.WithContext(ctx).Raw(`
+			SELECT EXISTS (
+				SELECT 1 FROM imports im
+				JOIN import_details imd ON im.id = imd.import_id
+				WHERE im.store_id = ? AND imd.product_id = ?
+				  AND im.entry_type = 1 AND im.status = 'completed'
+				  AND im.created_at >= ? AND im.created_at <= ?
+			)`,
+			params.StoreId, params.ProductId, params.StartDate.UTC(), params.EndDate.UTC(),
+		).Scan(&exists).Error
+		if err != nil {
+			s.log.Errorf("could not check imported store: %v", err)
+			return nil, 0, domain.InternalServerError
+		}
+		if !exists {
+			return []domain.StoreProduct{}, 0, nil
+		}
+	}
+
 	// build query
 	query := s.db.WithContext(ctx).
 		Select(
@@ -1007,6 +1054,15 @@ func (s *Services) GetStoreProductsByProductId(ctx context.Context, params *doma
 
 	if params.StoreId != "" {
 		query = query.Where("sp.store_id = ?", params.StoreId)
+	} else if hasImportDateFilter {
+		// store_id berilmagan, lekin sana berilgan bo'lsa - faqat shu davrda
+		// import bo'lgan do'konlar bo'yicha ko'rsatamiz
+		query = query.Where(`sp.store_id IN (
+			SELECT DISTINCT im.store_id FROM imports im
+			JOIN import_details imd ON im.id = imd.import_id
+			WHERE imd.product_id = ? AND im.entry_type = 1 AND im.status = 'completed'
+			  AND im.created_at >= ? AND im.created_at <= ?
+		)`, params.ProductId, params.StartDate.UTC(), params.EndDate.UTC())
 	}
 	if params.CompanyId != "" {
 		query = query.Where("st.company_id = ?", params.CompanyId)
