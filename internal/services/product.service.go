@@ -1368,7 +1368,7 @@ transfer_in_pending_data AS (
     JOIN var_data vd ON td.product_id = vd.product_id
     JOIN stores fs ON fs.id = tr.from_store_id
     JOIN stores ts ON ts.id = tr.to_store_id
-    WHERE tr.status NOT IN ('new', 'completed', 'failed_sent_to_1c', 'canceled') AND tr.entry_type = 1
+    WHERE tr.status NOT IN ('new', 'completed', 'sent-to-1c', 'failed_sent_to_1c', 'canceled') AND tr.entry_type = 1
     %s
     GROUP BY tr.id, fs.id, ts.id, vd.unit_per_pack
 ),
@@ -1390,7 +1390,7 @@ transfer_out_pending_data AS (
     JOIN var_data vd ON td.product_id = vd.product_id
     JOIN stores fs ON fs.id = tr.from_store_id
     JOIN stores ts ON ts.id = tr.to_store_id
-    WHERE tr.status NOT IN ('new', 'completed', 'failed_sent_to_1c', 'canceled') AND tr.entry_type = 1
+    WHERE tr.status NOT IN ('new', 'completed', 'sent-to-1c', 'failed_sent_to_1c', 'canceled') AND tr.entry_type = 1
     %s
     GROUP BY tr.id, fs.id, ts.id, vd.unit_per_pack
 )
@@ -1506,7 +1506,7 @@ LIMIT ? OFFSET ?;
 			outerWhere,
 		)
 
-		args = []any{params.ProducerId}
+		args = []any{params.ProductId}
 
 		if hasImportStoreDateFilter {
 			for i := 0; i < 9; i++ {
@@ -1536,7 +1536,7 @@ LIMIT ? OFFSET ?;
 				)
 			`,
 				params.StoreId,
-				params.ProducerId,
+				params.ProductId,
 				params.StartDate.UTC(),
 				params.EndDate.UTC(),
 			).Scan(&exists).Error
@@ -1565,7 +1565,7 @@ LIMIT ? OFFSET ?;
 			outerWhere,
 		)
 		args = []any{
-			params.ProducerId,
+			params.ProductId,
 			params.StoreId, // import_data
 			params.StoreId, // inventory_data
 			params.StoreId, // sales_data
@@ -1595,7 +1595,7 @@ LIMIT ? OFFSET ?;
 			outerWhere,
 		)
 		args = []any{
-			params.ProducerId,
+			params.ProductId,
 			params.CompanyId, // import_data
 			params.CompanyId, // inventory_data
 			params.CompanyId, // sales_data
@@ -1625,7 +1625,7 @@ LIMIT ? OFFSET ?;
 			outerWhere,
 		)
 		args = []any{
-			params.ProducerId,
+			params.ProductId,
 			params.StoreId, params.CompanyId, // import_data
 			params.StoreId, params.CompanyId, // inventory_data
 			params.StoreId, params.CompanyId, // sales_data
@@ -1654,13 +1654,23 @@ LIMIT ? OFFSET ?;
 	}
 
 	for i := range res {
-		if int(res[i].Quantity)%res[i].UnitPerPack > 0 {
-			res[i].Count = fmt.Sprintf("%d (%d/%d)",
-				int(res[i].Quantity)/res[i].UnitPerPack,
-				int(res[i].Quantity)%res[i].UnitPerPack,
-				res[i].UnitPerPack)
+		unit := res[i].UnitPerPack
+		if unit <= 0 {
+			res[i].Count = fmt.Sprintf("%d", int(res[i].Quantity))
+			continue
+		}
+
+		qty := int(res[i].Quantity)
+		sign := ""
+		if qty < 0 {
+			sign = "-"
+			qty = -qty
+		}
+
+		if qty%unit > 0 {
+			res[i].Count = fmt.Sprintf("%s%d (%d/%d)", sign, qty/unit, qty%unit, unit)
 		} else {
-			res[i].Count = fmt.Sprintf("%d", int(res[i].Quantity)/res[i].UnitPerPack)
+			res[i].Count = fmt.Sprintf("%s%d", sign, qty/unit)
 		}
 	}
 
