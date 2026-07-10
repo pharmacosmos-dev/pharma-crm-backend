@@ -292,43 +292,44 @@ func (s *Services) GetProductById(ctx context.Context, productId string, storeId
 // get products get list
 func (s *Services) GetProducts(ctx context.Context, params *domain.ProductQueryParam) ([]domain.ProductData, int64, error) {
 
+	hasImportDateFilter := params.StartDate != nil && !params.StartDate.GetTime().IsZero() &&
+		params.EndDate != nil && !params.EndDate.GetTime().IsZero()
+
+	// store_id berilmagan, sana berilgan bo'lsa - faqat shu davrda import bo'lgan
+	// (store_id, product_id) juftliklarini bitta JOIN orqali cheklaymiz
+	// (har bir store_products qatori uchun alohida subquery emas - shu sekin bo'lardi)
+	importedStoreProductsJoin := ""
+	if params.StoreId == "" && hasImportDateFilter {
+		importedStoreProductsJoin = fmt.Sprintf(`
+		JOIN (
+			SELECT DISTINCT im.store_id, imd.product_id
+			FROM imports im
+			JOIN import_details imd ON im.id = imd.import_id
+			WHERE im.entry_type = 1 AND im.status = 'completed'
+			  AND im.created_at >= '%s' AND im.created_at <= '%s'
+		) imported_sp ON imported_sp.store_id = sp.store_id AND imported_sp.product_id = sp.product_id`,
+			params.StartDate.GetTime().UTC().Format(time.RFC3339),
+			params.EndDate.GetTime().UTC().Format(time.RFC3339),
+		)
+	}
+
 	// Pre-aggregate store_products
 	storeJoin := `
 	LEFT JOIN (
 		SELECT
-			product_id,
-			SUM(unit_quantity) as total_quantity,
-			MIN(expire_date) FILTER (WHERE unit_quantity > 0) as min_expire_date,
-			MAX(supply_price) AS supply_price,
-			MAX(retail_price) AS retail_price
-		FROM store_products
+			sp.product_id,
+			SUM(sp.unit_quantity) as total_quantity,
+			MIN(sp.expire_date) FILTER (WHERE sp.unit_quantity > 0) as min_expire_date,
+			MAX(sp.supply_price) AS supply_price,
+			MAX(sp.retail_price) AS retail_price
+		FROM store_products sp` + importedStoreProductsJoin + `
 		WHERE 1=1`
 
-	hasImportDateFilter := params.StartDate != nil && !params.StartDate.GetTime().IsZero() &&
-		params.EndDate != nil && !params.EndDate.GetTime().IsZero()
-
-	var spConditions []string
 	if params.StoreId != "" {
-		spConditions = append(spConditions, fmt.Sprintf("store_id = '%s'", params.StoreId))
-	} else if hasImportDateFilter {
-		// store_id berilmagan, sana berilgan bo'lsa - faqat shu davrda import bo'lgan do'konlar hisobga olinadi
-		spConditions = append(spConditions, fmt.Sprintf(
-			`store_id IN (
-				SELECT DISTINCT im.store_id FROM imports im
-				JOIN import_details imd ON im.id = imd.import_id
-				WHERE imd.product_id = store_products.product_id
-				  AND im.entry_type = 1 AND im.status = 'completed'
-				  AND im.created_at >= '%s' AND im.created_at <= '%s'
-			)`,
-			params.StartDate.GetTime().UTC().Format(time.RFC3339),
-			params.EndDate.GetTime().UTC().Format(time.RFC3339),
-		))
-	}
-	if len(spConditions) > 0 {
-		storeJoin += " AND " + strings.Join(spConditions, " AND ")
+		storeJoin += fmt.Sprintf(" AND sp.store_id = '%s'", params.StoreId)
 	}
 
-	storeJoin += ` GROUP BY product_id
+	storeJoin += ` GROUP BY sp.product_id
 	) sp_agg ON p.id = sp_agg.product_id`
 
 	qb := s.db.WithContext(ctx).
