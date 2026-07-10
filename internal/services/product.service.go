@@ -2199,27 +2199,135 @@ LEFT JOIN imventory_quantity imq ON true
 		timeArgsPerCTE = append(timeArgsPerCTE, endUTC)
 	}
 
+	// same store-scoping rules as GetProductMovements, so both endpoints agree on results
+	hasImportStoreDateFilter := params.StartDate != nil &&
+		!params.StartDate.GetTime().IsZero() &&
+		params.EndDate != nil &&
+		!params.EndDate.GetTime().IsZero()
+
+	importStoreSubQuery := ""
+	importStoreDateArgs := []any{}
+
+	if hasImportStoreDateFilter {
+		importStoreSubQuery = `
+			SELECT DISTINCT im.store_id
+			FROM imports im
+			JOIN import_details imd ON im.id = imd.import_id
+			JOIN var_data vd ON imd.product_id = vd.product_id
+			WHERE im.entry_type = 1
+			  AND im.status = 'completed'
+			  AND im.created_at >= ?
+			  AND im.created_at <= ?
+		`
+		importStoreDateArgs = append(importStoreDateArgs, params.StartDate.UTC(), params.EndDate.UTC())
+	}
+
 	// dynamic query conditions
 	if params.StoreId == "" && params.CompanyId == "" {
+		importStoreFilter := ""
+		salesStoreFilter := ""
+		vozvratStoreFilter := ""
+		transferOutStoreFilter := ""
+		transferInStoreFilter := ""
+		transferWhereStoreFilter := ""
+		productQtyStoreFilter := ""
+		inventoryStoreFilter := ""
+
+		if hasImportStoreDateFilter {
+			importStoreFilter = "AND im.store_id IN (" + importStoreSubQuery + ")"
+			salesStoreFilter = "AND sa.store_id IN (" + importStoreSubQuery + ")"
+			vozvratStoreFilter = "AND tr.from_store_id IN (" + importStoreSubQuery + ")"
+			transferOutStoreFilter = "filter ( where tr.from_store_id IN (" + importStoreSubQuery + ") )"
+			transferInStoreFilter = "filter ( where tr.to_store_id IN (" + importStoreSubQuery + ") )"
+			transferWhereStoreFilter = "AND (tr.from_store_id IN (" + importStoreSubQuery + ") OR tr.to_store_id IN (" + importStoreSubQuery + "))"
+			productQtyStoreFilter = "AND sp.store_id IN (" + importStoreSubQuery + ")"
+			inventoryStoreFilter = "AND s.id IN (" + importStoreSubQuery + ")"
+		}
+
 		query = fmt.Sprintf(baseQuery,
-			importTimeCond,   // 1: import_data
-			saleTimeCond,     // 2: sales_data
-			saleTimeCond,     // 3: return_sales_data
-			transferTimeCond, // 4: vozvrat_data
-			"", "", "", "",   // 5-8: transfer FILTER clauses
-			transferTimeCond,  // 9: transfer_data WHERE
-			"",                // 10: product_quantity (no time filter)
-			inventoryTimeCond, // 11: imventory_quantity
+			importStoreFilter+importTimeCond, // 1: import_data
+			salesStoreFilter+saleTimeCond,     // 2: sales_data
+			salesStoreFilter+saleTimeCond,     // 3: return_sales_data
+			vozvratStoreFilter+transferTimeCond, // 4: vozvrat_data
+			transferOutStoreFilter, transferOutStoreFilter, transferInStoreFilter, transferInStoreFilter, // 5-8: transfer FILTER clauses
+			transferWhereStoreFilter+transferTimeCond, // 9: transfer_data WHERE
+			productQtyStoreFilter,                  // 10: product_quantity
+			inventoryStoreFilter+inventoryTimeCond, // 11: imventory_quantity
 		)
 		args = []any{params.ProductId}
-		args = append(args, timeArgsPerCTE...) // import_data
-		args = append(args, timeArgsPerCTE...) // sales_data
-		args = append(args, timeArgsPerCTE...) // return_sales_data
-		args = append(args, timeArgsPerCTE...) // vozvrat_data
-		args = append(args, timeArgsPerCTE...) // transfer_data WHERE
-		args = append(args, timeArgsPerCTE...) // imventory_quantity
+
+		if hasImportStoreDateFilter {
+			args = append(args, importStoreDateArgs...) // import_data store filter
+		}
+		args = append(args, timeArgsPerCTE...) // import_data time
+
+		if hasImportStoreDateFilter {
+			args = append(args, importStoreDateArgs...) // sales_data store filter
+		}
+		args = append(args, timeArgsPerCTE...) // sales_data time
+
+		if hasImportStoreDateFilter {
+			args = append(args, importStoreDateArgs...) // return_sales_data store filter
+		}
+		args = append(args, timeArgsPerCTE...) // return_sales_data time
+
+		if hasImportStoreDateFilter {
+			args = append(args, importStoreDateArgs...) // vozvrat_data store filter
+		}
+		args = append(args, timeArgsPerCTE...) // vozvrat_data time
+
+		if hasImportStoreDateFilter {
+			args = append(args, importStoreDateArgs...) // transfer FILTER 5 (transfer_out_count)
+			args = append(args, importStoreDateArgs...) // transfer FILTER 6 (transfer_out_amount)
+			args = append(args, importStoreDateArgs...) // transfer FILTER 7 (transfer_in_count)
+			args = append(args, importStoreDateArgs...) // transfer FILTER 8 (transfer_in_amount)
+			args = append(args, importStoreDateArgs...) // transfer WHERE (from_store_id part)
+			args = append(args, importStoreDateArgs...) // transfer WHERE (to_store_id part)
+		}
+		args = append(args, timeArgsPerCTE...) // transfer_data time
+
+		if hasImportStoreDateFilter {
+			args = append(args, importStoreDateArgs...) // product_quantity store filter
+		}
+
+		if hasImportStoreDateFilter {
+			args = append(args, importStoreDateArgs...) // imventory_quantity store filter
+		}
+		args = append(args, timeArgsPerCTE...) // imventory_quantity time
 
 	} else if params.StoreId != "" && params.CompanyId == "" {
+		if hasImportStoreDateFilter {
+			var exists bool
+
+			err := s.db.WithContext(ctx).Raw(`
+				SELECT EXISTS (
+					SELECT 1
+					FROM imports im
+					JOIN import_details imd ON im.id = imd.import_id
+					WHERE im.store_id = ?
+					  AND imd.product_id = ?
+					  AND im.entry_type = 1
+					  AND im.status = 'completed'
+					  AND im.created_at >= ?
+					  AND im.created_at <= ?
+				)
+			`,
+				params.StoreId,
+				params.ProductId,
+				params.StartDate.UTC(),
+				params.EndDate.UTC(),
+			).Scan(&exists).Error
+
+			if err != nil {
+				s.log.Errorf("could not check imported store: %v", err)
+				return res, err
+			}
+
+			if !exists {
+				return res, nil
+			}
+		}
+
 		query = fmt.Sprintf(
 			baseQuery,
 			"AND im.store_id = ?"+importTimeCond,
