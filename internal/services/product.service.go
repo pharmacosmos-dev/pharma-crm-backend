@@ -291,6 +291,8 @@ func (s *Services) GetProductById(ctx context.Context, productId string, storeId
 
 // get products get list
 func (s *Services) GetProducts(ctx context.Context, params *domain.ProductQueryParam) ([]domain.ProductData, int64, error) {
+	hasImportDateFilter := params.StartDate != nil && !params.StartDate.GetTime().IsZero() &&
+		params.EndDate != nil && !params.EndDate.GetTime().IsZero()
 
 	// Pre-aggregate store_products
 	storeJoin := `
@@ -428,14 +430,44 @@ func (s *Services) GetProducts(ctx context.Context, params *domain.ProductQueryP
 		return nil, 0, domain.InternalServerError
 	}
 
+	// store_id berilmagan, sana berilgan bo'lsa - unit_quantity joriy zaxira o'rniga
+	// shu davrdagi harakatlar (import, sotuv, qaytarish, transfer) yig'indisi sifatida
+	// hisoblanadi (GetSingleProductDashboard/GetProductMovements kabi)
+	if params.StoreId == "" && hasImportDateFilter {
+		productIds := make([]string, len(res))
+		for i := range res {
+			productIds[i] = res[i].ID
+		}
+
+		netQuantities, err := s.getProductMovementQuantities(ctx, productIds, params.StartDate.UTC(), params.EndDate.UTC())
+		if err != nil {
+			s.log.Errorf("could not get product movement quantities: %v", err)
+			return nil, 0, domain.InternalServerError
+		}
+
+		for i := range res {
+			res[i].UnitQuantity = netQuantities[res[i].ID]
+		}
+	}
+
 	for i := range res {
-		if res[i].UnitQuantity%res[i].UnitPerPack > 0 {
-			res[i].Units = fmt.Sprintf("%d (%d/%d)",
-				res[i].UnitQuantity/res[i].UnitPerPack,
-				res[i].UnitQuantity%res[i].UnitPerPack,
-				res[i].UnitPerPack)
+		unit := res[i].UnitPerPack
+		if unit <= 0 {
+			res[i].Units = fmt.Sprintf("%d", res[i].UnitQuantity)
+			continue
+		}
+
+		qty := res[i].UnitQuantity
+		sign := ""
+		if qty < 0 {
+			sign = "-"
+			qty = -qty
+		}
+
+		if qty%unit > 0 {
+			res[i].Units = fmt.Sprintf("%s%d (%d/%d)", sign, qty/unit, qty%unit, unit)
 		} else {
-			res[i].Units = fmt.Sprintf("%d", res[i].UnitQuantity/res[i].UnitPerPack)
+			res[i].Units = fmt.Sprintf("%s%d", sign, qty/unit)
 		}
 	}
 
@@ -445,6 +477,85 @@ func (s *Services) GetProducts(ctx context.Context, params *domain.ProductQueryP
 	}
 
 	return res, totalCount, nil
+}
+
+// getProductMovementQuantities berilgan mahsulotlar uchun [startDate, endDate] oralig'idagi
+// import, sotuv/qaytarish va vozvrat/inventarizatsiya harakatlari yig'indisini (netto miqdorini)
+// hisoblaydi - product_id -> netto miqdor xaritasi qaytaradi. Do'kondan-do'konga oddiy transfer
+// (entry_type=1) tizim bo'ylab hisoblanganda har doim 0 ga tenglashgani uchun kiritilmagan.
+func (s *Services) getProductMovementQuantities(ctx context.Context, productIds []string, startDate, endDate time.Time) (map[string]int, error) {
+	if len(productIds) == 0 {
+		return map[string]int{}, nil
+	}
+
+	query := `
+	SELECT product_id, SUM(qty)::INTEGER AS net_quantity
+	FROM (
+		SELECT imd.product_id, SUM(imd.accepted_count * p.unit_per_pack) AS qty
+		FROM imports im
+		JOIN import_details imd ON im.id = imd.import_id
+		JOIN products p ON p.id = imd.product_id
+		WHERE im.entry_type = 1 AND im.status = 'completed'
+		  AND imd.product_id IN (?)
+		  AND im.created_at >= ? AND im.created_at <= ?
+		GROUP BY imd.product_id
+
+		UNION ALL
+
+		SELECT sp.product_id,
+			SUM(CASE WHEN sa.sale_type = 'SALE' THEN ci.unit_quantity * (-1) ELSE ci.unit_quantity END) AS qty
+		FROM sales sa
+		JOIN cart_items ci ON ci.sale_id = sa.id
+		JOIN store_products sp ON sp.id = ci.store_product_id
+		WHERE sa.stage IN (9, 11)
+		  AND sp.product_id IN (?)
+		  AND sa.completed_at >= ? AND sa.completed_at <= ?
+		GROUP BY sp.product_id
+
+		UNION ALL
+
+		SELECT td.product_id, (SUM(td.accepted_count) * MAX(p.unit_per_pack)) * (-1) AS qty
+		FROM transfer_details td
+		JOIN transfers tr ON td.transfer_id = tr.id
+		JOIN products p ON p.id = td.product_id
+		WHERE (tr.status = 'completed' OR tr.status = 'sent-to-1c') AND tr.entry_type = 2
+		  AND td.product_id IN (?)
+		  AND tr.created_at >= ? AND tr.created_at <= ?
+		GROUP BY td.product_id
+
+		UNION ALL
+
+		SELECT imd.product_id, SUM(imd.scanned_count - imd.received_count) AS qty
+		FROM import_details imd
+		JOIN imports im ON im.id = imd.import_id
+		WHERE im.entry_type = 2 AND im.status = 'completed'
+		  AND imd.product_id IN (?)
+		  AND im.created_at >= ? AND im.created_at <= ?
+		GROUP BY imd.product_id
+	) combined
+	GROUP BY product_id
+	`
+
+	var rows []struct {
+		ProductId   string `gorm:"column:product_id"`
+		NetQuantity int    `gorm:"column:net_quantity"`
+	}
+
+	err := s.db.WithContext(ctx).Raw(query,
+		productIds, startDate, endDate,
+		productIds, startDate, endDate,
+		productIds, startDate, endDate,
+		productIds, startDate, endDate,
+	).Scan(&rows).Error
+	if err != nil {
+		return nil, err
+	}
+
+	result := make(map[string]int, len(rows))
+	for _, r := range rows {
+		result[r.ProductId] = r.NetQuantity
+	}
+	return result, nil
 }
 
 func (s *Services) GetProductsByStores(ctx context.Context, params *domain.ProductQueryParam) ([]domain.ProductData, error) {
