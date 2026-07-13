@@ -488,15 +488,27 @@ func (s *Services) getProductMovementQuantities(ctx context.Context, productIds 
 		return map[string]int{}, nil
 	}
 
+	// imported_stores: har bir mahsulot uchun, shu davrda import bo'lgan do'konlar
+	// juftligi (product_id, store_id) - GetProductMovements/GetSingleProductDashboard/
+	// GetStoreProductsByProducty bilan bir xil qoidaga asoslanadi, shunda barchasi
+	// bir xil (product, store) to'plami bo'yicha hisoblaydi.
 	query := `
+	WITH imported_stores AS (
+		SELECT DISTINCT imd.product_id, im.store_id
+		FROM imports im
+		JOIN import_details imd ON im.id = imd.import_id
+		WHERE im.entry_type = 1 AND im.status = 'completed'
+		  AND imd.product_id IN (?)
+		  AND im.created_at >= ? AND im.created_at <= ?
+	)
 	SELECT product_id, SUM(qty)::INTEGER AS net_quantity
 	FROM (
 		SELECT imd.product_id, SUM(imd.accepted_count * p.unit_per_pack) AS qty
 		FROM imports im
 		JOIN import_details imd ON im.id = imd.import_id
 		JOIN products p ON p.id = imd.product_id
+		JOIN imported_stores ist ON ist.product_id = imd.product_id AND ist.store_id = im.store_id
 		WHERE im.entry_type = 1 AND im.status = 'completed'
-		  AND imd.product_id IN (?)
 		  AND im.created_at >= ? AND im.created_at <= ?
 		GROUP BY imd.product_id
 
@@ -507,8 +519,8 @@ func (s *Services) getProductMovementQuantities(ctx context.Context, productIds 
 		FROM sales sa
 		JOIN cart_items ci ON ci.sale_id = sa.id
 		JOIN store_products sp ON sp.id = ci.store_product_id
+		JOIN imported_stores ist ON ist.product_id = sp.product_id AND ist.store_id = sp.store_id
 		WHERE sa.stage IN (9, 11)
-		  AND sp.product_id IN (?)
 		  AND sa.completed_at >= ? AND sa.completed_at <= ?
 		GROUP BY sp.product_id
 
@@ -518,8 +530,8 @@ func (s *Services) getProductMovementQuantities(ctx context.Context, productIds 
 		FROM transfer_details td
 		JOIN transfers tr ON td.transfer_id = tr.id
 		JOIN products p ON p.id = td.product_id
+		JOIN imported_stores ist ON ist.product_id = td.product_id AND ist.store_id = tr.from_store_id
 		WHERE (tr.status = 'completed' OR tr.status = 'sent-to-1c') AND tr.entry_type = 2
-		  AND td.product_id IN (?)
 		  AND tr.created_at >= ? AND tr.created_at <= ?
 		GROUP BY td.product_id
 
@@ -528,8 +540,8 @@ func (s *Services) getProductMovementQuantities(ctx context.Context, productIds 
 		SELECT imd.product_id, SUM(imd.scanned_count - imd.received_count) AS qty
 		FROM import_details imd
 		JOIN imports im ON im.id = imd.import_id
+		JOIN imported_stores ist ON ist.product_id = imd.product_id AND ist.store_id = im.store_id
 		WHERE im.entry_type = 2 AND im.status = 'completed'
-		  AND imd.product_id IN (?)
 		  AND im.created_at >= ? AND im.created_at <= ?
 		GROUP BY imd.product_id
 	) combined
@@ -542,10 +554,11 @@ func (s *Services) getProductMovementQuantities(ctx context.Context, productIds 
 	}
 
 	err := s.db.WithContext(ctx).Raw(query,
-		productIds, startDate, endDate,
-		productIds, startDate, endDate,
-		productIds, startDate, endDate,
-		productIds, startDate, endDate,
+		productIds, startDate, endDate, // imported_stores
+		startDate, endDate, // import_data
+		startDate, endDate, // sales_data
+		startDate, endDate, // transfer/vozvrat_data
+		startDate, endDate, // inventory_data
 	).Scan(&rows).Error
 	if err != nil {
 		return nil, err
@@ -1082,6 +1095,30 @@ func (s *Services) GetProducerByCode(ctx context.Context, tx *gorm.DB, code stri
 	return &producer, nil
 }
 
+// getImportedStoreIds berilgan mahsulot uchun [startDate, endDate] oralig'ida
+// tugallangan import bo'lgan do'konlar ro'yxatini qaytaradi. Bu bitta funksiya
+// GetProductMovements, GetSingleProductDashboard, GetStoreProductsByProductId va
+// GetProducts tomonidan ishlatiladi - shunda barchasi bir xil do'konlar to'plamiga
+// asoslanadi (har birida alohida yozilgan subquery matni tufayli kelib chiqadigan
+// nomuvofiqlik xavfi yo'qoladi), va subquery faqat bir marta bajariladi.
+func (s *Services) getImportedStoreIds(ctx context.Context, productId string, startDate, endDate time.Time) ([]string, error) {
+	var storeIds []string
+	err := s.db.WithContext(ctx).Raw(`
+		SELECT DISTINCT im.store_id
+		FROM imports im
+		JOIN import_details imd ON im.id = imd.import_id
+		WHERE im.entry_type = 1
+		  AND im.status = 'completed'
+		  AND imd.product_id = ?
+		  AND im.created_at >= ?
+		  AND im.created_at <= ?
+	`, productId, startDate, endDate).Scan(&storeIds).Error
+	if err != nil {
+		return nil, err
+	}
+	return storeIds, nil
+}
+
 func (s *Services) GetStoreProductsByProductId(ctx context.Context, params *domain.ProductQueryParam, user *domain.EmployeeClaims) ([]domain.StoreProduct, int64, error) {
 	hasImportDateFilter := params.StartDate != nil && !params.StartDate.GetTime().IsZero() &&
 		params.EndDate != nil && !params.EndDate.GetTime().IsZero()
@@ -1146,13 +1183,13 @@ func (s *Services) GetStoreProductsByProductId(ctx context.Context, params *doma
 		query = query.Where("sp.store_id = ?", params.StoreId)
 	} else if hasImportDateFilter {
 		// store_id berilmagan, lekin sana berilgan bo'lsa - faqat shu davrda
-		// import bo'lgan do'konlar bo'yicha ko'rsatamiz
-		query = query.Where(`sp.store_id IN (
-			SELECT DISTINCT im.store_id FROM imports im
-			JOIN import_details imd ON im.id = imd.import_id
-			WHERE imd.product_id = ? AND im.entry_type = 1 AND im.status = 'completed'
-			  AND im.created_at >= ? AND im.created_at <= ?
-		)`, params.ProductId, params.StartDate.UTC(), params.EndDate.UTC())
+		// import bo'lgan do'konlar bo'yicha ko'rsatamiz (boshqa 3 funksiya bilan bir xil manba)
+		importedStoreIds, err := s.getImportedStoreIds(ctx, params.ProductId, params.StartDate.UTC(), params.EndDate.UTC())
+		if err != nil {
+			s.log.Errorf("could not get imported store ids: %v", err)
+			return nil, 0, domain.InternalServerError
+		}
+		query = query.Where("sp.store_id IN (?)", importedStoreIds)
 	}
 	if params.CompanyId != "" {
 		query = query.Where("st.company_id = ?", params.CompanyId)
@@ -1514,7 +1551,7 @@ transfer_in_pending_data AS (
     JOIN var_data vd ON td.product_id = vd.product_id
     JOIN stores fs ON fs.id = tr.from_store_id
     JOIN stores ts ON ts.id = tr.to_store_id
-    WHERE tr.status NOT IN ('new', 'completed', 'failed_sent_to_1c', 'canceled') AND tr.entry_type = 1
+    WHERE tr.status NOT IN ('new', 'completed', 'sent-to-1c', 'failed_sent_to_1c', 'canceled') AND tr.entry_type = 1
     %s
     GROUP BY tr.id, fs.id, ts.id, vd.unit_per_pack
 ),
@@ -1536,7 +1573,7 @@ transfer_out_pending_data AS (
     JOIN var_data vd ON td.product_id = vd.product_id
     JOIN stores fs ON fs.id = tr.from_store_id
     JOIN stores ts ON ts.id = tr.to_store_id
-    WHERE tr.status NOT IN ('new', 'completed', 'failed_sent_to_1c', 'canceled') AND tr.entry_type = 1
+    WHERE tr.status NOT IN ('new', 'completed', 'sent-to-1c', 'failed_sent_to_1c', 'canceled') AND tr.entry_type = 1
     %s
     GROUP BY tr.id, fs.id, ts.id, vd.unit_per_pack
 )
@@ -1596,21 +1633,15 @@ LIMIT ? OFFSET ?;
 		params.EndDate != nil &&
 		!params.EndDate.GetTime().IsZero()
 
-	importStoreSubQuery := ""
-	importStoreDateArgs := []any{}
+	var importedStoreIds []string
 
 	if hasImportStoreDateFilter {
-		importStoreSubQuery = `
-			SELECT DISTINCT im.store_id
-			FROM imports im
-			JOIN import_details imd ON im.id = imd.import_id
-			WHERE im.entry_type = 1
-			  AND im.status = 'completed'
-			  AND imd.product_id = ?
-			  AND im.created_at >= ?
-			  AND im.created_at <= ?
-		`
-		importStoreDateArgs = append(importStoreDateArgs, params.ProductId, params.StartDate.UTC(), params.EndDate.UTC())
+		var err error
+		importedStoreIds, err = s.getImportedStoreIds(ctx, params.ProductId, params.StartDate.UTC(), params.EndDate.UTC())
+		if err != nil {
+			s.log.Errorf("could not get imported store ids: %v", err)
+			return res, totalCount, err
+		}
 	}
 
 	// dynamic query conditions
@@ -1626,15 +1657,15 @@ LIMIT ? OFFSET ?;
 		transferOutPendingDataFilter := ""
 
 		if hasImportStoreDateFilter {
-			importDataFilter = "AND im.store_id IN (" + importStoreSubQuery + ")"
-			inventoryDataFilter = "AND im.store_id IN (" + importStoreSubQuery + ")"
-			salesDataFilter = "AND sa.store_id IN (" + importStoreSubQuery + ")"
-			vozvratDataFilter = "AND tr.from_store_id IN (" + importStoreSubQuery + ")"
-			transferInDataFilter = "AND tr.to_store_id IN (" + importStoreSubQuery + ")"
-			transferOutDataFilter = "AND tr.from_store_id IN (" + importStoreSubQuery + ")"
-			vozvratPendingDataFilter = "AND tr.from_store_id IN (" + importStoreSubQuery + ")"
-			transferInPendingDataFilter = "AND tr.to_store_id IN (" + importStoreSubQuery + ")"
-			transferOutPendingDataFilter = "AND tr.from_store_id IN (" + importStoreSubQuery + ")"
+			importDataFilter = "AND im.store_id IN (?)"
+			inventoryDataFilter = "AND im.store_id IN (?)"
+			salesDataFilter = "AND sa.store_id IN (?)"
+			vozvratDataFilter = "AND tr.from_store_id IN (?)"
+			transferInDataFilter = "AND tr.to_store_id IN (?)"
+			transferOutDataFilter = "AND tr.from_store_id IN (?)"
+			vozvratPendingDataFilter = "AND tr.from_store_id IN (?)"
+			transferInPendingDataFilter = "AND tr.to_store_id IN (?)"
+			transferOutPendingDataFilter = "AND tr.from_store_id IN (?)"
 		}
 
 		query = fmt.Sprintf(
@@ -1655,7 +1686,7 @@ LIMIT ? OFFSET ?;
 
 		if hasImportStoreDateFilter {
 			for i := 0; i < 9; i++ {
-				args = append(args, importStoreDateArgs...)
+				args = append(args, importedStoreIds)
 			}
 		}
 
@@ -1799,13 +1830,23 @@ LIMIT ? OFFSET ?;
 	}
 
 	for i := range res {
-		if int(res[i].Quantity)%res[i].UnitPerPack > 0 {
-			res[i].Count = fmt.Sprintf("%d (%d/%d)",
-				int(res[i].Quantity)/res[i].UnitPerPack,
-				int(res[i].Quantity)%res[i].UnitPerPack,
-				res[i].UnitPerPack)
+		unit := res[i].UnitPerPack
+		if unit <= 0 {
+			res[i].Count = fmt.Sprintf("%d", int(res[i].Quantity))
+			continue
+		}
+
+		qty := int(res[i].Quantity)
+		sign := ""
+		if qty < 0 {
+			sign = "-"
+			qty = -qty
+		}
+
+		if qty%unit > 0 {
+			res[i].Count = fmt.Sprintf("%s%d (%d/%d)", sign, qty/unit, qty%unit, unit)
 		} else {
-			res[i].Count = fmt.Sprintf("%d", int(res[i].Quantity)/res[i].UnitPerPack)
+			res[i].Count = fmt.Sprintf("%s%d", sign, qty/unit)
 		}
 	}
 
@@ -2339,21 +2380,15 @@ LEFT JOIN imventory_quantity imq ON true
 		params.EndDate != nil &&
 		!params.EndDate.GetTime().IsZero()
 
-	importStoreSubQuery := ""
-	importStoreDateArgs := []any{}
+	var importedStoreIds []string
 
 	if hasImportStoreDateFilter {
-		importStoreSubQuery = `
-			SELECT DISTINCT im.store_id
-			FROM imports im
-			JOIN import_details imd ON im.id = imd.import_id
-			WHERE im.entry_type = 1
-			  AND im.status = 'completed'
-			  AND imd.product_id = ?
-			  AND im.created_at >= ?
-			  AND im.created_at <= ?
-		`
-		importStoreDateArgs = append(importStoreDateArgs, params.ProductId, params.StartDate.UTC(), params.EndDate.UTC())
+		var err error
+		importedStoreIds, err = s.getImportedStoreIds(ctx, params.ProductId, params.StartDate.UTC(), params.EndDate.UTC())
+		if err != nil {
+			s.log.Errorf("could not get imported store ids: %v", err)
+			return res, err
+		}
 	}
 
 	// dynamic query conditions
@@ -2368,14 +2403,14 @@ LEFT JOIN imventory_quantity imq ON true
 		inventoryStoreFilter := ""
 
 		if hasImportStoreDateFilter {
-			importStoreFilter = "AND im.store_id IN (" + importStoreSubQuery + ")"
-			salesStoreFilter = "AND sa.store_id IN (" + importStoreSubQuery + ")"
-			vozvratStoreFilter = "AND tr.from_store_id IN (" + importStoreSubQuery + ")"
-			transferOutStoreFilter = "filter ( where tr.from_store_id IN (" + importStoreSubQuery + ") )"
-			transferInStoreFilter = "filter ( where tr.to_store_id IN (" + importStoreSubQuery + ") )"
-			transferWhereStoreFilter = "AND (tr.from_store_id IN (" + importStoreSubQuery + ") OR tr.to_store_id IN (" + importStoreSubQuery + "))"
-			productQtyStoreFilter = "AND sp.store_id IN (" + importStoreSubQuery + ")"
-			inventoryStoreFilter = "AND s.id IN (" + importStoreSubQuery + ")"
+			importStoreFilter = "AND im.store_id IN (?)"
+			salesStoreFilter = "AND sa.store_id IN (?)"
+			vozvratStoreFilter = "AND tr.from_store_id IN (?)"
+			transferOutStoreFilter = "filter ( where tr.from_store_id IN (?) )"
+			transferInStoreFilter = "filter ( where tr.to_store_id IN (?) )"
+			transferWhereStoreFilter = "AND (tr.from_store_id IN (?) OR tr.to_store_id IN (?))"
+			productQtyStoreFilter = "AND sp.store_id IN (?)"
+			inventoryStoreFilter = "AND s.id IN (?)"
 		}
 
 		query = fmt.Sprintf(baseQuery,
@@ -2391,41 +2426,41 @@ LEFT JOIN imventory_quantity imq ON true
 		args = []any{params.ProductId}
 
 		if hasImportStoreDateFilter {
-			args = append(args, importStoreDateArgs...) // import_data store filter
+			args = append(args, importedStoreIds) // import_data store filter
 		}
 		args = append(args, timeArgsPerCTE...) // import_data time
 
 		if hasImportStoreDateFilter {
-			args = append(args, importStoreDateArgs...) // sales_data store filter
+			args = append(args, importedStoreIds) // sales_data store filter
 		}
 		args = append(args, timeArgsPerCTE...) // sales_data time
 
 		if hasImportStoreDateFilter {
-			args = append(args, importStoreDateArgs...) // return_sales_data store filter
+			args = append(args, importedStoreIds) // return_sales_data store filter
 		}
 		args = append(args, timeArgsPerCTE...) // return_sales_data time
 
 		if hasImportStoreDateFilter {
-			args = append(args, importStoreDateArgs...) // vozvrat_data store filter
+			args = append(args, importedStoreIds) // vozvrat_data store filter
 		}
 		args = append(args, timeArgsPerCTE...) // vozvrat_data time
 
 		if hasImportStoreDateFilter {
-			args = append(args, importStoreDateArgs...) // transfer FILTER 5 (transfer_out_count)
-			args = append(args, importStoreDateArgs...) // transfer FILTER 6 (transfer_out_amount)
-			args = append(args, importStoreDateArgs...) // transfer FILTER 7 (transfer_in_count)
-			args = append(args, importStoreDateArgs...) // transfer FILTER 8 (transfer_in_amount)
-			args = append(args, importStoreDateArgs...) // transfer WHERE (from_store_id part)
-			args = append(args, importStoreDateArgs...) // transfer WHERE (to_store_id part)
+			args = append(args, importedStoreIds) // transfer FILTER 5 (transfer_out_count)
+			args = append(args, importedStoreIds) // transfer FILTER 6 (transfer_out_amount)
+			args = append(args, importedStoreIds) // transfer FILTER 7 (transfer_in_count)
+			args = append(args, importedStoreIds) // transfer FILTER 8 (transfer_in_amount)
+			args = append(args, importedStoreIds) // transfer WHERE (from_store_id part)
+			args = append(args, importedStoreIds) // transfer WHERE (to_store_id part)
 		}
 		args = append(args, timeArgsPerCTE...) // transfer_data time
 
 		if hasImportStoreDateFilter {
-			args = append(args, importStoreDateArgs...) // product_quantity store filter
+			args = append(args, importedStoreIds) // product_quantity store filter
 		}
 
 		if hasImportStoreDateFilter {
-			args = append(args, importStoreDateArgs...) // imventory_quantity store filter
+			args = append(args, importedStoreIds) // imventory_quantity store filter
 		}
 		args = append(args, timeArgsPerCTE...) // imventory_quantity time
 
