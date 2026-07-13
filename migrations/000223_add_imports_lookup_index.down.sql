@@ -1,0 +1,1 @@
+DROP INDEX IF EXISTS idx_imports_entry_status_store_created;

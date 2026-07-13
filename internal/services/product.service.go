@@ -1083,6 +1083,32 @@ func (s *Services) GetProducerByCode(ctx context.Context, tx *gorm.DB, code stri
 }
 
 func (s *Services) GetStoreProductsByProductId(ctx context.Context, params *domain.ProductQueryParam, user *domain.EmployeeClaims) ([]domain.StoreProduct, int64, error) {
+	hasImportDateFilter := params.StartDate != nil && !params.StartDate.GetTime().IsZero() &&
+		params.EndDate != nil && !params.EndDate.GetTime().IsZero()
+
+	// store_id + sana berilganda, shu do'konda shu mahsulot import bo'lganmi tekshiramiz;
+	// bo'lmasa og'ir so'rovni ishga tushirmasdan bo'sh natija qaytaramiz
+	if params.StoreId != "" && hasImportDateFilter {
+		var exists bool
+		err := s.db.WithContext(ctx).Raw(`
+			SELECT EXISTS (
+				SELECT 1 FROM imports im
+				JOIN import_details imd ON im.id = imd.import_id
+				WHERE im.store_id = ? AND imd.product_id = ?
+				  AND im.entry_type = 1 AND im.status = 'completed'
+				  AND im.created_at >= ? AND im.created_at <= ?
+			)`,
+			params.StoreId, params.ProductId, params.StartDate.UTC(), params.EndDate.UTC(),
+		).Scan(&exists).Error
+		if err != nil {
+			s.log.Errorf("could not check imported store: %v", err)
+			return nil, 0, domain.InternalServerError
+		}
+		if !exists {
+			return []domain.StoreProduct{}, 0, nil
+		}
+	}
+
 	// build query
 	query := s.db.WithContext(ctx).
 		Select(
@@ -1118,6 +1144,15 @@ func (s *Services) GetStoreProductsByProductId(ctx context.Context, params *doma
 
 	if params.StoreId != "" {
 		query = query.Where("sp.store_id = ?", params.StoreId)
+	} else if hasImportDateFilter {
+		// store_id berilmagan, lekin sana berilgan bo'lsa - faqat shu davrda
+		// import bo'lgan do'konlar bo'yicha ko'rsatamiz
+		query = query.Where(`sp.store_id IN (
+			SELECT DISTINCT im.store_id FROM imports im
+			JOIN import_details imd ON im.id = imd.import_id
+			WHERE imd.product_id = ? AND im.entry_type = 1 AND im.status = 'completed'
+			  AND im.created_at >= ? AND im.created_at <= ?
+		)`, params.ProductId, params.StartDate.UTC(), params.EndDate.UTC())
 	}
 	if params.CompanyId != "" {
 		query = query.Where("st.company_id = ?", params.CompanyId)
@@ -1556,15 +1591,111 @@ LIMIT ? OFFSET ?;
 		outerWhere = "WHERE 1=1" + timeFilter + entryTypeFilter
 	}
 
+	hasImportStoreDateFilter := params.StartDate != nil &&
+		!params.StartDate.GetTime().IsZero() &&
+		params.EndDate != nil &&
+		!params.EndDate.GetTime().IsZero()
+
+	importStoreSubQuery := ""
+	importStoreDateArgs := []any{}
+
+	if hasImportStoreDateFilter {
+		importStoreSubQuery = `
+			SELECT DISTINCT im.store_id
+			FROM imports im
+			JOIN import_details imd ON im.id = imd.import_id
+			WHERE im.entry_type = 1
+			  AND im.status = 'completed'
+			  AND imd.product_id = ?
+			  AND im.created_at >= ?
+			  AND im.created_at <= ?
+		`
+		importStoreDateArgs = append(importStoreDateArgs, params.ProductId, params.StartDate.UTC(), params.EndDate.UTC())
+	}
+
 	// dynamic query conditions
 	if params.StoreId == "" && params.CompanyId == "" {
-		query = fmt.Sprintf(baseQuery, "", "", "", "", "", "", "", "", "", outerWhere)
+		importDataFilter := ""
+		inventoryDataFilter := ""
+		salesDataFilter := ""
+		vozvratDataFilter := ""
+		transferInDataFilter := ""
+		transferOutDataFilter := ""
+		vozvratPendingDataFilter := ""
+		transferInPendingDataFilter := ""
+		transferOutPendingDataFilter := ""
+
+		if hasImportStoreDateFilter {
+			importDataFilter = "AND im.store_id IN (" + importStoreSubQuery + ")"
+			inventoryDataFilter = "AND im.store_id IN (" + importStoreSubQuery + ")"
+			salesDataFilter = "AND sa.store_id IN (" + importStoreSubQuery + ")"
+			vozvratDataFilter = "AND tr.from_store_id IN (" + importStoreSubQuery + ")"
+			transferInDataFilter = "AND tr.to_store_id IN (" + importStoreSubQuery + ")"
+			transferOutDataFilter = "AND tr.from_store_id IN (" + importStoreSubQuery + ")"
+			vozvratPendingDataFilter = "AND tr.from_store_id IN (" + importStoreSubQuery + ")"
+			transferInPendingDataFilter = "AND tr.to_store_id IN (" + importStoreSubQuery + ")"
+			transferOutPendingDataFilter = "AND tr.from_store_id IN (" + importStoreSubQuery + ")"
+		}
+
+		query = fmt.Sprintf(
+			baseQuery,
+			importDataFilter,
+			inventoryDataFilter,
+			salesDataFilter,
+			vozvratDataFilter,
+			transferInDataFilter,
+			transferOutDataFilter,
+			vozvratPendingDataFilter,
+			transferInPendingDataFilter,
+			transferOutPendingDataFilter,
+			outerWhere,
+		)
+
 		args = []any{params.ProductId}
+
+		if hasImportStoreDateFilter {
+			for i := 0; i < 9; i++ {
+				args = append(args, importStoreDateArgs...)
+			}
+		}
+
 		args = append(args, timeArgs...)
 		args = append(args, entryTypeArgs...)
 		args = append(args, params.Limit, params.Offset)
 
 	} else if params.StoreId != "" && params.CompanyId == "" {
+		if hasImportStoreDateFilter {
+			var exists bool
+
+			err := s.db.WithContext(ctx).Raw(`
+				SELECT EXISTS (
+					SELECT 1
+					FROM imports im
+					JOIN import_details imd ON im.id = imd.import_id
+					WHERE im.store_id = ?
+					  AND imd.product_id = ?
+					  AND im.entry_type = 1
+					  AND im.status = 'completed'
+					  AND im.created_at >= ?
+					  AND im.created_at <= ?
+				)
+			`,
+				params.StoreId,
+				params.ProductId,
+				params.StartDate.UTC(),
+				params.EndDate.UTC(),
+			).Scan(&exists).Error
+
+			if err != nil {
+				s.log.Errorf("could not check imported store: %v", err)
+				return res, totalCount, err
+			}
+
+			if !exists {
+				return res, totalCount, nil
+			}
+		}
+
 		query = fmt.Sprintf(
 			baseQuery,
 			"AND im.store_id = ?",
@@ -2203,27 +2334,134 @@ LEFT JOIN imventory_quantity imq ON true
 		timeArgsPerCTE = append(timeArgsPerCTE, endUTC)
 	}
 
+	hasImportStoreDateFilter := params.StartDate != nil &&
+		!params.StartDate.GetTime().IsZero() &&
+		params.EndDate != nil &&
+		!params.EndDate.GetTime().IsZero()
+
+	importStoreSubQuery := ""
+	importStoreDateArgs := []any{}
+
+	if hasImportStoreDateFilter {
+		importStoreSubQuery = `
+			SELECT DISTINCT im.store_id
+			FROM imports im
+			JOIN import_details imd ON im.id = imd.import_id
+			WHERE im.entry_type = 1
+			  AND im.status = 'completed'
+			  AND imd.product_id = ?
+			  AND im.created_at >= ?
+			  AND im.created_at <= ?
+		`
+		importStoreDateArgs = append(importStoreDateArgs, params.ProductId, params.StartDate.UTC(), params.EndDate.UTC())
+	}
+
 	// dynamic query conditions
 	if params.StoreId == "" && params.CompanyId == "" {
+		importStoreFilter := ""
+		salesStoreFilter := ""
+		vozvratStoreFilter := ""
+		transferOutStoreFilter := ""
+		transferInStoreFilter := ""
+		transferWhereStoreFilter := ""
+		productQtyStoreFilter := ""
+		inventoryStoreFilter := ""
+
+		if hasImportStoreDateFilter {
+			importStoreFilter = "AND im.store_id IN (" + importStoreSubQuery + ")"
+			salesStoreFilter = "AND sa.store_id IN (" + importStoreSubQuery + ")"
+			vozvratStoreFilter = "AND tr.from_store_id IN (" + importStoreSubQuery + ")"
+			transferOutStoreFilter = "filter ( where tr.from_store_id IN (" + importStoreSubQuery + ") )"
+			transferInStoreFilter = "filter ( where tr.to_store_id IN (" + importStoreSubQuery + ") )"
+			transferWhereStoreFilter = "AND (tr.from_store_id IN (" + importStoreSubQuery + ") OR tr.to_store_id IN (" + importStoreSubQuery + "))"
+			productQtyStoreFilter = "AND sp.store_id IN (" + importStoreSubQuery + ")"
+			inventoryStoreFilter = "AND s.id IN (" + importStoreSubQuery + ")"
+		}
+
 		query = fmt.Sprintf(baseQuery,
-			importTimeCond,   // 1: import_data
-			saleTimeCond,     // 2: sales_data
-			saleTimeCond,     // 3: return_sales_data
-			transferTimeCond, // 4: vozvrat_data
-			"", "", "", "",   // 5-8: transfer FILTER clauses
-			transferTimeCond,  // 9: transfer_data WHERE
-			"",                // 10: product_quantity (no time filter)
-			inventoryTimeCond, // 11: imventory_quantity
+			importStoreFilter+importTimeCond, // 1: import_data
+			salesStoreFilter+saleTimeCond,     // 2: sales_data
+			salesStoreFilter+saleTimeCond,     // 3: return_sales_data
+			vozvratStoreFilter+transferTimeCond, // 4: vozvrat_data
+			transferOutStoreFilter, transferOutStoreFilter, transferInStoreFilter, transferInStoreFilter, // 5-8: transfer FILTER clauses
+			transferWhereStoreFilter+transferTimeCond, // 9: transfer_data WHERE
+			productQtyStoreFilter,                  // 10: product_quantity
+			inventoryStoreFilter+inventoryTimeCond, // 11: imventory_quantity
 		)
 		args = []any{params.ProductId}
-		args = append(args, timeArgsPerCTE...) // import_data
-		args = append(args, timeArgsPerCTE...) // sales_data
-		args = append(args, timeArgsPerCTE...) // return_sales_data
-		args = append(args, timeArgsPerCTE...) // vozvrat_data
-		args = append(args, timeArgsPerCTE...) // transfer_data WHERE
-		args = append(args, timeArgsPerCTE...) // imventory_quantity
+
+		if hasImportStoreDateFilter {
+			args = append(args, importStoreDateArgs...) // import_data store filter
+		}
+		args = append(args, timeArgsPerCTE...) // import_data time
+
+		if hasImportStoreDateFilter {
+			args = append(args, importStoreDateArgs...) // sales_data store filter
+		}
+		args = append(args, timeArgsPerCTE...) // sales_data time
+
+		if hasImportStoreDateFilter {
+			args = append(args, importStoreDateArgs...) // return_sales_data store filter
+		}
+		args = append(args, timeArgsPerCTE...) // return_sales_data time
+
+		if hasImportStoreDateFilter {
+			args = append(args, importStoreDateArgs...) // vozvrat_data store filter
+		}
+		args = append(args, timeArgsPerCTE...) // vozvrat_data time
+
+		if hasImportStoreDateFilter {
+			args = append(args, importStoreDateArgs...) // transfer FILTER 5 (transfer_out_count)
+			args = append(args, importStoreDateArgs...) // transfer FILTER 6 (transfer_out_amount)
+			args = append(args, importStoreDateArgs...) // transfer FILTER 7 (transfer_in_count)
+			args = append(args, importStoreDateArgs...) // transfer FILTER 8 (transfer_in_amount)
+			args = append(args, importStoreDateArgs...) // transfer WHERE (from_store_id part)
+			args = append(args, importStoreDateArgs...) // transfer WHERE (to_store_id part)
+		}
+		args = append(args, timeArgsPerCTE...) // transfer_data time
+
+		if hasImportStoreDateFilter {
+			args = append(args, importStoreDateArgs...) // product_quantity store filter
+		}
+
+		if hasImportStoreDateFilter {
+			args = append(args, importStoreDateArgs...) // imventory_quantity store filter
+		}
+		args = append(args, timeArgsPerCTE...) // imventory_quantity time
 
 	} else if params.StoreId != "" && params.CompanyId == "" {
+		if hasImportStoreDateFilter {
+			var exists bool
+
+			err := s.db.WithContext(ctx).Raw(`
+				SELECT EXISTS (
+					SELECT 1
+					FROM imports im
+					JOIN import_details imd ON im.id = imd.import_id
+					WHERE im.store_id = ?
+					  AND imd.product_id = ?
+					  AND im.entry_type = 1
+					  AND im.status = 'completed'
+					  AND im.created_at >= ?
+					  AND im.created_at <= ?
+				)
+			`,
+				params.StoreId,
+				params.ProductId,
+				params.StartDate.UTC(),
+				params.EndDate.UTC(),
+			).Scan(&exists).Error
+
+			if err != nil {
+				s.log.Errorf("could not check imported store: %v", err)
+				return res, err
+			}
+
+			if !exists {
+				return res, nil
+			}
+		}
+
 		query = fmt.Sprintf(
 			baseQuery,
 			"AND im.store_id = ?"+importTimeCond,
