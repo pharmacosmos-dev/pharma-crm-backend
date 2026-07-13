@@ -1445,112 +1445,15 @@ LIMIT ? OFFSET ?;
 		outerWhere = "WHERE 1=1" + timeFilter + entryTypeFilter
 	}
 
-	hasImportStoreDateFilter := params.StartDate != nil &&
-		!params.StartDate.GetTime().IsZero() &&
-		params.EndDate != nil &&
-		!params.EndDate.GetTime().IsZero()
-
-	importStoreSubQuery := ""
-	importStoreDateArgs := []any{}
-
-	if hasImportStoreDateFilter {
-		importStoreSubQuery = `
-			SELECT DISTINCT im.store_id
-			FROM imports im
-			JOIN import_details imd ON im.id = imd.import_id
-			JOIN var_data vd ON imd.product_id = vd.product_id
-			WHERE im.entry_type = 1
-			  AND im.status = 'completed'
-			  AND im.created_at >= ?
-			  AND im.created_at <= ?
-		`
-
-		importStoreDateArgs = append(importStoreDateArgs, params.StartDate.UTC(), params.EndDate.UTC())
-	}
-
 	// dynamic query conditions
 	if params.StoreId == "" && params.CompanyId == "" {
-		importDataFilter := ""
-		inventoryDataFilter := ""
-		salesDataFilter := ""
-		vozvratDataFilter := ""
-		transferInDataFilter := ""
-		transferOutDataFilter := ""
-		vozvratPendingDataFilter := ""
-		transferInPendingDataFilter := ""
-		transferOutPendingDataFilter := ""
-
-		if hasImportStoreDateFilter {
-			importDataFilter = "AND im.store_id IN (" + importStoreSubQuery + ")"
-			inventoryDataFilter = "AND im.store_id IN (" + importStoreSubQuery + ")"
-			salesDataFilter = "AND sa.store_id IN (" + importStoreSubQuery + ")"
-			vozvratDataFilter = "AND tr.from_store_id IN (" + importStoreSubQuery + ")"
-			transferInDataFilter = "AND tr.to_store_id IN (" + importStoreSubQuery + ")"
-			transferOutDataFilter = "AND tr.from_store_id IN (" + importStoreSubQuery + ")"
-			vozvratPendingDataFilter = "AND tr.from_store_id IN (" + importStoreSubQuery + ")"
-			transferInPendingDataFilter = "AND tr.to_store_id IN (" + importStoreSubQuery + ")"
-			transferOutPendingDataFilter = "AND tr.from_store_id IN (" + importStoreSubQuery + ")"
-		}
-
-		query = fmt.Sprintf(
-			baseQuery,
-			importDataFilter,
-			inventoryDataFilter,
-			salesDataFilter,
-			vozvratDataFilter,
-			transferInDataFilter,
-			transferOutDataFilter,
-			vozvratPendingDataFilter,
-			transferInPendingDataFilter,
-			transferOutPendingDataFilter,
-			outerWhere,
-		)
-
+		query = fmt.Sprintf(baseQuery, "", "", "", "", "", "", "", "", "", outerWhere)
 		args = []any{params.ProducerId}
-
-		if hasImportStoreDateFilter {
-			for i := 0; i < 9; i++ {
-				args = append(args, importStoreDateArgs...)
-			}
-		}
-
 		args = append(args, timeArgs...)
 		args = append(args, entryTypeArgs...)
 		args = append(args, params.Limit, params.Offset)
 
 	} else if params.StoreId != "" && params.CompanyId == "" {
-		if hasImportStoreDateFilter {
-			var exists bool
-
-			err := s.db.WithContext(ctx).Raw(`
-				SELECT EXISTS (
-					SELECT 1
-					FROM imports im
-					JOIN import_details imd ON im.id = imd.import_id
-					WHERE im.store_id = ?
-					  AND imd.product_id = ?
-					  AND im.entry_type = 1
-					  AND im.status = 'completed'
-					  AND im.created_at >= ?
-					  AND im.created_at <= ?
-				)
-			`,
-				params.StoreId,
-				params.ProducerId,
-				params.StartDate.UTC(),
-				params.EndDate.UTC(),
-			).Scan(&exists).Error
-
-			if err != nil {
-				s.log.Errorf("could not check imported store: %v", err)
-				return res, totalCount, err
-			}
-
-			if !exists {
-				return res, totalCount, nil
-			}
-		}
-
 		query = fmt.Sprintf(
 			baseQuery,
 			"AND im.store_id = ?",
@@ -1565,7 +1468,7 @@ LIMIT ? OFFSET ?;
 			outerWhere,
 		)
 		args = []any{
-			params.ProducerId,
+			params.ProductId,
 			params.StoreId, // import_data
 			params.StoreId, // inventory_data
 			params.StoreId, // sales_data
@@ -1595,7 +1498,7 @@ LIMIT ? OFFSET ?;
 			outerWhere,
 		)
 		args = []any{
-			params.ProducerId,
+			params.ProductId,
 			params.CompanyId, // import_data
 			params.CompanyId, // inventory_data
 			params.CompanyId, // sales_data
@@ -1625,7 +1528,7 @@ LIMIT ? OFFSET ?;
 			outerWhere,
 		)
 		args = []any{
-			params.ProducerId,
+			params.ProductId,
 			params.StoreId, params.CompanyId, // import_data
 			params.StoreId, params.CompanyId, // inventory_data
 			params.StoreId, params.CompanyId, // sales_data
