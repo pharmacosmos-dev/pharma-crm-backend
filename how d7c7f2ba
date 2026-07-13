@@ -1,0 +1,445 @@
+[1mdiff --git a/internal/controller/http/v1/product.handler.go b/internal/controller/http/v1/product.handler.go[m
+[1mindex 8e06b006..8d0fc8b3 100644[m
+[1m--- a/internal/controller/http/v1/product.handler.go[m
+[1m+++ b/internal/controller/http/v1/product.handler.go[m
+[36m@@ -1323,7 +1323,7 @@[m [mfunc (h *ProductHandler) ProductMovements(c *gin.Context) {[m
+ 	// get pagination with default[m
+ 	params.Limit, params.Offset = defaultLimitOffset(params.Limit, params.Offset)[m
+ [m
+[31m-	params.ProducerId = productId[m
+[32m+[m	[32mparams.ProductId = productId[m
+ [m
+ 	// get product-movements data from the product service[m
+ 	res, totalCount, err := h.service.GetProductMovements(ctx, &params, user)[m
+[36m@@ -1394,7 +1394,7 @@[m [mfunc (h *ProductHandler) ExportProductMovementsExcel(c *gin.Context) {[m
+ 	// get pagination with default[m
+ 	params.Limit, params.Offset = defaultLimitOffset(params.Limit, params.Offset)[m
+ [m
+[31m-	params.ProducerId = productId[m
+[32m+[m	[32mparams.ProductId = productId[m
+ 	// get product-movements data from the product service[m
+ 	res, _, err := h.service.GetProductMovements(ctx, &params, user)[m
+ 	if err != nil {[m
+[1mdiff --git a/internal/services/product.service.go b/internal/services/product.service.go[m
+[1mindex 1f949d36..9baa2fe1 100644[m
+[1m--- a/internal/services/product.service.go[m
+[1m+++ b/internal/services/product.service.go[m
+[36m@@ -292,33 +292,44 @@[m [mfunc (s *Services) GetProductById(ctx context.Context, productId string, storeId[m
+ // get products get list[m
+ func (s *Services) GetProducts(ctx context.Context, params *domain.ProductQueryParam) ([]domain.ProductData, int64, error) {[m
+ [m
+[32m+[m	[32mhasImportDateFilter := params.StartDate != nil && !params.StartDate.GetTime().IsZero() &&[m
+[32m+[m		[32mparams.EndDate != nil && !params.EndDate.GetTime().IsZero()[m
+[32m+[m
+[32m+[m	[32m// store_id berilmagan, sana berilgan bo'lsa - faqat shu davrda import bo'lgan[m
+[32m+[m	[32m// (store_id, product_id) juftliklarini bitta JOIN orqali cheklaymiz[m
+[32m+[m	[32m// (har bir store_products qatori uchun alohida subquery emas - shu sekin bo'lardi)[m
+[32m+[m	[32mimportedStoreProductsJoin := ""[m
+[32m+[m	[32mif params.StoreId == "" && hasImportDateFilter {[m
+[32m+[m		[32mimportedStoreProductsJoin = fmt.Sprintf(`[m
+[32m+[m		[32mJOIN ([m
+[32m+[m			[32mSELECT DISTINCT im.store_id, imd.product_id[m
+[32m+[m			[32mFROM imports im[m
+[32m+[m			[32mJOIN import_details imd ON im.id = imd.import_id[m
+[32m+[m			[32mWHERE im.entry_type = 1 AND im.status = 'completed'[m
+[32m+[m			[32m  AND im.created_at >= '%s' AND im.created_at <= '%s'[m
+[32m+[m		[32m) imported_sp ON imported_sp.store_id = sp.store_id AND imported_sp.product_id = sp.product_id`,[m
+[32m+[m			[32mparams.StartDate.GetTime().UTC().Format(time.RFC3339),[m
+[32m+[m			[32mparams.EndDate.GetTime().UTC().Format(time.RFC3339),[m
+[32m+[m		[32m)[m
+[32m+[m	[32m}[m
+[32m+[m
+ 	// Pre-aggregate store_products[m
+ 	storeJoin := `[m
+ 	LEFT JOIN ([m
+ 		SELECT[m
+[31m-			product_id,[m
+[31m-			SUM(unit_quantity) as total_quantity,[m
+[31m-			MIN(expire_date) FILTER (WHERE unit_quantity > 0) as min_expire_date,[m
+[31m-			MAX(supply_price) AS supply_price,[m
+[31m-			MAX(retail_price) AS retail_price[m
+[31m-		FROM store_products[m
+[32m+[m			[32msp.product_id,[m
+[32m+[m			[32mSUM(sp.unit_quantity) as total_quantity,[m
+[32m+[m			[32mMIN(sp.expire_date) FILTER (WHERE sp.unit_quantity > 0) as min_expire_date,[m
+[32m+[m			[32mMAX(sp.supply_price) AS supply_price,[m
+[32m+[m			[32mMAX(sp.retail_price) AS retail_price[m
+[32m+[m		[32mFROM store_products sp` + importedStoreProductsJoin + `[m
+ 		WHERE 1=1`[m
+ [m
+[31m-	var spConditions []string[m
+ 	if params.StoreId != "" {[m
+[31m-		spConditions = append(spConditions, fmt.Sprintf("store_id = '%s'", params.StoreId))[m
+[31m-	}[m
+[31m-	if params.StartDate != nil {[m
+[31m-		spConditions = append(spConditions, fmt.Sprintf("created_at >= '%s'", params.StartDate.GetTime().UTC().Format(time.RFC3339)))[m
+[31m-	}[m
+[31m-	if params.EndDate != nil {[m
+[31m-		spConditions = append(spConditions, fmt.Sprintf("created_at <= '%s'", params.EndDate.GetTime().UTC().Format(time.RFC3339)))[m
+[31m-	}[m
+[31m-	if len(spConditions) > 0 {[m
+[31m-		storeJoin += " AND " + strings.Join(spConditions, " AND ")[m
+[32m+[m		[32mstoreJoin += fmt.Sprintf(" AND sp.store_id = '%s'", params.StoreId)[m
+ 	}[m
+ [m
+[31m-	storeJoin += ` GROUP BY product_id[m
+[32m+[m	[32mstoreJoin += ` GROUP BY sp.product_id[m
+ 	) sp_agg ON p.id = sp_agg.product_id`[m
+ [m
+ 	qb := s.db.WithContext(ctx).[m
+[36m@@ -333,6 +344,17 @@[m [mfunc (s *Services) GetProducts(ctx context.Context, params *domain.ProductQueryP[m
+ 	if params.ProducerId != "" {[m
+ 		qb = qb.Where("p.producer_id = ?", params.ProducerId)[m
+ 	}[m
+[32m+[m	[32mif params.StoreId != "" && hasImportDateFilter {[m
+[32m+[m		[32m// store_id va sana ikkalasi ham berilgan bo'lsa - faqat shu davrda[m
+[32m+[m		[32m// shu do'konga import bo'lgan mahsulotlar chiqadi[m
+[32m+[m		[32mqb = qb.Where(`EXISTS ([m
+[32m+[m			[32mSELECT 1 FROM imports im[m
+[32m+[m			[32mJOIN import_details imd ON im.id = imd.import_id[m
+[32m+[m			[32mWHERE imd.product_id = p.id AND im.store_id = ?[m
+[32m+[m			[32m  AND im.entry_type = 1 AND im.status = 'completed'[m
+[32m+[m			[32m  AND im.created_at >= ? AND im.created_at <= ?[m
+[32m+[m		[32m)`, params.StoreId, params.StartDate.UTC(), params.EndDate.UTC())[m
+[32m+[m	[32m}[m
+ 	if params.NoBarcode {[m
+ 		qb = qb.Where("p.barcode IS NULL OR p.barcode = ''")[m
+ 	}[m
+[36m@@ -972,6 +994,32 @@[m [mfunc (s *Services) GetProducerByCode(ctx context.Context, tx *gorm.DB, code stri[m
+ }[m
+ [m
+ func (s *Services) GetStoreProductsByProductId(ctx context.Context, params *domain.ProductQueryParam, user *domain.EmployeeClaims) ([]domain.StoreProduct, int64, error) {[m
+[32m+[m	[32mhasImportDateFilter := params.StartDate != nil && !params.StartDate.GetTime().IsZero() &&[m
+[32m+[m		[32mparams.EndDate != nil && !params.EndDate.GetTime().IsZero()[m
+[32m+[m
+[32m+[m	[32m// store_id + sana berilganda, shu do'konda shu mahsulot import bo'lganmi tekshiramiz;[m
+[32m+[m	[32m// bo'lmasa og'ir so'rovni ishga tushirmasdan bo'sh natija qaytaramiz[m
+[32m+[m	[32mif params.StoreId != "" && hasImportDateFilter {[m
+[32m+[m		[32mvar exists bool[m
+[32m+[m		[32merr := s.db.WithContext(ctx).Raw(`[m
+[32m+[m			[32mSELECT EXISTS ([m
+[32m+[m				[32mSELECT 1 FROM imports im[m
+[32m+[m				[32mJOIN import_details imd ON im.id = imd.import_id[m
+[32m+[m				[32mWHERE im.store_id = ? AND imd.product_id = ?[m
+[32m+[m				[32m  AND im.entry_type = 1 AND im.status = 'completed'[m
+[32m+[m				[32m  AND im.created_at >= ? AND im.created_at <= ?[m
+[32m+[m			[32m)`,[m
+[32m+[m			[32mparams.StoreId, params.ProductId, params.StartDate.UTC(), params.EndDate.UTC(),[m
+[32m+[m		[32m).Scan(&exists).Error[m
+[32m+[m		[32mif err != nil {[m
+[32m+[m			[32ms.log.Errorf("could not check imported store: %v", err)[m
+[32m+[m			[32mreturn nil, 0, domain.InternalServerError[m
+[32m+[m		[32m}[m
+[32m+[m		[32mif !exists {[m
+[32m+[m			[32mreturn []domain.StoreProduct{}, 0, nil[m
+[32m+[m		[32m}[m
+[32m+[m	[32m}[m
+[32m+[m
+ 	// build query[m
+ 	query := s.db.WithContext(ctx).[m
+ 		Select([m
+[36m@@ -1007,6 +1055,15 @@[m [mfunc (s *Services) GetStoreProductsByProductId(ctx context.Context, params *doma[m
+ [m
+ 	if params.StoreId != "" {[m
+ 		query = query.Where("sp.store_id = ?", params.StoreId)[m
+[32m+[m	[32m} else if hasImportDateFilter {[m
+[32m+[m		[32m// store_id berilmagan, lekin sana berilgan bo'lsa - faqat shu davrda[m
+[32m+[m		[32m// import bo'lgan do'konlar bo'yicha ko'rsatamiz[m
+[32m+[m		[32mquery = query.Where(`sp.store_id IN ([m
+[32m+[m			[32mSELECT DISTINCT im.store_id FROM imports im[m
+[32m+[m			[32mJOIN import_details imd ON im.id = imd.import_id[m
+[32m+[m			[32mWHERE imd.product_id = ? AND im.entry_type = 1 AND im.status = 'completed'[m
+[32m+[m			[32m  AND im.created_at >= ? AND im.created_at <= ?[m
+[32m+[m		[32m)`, params.ProductId, params.StartDate.UTC(), params.EndDate.UTC())[m
+ 	}[m
+ 	if params.CompanyId != "" {[m
+ 		query = query.Where("st.company_id = ?", params.CompanyId)[m
+[36m@@ -1258,7 +1315,7 @@[m [msales_data AS ([m
+         sa.completed_at AS created_at,[m
+         st.name AS store_name,[m
+         CASE WHEN sa.sale_type = 'SALE' THEN SUM(ci.unit_quantity) * (-1) ELSE SUM(ci.unit_quantity) END AS quantity,[m
+[31m-		CASE WHEN sa.sale_type = 'SALE' THEN sa.total_amount * (-1) ELSE sa.total_amount END as sum,[m
+[32m+[m		[32mCASE WHEN sa.sale_type = 'SALE' THEN SUM(ci.total_price) * (-1) ELSE SUM(ci.total_price) END as sum,[m
+         sa.sale_type AS name,[m
+         sa.status,[m
+         NULL::jsonb AS metadata,[m
+[36m@@ -1368,7 +1425,7 @@[m [mtransfer_in_pending_data AS ([m
+     JOIN var_data vd ON td.product_id = vd.product_id[m
+     JOIN stores fs ON fs.id = tr.from_store_id[m
+     JOIN stores ts ON ts.id = tr.to_store_id[m
+[31m-    WHERE tr.status NOT IN ('new', 'completed', 'failed_sent_to_1c', 'canceled') AND tr.entry_type = 1[m
+[32m+[m[32m    WHERE tr.status NOT IN ('new', 'completed', 'sent-to-1c', 'failed_sent_to_1c', 'canceled') AND tr.entry_type = 1[m
+     %s[m
+     GROUP BY tr.id, fs.id, ts.id, vd.unit_per_pack[m
+ ),[m
+[36m@@ -1390,7 +1447,7 @@[m [mtransfer_out_pending_data AS ([m
+     JOIN var_data vd ON td.product_id = vd.product_id[m
+     JOIN stores fs ON fs.id = tr.from_store_id[m
+     JOIN stores ts ON ts.id = tr.to_store_id[m
+[31m-    WHERE tr.status NOT IN ('new', 'completed', 'failed_sent_to_1c', 'canceled') AND tr.entry_type = 1[m
+[32m+[m[32m    WHERE tr.status NOT IN ('new', 'completed', 'sent-to-1c', 'failed_sent_to_1c', 'canceled') AND tr.entry_type = 1[m
+     %s[m
+     GROUP BY tr.id, fs.id, ts.id, vd.unit_per_pack[m
+ )[m
+[36m@@ -1506,7 +1563,7 @@[m [mLIMIT ? OFFSET ?;[m
+ 			outerWhere,[m
+ 		)[m
+ [m
+[31m-		args = []any{params.ProducerId}[m
+[32m+[m		[32margs = []any{params.ProductId}[m
+ [m
+ 		if hasImportStoreDateFilter {[m
+ 			for i := 0; i < 9; i++ {[m
+[36m@@ -1536,7 +1593,7 @@[m [mLIMIT ? OFFSET ?;[m
+ 				)[m
+ 			`,[m
+ 				params.StoreId,[m
+[31m-				params.ProducerId,[m
+[32m+[m				[32mparams.ProductId,[m
+ 				params.StartDate.UTC(),[m
+ 				params.EndDate.UTC(),[m
+ 			).Scan(&exists).Error[m
+[36m@@ -1565,7 +1622,7 @@[m [mLIMIT ? OFFSET ?;[m
+ 			outerWhere,[m
+ 		)[m
+ 		args = []any{[m
+[31m-			params.ProducerId,[m
+[32m+[m			[32mparams.ProductId,[m
+ 			params.StoreId, // import_data[m
+ 			params.StoreId, // inventory_data[m
+ 			params.StoreId, // sales_data[m
+[36m@@ -1595,7 +1652,7 @@[m [mLIMIT ? OFFSET ?;[m
+ 			outerWhere,[m
+ 		)[m
+ 		args = []any{[m
+[31m-			params.ProducerId,[m
+[32m+[m			[32mparams.ProductId,[m
+ 			params.CompanyId, // import_data[m
+ 			params.CompanyId, // inventory_data[m
+ 			params.CompanyId, // sales_data[m
+[36m@@ -1625,7 +1682,7 @@[m [mLIMIT ? OFFSET ?;[m
+ 			outerWhere,[m
+ 		)[m
+ 		args = []any{[m
+[31m-			params.ProducerId,[m
+[32m+[m			[32mparams.ProductId,[m
+ 			params.StoreId, params.CompanyId, // import_data[m
+ 			params.StoreId, params.CompanyId, // inventory_data[m
+ 			params.StoreId, params.CompanyId, // sales_data[m
+[36m@@ -1654,13 +1711,23 @@[m [mLIMIT ? OFFSET ?;[m
+ 	}[m
+ [m
+ 	for i := range res {[m
+[31m-		if int(res[i].Quantity)%res[i].UnitPerPack > 0 {[m
+[31m-			res[i].Count = fmt.Sprintf("%d (%d/%d)",[m
+[31m-				int(res[i].Quantity)/res[i].UnitPerPack,[m
+[31m-				int(res[i].Quantity)%res[i].UnitPerPack,[m
+[31m-				res[i].UnitPerPack)[m
+[32m+[m		[32munit := res[i].UnitPerPack[m
+[32m+[m		[32mif unit <= 0 {[m
+[32m+[m			[32mres[i].Count = fmt.Sprintf("%d", int(res[i].Quantity))[m
+[32m+[m			[32mcontinue[m
+[32m+[m		[32m}[m
+[32m+[m
+[32m+[m		[32mqty := int(res[i].Quantity)[m
+[32m+[m		[32msign := ""[m
+[32m+[m		[32mif qty < 0 {[m
+[32m+[m			[32msign = "-"[m
+[32m+[m			[32mqty = -qty[m
+[32m+[m		[32m}[m
+[32m+[m
+[32m+[m		[32mif qty%unit > 0 {[m
+[32m+[m			[32mres[i].Count = fmt.Sprintf("%s%d (%d/%d)", sign, qty/unit, qty%unit, unit)[m
+ 		} else {[m
+[31m-			res[i].Count = fmt.Sprintf("%d", int(res[i].Quantity)/res[i].UnitPerPack)[m
+[32m+[m			[32mres[i].Count = fmt.Sprintf("%s%d", sign, qty/unit)[m
+ 		}[m
+ 	}[m
+ [m
+[36m@@ -2078,7 +2145,7 @@[m [msales_data AS ([m
+ return_sales_data AS ([m
+     SELECT[m
+         SUM(ci.unit_quantity)::INTEGER AS return_sale_count,[m
+[31m-        sum(sa.total_amount * (-1)) AS return_sale_amount[m
+[32m+[m[32m        sum(ci.total_price * (-1)) AS return_sale_amount[m
+     FROM sales sa[m
+         JOIN stores st ON st.id = sa.store_id[m
+         JOIN cart_items ci ON ci.sale_id = sa.id[m
+[36m@@ -2189,27 +2256,135 @@[m [mLEFT JOIN imventory_quantity imq ON true[m
+ 		timeArgsPerCTE = append(timeArgsPerCTE, endUTC)[m
+ 	}[m
+ [m
+[32m+[m	[32m// same store-scoping rules as GetProductMovements, so both endpoints agree on results[m
+[32m+[m	[32mhasImportStoreDateFilter := params.StartDate != nil &&[m
+[32m+[m		[32m!params.StartDate.GetTime().IsZero() &&[m
+[32m+[m		[32mparams.EndDate != nil &&[m
+[32m+[m		[32m!params.EndDate.GetTime().IsZero()[m
+[32m+[m
+[32m+[m	[32mimportStoreSubQuery := ""[m
+[32m+[m	[32mimportStoreDateArgs := []any{}[m
+[32m+[m
+[32m+[m	[32mif hasImportStoreDateFilter {[m
+[32m+[m		[32mimportStoreSubQuery = `[m
+[32m+[m			[32mSELECT DISTINCT im.store_id[m
+[32m+[m			[32mFROM imports im[m
+[32m+[m			[32mJOIN import_details imd ON im.id = imd.import_id[m
+[32m+[m			[32mJOIN var_data vd ON imd.product_id = vd.product_id[m
+[32m+[m			[32mWHERE im.entry_type = 1[m
+[32m+[m			[32m  AND im.status = 'completed'[m
+[32m+[m			[32m  AND im.created_at >= ?[m
+[32m+[m			[32m  AND im.created_at <= ?[m
+[32m+[m		[32m`[m
+[32m+[m		[32mimportStoreDateArgs = append(importStoreDateArgs, params.StartDate.UTC(), params.EndDate.UTC())[m
+[32m+[m	[32m}[m
+[32m+[m
+ 	// dynamic query conditions[m
+ 	if params.StoreId == "" && params.CompanyId == "" {[m
+[32m+[m		[32mimportStoreFilter := ""[m
+[32m+[m		[32msalesStoreFilter := ""[m
+[32m+[m		[32mvozvratStoreFilter := ""[m
+[32m+[m		[32mtransferOutStoreFilter := ""[m
+[32m+[m		[32mtransferInStoreFilter := ""[m
+[32m+[m		[32mtransferWhereStoreFilter := ""[m
+[32m+[m		[32mproductQtyStoreFilter := ""[m
+[32m+[m		[32minventoryStoreFilter := ""[m
+[32m+[m
+[32m+[m		[32mif hasImportStoreDateFilter {[m
+[32m+[m			[32mimportStoreFilter = "AND im.store_id IN (" + importStoreSubQuery + ")"[m
+[32m+[m			[32msalesStoreFilter = "AND sa.store_id IN (" + importStoreSubQuery + ")"[m
+[32m+[m			[32mvozvratStoreFilter = "AND tr.from_store_id IN (" + importStoreSubQuery + ")"[m
+[32m+[m			[32mtransferOutStoreFilter = "filter ( where tr.from_store_id IN (" + importStoreSubQuery + ") )"[m
+[32m+[m			[32mtransferInStoreFilter = "filter ( where tr.to_store_id IN (" + importStoreSubQuery + ") )"[m
+[32m+[m			[32mtransferWhereStoreFilter = "AND (tr.from_store_id IN (" + importStoreSubQuery + ") OR tr.to_store_id IN (" + importStoreSubQuery + "))"[m
+[32m+[m			[32mproductQtyStoreFilter = "AND sp.store_id IN (" + importStoreSubQuery + ")"[m
+[32m+[m			[32minventoryStoreFilter = "AND s.id IN (" + importStoreSubQuery + ")"[m
+[32m+[m		[32m}[m
+[32m+[m
+ 		query = fmt.Sprintf(baseQuery,[m
+[31m-			importTimeCond,   // 1: import_data[m
+[31m-			saleTimeCond,     // 2: sales_data[m
+[31m-			saleTimeCond,     // 3: return_sales_data[m
+[31m-			transferTimeCond, // 4: vozvrat_data[m
+[31m-			"", "", "", "",   // 5-8: transfer FILTER clauses[m
+[31m-			transferTimeCond,  // 9: transfer_data WHERE[m
+[31m-			"",                // 10: product_quantity (no time filter)[m
+[31m-			inventoryTimeCond, // 11: imventory_quantity[m
+[32m+[m			[32mimportStoreFilter+importTimeCond, // 1: import_data[m
+[32m+[m			[32msalesStoreFilter+saleTimeCond,     // 2: sales_data[m
+[32m+[m			[32msalesStoreFilter+saleTimeCond,     // 3: return_sales_data[m
+[32m+[m			[32mvozvratStoreFilter+transferTimeCond, // 4: vozvrat_data[m
+[32m+[m			[32mtransferOutStoreFilter, transferOutStoreFilter, transferInStoreFilter, transferInStoreFilter, // 5-8: transfer FILTER clauses[m
+[32m+[m			[32mtransferWhereStoreFilter+transferTimeCond, // 9: transfer_data WHERE[m
+[32m+[m			[32mproductQtyStoreFilter,                  // 10: product_quantity[m
+[32m+[m			[32minventoryStoreFilter+inventoryTimeCond, // 11: imventory_quantity[m
+ 		)[m
+ 		args = []any{params.ProductId}[m
+[31m-		args = append(args, timeArgsPerCTE...) // import_data[m
+[31m-		args = append(args, timeArgsPerCTE...) // sales_data[m
+[31m-		args = append(args, timeArgsPerCTE...) // return_sales_data[m
+[31m-		args = append(args, timeArgsPerCTE...) // vozvrat_data[m
+[31m-		args = append(args, timeArgsPerCTE...) // transfer_data WHERE[m
+[31m-		args = append(args, timeArgsPerCTE...) // imventory_quantity[m
+[32m+[m
+[32m+[m		[32mif hasImportStoreDateFilter {[m
+[32m+[m			[32margs = append(args, importStoreDateArgs...) // import_data store filter[m
+[32m+[m		[32m}[m
+[32m+[m		[32margs = append(args, timeArgsPerCTE...) // import_data time[m
+[32m+[m
+[32m+[m		[32mif hasImportStoreDateFilter {[m
+[32m+[m			[32margs = append(args, importStoreDateArgs...) // sales_data store filter[m
+[32m+[m		[32m}[m
+[32m+[m		[32margs = append(args, timeArgsPerCTE...) // sales_data time[m
+[32m+[m
+[32m+[m		[32mif hasImportStoreDateFilter {[m
+[32m+[m			[32margs = append(args, importStoreDateArgs...) // return_sales_data store filter[m
+[32m+[m		[32m}[m
+[32m+[m		[32margs = append(args, timeArgsPerCTE...) // return_sales_data time[m
+[32m+[m
+[32m+[m		[32mif hasImportStoreDateFilter {[m
+[32m+[m			[32margs = append(args, importStoreDateArgs...) // vozvrat_data store filter[m
+[32m+[m		[32m}[m
+[32m+[m		[32margs = append(args, timeArgsPerCTE...) // vozvrat_data time[m
+[32m+[m
+[32m+[m		[32mif hasImportStoreDateFilter {[m
+[32m+[m			[32margs = append(args, importStoreDateArgs...) // transfer FILTER 5 (transfer_out_count)[m
+[32m+[m			[32margs = append(args, importStoreDateArgs...) // transfer FILTER 6 (transfer_out_amount)[m
+[32m+[m			[32margs = append(args, importStoreDateArgs...) // transfer FILTER 7 (transfer_in_count)[m
+[32m+[m			[32margs = append(args, importStoreDateArgs...) // transfer FILTER 8 (transfer_in_amount)[m
+[32m+[m			[32margs = append(args, importStoreDateArgs...) // transfer WHERE (from_store_id part)[m
+[32m+[m			[32margs = append(args, importStoreDateArgs...) // transfer WHERE (to_store_id part)[m
+[32m+[m		[32m}[m
+[32m+[m		[32margs = append(args, timeArgsPerCTE...) // transfer_data time[m
+[32m+[m
+[32m+[m		[32mif hasImportStoreDateFilter {[m
+[32m+[m			[32margs = append(args, importStoreDateArgs...) // product_quantity store filter[m
+[32m+[m		[32m}[m
+[32m+[m
+[32m+[m		[32mif hasImportStoreDateFilter {[m
+[32m+[m			[32margs = append(args, importStoreDateArgs...) // imventory_quantity store filter[m
+[32m+[m		[32m}[m
+[32m+[m		[32margs = append(args, timeArgsPerCTE...) // imventory_quantity time[m
+ [m
+ 	} else if params.StoreId != "" && params.CompanyId == "" {[m
+[32m+[m		[32mif hasImportStoreDateFilter {[m
+[32m+[m			[32mvar exists bool[m
+[32m+[m
+[32m+[m			[32merr := s.db.WithContext(ctx).Raw(`[m
+[32m+[m				[32mSELECT EXISTS ([m
+[32m+[m					[32mSELECT 1[m
+[32m+[m					[32mFROM imports im[m
+[32m+[m					[32mJOIN import_details imd ON im.id = imd.import_id[m
+[32m+[m					[32mWHERE im.store_id = ?[m
+[32m+[m					[32m  AND imd.product_id = ?[m
+[32m+[m					[32m  AND im.entry_type = 1[m
+[32m+[m					[32m  AND im.status = 'completed'[m
+[32m+[m					[32m  AND im.created_at >= ?[m
+[32m+[m					[32m  AND im.created_at <= ?[m
+[32m+[m				[32m)[m
+[32m+[m			[32m`,[m
+[32m+[m				[32mparams.StoreId,[m
+[32m+[m				[32mparams.ProductId,[m
+[32m+[m				[32mparams.StartDate.UTC(),[m
+[32m+[m				[32mparams.EndDate.UTC(),[m
+[32m+[m			[32m).Scan(&exists).Error[m
+[32m+[m
+[32m+[m			[32mif err != nil {[m
+[32m+[m				[32ms.log.Errorf("could not check imported store: %v", err)[m
+[32m+[m				[32mreturn res, err[m
+[32m+[m			[32m}[m
+[32m+[m
+[32m+[m			[32mif !exists {[m
+[32m+[m				[32mreturn res, nil[m
+[32m+[m			[32m}[m
+[32m+[m		[32m}[m
+[32m+[m
+ 		query = fmt.Sprintf([m
+ 			baseQuery,[m
+ 			"AND im.store_id = ?"+importTimeCond,[m
+[36m@@ -2371,7 +2546,7 @@[m [mreturn_sales_data AS ([m
+     SELECT[m
+         vd.product_id,[m
+         SUM(ci.unit_quantity)::INTEGER         AS return_sale_count,[m
+[31m-        SUM(sa.total_amount * (-1))            AS return_sale_amount[m
+[32m+[m[32m        SUM(ci.total_price * (-1))             AS return_sale_amount[m
+     FROM sales sa[m
+         JOIN stores st     ON st.id = sa.store_id[m
+         JOIN cart_items ci ON ci.sale_id = sa.id[m
+[1mdiff --git a/migrations/000222_add_imports_import_details_indexes.down.sql b/migrations/000222_add_imports_import_details_indexes.down.sql[m
+[1mnew file mode 100644[m
+[1mindex 00000000..af19f25e[m
+[1m--- /dev/null[m
+[1m+++ b/migrations/000222_add_imports_import_details_indexes.down.sql[m
+[36m@@ -0,0 +1,2 @@[m
+[32m+[m[32mDROP INDEX IF EXISTS idx_imports_entry_status_store_created;[m
+[32m+[m[32mDROP INDEX IF EXISTS idx_import_details_import_product;[m
+[1mdiff --git a/migrations/000222_add_imports_import_details_indexes.up.sql b/migrations/000222_add_imports_import_details_indexes.up.sql[m
+[1mnew file mode 100644[m
+[1mindex 00000000..431f8c6c[m
+[1m--- /dev/null[m
+[1m+++ b/migrations/000222_add_imports_import_details_indexes.up.sql[m
+[36m@@ -0,0 +1,5 @@[m
+[32m+[m[32mCREATE INDEX IF NOT EXISTS idx_imports_entry_status_store_created[m
+[32m+[m[32mON imports (entry_type, status, store_id, created_at);[m
+[32m+[m
+[32m+[m[32mCREATE INDEX IF NOT EXISTS idx_import_details_import_product[m
+[32m+[m[32mON import_details (import_id, product_id);[m
