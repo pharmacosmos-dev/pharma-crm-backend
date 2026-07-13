@@ -1559,7 +1559,7 @@ LIMIT ? OFFSET ?;
 	// dynamic query conditions
 	if params.StoreId == "" && params.CompanyId == "" {
 		query = fmt.Sprintf(baseQuery, "", "", "", "", "", "", "", "", "", outerWhere)
-		args = []any{params.ProducerId}
+		args = []any{params.ProductId}
 		args = append(args, timeArgs...)
 		args = append(args, entryTypeArgs...)
 		args = append(args, params.Limit, params.Offset)
