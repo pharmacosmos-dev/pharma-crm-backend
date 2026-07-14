@@ -499,7 +499,7 @@ func (s *Services) getProductMovementQuantities(ctx context.Context, productIds 
 		JOIN import_details imd ON im.id = imd.import_id
 		WHERE im.entry_type = 1 AND im.status = 'completed'
 		  AND imd.product_id IN (?)
-		  AND im.created_at >= ? AND im.created_at <= ?
+		  AND im.updated_at >= ? AND im.updated_at <= ?
 	)
 	SELECT product_id, SUM(qty)::INTEGER AS net_quantity
 	FROM (
@@ -509,7 +509,7 @@ func (s *Services) getProductMovementQuantities(ctx context.Context, productIds 
 		JOIN products p ON p.id = imd.product_id
 		JOIN imported_stores ist ON ist.product_id = imd.product_id AND ist.store_id = im.store_id
 		WHERE im.entry_type = 1 AND im.status = 'completed'
-		  AND im.created_at >= ? AND im.created_at <= ?
+		  AND im.updated_at >= ? AND im.updated_at <= ?
 		GROUP BY imd.product_id
 
 		UNION ALL
@@ -542,7 +542,7 @@ func (s *Services) getProductMovementQuantities(ctx context.Context, productIds 
 		JOIN imports im ON im.id = imd.import_id
 		JOIN imported_stores ist ON ist.product_id = imd.product_id AND ist.store_id = im.store_id
 		WHERE im.entry_type = 2 AND im.status = 'completed'
-		  AND im.created_at >= ? AND im.created_at <= ?
+		  AND im.updated_at >= ? AND im.updated_at <= ?
 		GROUP BY imd.product_id
 	) combined
 	GROUP BY product_id
@@ -1110,8 +1110,8 @@ func (s *Services) getImportedStoreIds(ctx context.Context, productId string, st
 		WHERE im.entry_type = 1
 		  AND im.status = 'completed'
 		  AND imd.product_id = ?
-		  AND im.created_at >= ?
-		  AND im.created_at <= ?
+		  AND im.updated_at >= ?
+		  AND im.updated_at <= ?
 	`, productId, startDate, endDate).Scan(&storeIds).Error
 	if err != nil {
 		return nil, err
@@ -1133,7 +1133,7 @@ func (s *Services) GetStoreProductsByProductId(ctx context.Context, params *doma
 				JOIN import_details imd ON im.id = imd.import_id
 				WHERE im.store_id = ? AND imd.product_id = ?
 				  AND im.entry_type = 1 AND im.status = 'completed'
-				  AND im.created_at >= ? AND im.created_at <= ?
+				  AND im.updated_at >= ? AND im.updated_at <= ?
 			)`,
 			params.StoreId, params.ProductId, params.StartDate.UTC(), params.EndDate.UTC(),
 		).Scan(&exists).Error
@@ -1707,8 +1707,8 @@ LIMIT ? OFFSET ?;
 					  AND imd.product_id = ?
 					  AND im.entry_type = 1
 					  AND im.status = 'completed'
-					  AND im.created_at >= ?
-					  AND im.created_at <= ?
+					  AND im.updated_at >= ?
+					  AND im.updated_at <= ?
 				)
 			`,
 				params.StoreId,
@@ -2348,29 +2348,29 @@ LEFT JOIN imventory_quantity imq ON true
 `
 	// build time filter conditions per CTE type
 	var (
-		importTimeCond    string // for import_data (im.created_at)
+		importTimeCond    string // for import_data (im.updated_at - qachon 'completed' bo'lgani)
 		saleTimeCond      string // for sales_data, return_sales_data (sa.completed_at)
 		transferTimeCond  string // for vozvrat_data, transfer_data (tr.created_at)
-		inventoryTimeCond string // for imventory_quantity (im.created_at)
+		inventoryTimeCond string // for imventory_quantity (im.updated_at)
 		timeArgsPerCTE    []any  // collected once, reused per CTE
 	)
 
 	if params.StartDate != nil && !params.StartDate.GetTime().IsZero() {
 		startUTC := params.StartDate.UTC()
-		importTimeCond += " AND im.created_at >= ?"
+		importTimeCond += " AND im.updated_at >= ?"
 		saleTimeCond += " AND sa.completed_at >= ?"
 		transferTimeCond += " AND tr.created_at >= ?"
-		inventoryTimeCond += " AND im.created_at >= ?"
+		inventoryTimeCond += " AND im.updated_at >= ?"
 		_ = startUTC // used below per-CTE
 		timeArgsPerCTE = append(timeArgsPerCTE, startUTC)
 	}
 
 	if params.EndDate != nil && !params.EndDate.GetTime().IsZero() {
 		endUTC := params.EndDate.UTC()
-		importTimeCond += " AND im.created_at <= ?"
+		importTimeCond += " AND im.updated_at <= ?"
 		saleTimeCond += " AND sa.completed_at <= ?"
 		transferTimeCond += " AND tr.created_at <= ?"
-		inventoryTimeCond += " AND im.created_at <= ?"
+		inventoryTimeCond += " AND im.updated_at <= ?"
 		_ = endUTC // used below per-CTE
 		timeArgsPerCTE = append(timeArgsPerCTE, endUTC)
 	}
@@ -2477,8 +2477,8 @@ LEFT JOIN imventory_quantity imq ON true
 					  AND imd.product_id = ?
 					  AND im.entry_type = 1
 					  AND im.status = 'completed'
-					  AND im.created_at >= ?
-					  AND im.created_at <= ?
+					  AND im.updated_at >= ?
+					  AND im.updated_at <= ?
 				)
 			`,
 				params.StoreId,
@@ -2765,19 +2765,19 @@ ORDER BY vd.product_name
 
 	if params.StartDate != nil && !params.StartDate.GetTime().IsZero() {
 		startUTC := params.StartDate.UTC()
-		importTimeCond += " AND im.created_at >= ?"
+		importTimeCond += " AND im.updated_at >= ?"
 		saleTimeCond += " AND sa.completed_at >= ?"
 		transferTimeCond += " AND tr.created_at >= ?"
-		inventoryTimeCond += " AND im.created_at >= ?"
+		inventoryTimeCond += " AND im.updated_at >= ?"
 		timeArgsPerCTE = append(timeArgsPerCTE, startUTC)
 	}
 
 	if params.EndDate != nil && !params.EndDate.GetTime().IsZero() {
 		endUTC := params.EndDate.UTC()
-		importTimeCond += " AND im.created_at <= ?"
+		importTimeCond += " AND im.updated_at <= ?"
 		saleTimeCond += " AND sa.completed_at <= ?"
 		transferTimeCond += " AND tr.created_at <= ?"
-		inventoryTimeCond += " AND im.created_at <= ?"
+		inventoryTimeCond += " AND im.updated_at <= ?"
 		timeArgsPerCTE = append(timeArgsPerCTE, endUTC)
 	}
 
