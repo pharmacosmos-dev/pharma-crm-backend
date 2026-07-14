@@ -519,8 +519,12 @@ func (s *Services) getProductMovementQuantities(ctx context.Context, productIds 
 		FROM sales sa
 		JOIN cart_items ci ON ci.sale_id = sa.id
 		JOIN store_products sp ON sp.id = ci.store_product_id
-		JOIN imported_stores ist ON ist.product_id = sp.product_id AND ist.store_id = sp.store_id
+		JOIN import_details imd ON sp.import_detail_id = imd.id
+		JOIN imports im ON im.id = imd.import_id
 		WHERE sa.stage IN (9, 11)
+		  AND sp.product_id IN (?)
+		  AND im.entry_type = 1 AND im.status = 'completed'
+		  AND im.updated_at >= ? AND im.updated_at <= ?
 		  AND sa.completed_at >= ? AND sa.completed_at <= ?
 		GROUP BY sp.product_id
 
@@ -556,7 +560,7 @@ func (s *Services) getProductMovementQuantities(ctx context.Context, productIds 
 	err := s.db.WithContext(ctx).Raw(query,
 		productIds, startDate, endDate, // imported_stores
 		startDate, endDate, // import_data
-		startDate, endDate, // sales_data
+		productIds, startDate, endDate, startDate, endDate, // sales_data (lot-level via import_detail_id)
 		startDate, endDate, // transfer/vozvrat_data
 		startDate, endDate, // inventory_data
 	).Scan(&rows).Error
@@ -1451,6 +1455,8 @@ sales_data AS (
     JOIN cart_items ci ON ci.sale_id = sa.id
     JOIN store_products sp ON sp.id = ci.store_product_id
     JOIN var_data vd ON sp.product_id = vd.product_id
+    LEFT JOIN import_details sale_imd ON sp.import_detail_id = sale_imd.id
+    LEFT JOIN imports sale_im ON sale_im.id = sale_imd.import_id
     WHERE sa.stage IN (9, 11)
     %s
     GROUP BY sa.id, st.id, vd.unit_per_pack
@@ -1659,7 +1665,7 @@ LIMIT ? OFFSET ?;
 		if hasImportStoreDateFilter {
 			importDataFilter = "AND im.store_id IN (?)"
 			inventoryDataFilter = "AND im.store_id IN (?)"
-			salesDataFilter = "AND sa.store_id IN (?)"
+			salesDataFilter = "AND sale_im.entry_type = 1 AND sale_im.status = 'completed' AND sale_im.updated_at >= ? AND sale_im.updated_at <= ?"
 			vozvratDataFilter = "AND tr.from_store_id IN (?)"
 			transferInDataFilter = "AND tr.to_store_id IN (?)"
 			transferOutDataFilter = "AND tr.from_store_id IN (?)"
@@ -1685,9 +1691,15 @@ LIMIT ? OFFSET ?;
 		args = []any{params.ProductId}
 
 		if hasImportStoreDateFilter {
-			for i := 0; i < 9; i++ {
-				args = append(args, importedStoreIds)
-			}
+			args = append(args, importedStoreIds)                              // import_data
+			args = append(args, importedStoreIds)                              // inventory_data
+			args = append(args, params.StartDate.UTC(), params.EndDate.UTC())  // sales_data (lot-level via import_detail_id)
+			args = append(args, importedStoreIds)                              // vozvrat_data
+			args = append(args, importedStoreIds)                              // transfer_in_data
+			args = append(args, importedStoreIds)                              // transfer_out_data
+			args = append(args, importedStoreIds)                              // vozvrat_pending_data
+			args = append(args, importedStoreIds)                              // transfer_in_pending_data
+			args = append(args, importedStoreIds)                              // transfer_out_pending_data
 		}
 
 		args = append(args, timeArgs...)
@@ -2258,18 +2270,22 @@ sales_data AS (
         JOIN cart_items ci ON ci.sale_id = sa.id
         JOIN store_products sp ON sp.id = ci.store_product_id
         JOIN var_data vd ON sp.product_id = vd.product_id
+        LEFT JOIN import_details sale_imd ON sp.import_detail_id = sale_imd.id
+        LEFT JOIN imports sale_im ON sale_im.id = sale_imd.import_id
     WHERE sa.stage IN (9, 11) and sale_type = 'SALE'
         %s
 ),
 return_sales_data AS (
     SELECT
         SUM(ci.unit_quantity)::INTEGER AS return_sale_count,
-        sum(sa.total_amount * (-1)) AS return_sale_amount
+        sum(ci.total_price * (-1)) AS return_sale_amount
     FROM sales sa
         JOIN stores st ON st.id = sa.store_id
         JOIN cart_items ci ON ci.sale_id = sa.id
         JOIN store_products sp ON sp.id = ci.store_product_id
         JOIN var_data vd ON sp.product_id = vd.product_id
+        LEFT JOIN import_details sale_imd ON sp.import_detail_id = sale_imd.id
+        LEFT JOIN imports sale_im ON sale_im.id = sale_imd.import_id
     WHERE sa.stage IN (9, 11) and sale_type = 'RETURN'
         %s
 ),
@@ -2404,7 +2420,7 @@ LEFT JOIN imventory_quantity imq ON true
 
 		if hasImportStoreDateFilter {
 			importStoreFilter = "AND im.store_id IN (?)"
-			salesStoreFilter = "AND sa.store_id IN (?)"
+			salesStoreFilter = "AND sale_im.entry_type = 1 AND sale_im.status = 'completed' AND sale_im.updated_at >= ? AND sale_im.updated_at <= ?"
 			vozvratStoreFilter = "AND tr.from_store_id IN (?)"
 			transferOutStoreFilter = "filter ( where tr.from_store_id IN (?) )"
 			transferInStoreFilter = "filter ( where tr.to_store_id IN (?) )"
@@ -2431,12 +2447,12 @@ LEFT JOIN imventory_quantity imq ON true
 		args = append(args, timeArgsPerCTE...) // import_data time
 
 		if hasImportStoreDateFilter {
-			args = append(args, importedStoreIds) // sales_data store filter
+			args = append(args, params.StartDate.UTC(), params.EndDate.UTC()) // sales_data: lot-level import check
 		}
 		args = append(args, timeArgsPerCTE...) // sales_data time
 
 		if hasImportStoreDateFilter {
-			args = append(args, importedStoreIds) // return_sales_data store filter
+			args = append(args, params.StartDate.UTC(), params.EndDate.UTC()) // return_sales_data: lot-level import check
 		}
 		args = append(args, timeArgsPerCTE...) // return_sales_data time
 
@@ -2658,7 +2674,7 @@ return_sales_data AS (
     SELECT
         vd.product_id,
         SUM(ci.unit_quantity)::INTEGER         AS return_sale_count,
-        SUM(sa.total_amount * (-1))            AS return_sale_amount
+        SUM(ci.total_price * (-1))             AS return_sale_amount
     FROM sales sa
         JOIN stores st     ON st.id = sa.store_id
         JOIN cart_items ci ON ci.sale_id = sa.id
