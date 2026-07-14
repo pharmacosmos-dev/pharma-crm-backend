@@ -122,3 +122,41 @@ func OnecRequestLogger(db *gorm.DB, log *logger.Logger) gin.HandlerFunc {
 func UzumOrderLogger(db *gorm.DB, log *logger.Logger) gin.HandlerFunc {
 	return newRequestLogger(db, log, "uzum_order_logs")
 }
+
+// UzumRequestCounter — chaqiruv sonini hisoblash va so'rov parametrlarini (path + query)
+// yozish uchun: response'ni o'qimaydi va saqlamaydi. Javobi katta bo'lishi mumkin bo'lgan
+// endpointlar (masalan katalog/availability) uchun ishlatiladi, chunki ularning
+// to'liq javobini har safar DB'ga yozish keraksiz va qimmatga tushadi.
+func UzumRequestCounter(db *gorm.DB, log *logger.Logger) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		method := c.Request.Method + " " + c.FullPath()
+		ipAddress := c.ClientIP()
+
+		params := make(map[string]string, len(c.Params)+2)
+		for _, p := range c.Params {
+			params[p.Key] = p.Value
+		}
+		for k, v := range c.Request.URL.Query() {
+			if len(v) > 0 {
+				params[k] = v[0]
+			}
+		}
+		var payload json.RawMessage
+		if b, err := json.Marshal(params); err == nil {
+			payload = json.RawMessage(b)
+		}
+
+		go func() {
+			ctx, cancel := context.WithTimeout(context.Background(), logInsertTimeout)
+			defer cancel()
+			if err := db.WithContext(ctx).Exec(
+				`INSERT INTO uzum_order_logs (method, payload, ip_address) VALUES (?, ?, ?)`,
+				method, payload, ipAddress,
+			).Error; err != nil {
+				log.Errorf("uzum request counter: could not insert log: %v", err)
+			}
+		}()
+
+		c.Next()
+	}
+}
