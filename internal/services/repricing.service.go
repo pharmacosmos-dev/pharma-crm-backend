@@ -338,6 +338,13 @@ func (s *Services) RepricingDetailList(repricingID int, param *domain.QueryParam
 	if param.MaxPrice != nil && *param.MaxPrice {
 		search += " AND COALESCE(p.max_price, 0) > 0 "
 	}
+	// filter by price change status: scanned = price changed, not_scanned = price unchanged
+	switch param.Type {
+	case "scanned":
+		search += " AND prd.new_retail_price <> prd.old_retail_price "
+	case "not_scanned":
+		search += " AND prd.new_retail_price = prd.old_retail_price "
+	}
 
 	query = `
 	SELECT

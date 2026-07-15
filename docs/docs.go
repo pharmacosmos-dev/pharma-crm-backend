@@ -21853,6 +21853,12 @@ const docTemplate = `{
                         "in": "query"
                     },
                     {
+                        "type": "string",
+                        "description": "Filter by price change status: scanned | not_scanned",
+                        "name": "type",
+                        "in": "query"
+                    },
+                    {
                         "type": "integer",
                         "description": "Repricing ID",
                         "name": "id",

@@ -395,6 +395,7 @@ func (h *RepricingHandler) Cancel(c *gin.Context) {
 // @Param 	limit query int false "Limit"
 // @Param 	offset query int false "Offset"
 // @Param   search query string false "Search"
+// @Param   type query string false "Filter by price change status: scanned | not_scanned"
 // @Param   id path int false "Repricing ID"
 // @Success 200 {object} v1.Response
 // @Failure 400 {object} v1.Response

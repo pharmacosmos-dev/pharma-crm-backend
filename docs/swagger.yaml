@@ -16218,6 +16218,10 @@ paths:
         in: query
         name: search
         type: string
+      - description: 'Filter by price change status: scanned | not_scanned'
+        in: query
+        name: type
+        type: string
       - description: Repricing ID
         in: path
         name: id

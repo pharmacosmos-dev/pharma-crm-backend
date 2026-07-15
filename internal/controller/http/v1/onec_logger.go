@@ -123,10 +123,7 @@ func UzumOrderLogger(db *gorm.DB, log *logger.Logger) gin.HandlerFunc {
 	return newRequestLogger(db, log, "uzum_order_logs")
 }
 
-// UzumRequestCounter — chaqiruv sonini hisoblash va so'rov parametrlarini (path + query)
-// yozish uchun: response'ni o'qimaydi va saqlamaydi. Javobi katta bo'lishi mumkin bo'lgan
-// endpointlar (masalan katalog/availability) uchun ishlatiladi, chunki ularning
-// to'liq javobini har safar DB'ga yozish keraksiz va qimmatga tushadi.
+// UzumRequestCounter — chaqiruv sonini hisoblash va so'rov parametrlarini (path + query) yozish uchun
 func UzumRequestCounter(db *gorm.DB, log *logger.Logger) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		method := c.Request.Method + " " + c.FullPath()

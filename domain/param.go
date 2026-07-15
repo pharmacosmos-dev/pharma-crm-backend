@@ -28,4 +28,5 @@ type QueryParam struct {
 	MaxPrice        *bool   `form:"max_price"`
 	IsBlocked       *bool   `form:"is_blocked"`
 	Order           string  `form:"order"`
+	Type            string  `form:"type"`
 }
