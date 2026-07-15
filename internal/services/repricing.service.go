@@ -341,9 +341,9 @@ func (s *Services) RepricingDetailList(repricingID int, param *domain.QueryParam
 	// filter by price change status: scanned = price changed, not_scanned = price unchanged
 	switch param.Type {
 	case "scanned":
-		search += " AND prd.new_retail_price <> prd.old_retail_price "
+		search += " AND prd.new_retail_price != 0 "
 	case "not_scanned":
-		search += " AND prd.new_retail_price = prd.old_retail_price "
+		search += " AND prd.new_retail_price = 0 "
 	}
 
 	query = `
