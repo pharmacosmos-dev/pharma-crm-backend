@@ -364,13 +364,15 @@ func (s *Services) CreateProductMaxPriceChanged(
 	}
 
 	if len(req.Products) == 0 {
-        return nil, domain.NewNotAdditionError(400, map[string]any{
-            "message": "products list is empty",
-        })
-    }
+		tx.Rollback()
+		return nil, domain.NewNotAdditionError(400, map[string]any{
+			"message": "products list is empty",
+		})
+	}
 
 	var notFoundCodes []int
 	var updatedCount int
+	var materialCodes []int
 
 	for _, p := range req.Products {
 
@@ -382,6 +384,8 @@ func (s *Services) CreateProductMaxPriceChanged(
 			})
 		}
 
+		materialCodes = append(materialCodes, p.MaterialCode)
+
 		result := tx.WithContext(ctx).Exec(`
 			UPDATE products
 			SET max_price = ?
@@ -392,7 +396,6 @@ func (s *Services) CreateProductMaxPriceChanged(
 			tx.Rollback()
 			return nil, domain.InternalServerError
 		}
-	
 		if result.RowsAffected == 0 {
 			notFoundCodes = append(notFoundCodes, p.MaterialCode)
 		} else {
@@ -400,12 +403,14 @@ func (s *Services) CreateProductMaxPriceChanged(
 		}
 	}
 
-	if updatedCount == 0 {
+	resetResult := tx.WithContext(ctx).Exec(
+		"UPDATE products SET max_price = 0 WHERE material_code NOT IN (?)",
+		materialCodes,
+	)
+
+	if resetResult.Error != nil {
 		tx.Rollback()
-		return nil, domain.NewNotAdditionError(404, map[string]any{
-			"message":                  "products not found",
-			"not_found_material_codes": notFoundCodes,
-		})
+		return nil, domain.InternalServerError
 	}
 
 	if err := tx.Commit().Error; err != nil {
@@ -413,9 +418,10 @@ func (s *Services) CreateProductMaxPriceChanged(
 	}
 
 	return map[string]any{
-		"total_requested": len(req.Products),
-		"updated_count": updatedCount,
+		"total_requested":          len(req.Products),
+		"updated_count":            updatedCount,
 		"not_found_material_codes": notFoundCodes,
+		"reset_to_zero_count":      resetResult.RowsAffected,
 	}, nil
 }
 
