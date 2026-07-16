@@ -21,8 +21,8 @@ func (h *Handler) NewUzumHandler(r *gin.RouterGroup) {
 
 func (h *UzumHandler) UzumRoutes(r *gin.RouterGroup) {
 	product := r.Group("/v1")
-	product.GET("/nomenclature/:storeId/composition", UzumRequestCounter(h.db, h.log), h.GetNomenclature)
-	product.GET("/nomenclature/:storeId/availability", UzumRequestCounter(h.db, h.log), h.GetAvailability)
+	product.GET("/nomenclature/:storeId/composition", h.GetNomenclature)
+	product.GET("/nomenclature/:storeId/availability", h.GetAvailability)
 
 	r.POST("/order", UzumOrderLogger(h.db, h.log), h.CreateOrder)
 	r.GET("/order/:orderId", h.GetOrder)
