@@ -82,7 +82,7 @@ func (s *Services) GetLoyaltyCardTransactionDashboard(
 			COUNT(*) FILTER (WHERE t.type = 'out') AS total_out_count,
 			COALESCE(SUM(t.total_sale_amount), 0)  AS total_sale_amount_sum,
 			COALESCE(SUM(t.bonus_in_amount), 0)    AS total_bonus_in_amount,
-			COALESCE(SUM(t.bonus_out_amount), 0)   AS total_bonus_out_amount,
+			COALESCE(SUM(t.bonus_out_amount), 0)   AS total_bonus_out_amount
 		`).
 		Scan(&stats).Error
 	if err != nil {
