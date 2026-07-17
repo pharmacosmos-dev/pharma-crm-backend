@@ -28,6 +28,7 @@ func (h *LoyaltyCardHandler) LoyaltyCardRoutes(r *gin.RouterGroup) {
 		loyaltyCard.GET("/dashboard", h.GetLoyaltyCardStats)
 		loyaltyCard.GET("/top", h.GetTopCustomers)
 		loyaltyCard.GET("/transactions", h.GetTransactions)
+		loyaltyCard.GET("/transactions/dashboard", h.GetTransactionsDashboard)
 		loyaltyCard.GET("/export-excel/", h.ExportLoyaltyCardsExcel)
 		// loyaltyCard.GET("/:id", h.Get)
 		// loyaltyCard.GET("/list", h.List)
@@ -207,6 +208,54 @@ func (h *LoyaltyCardHandler) GetTransactions(c *gin.Context) {
 
 	result := utils.ListResponse(transactions, count, req.Limit, req.Offset)
 	handleResponse(c, OK, result)
+}
+
+// GetTransactionsDashboard godoc
+// @Summary Get Loyalty Card Transactions Dashboard
+// @Description Returns aggregated loyalty card transaction stats (in/out counts and sums), filters are the same as transactions list
+// @Tags loyalty_card
+// @Security     BearerAuth
+// @Accept json
+// @Produce json
+// @Param start_date 	query string false 	"start_date"
+// @Param end_date 		query string false 	"end_date"
+// @Param search 		query string false 	"search by customer name, phone or loyalty card barcode"
+// @Param type 			query string false 	"transaction type: in or out"
+// @Param customer_id 	query string false 	"filter by customer id"
+// @Param sale_id 		query string false 	"filter by sale id"
+// @Success 200 {object} v1.Response{data=domain.LoyaltyCardTransactionDashboard}
+// @Failure 400 {object} v1.Response
+// @Failure 401 {object} v1.Response
+// @Failure 500 {object} v1.Response
+// @Router /loyalty_card/transactions/dashboard [get]
+func (h *LoyaltyCardHandler) GetTransactionsDashboard(c *gin.Context) {
+	user := h.service.GetSignedUser(c)
+	if user.UserId == "" {
+		handleServiceResponse(c, nil, domain.UnauthorizedError)
+		return
+	}
+
+	var req domain.LoyaltyCardTransactionListRequest
+	if err := c.ShouldBindQuery(&req); err != nil {
+		handleResponse(c, BadRequest, fmt.Sprintf("Invalid query parameters: %s", err.Error()))
+		return
+	}
+
+	if req.Type != "" && req.Type != constants.LoyaltyCardTransactionIn && req.Type != constants.LoyaltyCardTransactionOut {
+		handleResponse(c, BadRequest, "type must be 'in' or 'out'")
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
+	defer cancel()
+
+	dashboard, err := h.service.GetLoyaltyCardTransactionDashboard(ctx, &req)
+	if err != nil {
+		handleServiceResponse(c, InternalError, err)
+		return
+	}
+
+	handleResponse(c, OK, dashboard)
 }
 
 // @Summary      Download loyalty card list as Excel

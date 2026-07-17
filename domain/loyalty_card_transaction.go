@@ -38,6 +38,15 @@ type LoyaltyCardTransactionListItem struct {
 	CreatedAt          *time.Time `gorm:"created_at" json:"created_at"`
 }
 
+type LoyaltyCardTransactionDashboard struct {
+	TotalInCount          int64   `gorm:"total_in_count" json:"total_in_count"`
+	TotalOutCount         int64   `gorm:"total_out_count" json:"total_out_count"`
+	TotalSaleAmountSum    float64 `gorm:"total_sale_amount_sum" json:"total_sale_amount_sum"`
+	TotalBonusInAmount    float64 `gorm:"total_bonus_in_amount" json:"total_bonus_in_amount"`
+	TotalBonusOutAmount   float64 `gorm:"total_bonus_out_amount" json:"total_bonus_out_amount"`
+	TotalNewBalanceAmount float64 `gorm:"total_new_balance_amount" json:"total_new_balance_amount"`
+}
+
 type LoyaltyCardTransactionListRequest struct {
 	Limit      int         `form:"limit" json:"limit" example:"10"`
 	Offset     int         `form:"offset" json:"offset" example:"0"`

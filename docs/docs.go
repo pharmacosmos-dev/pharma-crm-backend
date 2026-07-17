@@ -11436,6 +11436,102 @@ const docTemplate = `{
                 }
             }
         },
+        "/loyalty_card/transactions/dashboard": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Returns aggregated loyalty card transaction stats (in/out counts and sums), filters are the same as transactions list",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "loyalty_card"
+                ],
+                "summary": "Get Loyalty Card Transactions Dashboard",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "start_date",
+                        "name": "start_date",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "end_date",
+                        "name": "end_date",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "search by customer name, phone or loyalty card barcode",
+                        "name": "search",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "transaction type: in or out",
+                        "name": "type",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "filter by customer id",
+                        "name": "customer_id",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "filter by sale id",
+                        "name": "sale_id",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/v1.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/domain.LoyaltyCardTransactionDashboard"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    }
+                }
+            }
+        },
         "/noor/category/list": {
             "get": {
                 "security": [
@@ -32302,6 +32398,29 @@ const docTemplate = `{
                     "type": "number"
                 },
                 "total_spent": {
+                    "type": "number"
+                }
+            }
+        },
+        "domain.LoyaltyCardTransactionDashboard": {
+            "type": "object",
+            "properties": {
+                "total_bonus_in_amount": {
+                    "type": "number"
+                },
+                "total_bonus_out_amount": {
+                    "type": "number"
+                },
+                "total_in_count": {
+                    "type": "integer"
+                },
+                "total_new_balance_amount": {
+                    "type": "number"
+                },
+                "total_out_count": {
+                    "type": "integer"
+                },
+                "total_sale_amount_sum": {
                     "type": "number"
                 }
             }

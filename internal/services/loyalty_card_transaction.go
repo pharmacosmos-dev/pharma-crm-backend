@@ -68,6 +68,32 @@ func (s *Services) loyaltyCardTransactionListQuery(ctx context.Context, req *dom
 	return qb
 }
 
+// GetLoyaltyCardTransactionDashboard returns aggregated in/out stats,
+// filters are the same as GetLoyaltyCardTransactions (loyaltyCardTransactionListQuery)
+func (s *Services) GetLoyaltyCardTransactionDashboard(
+	ctx context.Context,
+	req *domain.LoyaltyCardTransactionListRequest,
+) (*domain.LoyaltyCardTransactionDashboard, error) {
+	var stats domain.LoyaltyCardTransactionDashboard
+
+	err := s.loyaltyCardTransactionListQuery(ctx, req).
+		Select(`
+			COUNT(*) FILTER (WHERE t.type = 'in')  AS total_in_count,
+			COUNT(*) FILTER (WHERE t.type = 'out') AS total_out_count,
+			COALESCE(SUM(t.total_sale_amount), 0)  AS total_sale_amount_sum,
+			COALESCE(SUM(t.bonus_in_amount), 0)    AS total_bonus_in_amount,
+			COALESCE(SUM(t.bonus_out_amount), 0)   AS total_bonus_out_amount,
+			COALESCE(SUM(t.new_balance_amount), 0) AS total_new_balance_amount
+		`).
+		Scan(&stats).Error
+	if err != nil {
+		s.log.Errorf("could not get loyalty_card_transactions dashboard: %v", err)
+		return nil, domain.InternalServerError
+	}
+
+	return &stats, nil
+}
+
 func (s *Services) GetLoyaltyCardTransactions(
 	ctx context.Context,
 	req *domain.LoyaltyCardTransactionListRequest,

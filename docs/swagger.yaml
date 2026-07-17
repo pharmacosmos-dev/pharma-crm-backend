@@ -831,6 +831,21 @@ definitions:
       total_spent:
         type: number
     type: object
+  domain.LoyaltyCardTransactionDashboard:
+    properties:
+      total_bonus_in_amount:
+        type: number
+      total_bonus_out_amount:
+        type: number
+      total_in_count:
+        type: integer
+      total_new_balance_amount:
+        type: number
+      total_out_count:
+        type: integer
+      total_sale_amount_sum:
+        type: number
+    type: object
   domain.LoyaltyCardTransactionListItem:
     properties:
       bonus_in_amount:
@@ -9602,6 +9617,66 @@ paths:
       security:
       - BearerAuth: []
       summary: Get Loyalty Card Transactions
+      tags:
+      - loyalty_card
+  /loyalty_card/transactions/dashboard:
+    get:
+      consumes:
+      - application/json
+      description: Returns aggregated loyalty card transaction stats (in/out counts
+        and sums), filters are the same as transactions list
+      parameters:
+      - description: start_date
+        in: query
+        name: start_date
+        type: string
+      - description: end_date
+        in: query
+        name: end_date
+        type: string
+      - description: search by customer name, phone or loyalty card barcode
+        in: query
+        name: search
+        type: string
+      - description: 'transaction type: in or out'
+        in: query
+        name: type
+        type: string
+      - description: filter by customer id
+        in: query
+        name: customer_id
+        type: string
+      - description: filter by sale id
+        in: query
+        name: sale_id
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/v1.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/domain.LoyaltyCardTransactionDashboard'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Get Loyalty Card Transactions Dashboard
       tags:
       - loyalty_card
   /noor/category/list:
