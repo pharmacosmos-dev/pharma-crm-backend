@@ -32414,9 +32414,6 @@ const docTemplate = `{
                 "total_in_count": {
                     "type": "integer"
                 },
-                "total_new_balance_amount": {
-                    "type": "number"
-                },
                 "total_out_count": {
                     "type": "integer"
                 },
