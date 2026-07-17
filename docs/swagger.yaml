@@ -831,6 +831,42 @@ definitions:
       total_spent:
         type: number
     type: object
+  domain.LoyaltyCardTransactionListItem:
+    properties:
+      bonus_in_amount:
+        type: number
+      bonus_out_amount:
+        type: number
+      created_at:
+        type: string
+      customer_id:
+        type: string
+      customer_name:
+        type: string
+      customer_phone:
+        type: string
+      customer_public_id:
+        type: integer
+      id:
+        type: string
+      loyalty_card_barcode:
+        type: string
+      new_balance_amount:
+        type: number
+      old_balance_amount:
+        type: number
+      percent:
+        type: integer
+      sale_id:
+        type: string
+      sale_number:
+        type: integer
+      total_sale_amount:
+        type: number
+      type:
+        example: in/out
+        type: string
+    type: object
   domain.MarkingData:
     properties:
       dmed_id:
@@ -9496,6 +9532,76 @@ paths:
       security:
       - BearerAuth: []
       summary: Get Top Loyalty Card Customers
+      tags:
+      - loyalty_card
+  /loyalty_card/transactions:
+    get:
+      consumes:
+      - application/json
+      description: Returns loyalty card balance movement history (in/out) with date
+        filtering and search by customer name, phone or card barcode
+      parameters:
+      - description: Number of transactions to return
+        in: query
+        name: limit
+        type: integer
+      - description: Offset for pagination
+        in: query
+        name: offset
+        type: integer
+      - description: start_date
+        in: query
+        name: start_date
+        type: string
+      - description: end_date
+        in: query
+        name: end_date
+        type: string
+      - description: search by customer name, phone or loyalty card barcode
+        in: query
+        name: search
+        type: string
+      - description: 'transaction type: in or out'
+        in: query
+        name: type
+        type: string
+      - description: filter by customer id
+        in: query
+        name: customer_id
+        type: string
+      - description: filter by sale id
+        in: query
+        name: sale_id
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/v1.Response'
+            - properties:
+                data:
+                  items:
+                    $ref: '#/definitions/domain.LoyaltyCardTransactionListItem'
+                  type: array
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Get Loyalty Card Transactions
       tags:
       - loyalty_card
   /noor/category/list:

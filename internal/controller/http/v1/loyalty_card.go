@@ -27,6 +27,7 @@ func (h *LoyaltyCardHandler) LoyaltyCardRoutes(r *gin.RouterGroup) {
 		loyaltyCard.POST("", h.Create)
 		loyaltyCard.GET("/dashboard", h.GetLoyaltyCardStats)
 		loyaltyCard.GET("/top", h.GetTopCustomers)
+		loyaltyCard.GET("/transactions", h.GetTransactions)
 		loyaltyCard.GET("/export-excel/", h.ExportLoyaltyCardsExcel)
 		// loyaltyCard.GET("/:id", h.Get)
 		// loyaltyCard.GET("/list", h.List)
@@ -152,6 +153,59 @@ func (h *LoyaltyCardHandler) GetTopCustomers(c *gin.Context) {
 	}
 
 	result := utils.ListResponse(customers, count, req.Limit, req.Offset)
+	handleResponse(c, OK, result)
+}
+
+// GetTransactions godoc
+// @Summary Get Loyalty Card Transactions
+// @Description Returns loyalty card balance movement history (in/out) with date filtering and search by customer name, phone or card barcode
+// @Tags loyalty_card
+// @Security     BearerAuth
+// @Accept json
+// @Produce json
+// @Param limit query int false "Number of transactions to return" default:10
+// @Param offset query int false "Offset for pagination" default:0
+// @Param start_date 	query string false 	"start_date"
+// @Param end_date 		query string false 	"end_date"
+// @Param search 		query string false 	"search by customer name, phone or loyalty card barcode"
+// @Param type 			query string false 	"transaction type: in or out"
+// @Param customer_id 	query string false 	"filter by customer id"
+// @Param sale_id 		query string false 	"filter by sale id"
+// @Success 200 {object} v1.Response{data=[]domain.LoyaltyCardTransactionListItem}
+// @Failure 400 {object} v1.Response
+// @Failure 401 {object} v1.Response
+// @Failure 500 {object} v1.Response
+// @Router /loyalty_card/transactions [get]
+func (h *LoyaltyCardHandler) GetTransactions(c *gin.Context) {
+	user := h.service.GetSignedUser(c)
+	if user.UserId == "" {
+		handleServiceResponse(c, nil, domain.UnauthorizedError)
+		return
+	}
+
+	var req domain.LoyaltyCardTransactionListRequest
+	if err := c.ShouldBindQuery(&req); err != nil {
+		handleResponse(c, BadRequest, fmt.Sprintf("Invalid query parameters: %s", err.Error()))
+		return
+	}
+
+	if req.Type != "" && req.Type != constants.LoyaltyCardTransactionIn && req.Type != constants.LoyaltyCardTransactionOut {
+		handleResponse(c, BadRequest, "type must be 'in' or 'out'")
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
+	defer cancel()
+
+	req.Limit, req.Offset = defaultLimitOffset(req.Limit, req.Offset)
+
+	transactions, count, err := h.service.GetLoyaltyCardTransactions(ctx, &req)
+	if err != nil {
+		handleServiceResponse(c, InternalError, err)
+		return
+	}
+
+	result := utils.ListResponse(transactions, count, req.Limit, req.Offset)
 	handleResponse(c, OK, result)
 }
 

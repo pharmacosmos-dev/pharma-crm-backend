@@ -179,6 +179,11 @@ const (
 	PaymentTypeCARD        = "CARD"
 	PaymentTypeCASH        = "CASH"
 
+	// loyalty card transaction types
+
+	LoyaltyCardTransactionIn  = "in"
+	LoyaltyCardTransactionOut = "out"
+
 	// Universal status types
 
 	GeneralStatusNew        = "new"

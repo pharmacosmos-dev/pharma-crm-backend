@@ -11325,6 +11325,117 @@ const docTemplate = `{
                 }
             }
         },
+        "/loyalty_card/transactions": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Returns loyalty card balance movement history (in/out) with date filtering and search by customer name, phone or card barcode",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "loyalty_card"
+                ],
+                "summary": "Get Loyalty Card Transactions",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Number of transactions to return",
+                        "name": "limit",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Offset for pagination",
+                        "name": "offset",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "start_date",
+                        "name": "start_date",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "end_date",
+                        "name": "end_date",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "search by customer name, phone or loyalty card barcode",
+                        "name": "search",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "transaction type: in or out",
+                        "name": "type",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "filter by customer id",
+                        "name": "customer_id",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "filter by sale id",
+                        "name": "sale_id",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/v1.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "type": "array",
+                                            "items": {
+                                                "$ref": "#/definitions/domain.LoyaltyCardTransactionListItem"
+                                            }
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    }
+                }
+            }
+        },
         "/noor/category/list": {
             "get": {
                 "security": [
@@ -32192,6 +32303,60 @@ const docTemplate = `{
                 },
                 "total_spent": {
                     "type": "number"
+                }
+            }
+        },
+        "domain.LoyaltyCardTransactionListItem": {
+            "type": "object",
+            "properties": {
+                "bonus_in_amount": {
+                    "type": "number"
+                },
+                "bonus_out_amount": {
+                    "type": "number"
+                },
+                "created_at": {
+                    "type": "string"
+                },
+                "customer_id": {
+                    "type": "string"
+                },
+                "customer_name": {
+                    "type": "string"
+                },
+                "customer_phone": {
+                    "type": "string"
+                },
+                "customer_public_id": {
+                    "type": "integer"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "loyalty_card_barcode": {
+                    "type": "string"
+                },
+                "new_balance_amount": {
+                    "type": "number"
+                },
+                "old_balance_amount": {
+                    "type": "number"
+                },
+                "percent": {
+                    "type": "integer"
+                },
+                "sale_id": {
+                    "type": "string"
+                },
+                "sale_number": {
+                    "type": "integer"
+                },
+                "total_sale_amount": {
+                    "type": "number"
+                },
+                "type": {
+                    "type": "string",
+                    "example": "in/out"
                 }
             }
         },

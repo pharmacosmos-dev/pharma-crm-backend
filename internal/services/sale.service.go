@@ -1161,23 +1161,53 @@ func (s *Services) AddSaleBonuses(sale *domain.Sale, req []domain.CartItemWithPr
 	}
 	// add cashback to customer balance
 	if sale.CashBack > 0 || loyaltyCardBarcode != "" {
-		err := s.db.Exec(`
-		UPDATE customers SET balance = balance + ? WHERE id = ?`, sale.CashBack, sale.CustomerId).Error
-		if err != nil {
-			s.log.Errorf("could not update customer balance: %v", err)
+		var state customerBalanceState
+		qb := s.db.Raw(`
+		UPDATE customers SET balance = balance + ? WHERE id = ?
+		RETURNING balance, loyalty_card_percent`, sale.CashBack, sale.CustomerId).Scan(&state)
+		if qb.Error != nil {
+			s.log.Errorf("could not update customer balance: %v", qb.Error)
 			return
+		}
+
+		// save loyalty card "in" transaction with old/new balance
+		if qb.RowsAffected > 0 && sale.CashBack > 0 {
+			s.createLoyaltyCardTransaction(ctx, &domain.LoyaltyCardTransaction{
+				SaleId:           sale.Id,
+				CustomerId:       sale.CustomerId,
+				Type:             constants.LoyaltyCardTransactionIn,
+				Percent:          state.LoyaltyCardPercent,
+				OldBalanceAmount: state.Balance - sale.CashBack,
+				BonusInAmount:    sale.CashBack,
+				NewBalanceAmount: state.Balance,
+			})
 		}
 	}
 
 	// deduct from loyalty card balance
 	if sale.LoyaltyCard > 0 && sale.CustomerId != "" {
-		err := s.db.Exec(`
-		UPDATE customers SET balance = balance - ?, spending_from_balance = spending_from_balance + ? WHERE id = ?`,
+		var state customerBalanceState
+		qb := s.db.Raw(`
+		UPDATE customers SET balance = balance - ?, spending_from_balance = spending_from_balance + ? WHERE id = ?
+		RETURNING balance, loyalty_card_percent`,
 			sale.LoyaltyCard, sale.LoyaltyCard, sale.CustomerId,
-		).Error
-		if err != nil {
-			s.log.Errorf("could not deduct from customer balance: %v", err)
+		).Scan(&state)
+		if qb.Error != nil {
+			s.log.Errorf("could not deduct from customer balance: %v", qb.Error)
 			return
+		}
+
+		// save loyalty card "out" transaction with old/new balance
+		if qb.RowsAffected > 0 {
+			s.createLoyaltyCardTransaction(ctx, &domain.LoyaltyCardTransaction{
+				SaleId:           sale.Id,
+				CustomerId:       sale.CustomerId,
+				Type:             constants.LoyaltyCardTransactionOut,
+				Percent:          state.LoyaltyCardPercent,
+				OldBalanceAmount: state.Balance + sale.LoyaltyCard,
+				BonusOutAmount:   sale.LoyaltyCard,
+				NewBalanceAmount: state.Balance,
+			})
 		}
 	}
 
