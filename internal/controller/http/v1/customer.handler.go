@@ -29,6 +29,7 @@ func (h *CustomerHandler) CustomerRoutes(r *gin.RouterGroup) {
 		customer.POST("", h.Create)
 		customer.GET("/:id", h.Get)
 		customer.GET("/list", h.List)
+		customer.GET("/dashboard", h.Dashboard)
 		customer.GET("/list-for-sale", h.ListForSale)
 		customer.GET("/export-excel", h.ExportCustomerExcel)
 		customer.GET("/list-discount-cards", h.ListDiscountCards)
@@ -152,6 +153,40 @@ func (h *CustomerHandler) List(c *gin.Context) {
 	data := utils.ListResponse(res, totalCount, params.Limit, params.Offset)
 
 	handleResponse(c, OK, data)
+}
+
+// Dashboard godoc
+// @Summary Get customer dashboard stats
+// @Description Returns blocked/active customer counts with balance and spending_from_balance sums, filters are the same as customer list
+// @Tags customers
+// @Security     BearerAuth
+// @Accept json
+// @Produce json
+// @Param search query string false "Search"
+// @Param store_id query string false "Store ID"
+// @Param company_id query string false "Company ID"
+// @Param is_blocked query bool false "Is blocked"
+// @Param order query string false "Order"
+// @Success 200 {object} v1.Response{data=domain.CustomerDashboard}
+// @Failure 400 {object} v1.Response
+// @Failure 500 {object} v1.Response
+// @Router /customer/dashboard [get]
+func (h *CustomerHandler) Dashboard(c *gin.Context) {
+	var params domain.QueryParam
+	if err := c.ShouldBindQuery(&params); err != nil {
+		handleServiceResponse(c, BadRequest, domain.InvalidRequestBodyError)
+		return
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
+	defer cancel()
+
+	res, err := h.service.GetCustomerDashboard(ctx, &params)
+	if err != nil {
+		handleServiceResponse(c, nil, err)
+		return
+	}
+
+	handleResponse(c, OK, res)
 }
 
 // List godoc

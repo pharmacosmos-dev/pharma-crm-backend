@@ -378,6 +378,21 @@ definitions:
       unit_code:
         type: string
     type: object
+  domain.CustomerDashboard:
+    properties:
+      active_balance_sum:
+        type: number
+      active_customer_count:
+        type: integer
+      active_spending_from_balance_sum:
+        type: number
+      blocked_balance_sum:
+        type: number
+      blocked_customer_count:
+        type: integer
+      blocked_spending_from_balance_sum:
+        type: number
+    type: object
   domain.CustomerRequest:
     properties:
       birthday:
@@ -4484,6 +4499,58 @@ paths:
       security:
       - BearerAuth: []
       summary: Update a customer
+      tags:
+      - customers
+  /customer/dashboard:
+    get:
+      consumes:
+      - application/json
+      description: Returns blocked/active customer counts with balance and spending_from_balance
+        sums, filters are the same as customer list
+      parameters:
+      - description: Search
+        in: query
+        name: search
+        type: string
+      - description: Store ID
+        in: query
+        name: store_id
+        type: string
+      - description: Company ID
+        in: query
+        name: company_id
+        type: string
+      - description: Is blocked
+        in: query
+        name: is_blocked
+        type: boolean
+      - description: Order
+        in: query
+        name: order
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/v1.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/domain.CustomerDashboard'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Get customer dashboard stats
       tags:
       - customers
   /customer/export-excel:

@@ -3280,6 +3280,90 @@ const docTemplate = `{
                 }
             }
         },
+        "/customer/dashboard": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Returns blocked/active customer counts with balance and spending_from_balance sums, filters are the same as customer list",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "customers"
+                ],
+                "summary": "Get customer dashboard stats",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Search",
+                        "name": "search",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Store ID",
+                        "name": "store_id",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Company ID",
+                        "name": "company_id",
+                        "in": "query"
+                    },
+                    {
+                        "type": "boolean",
+                        "description": "Is blocked",
+                        "name": "is_blocked",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Order",
+                        "name": "order",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/v1.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/domain.CustomerDashboard"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    }
+                }
+            }
+        },
         "/customer/export-excel": {
             "get": {
                 "security": [
@@ -31713,6 +31797,29 @@ const docTemplate = `{
                 },
                 "unit_code": {
                     "type": "string"
+                }
+            }
+        },
+        "domain.CustomerDashboard": {
+            "type": "object",
+            "properties": {
+                "active_balance_sum": {
+                    "type": "number"
+                },
+                "active_customer_count": {
+                    "type": "integer"
+                },
+                "active_spending_from_balance_sum": {
+                    "type": "number"
+                },
+                "blocked_balance_sum": {
+                    "type": "number"
+                },
+                "blocked_customer_count": {
+                    "type": "integer"
+                },
+                "blocked_spending_from_balance_sum": {
+                    "type": "number"
                 }
             }
         },

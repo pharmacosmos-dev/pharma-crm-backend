@@ -200,6 +200,68 @@ func (s *Services) CreateCustomerWithPhone(ctx context.Context, req *domain.Noor
 
 // region Get
 
+// customerListWhere builds the shared WHERE clause for customer list and dashboard,
+// so both always filter with identical conditions
+func (s *Services) customerListWhere(params *domain.QueryParam, usedInSalePage bool) (string, []interface{}) {
+	whereClauses := []string{"c.is_active = true"}
+	var args []interface{}
+
+	if params.Search != "" {
+		if usedInSalePage {
+			whereClauses = append(whereClauses, "(c.discount_card = ? OR c.loyalty_card_barcode = ?)")
+			args = append(args, params.Search, params.Search)
+		} else {
+			whereClauses = append(whereClauses, "(c.public_id::text ILIKE ? OR c.phone::text ILIKE ? OR c.full_name ILIKE ?)")
+			args = append(args, "%"+params.Search+"%", "%"+params.Search+"%", "%"+params.Search+"%")
+		}
+	}
+	if params.StoreID != "" {
+		whereClauses = append(whereClauses, "c.store_id = ?")
+		args = append(args, params.StoreID)
+	}
+	if params.CompanyId != "" {
+		whereClauses = append(whereClauses, "s.company_id = ?")
+		args = append(args, params.CompanyId)
+	}
+	if params.IsBlocked != nil {
+		whereClauses = append(whereClauses, "c.is_blocked = ?")
+		args = append(args, *params.IsBlocked)
+	} else if params.Order != "" {
+		whereClauses = append(whereClauses, "c.is_blocked = false")
+	}
+
+	return strings.Join(whereClauses, " AND "), args
+}
+
+// GetCustomerDashboard returns blocked/active customer counts with balance and
+// spending_from_balance sums, filters are identical to GetCustomers (customerListWhere)
+func (s *Services) GetCustomerDashboard(ctx context.Context, params *domain.QueryParam) (*domain.CustomerDashboard, error) {
+	var res domain.CustomerDashboard
+
+	where, args := s.customerListWhere(params, false)
+
+	query := fmt.Sprintf(`
+		SELECT
+			COUNT(*) FILTER (WHERE c.is_blocked = true)  AS blocked_customer_count,
+			COUNT(*) FILTER (WHERE c.is_blocked = false) AS active_customer_count,
+			COALESCE(SUM(c.balance) FILTER (WHERE c.is_blocked = true), 0)  AS blocked_balance_sum,
+			COALESCE(SUM(c.balance) FILTER (WHERE c.is_blocked = false), 0) AS active_balance_sum,
+			COALESCE(SUM(c.spending_from_balance) FILTER (WHERE c.is_blocked = true), 0)  AS blocked_spending_from_balance_sum,
+			COALESCE(SUM(c.spending_from_balance) FILTER (WHERE c.is_blocked = false), 0) AS active_spending_from_balance_sum
+		FROM customers c
+		LEFT JOIN stores s ON c.store_id = s.id
+		LEFT JOIN tags t ON c.tag_id = t.id
+		WHERE %s
+	`, where)
+
+	if err := s.db.WithContext(ctx).Raw(query, args...).Scan(&res).Error; err != nil {
+		s.log.Errorf("could not get customer dashboard: %v", err)
+		return nil, domain.InternalServerError
+	}
+
+	return &res, nil
+}
+
 // get customer list data
 func (s *Services) GetCustomers(ctx context.Context, params *domain.QueryParam, usedInSalePage bool) ([]domain.Customer, int64, error) {
 	type row struct {
@@ -239,34 +301,7 @@ func (s *Services) GetCustomers(ctx context.Context, params *domain.QueryParam, 
 	}
 
 	// where shartlarini to'plovchi qism
-	whereClauses := []string{"c.is_active = true"}
-	var args []interface{}
-
-	if params.Search != "" {
-		if usedInSalePage {
-			whereClauses = append(whereClauses, "(c.discount_card = ? OR c.loyalty_card_barcode = ?)")
-			args = append(args, params.Search, params.Search)
-		} else {
-			whereClauses = append(whereClauses, "(c.public_id::text ILIKE ? OR c.phone::text ILIKE ? OR c.full_name ILIKE ?)")
-			args = append(args, "%"+params.Search+"%", "%"+params.Search+"%", "%"+params.Search+"%")
-		}
-	}
-	if params.StoreID != "" {
-		whereClauses = append(whereClauses, "c.store_id = ?")
-		args = append(args, params.StoreID)
-	}
-	if params.CompanyId != "" {
-		whereClauses = append(whereClauses, "s.company_id = ?")
-		args = append(args, params.CompanyId)
-	}
-	if params.IsBlocked != nil {
-		whereClauses = append(whereClauses, "c.is_blocked = ?")
-		args = append(args, *params.IsBlocked)
-	} else if params.Order != "" {
-		whereClauses = append(whereClauses, "c.is_blocked = false")
-	}
-
-	where := strings.Join(whereClauses, " AND ")
+	where, args := s.customerListWhere(params, usedInSalePage)
 
 	// count
 	var totalCount int64

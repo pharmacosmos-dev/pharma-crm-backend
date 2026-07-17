@@ -49,6 +49,15 @@ type UpdateCustomerBlockRequest struct {
 	IsBlocked bool   `json:"is_blocked"`
 }
 
+type CustomerDashboard struct {
+	BlockedCustomerCount          int64   `gorm:"blocked_customer_count" json:"blocked_customer_count"`
+	ActiveCustomerCount           int64   `gorm:"active_customer_count" json:"active_customer_count"`
+	BlockedBalanceSum             float64 `gorm:"blocked_balance_sum" json:"blocked_balance_sum"`
+	ActiveBalanceSum              float64 `gorm:"active_balance_sum" json:"active_balance_sum"`
+	BlockedSpendingFromBalanceSum float64 `gorm:"blocked_spending_from_balance_sum" json:"blocked_spending_from_balance_sum"`
+	ActiveSpendingFromBalanceSum  float64 `gorm:"active_spending_from_balance_sum" json:"active_spending_from_balance_sum"`
+}
+
 type DiscountCardWithCustomer struct {
 	Id         string `json:"id"`
 	CustomerId string `json:"customer_id"`
