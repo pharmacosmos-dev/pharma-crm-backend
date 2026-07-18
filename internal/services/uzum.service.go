@@ -291,8 +291,8 @@ func (s *Services) CreateUzumOrder(ctx context.Context, req *domain.UzumCreateOr
 		return nil, err
 	}
 
-	// create or get customer
-	customer, err := s.GetOrCreateCustomerByPhone(ctx, &domain.NoorClientInfo{
+	// create customer if new, but do not attach it to the sale
+	_, err = s.GetOrCreateCustomerByPhone(ctx, &domain.NoorClientInfo{
 		Name:  req.DeliveryInfo.ClientName,
 		Phone: req.DeliveryInfo.PhoneNumber,
 	})
@@ -307,7 +307,6 @@ func (s *Services) CreateUzumOrder(ctx context.Context, req *domain.UzumCreateOr
 		VendorOrderId: req.EatsId,
 		ServiceType:   constants.ServiceTypeUzum,
 		ClientComment: req.Comment,
-		CustomerId:    customer.Id,
 		Items:         cartItems,
 	})
 
