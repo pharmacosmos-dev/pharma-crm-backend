@@ -32683,7 +32683,6 @@ const docTemplate = `{
                     "type": "number"
                 },
                 "total_count": {
-                    "description": "TotalCount is the number of distinct sales (a sale with both an in and\nan out row for the same sale_id is counted once)",
                     "type": "integer"
                 },
                 "total_in_count": {
@@ -32693,7 +32692,6 @@ const docTemplate = `{
                     "type": "integer"
                 },
                 "total_sale_amount_sum": {
-                    "description": "TotalSaleAmountSum sums total_sale_amount once per distinct sale_id",
                     "type": "number"
                 }
             }

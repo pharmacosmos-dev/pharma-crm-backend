@@ -7,7 +7,8 @@ import (
 	"gorm.io/gorm"
 )
 
-// customerBalanceState holds customer balance and percent returned by UPDATE ... RETURNING
+// customerBalanceState holds the balance and loyalty percent returned by the
+// UPDATE ... RETURNING queries in createLoyaltyCardTransaction.
 type customerBalanceState struct {
 	Balance            float64 `gorm:"column:balance"`
 	LoyaltyCardPercent int     `gorm:"column:loyalty_card_percent"`
@@ -17,14 +18,14 @@ type customerBalanceState struct {
 // total_sale_amount is calculated from cart_items the same way as sales.total_amount.
 func (s *Services) createLoyaltyCardTransaction(ctx context.Context, req *domain.LoyaltyCardTransaction) {
 	err := s.db.WithContext(ctx).Exec(`
-	INSERT INTO loyalty_card_transactions (
-		sale_id, customer_id, "type", percent, total_sale_amount,
-		old_balance_amount, bonus_in_amount, bonus_out_amount, new_balance_amount
-	) VALUES (
-		?, ?, ?, ?,
-		(SELECT COALESCE(SUM(total_price) - SUM(discount_amount), 0) FROM cart_items WHERE sale_id = ?),
-		?, ?, ?, ?
-	)`,
+		INSERT INTO loyalty_card_transactions (
+			sale_id, customer_id, "type", percent, total_sale_amount,
+			old_balance_amount, bonus_in_amount, bonus_out_amount, new_balance_amount
+		) VALUES (
+			?, ?, ?, ?,
+			(SELECT COALESCE(SUM(total_price) - SUM(discount_amount), 0) FROM cart_items WHERE sale_id = ?),
+			?, ?, ?, ?
+		)`,
 		req.SaleId,
 		req.CustomerId,
 		req.Type,
@@ -40,7 +41,11 @@ func (s *Services) createLoyaltyCardTransaction(ctx context.Context, req *domain
 	}
 }
 
-func (s *Services) loyaltyCardTransactionListQuery(ctx context.Context, req *domain.LoyaltyCardTransactionListRequest) *gorm.DB {
+// loyaltyCardTransactionQuery is the single source of truth for filtering
+// loyalty_card_transactions. GetLoyaltyCardTransactions and
+// GetLoyaltyCardTransactionDashboard both build on top of it, so they always
+// report numbers for the exact same set of rows.
+func (s *Services) loyaltyCardTransactionQuery(ctx context.Context, req *domain.LoyaltyCardTransactionListRequest) *gorm.DB {
 	qb := s.db.WithContext(ctx).
 		Table("loyalty_card_transactions t").
 		Joins("JOIN customers c ON c.id = t.customer_id")
@@ -68,39 +73,6 @@ func (s *Services) loyaltyCardTransactionListQuery(ctx context.Context, req *dom
 	return qb
 }
 
-// GetLoyaltyCardTransactionDashboard returns aggregated in/out stats,
-// filters are the same as GetLoyaltyCardTransactions (loyaltyCardTransactionListQuery).
-// A sale that has both an "in" and an "out" row (same sale_id) is counted as a
-// single sale in total_count / total_sale_amount_sum — total_in_count/total_out_count
-// and the bonus sums stay per-row since they represent separate movements.
-func (s *Services) GetLoyaltyCardTransactionDashboard(
-	ctx context.Context,
-	req *domain.LoyaltyCardTransactionListRequest,
-) (*domain.LoyaltyCardTransactionDashboard, error) {
-	var stats domain.LoyaltyCardTransactionDashboard
-
-	filtered := s.loyaltyCardTransactionListQuery(ctx, req).
-		Select("t.sale_id, t.type, t.total_sale_amount, t.bonus_in_amount, t.bonus_out_amount")
-
-	err := s.db.WithContext(ctx).
-		Table("(?) AS f", filtered).
-		Select(`
-			(SELECT COUNT(*) FROM (SELECT sale_id FROM f GROUP BY sale_id) ds)                           AS total_count,
-			(SELECT COALESCE(SUM(amt), 0) FROM (SELECT MAX(total_sale_amount) AS amt FROM f GROUP BY sale_id) ds) AS total_sale_amount_sum,
-			COUNT(*) FILTER (WHERE f.type = 'in')  AS total_in_count,
-			COUNT(*) FILTER (WHERE f.type = 'out') AS total_out_count,
-			COALESCE(SUM(f.bonus_in_amount), 0)    AS total_bonus_in_amount,
-			COALESCE(SUM(f.bonus_out_amount), 0)   AS total_bonus_out_amount
-		`).
-		Scan(&stats).Error
-	if err != nil {
-		s.log.Errorf("could not get loyalty_card_transactions dashboard: %v", err)
-		return nil, domain.InternalServerError
-	}
-
-	return &stats, nil
-}
-
 func (s *Services) GetLoyaltyCardTransactions(
 	ctx context.Context,
 	req *domain.LoyaltyCardTransactionListRequest,
@@ -110,12 +82,12 @@ func (s *Services) GetLoyaltyCardTransactions(
 		count int64
 	)
 
-	if err := s.loyaltyCardTransactionListQuery(ctx, req).Count(&count).Error; err != nil {
+	if err := s.loyaltyCardTransactionQuery(ctx, req).Count(&count).Error; err != nil {
 		s.log.Errorf("could not count loyalty_card_transactions: %v", err)
 		return nil, 0, domain.InternalServerError
 	}
 
-	err := s.loyaltyCardTransactionListQuery(ctx, req).
+	err := s.loyaltyCardTransactionQuery(ctx, req).
 		Joins("JOIN sales sl ON sl.id = t.sale_id").
 		Select(
 			"t.id",
@@ -145,4 +117,88 @@ func (s *Services) GetLoyaltyCardTransactions(
 	}
 
 	return items, count, nil
+}
+
+// loyaltyCardMovementStats aggregates per-row numbers: how many in/out
+// movements happened and how much money moved in each direction.
+type loyaltyCardMovementStats struct {
+	TotalInCount        int64   `gorm:"column:total_in_count"`
+	TotalOutCount       int64   `gorm:"column:total_out_count"`
+	TotalBonusInAmount  float64 `gorm:"column:total_bonus_in_amount"`
+	TotalBonusOutAmount float64 `gorm:"column:total_bonus_out_amount"`
+}
+
+// getLoyaltyCardMovementStats counts in/out rows and sums their amounts.
+// No deduplication needed here: an "in" row and an "out" row of the same sale
+// are two distinct movements.
+func (s *Services) getLoyaltyCardMovementStats(ctx context.Context, req *domain.LoyaltyCardTransactionListRequest) (*loyaltyCardMovementStats, error) {
+	var stats loyaltyCardMovementStats
+
+	err := s.loyaltyCardTransactionQuery(ctx, req).
+		Select(`
+			COUNT(*) FILTER (WHERE t.type = 'in')  AS total_in_count,
+			COUNT(*) FILTER (WHERE t.type = 'out') AS total_out_count,
+			COALESCE(SUM(t.bonus_in_amount), 0)    AS total_bonus_in_amount,
+			COALESCE(SUM(t.bonus_out_amount), 0)   AS total_bonus_out_amount
+		`).
+		Scan(&stats).Error
+	if err != nil {
+		return nil, err
+	}
+
+	return &stats, nil
+}
+
+// loyaltyCardSaleStats aggregates per-sale numbers: a sale with both an "in"
+// row (cashback) and an "out" row (paid from balance) is counted once.
+type loyaltyCardSaleStats struct {
+	TotalCount         int64   `gorm:"column:total_count"`
+	TotalSaleAmountSum float64 `gorm:"column:total_sale_amount_sum"`
+}
+
+// getLoyaltyCardSaleStats groups transactions by sale_id first, so a sale
+// with two rows (in + out) is not double-counted.
+func (s *Services) getLoyaltyCardSaleStats(ctx context.Context, req *domain.LoyaltyCardTransactionListRequest) (*loyaltyCardSaleStats, error) {
+	distinctSales := s.loyaltyCardTransactionQuery(ctx, req).
+		Group("t.sale_id").
+		Select("MAX(t.total_sale_amount) AS total_sale_amount")
+
+	var stats loyaltyCardSaleStats
+	err := s.db.WithContext(ctx).
+		Table("(?) AS sales", distinctSales).
+		Select("COUNT(*) AS total_count, COALESCE(SUM(total_sale_amount), 0) AS total_sale_amount_sum").
+		Scan(&stats).Error
+	if err != nil {
+		return nil, err
+	}
+
+	return &stats, nil
+}
+
+// GetLoyaltyCardTransactionDashboard returns aggregated in/out stats for the
+// same filters as GetLoyaltyCardTransactions (loyaltyCardTransactionQuery).
+func (s *Services) GetLoyaltyCardTransactionDashboard(
+	ctx context.Context,
+	req *domain.LoyaltyCardTransactionListRequest,
+) (*domain.LoyaltyCardTransactionDashboard, error) {
+	movement, err := s.getLoyaltyCardMovementStats(ctx, req)
+	if err != nil {
+		s.log.Errorf("could not get loyalty_card_transactions movement stats: %v", err)
+		return nil, domain.InternalServerError
+	}
+
+	sales, err := s.getLoyaltyCardSaleStats(ctx, req)
+	if err != nil {
+		s.log.Errorf("could not get loyalty_card_transactions sale stats: %v", err)
+		return nil, domain.InternalServerError
+	}
+
+	return &domain.LoyaltyCardTransactionDashboard{
+		TotalCount:          sales.TotalCount,
+		TotalInCount:        movement.TotalInCount,
+		TotalOutCount:       movement.TotalOutCount,
+		TotalSaleAmountSum:  sales.TotalSaleAmountSum,
+		TotalBonusInAmount:  movement.TotalBonusInAmount,
+		TotalBonusOutAmount: movement.TotalBonusOutAmount,
+	}, nil
 }
