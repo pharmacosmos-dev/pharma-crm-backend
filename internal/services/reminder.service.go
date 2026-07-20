@@ -134,7 +134,7 @@ func (s *Services) GetReminderList(ctx context.Context, params *domain.ReminderQ
 			r.store_ids,
 			r.created_by,
 			e.full_name AS created_by_name,
-			r.is_active,
+			(r.from_date <= NOW() AND r.to_date >= NOW()) AS is_active,
 			r.created_at,
 			r.deleted_at
 		`).

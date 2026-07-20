@@ -44,7 +44,7 @@ type ReminderListItem struct {
 	StoreIds      pq.StringArray `gorm:"type:text[]" json:"store_ids"`
 	CreatedBy     string         `json:"created_by"`
 	CreatedByName string         `json:"created_by_name"`
-	IsActive	  bool           `json:"is_active"`
+	IsActive      bool           `json:"is_active"`
 	CreatedAt     *time.Time     `json:"created_at"`
 	DeletedAt     *time.Time     `json:"deleted_at,omitempty"`
 }
