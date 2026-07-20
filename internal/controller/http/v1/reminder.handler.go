@@ -23,6 +23,7 @@ func (h *ReminderHandler) ReminderRoutes(r *gin.RouterGroup) {
 	{
 		reminder.POST("", h.Create)
 		reminder.GET("/list", h.List)
+		reminder.DELETE("/:id", h.Delete)
 	}
 }
 
@@ -119,4 +120,47 @@ func (h *ReminderHandler) List(c *gin.Context) {
 	}
 
 	handleResponse(c, OK, utils.ListResponse(results, count, params.Limit, params.Offset))
+}
+
+// Delete godoc
+// @Summary      Delete reminder
+// @Description  Eslatmani soft delete qiladi: is_active=false qilinadi va deleted_at joriy vaqtga o'rnatiladi (qator jismonan o'chirilmaydi).
+// @Tags         reminder
+// @Security     BearerAuth
+// @Accept       json
+// @Produce      json
+// @Param        id  path  string  true  "Reminder ID"
+// @Success      200 {object} v1.Response
+// @Failure      401 {object} v1.Response
+// @Failure      403 {object} v1.Response
+// @Failure      404 {object} v1.Response
+// @Failure      500 {object} v1.Response
+// @Router       /reminder/{id} [delete]
+func (h *ReminderHandler) Delete(c *gin.Context) {
+	user := h.service.GetSignedUser(c)
+	if user.UserId == "" {
+		handleServiceResponse(c, nil, domain.UnauthorizedError)
+		return
+	}
+
+	if !utils.In(user.Role, constants.AllAdminRoles...) {
+		handleServiceResponse(c, nil, domain.ForbiddinError)
+		return
+	}
+
+	id := c.Param("id")
+	if id == "" {
+		handleResponse(c, BadRequest, "id is required")
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
+	defer cancel()
+
+	if err := h.service.DeleteReminder(ctx, id); err != nil {
+		handleServiceResponse(c, nil, err)
+		return
+	}
+
+	handleResponse(c, OK, "DELETED")
 }

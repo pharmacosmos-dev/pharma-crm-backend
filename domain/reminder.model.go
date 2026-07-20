@@ -16,8 +16,10 @@ type Reminder struct {
 	ToDate    time.Time      `gorm:"column:to_date" json:"to_date"`
 	StoreIds  pq.StringArray `gorm:"type:text[];column:store_ids" json:"store_ids"`
 	CreatedBy string         `gorm:"column:created_by" json:"created_by"`
+	IsActive  bool           `gorm:"column:is_active" json:"is_active"`
 	CreatedAt *time.Time     `gorm:"column:created_at" json:"created_at"`
 	UpdatedAt *time.Time     `gorm:"column:updated_at" json:"updated_at"`
+	DeletedAt *time.Time     `gorm:"column:deleted_at" json:"deleted_at,omitempty"`
 }
 
 func (Reminder) TableName() string {

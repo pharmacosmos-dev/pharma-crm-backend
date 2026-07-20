@@ -14780,6 +14780,46 @@ paths:
       summary: Create reminder for stores
       tags:
       - reminder
+  /reminder/{id}:
+    delete:
+      consumes:
+      - application/json
+      description: 'Eslatmani soft delete qiladi: is_active=false qilinadi va deleted_at
+        joriy vaqtga o''rnatiladi (qator jismonan o''chirilmaydi).'
+      parameters:
+      - description: Reminder ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Delete reminder
+      tags:
+      - reminder
   /reminder/list:
     get:
       consumes:

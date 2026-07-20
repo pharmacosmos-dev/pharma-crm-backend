@@ -58,6 +58,7 @@ func (s *Services) CreateReminder(ctx context.Context, req *domain.CreateReminde
 		ToDate:    toDate,
 		StoreIds:  pq.StringArray(storeIds),
 		CreatedBy: createdBy,
+		IsActive:  true,
 	}
 
 	if err := s.db.WithContext(ctx).Create(&reminder).Error; err != nil {
@@ -91,9 +92,10 @@ func uniqueNonEmptyIds(ids []string) []string {
 // params.Active=true bo'lsa faqat muddati (to_date) hozirgi vaqtdan hali o'tmagan
 // (ya'ni to_date >= hozir) eslatmalar qaytariladi, muddati o'tganlari qaytarilmaydi.
 func (s *Services) GetReminderList(ctx context.Context, params *domain.ReminderQueryParams) ([]domain.ReminderListItem, int64, error) {
-	countQuery := s.db.WithContext(ctx).Table("reminders r")
+	countQuery := s.db.WithContext(ctx).Table("reminders r").Where("r.deleted_at IS NULL")
 	query := s.db.WithContext(ctx).Table("reminders r").
-		Joins("LEFT JOIN employees e ON e.id = r.created_by")
+		Joins("LEFT JOIN employees e ON e.id = r.created_by").
+		Where("r.deleted_at IS NULL")
 
 	if params.StoreId != "" {
 		countQuery = countQuery.Where("? = ANY(r.store_ids)", params.StoreId)
@@ -145,4 +147,27 @@ func (s *Services) GetReminderList(ctx context.Context, params *domain.ReminderQ
 	}
 
 	return results, total, nil
+}
+
+// DeleteReminder - eslatmani soft delete qiladi: is_active=false va deleted_at
+// joriy vaqtga o'rnatiladi, qatordan jismonan o'chirilmaydi.
+func (s *Services) DeleteReminder(ctx context.Context, id string) error {
+	result := s.db.WithContext(ctx).
+		Model(&domain.Reminder{}).
+		Where("id = ? AND deleted_at IS NULL", id).
+		Updates(map[string]interface{}{
+			"is_active":  false,
+			"deleted_at": time.Now(),
+		})
+
+	if result.Error != nil {
+		s.log.Errorf("could not delete reminder: %v", result.Error)
+		return domain.InternalServerError
+	}
+
+	if result.RowsAffected == 0 {
+		return domain.NotFoundError
+	}
+
+	return nil
 }
