@@ -61,7 +61,7 @@ func (h *Handler) InitRoutes(r *gin.Engine) {
 	// Route Group for 1C APIs
 	v1c := r.Group("/v1")
 	// Auth Middleware for 1C
-    // v1c.Use(bearerAuth.Check1CAuth())
+    v1c.Use(bearerAuth.Check1CAuth())
 
 	// Route Group for External APIs
 	external := r.Group("/v1")
@@ -121,6 +121,7 @@ func (h *Handler) InitRoutes(r *gin.Engine) {
 		h.NewPartnerHandler(v1)
 		h.NewOstatokHandler(public)
 		h.NewStoreTargetHandler(v1)
+		h.NewReminderHandler(v1)
 		// handler for external apis
 		h.NewNoorHandler(external)
 		// handler for partner auth apis

@@ -19407,6 +19407,141 @@ const docTemplate = `{
                 }
             }
         },
+        "/reminder": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Admin tomonidan bir yoki bir nechta aptekaga (from_date - to_date oralig'ida ko'rsatiladigan) matnli eslatma yuboriladi. created_by tokendagi user_id orqali avtomatik saqlanadi. Yaratilgandan so'ng belgilangan har bir apteka uchun websocket orqali xabar yuboriladi.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "reminder"
+                ],
+                "summary": "Create reminder for stores",
+                "parameters": [
+                    {
+                        "description": "Reminder data",
+                        "name": "input",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/domain.CreateReminderRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/reminder/list": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Eslatmalar ro'yxati. active=true bo'lsa faqat muddati (to_date) hozirgi vaqtdan hali o'tmagan eslatmalar qaytariladi. Admin bo'lmagan foydalanuvchilar faqat o'z do'koniga tegishli eslatmalarni ko'radi.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "reminder"
+                ],
+                "summary": "Reminder list",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Store ID (faqat admin uchun filter sifatida ishlaydi)",
+                        "name": "store_id",
+                        "in": "query"
+                    },
+                    {
+                        "type": "boolean",
+                        "description": "true bo'lsa faqat muddati o'tmaganlarni qaytaradi",
+                        "name": "active",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Limit",
+                        "name": "limit",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Offset",
+                        "name": "offset",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    }
+                }
+            }
+        },
         "/report/bonus": {
             "post": {
                 "security": [
@@ -31797,6 +31932,35 @@ const docTemplate = `{
                 },
                 "unit_code": {
                     "type": "string"
+                }
+            }
+        },
+        "domain.CreateReminderRequest": {
+            "type": "object",
+            "required": [
+                "from_date",
+                "store_ids",
+                "text",
+                "to_date"
+            ],
+            "properties": {
+                "from_date": {
+                    "type": "string",
+                    "example": "2026-07-20T09:00:00+05:00"
+                },
+                "store_ids": {
+                    "type": "array",
+                    "minItems": 1,
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "text": {
+                    "type": "string"
+                },
+                "to_date": {
+                    "type": "string",
+                    "example": "2026-07-20T18:00:00+05:00"
                 }
             }
         },

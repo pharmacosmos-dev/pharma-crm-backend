@@ -378,6 +378,27 @@ definitions:
       unit_code:
         type: string
     type: object
+  domain.CreateReminderRequest:
+    properties:
+      from_date:
+        example: "2026-07-20T09:00:00+05:00"
+        type: string
+      store_ids:
+        items:
+          type: string
+        minItems: 1
+        type: array
+      text:
+        type: string
+      to_date:
+        example: "2026-07-20T18:00:00+05:00"
+        type: string
+    required:
+    - from_date
+    - store_ids
+    - text
+    - to_date
+    type: object
   domain.CustomerDashboard:
     properties:
       active_balance_sum:
@@ -14714,6 +14735,97 @@ paths:
       summary: Get list of products
       tags:
       - rejected-products
+  /reminder:
+    post:
+      consumes:
+      - application/json
+      description: Admin tomonidan bir yoki bir nechta aptekaga (from_date - to_date
+        oralig'ida ko'rsatiladigan) matnli eslatma yuboriladi. created_by tokendagi
+        user_id orqali avtomatik saqlanadi. Yaratilgandan so'ng belgilangan har bir
+        apteka uchun websocket orqali xabar yuboriladi.
+      parameters:
+      - description: Reminder data
+        in: body
+        name: input
+        required: true
+        schema:
+          $ref: '#/definitions/domain.CreateReminderRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Create reminder for stores
+      tags:
+      - reminder
+  /reminder/list:
+    get:
+      consumes:
+      - application/json
+      description: Eslatmalar ro'yxati. active=true bo'lsa faqat muddati (to_date)
+        hozirgi vaqtdan hali o'tmagan eslatmalar qaytariladi. Admin bo'lmagan foydalanuvchilar
+        faqat o'z do'koniga tegishli eslatmalarni ko'radi.
+      parameters:
+      - description: Store ID (faqat admin uchun filter sifatida ishlaydi)
+        in: query
+        name: store_id
+        type: string
+      - description: true bo'lsa faqat muddati o'tmaganlarni qaytaradi
+        in: query
+        name: active
+        type: boolean
+      - description: Limit
+        in: query
+        name: limit
+        type: integer
+      - description: Offset
+        in: query
+        name: offset
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Reminder list
+      tags:
+      - reminder
   /report/bonus:
     post:
       consumes:

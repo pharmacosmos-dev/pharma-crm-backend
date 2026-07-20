@@ -138,6 +138,21 @@ func (s *Services) NotifyTransferChecking(storeId string, transferName string) {
 	})
 }
 
+// NotifyReminderCreated - eslatma yaratilganda tanlangan har bir aptekaga
+// real vaqtda websocket orqali xabar yuboradi. Frontend shu event orqali
+// from_date - to_date oralig'ida ovozli eslatmani (masalan har 15 daqiqada) boshlashi mumkin.
+func (s *Services) NotifyReminderCreated(reminder *domain.Reminder) {
+	for _, storeId := range reminder.StoreIds {
+		s.hub.SendMessage(ws.Message{
+			StoreId: storeId,
+			Payload: ws.OutgoingMessage{
+				Event: constants.WsEventReminderCreated,
+				Data:  reminder,
+			},
+		})
+	}
+}
+
 func (s *Services) NotifyTransferSent(storeId string, transferName string) {
   notification := domain.CreateNotificationDto{
     ContentUz: fmt.Sprintf("Transfer jo'natildi: %s", transferName),

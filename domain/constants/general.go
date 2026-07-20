@@ -50,6 +50,7 @@ const (
 	WsEventTransferSent           = "transfer_sent"
 	WsEventTransferChecking       = "transfer_checking"
 	WsEventImportCreated          = "import_created"
+	WsEventReminderCreated        = "reminder_created"
 
 )
 

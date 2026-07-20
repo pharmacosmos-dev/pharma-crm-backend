@@ -33,6 +33,9 @@ var (
 	AlifPaymentDeclinedError     = NewError(http.StatusBadRequest, "DECLINED")
 	UserIdIsRequiredError        = NewError(http.StatusBadRequest, "user.id.is.required")
 	FiscalSignRequiredError      = NewError(http.StatusBadRequest, "fiscal.sign.required")
+	StoreIdsRequiredError        = NewError(http.StatusBadRequest, "store_ids.required")
+	ReminderDateRangeError       = NewError(http.StatusBadRequest, "reminder.to_date.must.be.after.from_date")
+	ReminderExpiredDateError     = NewError(http.StatusBadRequest, "reminder.to_date.must.be.in.future")
 
 	// 401 – Unauthorized (token noto‘g‘ri yoki mavjud emas)
 	UnauthorizedError     = NewError(http.StatusUnauthorized, "user.not.authorized")
