@@ -44,14 +44,19 @@ type ReminderListItem struct {
 	StoreIds      pq.StringArray `gorm:"type:text[]" json:"store_ids"`
 	CreatedBy     string         `json:"created_by"`
 	CreatedByName string         `json:"created_by_name"`
+	IsActive	  bool           `json:"is_active"`
 	CreatedAt     *time.Time     `json:"created_at"`
+	DeletedAt     *time.Time     `json:"deleted_at,omitempty"`
 }
 
 // ReminderQueryParams — GET list uchun filter parametrlari.
-// Active=true bo'lsa faqat muddati (to_date) hali o'tmagan eslatmalar qaytariladi.
+// IsActive=true bo'lsa faqat hozirgi vaqt from_date-to_date oralig'ida bo'lgan eslatmalar,
+// IsActive=false bo'lsa hozirgi vaqt shu oraliqda bo'lmagan (hali boshlanmagan yoki muddati
+// o'tgan) eslatmalar qaytariladi. Berilmasa (nil) sana bo'yicha filtr qo'llanmaydi.
+// Delete qilingan (soft delete) eslatmalar bu parametrdan qat'i nazar hech qachon qaytarilmaydi.
 type ReminderQueryParams struct {
-	StoreId string `form:"store_id"`
-	Active  *bool  `form:"active"`
-	Limit   int    `form:"limit"`
-	Offset  int    `form:"offset"`
+	StoreId  string `form:"store_id"`
+	IsActive *bool  `form:"is_active"`
+	Limit    int    `form:"limit"`
+	Offset   int    `form:"offset"`
 }

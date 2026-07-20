@@ -73,13 +73,13 @@ func (h *ReminderHandler) Create(c *gin.Context) {
 
 // List godoc
 // @Summary      Reminder list
-// @Description  Eslatmalar ro'yxati. active=true bo'lsa faqat muddati (to_date) hozirgi vaqtdan hali o'tmagan eslatmalar qaytariladi. Admin bo'lmagan foydalanuvchilar faqat o'z do'koniga tegishli eslatmalarni ko'radi.
+// @Description  Eslatmalar ro'yxati. is_active=true bo'lsa faqat hozirgi vaqt from_date-to_date oralig'ida bo'lgan eslatmalar, is_active=false bo'lsa hozirgi vaqt shu oraliqda bo'lmaganlar qaytariladi. Delete qilinganlar hech qachon qaytarilmaydi. Admin bo'lmagan foydalanuvchilar faqat o'z do'koniga tegishli eslatmalarni ko'radi.
 // @Tags         reminder
 // @Security     BearerAuth
 // @Accept       json
 // @Produce      json
-// @Param        store_id  query  string  false  "Store ID (faqat admin uchun filter sifatida ishlaydi)"
-// @Param        active    query  bool    false  "true bo'lsa faqat muddati o'tmaganlarni qaytaradi"
+// @Param        store_id   query  string  false  "Store ID (faqat admin uchun filter sifatida ishlaydi)"
+// @Param        is_active  query  bool    false  "true bo'lsa hozir faol bo'lganlarni, false bo'lsa faol bo'lmaganlarni qaytaradi"
 // @Param        limit     query  int     false  "Limit"
 // @Param        offset    query  int     false  "Offset"
 // @Success      200 {object} v1.Response

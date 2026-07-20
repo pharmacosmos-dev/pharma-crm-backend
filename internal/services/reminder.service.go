@@ -89,8 +89,11 @@ func uniqueNonEmptyIds(ids []string) []string {
 
 // GetReminderList - eslatmalar ro'yxati.
 // params.StoreId berilsa faqat shu aptekaga tegishli eslatmalar qaytariladi.
-// params.Active=true bo'lsa faqat muddati (to_date) hozirgi vaqtdan hali o'tmagan
-// (ya'ni to_date >= hozir) eslatmalar qaytariladi, muddati o'tganlari qaytarilmaydi.
+// params.IsActive=true bo'lsa faqat hozirgi vaqt from_date-to_date oralig'ida bo'lgan
+// eslatmalar, params.IsActive=false bo'lsa hozirgi vaqt shu oraliqda bo'lmagan (hali
+// boshlanmagan yoki muddati o'tgan) eslatmalar qaytariladi. Berilmasa (nil) sana bo'yicha
+// filtr qo'llanmaydi. Delete qilingan (soft delete) eslatmalar bu holatlarning barchasida
+// hech qachon qaytarilmaydi.
 func (s *Services) GetReminderList(ctx context.Context, params *domain.ReminderQueryParams) ([]domain.ReminderListItem, int64, error) {
 	countQuery := s.db.WithContext(ctx).Table("reminders r").Where("r.deleted_at IS NULL")
 	query := s.db.WithContext(ctx).Table("reminders r").
@@ -102,9 +105,15 @@ func (s *Services) GetReminderList(ctx context.Context, params *domain.ReminderQ
 		query = query.Where("? = ANY(r.store_ids)", params.StoreId)
 	}
 
-	if params.Active != nil && *params.Active {
-		countQuery = countQuery.Where("r.to_date >= ?", time.Now())
-		query = query.Where("r.to_date >= ?", time.Now())
+	if params.IsActive != nil {
+		now := time.Now()
+		if *params.IsActive {
+			countQuery = countQuery.Where("r.from_date <= ? AND r.to_date >= ?", now, now)
+			query = query.Where("r.from_date <= ? AND r.to_date >= ?", now, now)
+		} else {
+			countQuery = countQuery.Where("r.from_date > ? OR r.to_date < ?", now, now)
+			query = query.Where("r.from_date > ? OR r.to_date < ?", now, now)
+		}
 	}
 
 	var total int64
@@ -125,7 +134,9 @@ func (s *Services) GetReminderList(ctx context.Context, params *domain.ReminderQ
 			r.store_ids,
 			r.created_by,
 			e.full_name AS created_by_name,
-			r.created_at
+			r.is_active,
+			r.created_at,
+			r.deleted_at
 		`).
 		Order("r.created_at DESC")
 

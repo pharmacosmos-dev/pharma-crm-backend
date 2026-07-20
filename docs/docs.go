@@ -19477,7 +19477,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Eslatmalar ro'yxati. active=true bo'lsa faqat muddati (to_date) hozirgi vaqtdan hali o'tmagan eslatmalar qaytariladi. Admin bo'lmagan foydalanuvchilar faqat o'z do'koniga tegishli eslatmalarni ko'radi.",
+                "description": "Eslatmalar ro'yxati. is_active=true bo'lsa faqat hozirgi vaqt from_date-to_date oralig'ida bo'lgan eslatmalar, is_active=false bo'lsa hozirgi vaqt shu oraliqda bo'lmaganlar qaytariladi. Delete qilinganlar hech qachon qaytarilmaydi. Admin bo'lmagan foydalanuvchilar faqat o'z do'koniga tegishli eslatmalarni ko'radi.",
                 "consumes": [
                     "application/json"
                 ],
@@ -19497,8 +19497,8 @@ const docTemplate = `{
                     },
                     {
                         "type": "boolean",
-                        "description": "true bo'lsa faqat muddati o'tmaganlarni qaytaradi",
-                        "name": "active",
+                        "description": "true bo'lsa hozir faol bo'lganlarni, false bo'lsa faol bo'lmaganlarni qaytaradi",
+                        "name": "is_active",
                         "in": "query"
                     },
                     {
