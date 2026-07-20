@@ -39,11 +39,12 @@ type LoyaltyCardTransactionListItem struct {
 }
 
 type LoyaltyCardTransactionDashboard struct {
-	TotalInCount          int64   `gorm:"total_in_count" json:"total_in_count"`
-	TotalOutCount         int64   `gorm:"total_out_count" json:"total_out_count"`
-	TotalSaleAmountSum    float64 `gorm:"total_sale_amount_sum" json:"total_sale_amount_sum"`
-	TotalBonusInAmount    float64 `gorm:"total_bonus_in_amount" json:"total_bonus_in_amount"`
-	TotalBonusOutAmount   float64 `gorm:"total_bonus_out_amount" json:"total_bonus_out_amount"`
+	TotalCount          int64   `gorm:"total_count" json:"total_count"`
+	TotalInCount        int64   `gorm:"total_in_count" json:"total_in_count"`
+	TotalOutCount       int64   `gorm:"total_out_count" json:"total_out_count"`
+	TotalSaleAmountSum  float64 `gorm:"total_sale_amount_sum" json:"total_sale_amount_sum"`
+	TotalBonusInAmount  float64 `gorm:"total_bonus_in_amount" json:"total_bonus_in_amount"`
+	TotalBonusOutAmount float64 `gorm:"total_bonus_out_amount" json:"total_bonus_out_amount"`
 }
 
 type LoyaltyCardTransactionListRequest struct {

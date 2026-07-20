@@ -69,20 +69,28 @@ func (s *Services) loyaltyCardTransactionListQuery(ctx context.Context, req *dom
 }
 
 // GetLoyaltyCardTransactionDashboard returns aggregated in/out stats,
-// filters are the same as GetLoyaltyCardTransactions (loyaltyCardTransactionListQuery)
+// filters are the same as GetLoyaltyCardTransactions (loyaltyCardTransactionListQuery).
+// A sale that has both an "in" and an "out" row (same sale_id) is counted as a
+// single sale in total_count / total_sale_amount_sum — total_in_count/total_out_count
+// and the bonus sums stay per-row since they represent separate movements.
 func (s *Services) GetLoyaltyCardTransactionDashboard(
 	ctx context.Context,
 	req *domain.LoyaltyCardTransactionListRequest,
 ) (*domain.LoyaltyCardTransactionDashboard, error) {
 	var stats domain.LoyaltyCardTransactionDashboard
 
-	err := s.loyaltyCardTransactionListQuery(ctx, req).
+	filtered := s.loyaltyCardTransactionListQuery(ctx, req).
+		Select("t.sale_id, t.type, t.total_sale_amount, t.bonus_in_amount, t.bonus_out_amount")
+
+	err := s.db.WithContext(ctx).
+		Table("(?) AS f", filtered).
 		Select(`
-			COUNT(*) FILTER (WHERE t.type = 'in')  AS total_in_count,
-			COUNT(*) FILTER (WHERE t.type = 'out') AS total_out_count,
-			COALESCE(SUM(t.total_sale_amount), 0)  AS total_sale_amount_sum,
-			COALESCE(SUM(t.bonus_in_amount), 0)    AS total_bonus_in_amount,
-			COALESCE(SUM(t.bonus_out_amount), 0)   AS total_bonus_out_amount
+			(SELECT COUNT(*) FROM (SELECT sale_id FROM f GROUP BY sale_id) ds)                           AS total_count,
+			(SELECT COALESCE(SUM(amt), 0) FROM (SELECT MAX(total_sale_amount) AS amt FROM f GROUP BY sale_id) ds) AS total_sale_amount_sum,
+			COUNT(*) FILTER (WHERE f.type = 'in')  AS total_in_count,
+			COUNT(*) FILTER (WHERE f.type = 'out') AS total_out_count,
+			COALESCE(SUM(f.bonus_in_amount), 0)    AS total_bonus_in_amount,
+			COALESCE(SUM(f.bonus_out_amount), 0)   AS total_bonus_out_amount
 		`).
 		Scan(&stats).Error
 	if err != nil {
