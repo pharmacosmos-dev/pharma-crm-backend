@@ -515,27 +515,35 @@ func (h *SaleHandler) GetSalesStats(c *gin.Context) {
 		return
 	}
 
+	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
+	defer cancel()
+
 	if user.StoreId != "" {
-		limitDate := time.Now().
-			AddDate(0, 0, -14).
-			Truncate(24 * time.Hour)
+		// "Заведующий" rolidagi xodimlar uchun 14 kunlik cheklov qo'llanilmaydi
+		isZavStore, err := h.service.EmployeeHasRole(ctx, user.UserId, constants.RoleNameZavStore)
+		if err != nil {
+			h.log.Error(err)
+		}
 
-		// time.Time -> domain.CustomTime
-		customLimitDate := domain.CustomTime(limitDate)
+		if !isZavStore {
+			limitDate := time.Now().
+				AddDate(0, 0, -14).
+				Truncate(24 * time.Hour)
 
-		// start_date yuborilmagan bo‘lsa default 14 kun
-		if params.StartDate == nil || params.StartDate.GetTime().IsZero() {
-			params.StartDate = &customLimitDate
-		} else {
-			// agar start_date 14 kundan eski bo‘lsa 14 kunga kesiladi
-			if params.StartDate.GetTime().Before(limitDate) {
+			// time.Time -> domain.CustomTime
+			customLimitDate := domain.CustomTime(limitDate)
+
+			// start_date yuborilmagan bo‘lsa default 14 kun
+			if params.StartDate == nil || params.StartDate.GetTime().IsZero() {
 				params.StartDate = &customLimitDate
+			} else {
+				// agar start_date 14 kundan eski bo‘lsa 14 kunga kesiladi
+				if params.StartDate.GetTime().Before(limitDate) {
+					params.StartDate = &customLimitDate
+				}
 			}
 		}
 	}
-
-	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
-	defer cancel()
 
 	// check user role
 	if !helper.IsAdmin(user) {

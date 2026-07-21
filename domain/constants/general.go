@@ -263,6 +263,12 @@ const (
 	RoleRopApteka      = "ROP_APTEKA"
 )
 
+// role names assigned via employee_roles (roles.name) — distinct from the
+// employee.RoleType constants above
+const (
+	RoleNameZavStore = "Заведующий" // store head/manager: exempt from the sale stats 14-day date range limit
+)
+
 // movement type
 const (
 	MovementTypeImport         = "IMPORT"

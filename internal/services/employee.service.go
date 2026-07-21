@@ -31,6 +31,23 @@ func (s *Services) GetEmployeeById(ctx context.Context, tx *gorm.DB, id string) 
 	return &employee, nil
 }
 
+// EmployeeHasRole checks whether the given employee has a role with the given name
+// (via the employee_roles many2many table), independent of employee.RoleType.
+func (s *Services) EmployeeHasRole(ctx context.Context, employeeId, roleName string) (bool, error) {
+	var exists bool
+	err := s.db.WithContext(ctx).Raw(`
+		SELECT EXISTS (
+			SELECT 1 FROM employee_roles er
+			JOIN roles r ON r.id = er.role_id
+			WHERE er.employee_id = ? AND r.name = ?
+		)`, employeeId, roleName).Scan(&exists).Error
+	if err != nil {
+		s.log.Errorf("could not check employee role: %v", err)
+		return false, err
+	}
+	return exists, nil
+}
+
 // get employee list data
 func (s *Services) GetEmployees(ctx context.Context, params *domain.EmployeeQueryParams) ([]domain.Employee, int64, error) {
 	var (
