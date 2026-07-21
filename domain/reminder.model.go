@@ -35,7 +35,7 @@ type CreateReminderRequest struct {
 	StoreIds []string `json:"store_ids" binding:"required,min=1"`
 }
 
-// ReminderListItem — GET list javobi uchun
+// ReminderListItem — GET list javobi uchun, reminders jadvalidagi barcha ustunlar bilan
 type ReminderListItem struct {
 	Id            string         `json:"id"`
 	Text          string         `json:"text"`
@@ -46,14 +46,11 @@ type ReminderListItem struct {
 	CreatedByName string         `json:"created_by_name"`
 	IsActive      bool           `json:"is_active"`
 	CreatedAt     *time.Time     `json:"created_at"`
+	UpdatedAt     *time.Time     `json:"updated_at"`
 	DeletedAt     *time.Time     `json:"deleted_at,omitempty"`
 }
 
 // ReminderQueryParams — GET list uchun filter parametrlari.
-// IsActive=true bo'lsa faqat hozirgi vaqt from_date-to_date oralig'ida bo'lgan eslatmalar,
-// IsActive=false bo'lsa hozirgi vaqt shu oraliqda bo'lmagan (hali boshlanmagan yoki muddati
-// o'tgan) eslatmalar qaytariladi. Berilmasa (nil) sana bo'yicha filtr qo'llanmaydi.
-// Delete qilingan (soft delete) eslatmalar bu parametrdan qat'i nazar hech qachon qaytarilmaydi.
 type ReminderQueryParams struct {
 	StoreId  string `form:"store_id"`
 	IsActive *bool  `form:"is_active"`

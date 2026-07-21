@@ -73,7 +73,7 @@ func (h *ReminderHandler) Create(c *gin.Context) {
 
 // List godoc
 // @Summary      Reminder list
-// @Description  Eslatmalar ro'yxati. is_active=true bo'lsa faqat hozirgi vaqt from_date-to_date oralig'ida bo'lgan eslatmalar, is_active=false bo'lsa hozirgi vaqt shu oraliqda bo'lmaganlar qaytariladi. Delete qilinganlar hech qachon qaytarilmaydi. Admin bo'lmagan foydalanuvchilar faqat o'z do'koniga tegishli eslatmalarni ko'radi.
+// @Description  Eslatmalar ro'yxati. Hech qanday parametr berilmasa jadvaldagi barcha qatorlar (o'chirilganlari ham) filtrlanmasdan qaytariladi. is_active parametri jadvaldagi is_active ustuniga bog'liq emas — faqat vaqt oralig'iga qarab ishlaydi: true bo'lsa hozirgi vaqt from_date-to_date oralig'ida bo'lgan eslatmalar, false bo'lsa shu oraliqda bo'lmaganlar qaytariladi. Admin bo'lmagan foydalanuvchilar faqat o'z do'koniga tegishli eslatmalarni ko'radi.
 // @Tags         reminder
 // @Security     BearerAuth
 // @Accept       json

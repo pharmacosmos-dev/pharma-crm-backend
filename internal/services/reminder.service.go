@@ -11,7 +11,6 @@ import (
 )
 
 // CreateReminder - admin tomonidan bir yoki bir nechta aptekaga matnli eslatma yuboradi.
-// Yozuv DB ga saqlanadi (created_by - token orqali olingan user_id), so'ngra belgilangan
 // har bir do'kon uchun websocket orqali real vaqtda xabar yuboriladi.
 func (s *Services) CreateReminder(ctx context.Context, req *domain.CreateReminderRequest, createdBy string) (*domain.Reminder, error) {
 	fromDate, err := time.Parse(time.RFC3339, req.FromDate)
@@ -88,17 +87,12 @@ func uniqueNonEmptyIds(ids []string) []string {
 }
 
 // GetReminderList - eslatmalar ro'yxati.
-// params.StoreId berilsa faqat shu aptekaga tegishli eslatmalar qaytariladi.
-// params.IsActive=true bo'lsa faqat hozirgi vaqt from_date-to_date oralig'ida bo'lgan
-// eslatmalar, params.IsActive=false bo'lsa hozirgi vaqt shu oraliqda bo'lmagan (hali
-// boshlanmagan yoki muddati o'tgan) eslatmalar qaytariladi. Berilmasa (nil) sana bo'yicha
-// filtr qo'llanmaydi. Delete qilingan (soft delete) eslatmalar bu holatlarning barchasida
-// hech qachon qaytarilmaydi.
+// Hech qanday parametr berilmasa reminders jadvalidagi barcha qatorlar (is_active=false
+// va deleted_at bo'lganlari ham) hech narsa filtrlanmasdan qaytariladi.
 func (s *Services) GetReminderList(ctx context.Context, params *domain.ReminderQueryParams) ([]domain.ReminderListItem, int64, error) {
-	countQuery := s.db.WithContext(ctx).Table("reminders r").Where("r.deleted_at IS NULL")
+	countQuery := s.db.WithContext(ctx).Table("reminders r")
 	query := s.db.WithContext(ctx).Table("reminders r").
-		Joins("LEFT JOIN employees e ON e.id = r.created_by").
-		Where("r.deleted_at IS NULL")
+		Joins("LEFT JOIN employees e ON e.id = r.created_by")
 
 	if params.StoreId != "" {
 		countQuery = countQuery.Where("? = ANY(r.store_ids)", params.StoreId)
@@ -134,8 +128,9 @@ func (s *Services) GetReminderList(ctx context.Context, params *domain.ReminderQ
 			r.store_ids,
 			r.created_by,
 			e.full_name AS created_by_name,
-			(r.from_date <= NOW() AND r.to_date >= NOW()) AS is_active,
+			r.is_active,
 			r.created_at,
+			r.updated_at,
 			r.deleted_at
 		`).
 		Order("r.created_at DESC")
