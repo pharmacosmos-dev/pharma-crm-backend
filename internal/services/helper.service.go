@@ -2,7 +2,6 @@ package services
 
 import (
 	"encoding/json"
-	"errors"
 	"fmt"
 	"math"
 	"strconv"
@@ -94,19 +93,6 @@ func (s *Services) GetSignedUser(c *gin.Context) *domain.EmployeeClaims {
 
 	if role, ok := c.Get("role"); ok && role != nil {
 		user.Role, _ = role.(string)
-	}
-
-	if user.UserId != "" {
-		var lastAttendance domain.AttendanceLog
-		err := s.db.WithContext(c.Request.Context()).
-			Where("employee_id = ?", user.UserId).
-			Order("created_at DESC").
-			First(&lastAttendance).Error
-		if err == nil {
-			user.LastAttendance = &lastAttendance
-		} else if !errors.Is(err, gorm.ErrRecordNotFound) {
-			s.log.Errorf("could not get last attendance log for employee %s: %v", user.UserId, err)
-		}
 	}
 
 	return &user

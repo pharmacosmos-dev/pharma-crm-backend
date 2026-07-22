@@ -44,6 +44,7 @@ func (h *EmployeeHandler) EmployeeRoutes(r *gin.RouterGroup) {
 		employee.PUT("/unblock", h.UnBlockEmployee)
 		employee.GET("/bonus", h.SmenaBonus)
 		employee.POST("/attendance-face-id", h.CheckInOut)
+		employee.GET("/attendance/list", h.AttendanceList)
 	}
 }
 
@@ -592,6 +593,23 @@ func (h *EmployeeHandler) GetInfo(c *gin.Context) {
 		co.current_employee_id = ?
 	`, userID).Scan(&res.Cashbox).Error
 
+	var lastAttendance domain.AttendanceLog
+	err = h.db.Raw(`
+	SELECT id, store_id, employee_id, event_type, event_at, created_at, updated_at
+	FROM attendance_logs
+	WHERE employee_id = ?
+	ORDER BY created_at DESC
+	LIMIT 1
+	`, userID).Scan(&lastAttendance).Error
+	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
+		h.log.Error(err)
+		handleResponse(c, InternalError, "Failed to get attendance info")
+		return
+	}
+	if err == nil {
+		res.LastAttendance = &lastAttendance
+	}
+
 	err = h.db.Raw(`
 	SELECT
 		cp.id,
@@ -864,4 +882,56 @@ func (h *EmployeeHandler) CheckInOut(c *gin.Context) {
 	}
 
 	handleResponse(c, CREATED, result)
+}
+
+// AttendanceList godoc
+// @Summary      Attendance check-in / check-out list
+// @Description  Xodimlarning check-in/check-out yozuvlari ro'yxati. Admin bo'lmagan foydalanuvchilar faqat o'z do'koniga tegishli yozuvlarni ko'radi, store_id filtri ular uchun e'tiborga olinmaydi.
+// @Tags         employees
+// @Security     BearerAuth
+// @Accept       json
+// @Produce      json
+// @Param        store_id     query  string  false  "Store ID (faqat admin uchun filter sifatida ishlaydi)"
+// @Param        employee_id  query  string  false  "Employee ID"
+// @Param        date         query  string  false  "Sana (2006-01-02, Toshkent vaqti bo'yicha)"
+// @Param        limit        query  int     false  "Limit"
+// @Param        offset       query  int     false  "Offset"
+// @Success      200 {object} v1.Response
+// @Failure      400 {object} v1.Response
+// @Failure      401 {object} v1.Response
+// @Failure      500 {object} v1.Response
+// @Router       /employee/attendance/list [get]
+func (h *EmployeeHandler) AttendanceList(c *gin.Context) {
+	user := h.service.GetSignedUser(c)
+	if user.UserId == "" {
+		handleServiceResponse(c, nil, domain.UnauthorizedError)
+		return
+	}
+
+	var params domain.AttendanceLogQueryParams
+	if err := c.ShouldBindQuery(&params); err != nil {
+		handleResponse(c, BadRequest, err.Error())
+		return
+	}
+
+	if !helper.IsAdmin(user) {
+		if user.StoreId == "" {
+			handleResponse(c, BadRequest, "store_id not found for user")
+			return
+		}
+		params.StoreId = user.StoreId
+	}
+
+	params.Limit, params.Offset = defaultLimitOffset(params.Limit, params.Offset)
+
+	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
+	defer cancel()
+
+	results, count, err := h.service.GetAttendanceLogList(ctx, &params)
+	if err != nil {
+		handleServiceResponse(c, nil, err)
+		return
+	}
+
+	handleResponse(c, OK, utils.ListResponse(results, count, params.Limit, params.Offset))
 }

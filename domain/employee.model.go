@@ -18,40 +18,40 @@ type LoginResponse struct {
 }
 
 type EmployeeClaims struct {
-	UserId         string         `json:"user_id"`
-	CompanyId      string         `json:"company_id"`
-	StoreId        string         `json:"store_id"`
-	StoreIds       []string       `json:"store_ids"`
-	Role           string         `json:"role"`
-	LastAttendance *AttendanceLog `json:"last_attendance,omitempty"`
+	UserId    string   `json:"user_id"`
+	CompanyId string   `json:"company_id"`
+	StoreId   string   `json:"store_id"`
+	StoreIds  []string `json:"store_ids"`
+	Role      string   `json:"role"`
 }
 
 type Employee struct {
-	Id         string           `gorm:"id" json:"id"`
-	CompanyId  string           `gorm:"company_id" json:"company_id"`
-	StoreId    string           `gorm:"store_id" json:"store_id"`
-	StoreIds   pq.StringArray   `gorm:"type:text[];column:store_ids" json:"store_ids"`
-	PublicId   int              `gorm:"public_id" json:"public_id"`
-	Position   string           `gorm:"position" json:"position"`
-	FirstName  string           `gorm:"first_name" json:"first_name"`
-	LastName   string           `gorm:"last_name" json:"last_name"`
-	FullName   string           `gorm:"full_name" json:"full_name"`
-	Email      string           `gorm:"email" json:"email"`
-	Phone      string           `gorm:"phone" json:"phone"`
-	Password   string           `gorm:"password" json:"password"`
-	Language   string           `gorm:"language" json:"language"`
-	Gender     string           `gorm:"gender" json:"gender"`
-	Status     string           `gorm:"status" json:"status"`
-	Birthdate  string           `gorm:"birthdate" json:"birthdate"`
-	Photo      string           `gorm:"photo" json:"photo"`
-	RoleType   string           `gorm:"role_type" json:"role_type,omitempty"`
-	CreatedAt  *time.Time       `gorm:"created_at" json:"created_at"`
-	UpdatedAt  *time.Time       `gorm:"updated_at" json:"updated_at"`
-	Store      *Store           `gorm:"foreignKey:StoreId" json:"store"`
-	Company    *Company         `gorm:"foreignKey:CompanyId" json:"company"`
-	Permission []Permission     `gorm:"-" json:"permissions"`
-	Roles      []Role           `gorm:"many2many:employee_roles;" json:"roles"`
-	Cashbox    *EmployeeCashbox `gorm:"-" json:"cashbox"`
+	Id             string           `gorm:"id" json:"id"`
+	CompanyId      string           `gorm:"company_id" json:"company_id"`
+	StoreId        string           `gorm:"store_id" json:"store_id"`
+	StoreIds       pq.StringArray   `gorm:"type:text[];column:store_ids" json:"store_ids"`
+	PublicId       int              `gorm:"public_id" json:"public_id"`
+	Position       string           `gorm:"position" json:"position"`
+	FirstName      string           `gorm:"first_name" json:"first_name"`
+	LastName       string           `gorm:"last_name" json:"last_name"`
+	FullName       string           `gorm:"full_name" json:"full_name"`
+	Email          string           `gorm:"email" json:"email"`
+	Phone          string           `gorm:"phone" json:"phone"`
+	Password       string           `gorm:"password" json:"password"`
+	Language       string           `gorm:"language" json:"language"`
+	Gender         string           `gorm:"gender" json:"gender"`
+	Status         string           `gorm:"status" json:"status"`
+	Birthdate      string           `gorm:"birthdate" json:"birthdate"`
+	Photo          string           `gorm:"photo" json:"photo"`
+	RoleType       string           `gorm:"role_type" json:"role_type,omitempty"`
+	CreatedAt      *time.Time       `gorm:"created_at" json:"created_at"`
+	UpdatedAt      *time.Time       `gorm:"updated_at" json:"updated_at"`
+	Store          *Store           `gorm:"foreignKey:StoreId" json:"store"`
+	Company        *Company         `gorm:"foreignKey:CompanyId" json:"company"`
+	Permission     []Permission     `gorm:"-" json:"permissions"`
+	Roles          []Role           `gorm:"many2many:employee_roles;" json:"roles"`
+	Cashbox        *EmployeeCashbox `gorm:"-" json:"cashbox"`
+	LastAttendance *AttendanceLog   `gorm:"-" json:"last_attendance,omitempty"`
 }
 
 type EmployeeRequest struct {

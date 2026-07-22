@@ -7,6 +7,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/pharma-crm-backend/domain"
+	"github.com/pharma-crm-backend/domain/constants"
 	"gorm.io/gorm"
 )
 
@@ -83,4 +84,72 @@ func (s *Services) CreateAttendanceLog(ctx context.Context, employeeId, storeId,
 	}
 
 	return &log, nil
+}
+
+// GetAttendanceLogList — check-in/check-out yozuvlari ro'yxati, store_id, employee_id
+// va date (Toshkent vaqti bo'yicha bitta kun) filtrlari bilan.
+func (s *Services) GetAttendanceLogList(ctx context.Context, params *domain.AttendanceLogQueryParams) ([]domain.AttendanceLogListItem, int64, error) {
+	countQuery := s.db.WithContext(ctx).Table("attendance_logs al")
+	query := s.db.WithContext(ctx).Table("attendance_logs al").
+		Joins("LEFT JOIN employees e ON e.id = al.employee_id").
+		Joins("LEFT JOIN stores s ON s.id = al.store_id")
+
+	if params.StoreId != "" {
+		countQuery = countQuery.Where("al.store_id = ?", params.StoreId)
+		query = query.Where("al.store_id = ?", params.StoreId)
+	}
+
+	if params.EmployeeId != "" {
+		countQuery = countQuery.Where("al.employee_id = ?", params.EmployeeId)
+		query = query.Where("al.employee_id = ?", params.EmployeeId)
+	}
+
+	if params.Date != "" {
+		if _, err := time.Parse(constants.TimeOnlyDateFormat, params.Date); err != nil {
+			return nil, 0, domain.InvalidTimeFormatError
+		}
+		countQuery = countQuery.Where("(al.event_at + interval '5 hours')::date = ?::date", params.Date)
+		query = query.Where("(al.event_at + interval '5 hours')::date = ?::date", params.Date)
+	}
+
+	var total int64
+	if err := countQuery.Count(&total).Error; err != nil {
+		s.log.Errorf("could not count attendance logs: %v", err)
+		return nil, 0, domain.InternalServerError
+	}
+
+	if total == 0 {
+		return []domain.AttendanceLogListItem{}, 0, nil
+	}
+
+	query = query.Select(`
+			al.id,
+			al.store_id,
+			COALESCE(s.name, '') AS store_name,
+			al.employee_id,
+			COALESCE(e.full_name, '') AS employee_name,
+			al.event_type,
+			al.event_at,
+			al.created_at
+		`).
+		Order("al.event_at DESC")
+
+	if params.Limit > 0 {
+		query = query.Limit(params.Limit)
+	}
+	if params.Offset > 0 {
+		query = query.Offset(params.Offset)
+	}
+
+	var results []domain.AttendanceLogListItem
+	if err := query.Scan(&results).Error; err != nil {
+		s.log.Errorf("could not get attendance log list: %v", err)
+		return nil, 0, domain.InternalServerError
+	}
+
+	if results == nil {
+		results = []domain.AttendanceLogListItem{}
+	}
+
+	return results, total, nil
 }

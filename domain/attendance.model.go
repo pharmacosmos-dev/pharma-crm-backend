@@ -27,3 +27,25 @@ func (AttendanceLog) TableName() string {
 type CreateAttendanceLogRequest struct {
 	EventType string `json:"event_type" binding:"required" example:"check-in"`
 }
+
+// AttendanceLogQueryParams — check-in/check-out ro'yxati uchun filter parametrlari.
+// date "2006-01-02" formatida, Toshkent vaqti bo'yicha shu kunning voqealarini qaytaradi.
+type AttendanceLogQueryParams struct {
+	StoreId    string `form:"store_id"`
+	EmployeeId string `form:"employee_id"`
+	Date       string `form:"date"`
+	Limit      int    `form:"limit"`
+	Offset     int    `form:"offset"`
+}
+
+// AttendanceLogListItem — GET list javobi uchun, xodim va do'kon nomi bilan birga.
+type AttendanceLogListItem struct {
+	Id           string     `json:"id"`
+	StoreId      *string    `json:"store_id"`
+	StoreName    string     `json:"store_name"`
+	EmployeeId   string     `json:"employee_id"`
+	EmployeeName string     `json:"employee_name"`
+	EventType    string     `json:"event_type"`
+	EventAt      time.Time  `json:"event_at"`
+	CreatedAt    *time.Time `json:"created_at"`
+}
