@@ -102,11 +102,11 @@ func (s *Services) GetReminderList(ctx context.Context, params *domain.ReminderQ
 	if params.IsActive != nil {
 		now := time.Now()
 		if *params.IsActive {
-			countQuery = countQuery.Where("r.from_date <= ? AND r.to_date >= ?", now, now)
-			query = query.Where("r.from_date <= ? AND r.to_date >= ?", now, now)
+			countQuery = countQuery.Where("r.is_active = true AND r.from_date <= ? AND r.to_date >= ?", now, now)
+			query = query.Where("r.is_active = true AND r.from_date <= ? AND r.to_date >= ?", now, now)
 		} else {
-			countQuery = countQuery.Where("r.from_date > ? OR r.to_date < ?", now, now)
-			query = query.Where("r.from_date > ? OR r.to_date < ?", now, now)
+			countQuery = countQuery.Where("r.is_active = false AND r.from_date > ? OR r.to_date < ?", now, now)
+			query = query.Where("r.is_active = true AND r.from_date > ? OR r.to_date < ?", now, now)
 		}
 	}
 
