@@ -22600,16 +22600,6 @@ const docTemplate = `{
                         "in": "query"
                     },
                     {
-                        "type": "array",
-                        "items": {
-                            "type": "string"
-                        },
-                        "collectionFormat": "csv",
-                        "description": "Store IDs",
-                        "name": "store_ids",
-                        "in": "query"
-                    },
-                    {
                         "type": "string",
                         "description": "Start Date",
                         "name": "start_date",

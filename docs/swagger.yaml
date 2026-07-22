@@ -16819,13 +16819,6 @@ paths:
         in: query
         name: store_id
         type: string
-      - collectionFormat: csv
-        description: Store IDs
-        in: query
-        items:
-          type: string
-        name: store_ids
-        type: array
       - description: Start Date
         in: query
         name: start_date
