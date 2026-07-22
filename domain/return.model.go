@@ -89,13 +89,13 @@ type ReturnDetail struct {
 	ScannedCount   float64    `gorm:"scanned_count" json:"scanned_count"`
 	ScannedPack    int        `gorm:"scanned_pack" json:"scanned_pack"`
 	ScannedUnit    int        `gorm:"scanned_unit" json:"scanned_unit"`
-	AcceptedCount   float64    `gorm:"accepted_count" json:"accepted_count"`
-	AcceptedPack    float64    `gorm:"accepted_pack" json:"accepted_pack"`
-	AcceptedUnit    float64    `gorm:"accepted_unit" json:"accepted_unit"`
-	OnecCount       float64    `gorm:"onec_count" json:"onec_count"`
-	RejectionCount  float64    `gorm:"rejection_count" json:"rejection_count"`
-	RejectionPack   int        `gorm:"rejection_pack" json:"rejection_pack"`
-	RejectionUnit   int        `gorm:"rejection_unit" json:"rejection_unit"`
+	AcceptedCount  float64    `gorm:"accepted_count" json:"accepted_count"`
+	AcceptedPack   float64    `gorm:"accepted_pack" json:"accepted_pack"`
+	AcceptedUnit   float64    `gorm:"accepted_unit" json:"accepted_unit"`
+	OnecCount      float64    `gorm:"onec_count" json:"onec_count"`
+	RejectionCount float64    `gorm:"rejection_count" json:"rejection_count"`
+	RejectionPack  int        `gorm:"rejection_pack" json:"rejection_pack"`
+	RejectionUnit  int        `gorm:"rejection_unit" json:"rejection_unit"`
 	Name           string     `gorm:"name" json:"name"`
 	MaterialCode   int        `gorm:"material_code" json:"material_code"`
 	Barcode        string     `gorm:"barcode" json:"barcode"`
@@ -113,19 +113,20 @@ type ReturnDetail struct {
 
 // return query param  structure
 type ReturnParam struct {
-	Limit      int    `form:"limit"`
-	Offset     int    `form:"offset"`
-	StoreId    string `form:"store_id"`
-	CompanyId  string `form:"company_id"`
-	Status     string `form:"status"`
-	Type       string `form:"type"`
-	IsAuto     *bool  `form:"is_auto"`
-	CreatorId  string `form:"created_by"`
-	Search     string `form:"search"`
-	StartDate  string `form:"start_date"`
-	EndDate    string `form:"end_date"`
-	TransferID string `form:"transfer_id"`
-	IsConflict *bool  `form:"is_conflict"`
+	Limit      int      `form:"limit"`
+	Offset     int      `form:"offset"`
+	StoreId    string   `form:"store_id"`
+	StoreIds   []string `form:"store_ids"`
+	CompanyId  string   `form:"company_id"`
+	Status     string   `form:"status"`
+	Type       string   `form:"type"`
+	IsAuto     *bool    `form:"is_auto"`
+	CreatorId  string   `form:"created_by"`
+	Search     string   `form:"search"`
+	StartDate  string   `form:"start_date"`
+	EndDate    string   `form:"end_date"`
+	TransferID string   `form:"transfer_id"`
+	IsConflict *bool    `form:"is_conflict"`
 }
 
 // return detail query param structure

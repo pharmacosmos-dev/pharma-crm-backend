@@ -228,7 +228,9 @@ func (s *Services) GetRepricingList(ctx context.Context, params *domain.QueryPar
 		`).Joins("LEFT JOIN price_revalution_details prd ON price_revalutions.id = prd.price_revalution_id").
 		Group("price_revalutions.id")
 
-	if params.StoreID != "" {
+	if len(params.StoreIDs) > 0 {
+		query = query.Where("price_revalutions.store_id IN (?)", params.StoreIDs)
+	} else if params.StoreID != "" {
 		query = query.Where("price_revalutions.store_id = ?", params.StoreID)
 	}
 	if params.CompanyId != "" {

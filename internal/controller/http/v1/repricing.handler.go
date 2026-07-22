@@ -157,6 +157,31 @@ func (h *RepricingHandler) List(c *gin.Context) {
 		params.CompanyId = user.CompanyId
 	}
 
+	if len(user.StoreIds) > 0 {
+		params.CompanyId = ""
+		switch {
+		case params.StoreID != "":
+			// requested store must be one of the user's allowed stores, otherwise return nothing
+			if !utils.In(params.StoreID, user.StoreIds...) {
+				handleResponse(c, OK, utils.ListResponse([]domain.PriceRevalution{}, 0, params.Limit, params.Offset))
+				return
+			}
+			params.StoreIDs = nil
+		case len(params.StoreIDs) > 0:
+			// keep only the requested stores the user is actually allowed to see
+			allowed := make([]string, 0, len(params.StoreIDs))
+			for _, id := range params.StoreIDs {
+				if utils.In(id, user.StoreIds...) {
+					allowed = append(allowed, id)
+				}
+			}
+			params.StoreIDs = allowed
+		default:
+			// no store filter requested — default to every store the user can see
+			params.StoreIDs = user.StoreIds
+		}
+	}
+
 	res, totalCount, err := h.service.GetRepricingList(ctx, &params)
 	if err != nil {
 		handleServiceResponse(c, InternalError, err)

@@ -324,8 +324,10 @@ func (s *Services) TransferList(ctx context.Context, params *domain.ReturnParam)
 		Joins("LEFT JOIN employees e3 ON t.accepted_by = e3.id").
 		Where("t.entry_type = ?", 1)
 
-	// filter by from store id
-	if params.StoreId != "" {
+	// filter by from/to store id
+	if len(params.StoreIds) > 0 {
+		query = query.Where("t.from_store_id IN (?) OR t.to_store_id IN (?)", params.StoreIds, params.StoreIds)
+	} else if params.StoreId != "" {
 		query = query.Where("t.from_store_id = ? OR t.to_store_id = ?", params.StoreId, params.StoreId)
 	}
 	if params.CompanyId != "" {
@@ -543,9 +545,9 @@ func (s *Services) TransferDetailList(param *domain.ReturnDetailParam) ([]domain
 		case "accepted":
 			query = query.Where("transfer_details.accepted_count > 0")
 		case "not_accepted":
-			query = query.Where("transfer_details.accepted_count = 0")	
-		// case "surplus":
-		// 	query = query.Where("transfer_details.scanned_count > transfer_details.received_count")
+			query = query.Where("transfer_details.accepted_count = 0")
+			// case "surplus":
+			// 	query = query.Where("transfer_details.scanned_count > transfer_details.received_count")
 
 		}
 	}
@@ -686,7 +688,6 @@ func (s *Services) SendTransfer(ctx context.Context, transferId string, userId s
 
 	go s.deleteNotInsertedTransferDetails(transferId)
 	go s.NotifyTransferSent(transfer.FromStoreId, transfer.Name)
-
 
 	return nil
 }
@@ -1681,7 +1682,6 @@ func (s *Services) GetTransferLogs(ctx context.Context, params *domain.ReturnDet
 	return res, totalCount, nil
 }
 
-
 // CreateAndSendTransferForOnec creates a transfer from 1C in one step.
 // For each requested product (material_code + count), finds matching store_products
 // FIFO by expire_date, inserts transfer_details, deducts stock, and returns unfulfilled products.
@@ -1729,8 +1729,6 @@ func (s *Services) CreateTransferForOnec(ctx context.Context, req *domain.OnecTr
 	if activeInventoryCount > 0 {
 		return nil, domain.ActiveInventoryError
 	}
-
-	
 
 	// 2. Duplicate name tekshiruvi
 	var existingId string

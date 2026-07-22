@@ -170,6 +170,9 @@ func (h *TransferHandler) List(c *gin.Context) {
 		return
 	}
 
+	// get default limit and offset
+	params.Limit, params.Offset = defaultLimitOffset(params.Limit, params.Offset)
+
 	// check if employee is not admin or superadmin
 	if !utils.In(user.Role, constants.AllAdminRoles...) {
 		if user.StoreId != "" {
@@ -178,8 +181,30 @@ func (h *TransferHandler) List(c *gin.Context) {
 		params.CompanyId = user.CompanyId
 	}
 
-	// get default limit and offset
-	params.Limit, params.Offset = defaultLimitOffset(params.Limit, params.Offset)
+	if len(user.StoreIds) > 0 {
+		params.CompanyId = ""
+		switch {
+		case params.StoreId != "":
+			// requested store must be one of the user's allowed stores, otherwise return nothing
+			if !utils.In(params.StoreId, user.StoreIds...) {
+				handleResponse(c, OK, utils.ListResponse([]domain.Transfer{}, 0, params.Limit, params.Offset))
+				return
+			}
+			params.StoreIds = nil
+		case len(params.StoreIds) > 0:
+			// keep only the requested stores the user is actually allowed to see
+			allowed := make([]string, 0, len(params.StoreIds))
+			for _, id := range params.StoreIds {
+				if utils.In(id, user.StoreIds...) {
+					allowed = append(allowed, id)
+				}
+			}
+			params.StoreIds = allowed
+		default:
+			// no store filter requested — default to every store the user can see
+			params.StoreIds = user.StoreIds
+		}
+	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
 	defer cancel()

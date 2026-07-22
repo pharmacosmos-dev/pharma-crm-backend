@@ -144,6 +144,8 @@ func (h *ImportHandler) List(c *gin.Context) {
 		handleServiceResponse(c, nil, domain.InvalidQueryError)
 		return
 	}
+	params.Limit, params.Offset = defaultLimitOffset(params.Limit, params.Offset)
+
 	// check if employee is not admin or superadmin
 	if !helper.IsAdmin(user) {
 		if user.StoreId != "" {
@@ -153,15 +155,32 @@ func (h *ImportHandler) List(c *gin.Context) {
 	}
 
 	if len(user.StoreIds) > 0 {
-		params.StoreIds = user.StoreIds
-		params.StoreId = ""
 		params.CompanyId = ""
+		switch {
+		case params.StoreId != "":
+			// requested store must be one of the user's allowed stores, otherwise return nothing
+			if !utils.In(params.StoreId, user.StoreIds...) {
+				handleResponse(c, OK, utils.ListResponse([]domain.Import{}, 0, params.Limit, params.Offset))
+				return
+			}
+			params.StoreIds = nil
+		case len(params.StoreIds) > 0:
+			// keep only the requested stores the user is actually allowed to see
+			allowed := make([]string, 0, len(params.StoreIds))
+			for _, id := range params.StoreIds {
+				if utils.In(id, user.StoreIds...) {
+					allowed = append(allowed, id)
+				}
+			}
+			params.StoreIds = allowed
+		default:
+			// no store filter requested — default to every store the user can see
+			params.StoreIds = user.StoreIds
+		}
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
 	defer cancel()
-
-	params.Limit, params.Offset = defaultLimitOffset(params.Limit, params.Offset)
 
 	// Get import list data
 	res, totalCount, err := h.service.GetImports(ctx, &params)
@@ -965,11 +984,11 @@ func (h *ImportHandler) ListAcceptedStoreProducts(c *gin.Context) {
 		ReceivedCount float64 `gorm:"column:received_count" json:"received_count"`
 		ScannedCount  float64 `gorm:"column:scanned_count"  json:"scanned_count"`
 		// sales aggregates
-		SaleCount         int64   `gorm:"column:sale_count"          json:"sale_count"`
-		TotalSoldUnitQty  int64   `gorm:"column:total_sold_unit_qty"  json:"total_sold_unit_qty"`
-		TotalSoldAmount   float64 `gorm:"column:total_sold_amount"    json:"total_sold_amount"`
+		SaleCount        int64   `gorm:"column:sale_count"          json:"sale_count"`
+		TotalSoldUnitQty int64   `gorm:"column:total_sold_unit_qty"  json:"total_sold_unit_qty"`
+		TotalSoldAmount  float64 `gorm:"column:total_sold_amount"    json:"total_sold_amount"`
 		// transfer aggregates
-		TransferCount      int64   `gorm:"column:transfer_count"       json:"transfer_count"`
+		TransferCount       int64   `gorm:"column:transfer_count"       json:"transfer_count"`
 		TotalTransferredQty float64 `gorm:"column:total_transferred_qty" json:"total_transferred_qty"`
 		// return aggregates
 		ReturnCount      int64   `gorm:"column:return_count"        json:"return_count"`
