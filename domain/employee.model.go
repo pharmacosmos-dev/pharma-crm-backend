@@ -18,11 +18,12 @@ type LoginResponse struct {
 }
 
 type EmployeeClaims struct {
-	UserId    string   `json:"user_id"`
-	CompanyId string   `json:"company_id"`
-	StoreId   string   `json:"store_id"`
-	StoreIds  []string `json:"store_ids"`
-	Role      string   `json:"role"`
+	UserId         string         `json:"user_id"`
+	CompanyId      string         `json:"company_id"`
+	StoreId        string         `json:"store_id"`
+	StoreIds       []string       `json:"store_ids"`
+	Role           string         `json:"role"`
+	LastAttendance *AttendanceLog `json:"last_attendance,omitempty"`
 }
 
 type Employee struct {
@@ -59,16 +60,16 @@ type EmployeeRequest struct {
 	CompanyId string         `gorm:"company_id" json:"company_id"`
 	StoreId   *string        `gorm:"store_id" json:"store_id"`
 	StoreIds  pq.StringArray `gorm:"type:text[];column:store_ids" json:"store_ids"`
-	Position  string   `gorm:"position" json:"position"`
-	FirstName string   `gorm:"first_name" json:"first_name"`
-	LastName  string   `gorm:"last_name" json:"last_name"`
-	FullName  string   `gorm:"full_name" json:"full_name"`
-	Phone     string   `gorm:"phone" json:"phone" validate:"required,e164"`
-	Gender    string   `gorm:"gender" json:"gender" validate:"required,oneof=male female"`
-	Status    string   `gorm:"status" json:"-"`
-	Password  *string  `gorm:"password" json:"password"`
-	Language  string   `gorm:"language" json:"language" validate:"required,oneof=uz en ru"`
-	Birthdate string   `gorm:"birthdate" json:"birthdate"`
+	Position  string         `gorm:"position" json:"position"`
+	FirstName string         `gorm:"first_name" json:"first_name"`
+	LastName  string         `gorm:"last_name" json:"last_name"`
+	FullName  string         `gorm:"full_name" json:"full_name"`
+	Phone     string         `gorm:"phone" json:"phone" validate:"required,e164"`
+	Gender    string         `gorm:"gender" json:"gender" validate:"required,oneof=male female"`
+	Status    string         `gorm:"status" json:"-"`
+	Password  *string        `gorm:"password" json:"password"`
+	Language  string         `gorm:"language" json:"language" validate:"required,oneof=uz en ru"`
+	Birthdate string         `gorm:"birthdate" json:"birthdate"`
 }
 
 // Reset password request

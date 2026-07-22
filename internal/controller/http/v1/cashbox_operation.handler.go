@@ -185,7 +185,18 @@ func (h *CashBoxOperationHandler) CloseCashBox(c *gin.Context) {
 	ctx, cancel := context.WithTimeout(c.Request.Context(), constants.DefaultContextTimeout)
 	defer cancel()
 
-	err := h.service.CloseCashBoxOperation(ctx, cashBoxOperationId, &body, user.UserId)
+	// kassani yopishdan oldin xodim face id orqali check-out qilgan bo'lishi shart
+	lastEvent, err := h.service.GetTodayLastAttendanceEventType(ctx, user.UserId)
+	if err != nil {
+		handleServiceResponse(c, InternalError, err)
+		return
+	}
+	if lastEvent != domain.AttendanceEventCheckOut {
+		handleServiceResponse(c, nil, domain.CashboxCloseCheckOutRequiredError)
+		return
+	}
+
+	err = h.service.CloseCashBoxOperation(ctx, cashBoxOperationId, &body, user.UserId)
 	if err != nil {
 		handleServiceResponse(c, InternalError, err)
 		return

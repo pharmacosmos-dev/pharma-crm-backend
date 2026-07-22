@@ -2,6 +2,7 @@ package services
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"math"
 	"strconv"
@@ -11,8 +12,8 @@ import (
 	"github.com/pharma-crm-backend/domain"
 	"github.com/pharma-crm-backend/domain/constants"
 	"github.com/pharma-crm-backend/pkg/logger"
-	"gorm.io/gorm"
 	"github.com/spf13/cast"
+	"gorm.io/gorm"
 )
 
 func (s *Services) Request1CCreate(req domain.InventoryHelper) error {
@@ -93,6 +94,19 @@ func (s *Services) GetSignedUser(c *gin.Context) *domain.EmployeeClaims {
 
 	if role, ok := c.Get("role"); ok && role != nil {
 		user.Role, _ = role.(string)
+	}
+
+	if user.UserId != "" {
+		var lastAttendance domain.AttendanceLog
+		err := s.db.WithContext(c.Request.Context()).
+			Where("employee_id = ?", user.UserId).
+			Order("created_at DESC").
+			First(&lastAttendance).Error
+		if err == nil {
+			user.LastAttendance = &lastAttendance
+		} else if !errors.Is(err, gorm.ErrRecordNotFound) {
+			s.log.Errorf("could not get last attendance log for employee %s: %v", user.UserId, err)
+		}
 	}
 
 	return &user
@@ -200,12 +214,12 @@ func (s *Services) normalizeEposResponse(req *domain.EposResponseRequest) (strin
 				"message": map[string]any{
 					"dateTime":   receipt["date_time"],
 					"qrCodeURL":  receipt["qr_code_url"],
-					"fiscalSign":  receipt["fiscal_sign"],
-					"receiptSeq":  cast.ToString(receipt["receipt_seq"]),
-					"terminalId":  receipt["terminal_id"],
-					"cash":        receipt["cash"],
-					"card":        receipt["card"],
-					"amount":      receipt["eps_amount"],
+					"fiscalSign": receipt["fiscal_sign"],
+					"receiptSeq": cast.ToString(receipt["receipt_seq"]),
+					"terminalId": receipt["terminal_id"],
+					"cash":       receipt["cash"],
+					"card":       receipt["card"],
+					"amount":     receipt["eps_amount"],
 				},
 			}
 			res, _ := json.Marshal(normalized)
@@ -239,4 +253,3 @@ func (s *Services) normalizeEposResponse(req *domain.EposResponseRequest) (strin
 
 	return string(raw), nil
 }
-

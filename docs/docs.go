@@ -5667,6 +5667,69 @@ const docTemplate = `{
                 }
             }
         },
+        "/employee/attendance-face-id": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "JWT tokendagi employee_id orqali xodimning check-in yoki check-out voqeasini attendance_logs jadvaliga yozadi. event_type qat'iy \"check-in\" yoki \"check-out\" bo'lishi kerak, aks holda xatolik qaytariladi. Faqat bugungi kun (Toshkent vaqti) bo'yicha oxirgi voqeaga qarab tekshiriladi: hech qanday voqea yo'q yoki oxirgisi check-out bo'lsa faqat check-in, oxirgisi check-in bo'lsa faqat check-out yuborish mumkin.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "employees"
+                ],
+                "summary": "Employee attendance-face-id check-in / check-out",
+                "parameters": [
+                    {
+                        "description": "Attendance data",
+                        "name": "input",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/domain.CreateAttendanceLogRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    }
+                }
+            }
+        },
         "/employee/block": {
             "put": {
                 "security": [
@@ -31891,6 +31954,18 @@ const docTemplate = `{
             "properties": {
                 "driver_name": {
                     "type": "string"
+                }
+            }
+        },
+        "domain.CreateAttendanceLogRequest": {
+            "type": "object",
+            "required": [
+                "event_type"
+            ],
+            "properties": {
+                "event_type": {
+                    "type": "string",
+                    "example": "check-in"
                 }
             }
         },

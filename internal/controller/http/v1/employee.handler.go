@@ -43,6 +43,7 @@ func (h *EmployeeHandler) EmployeeRoutes(r *gin.RouterGroup) {
 		employee.PUT("/block", h.BlockEmployee)
 		employee.PUT("/unblock", h.UnBlockEmployee)
 		employee.GET("/bonus", h.SmenaBonus)
+		employee.POST("/attendance-face-id", h.CheckInOut)
 	}
 }
 
@@ -491,8 +492,8 @@ func (h *EmployeeHandler) Delete(c *gin.Context) {
 		Table("employees").
 		Where("id IN (?)", ids).
 		Updates(map[string]any{
-			"status":    "deleted",
-			"is_active": false,
+			"status":     "deleted",
+			"is_active":  false,
 			"deleted_at": time.Now(),
 		}).Error
 
@@ -610,7 +611,7 @@ func (h *EmployeeHandler) GetInfo(c *gin.Context) {
 	FROM companies cp
 	JOIN employees e ON e.company_id = cp.id
 	WHERE e.id = ?
-	`, userID).Scan(&res.Company).Error	
+	`, userID).Scan(&res.Company).Error
 
 	if err != nil && errors.Is(err, gorm.ErrRecordNotFound) {
 		h.log.Error(err)
@@ -824,4 +825,43 @@ func (h *EmployeeHandler) SmenaBonus(c *gin.Context) {
 		return
 	}
 	handleResponse(c, OK, gin.H{"bonus": bonus})
+}
+
+// CheckInOut godoc
+// @Summary      Employee attendance-face-id check-in / check-out
+// @Description  JWT tokendagi employee_id orqali xodimning check-in yoki check-out voqeasini attendance_logs jadvaliga yozadi. event_type qat'iy "check-in" yoki "check-out" bo'lishi kerak, aks holda xatolik qaytariladi. Faqat bugungi kun (Toshkent vaqti) bo'yicha oxirgi voqeaga qarab tekshiriladi: hech qanday voqea yo'q yoki oxirgisi check-out bo'lsa faqat check-in, oxirgisi check-in bo'lsa faqat check-out yuborish mumkin.
+// @Tags         employees
+// @Security     BearerAuth
+// @Accept       json
+// @Produce      json
+// @Param        input body domain.CreateAttendanceLogRequest true "Attendance data"
+// @Success      201  {object}  v1.Response
+// @Failure      400  {object}  v1.Response
+// @Failure      401  {object}  v1.Response
+// @Failure      409  {object}  v1.Response
+// @Failure      500  {object}  v1.Response
+// @Router       /employee/attendance-face-id [post]
+func (h *EmployeeHandler) CheckInOut(c *gin.Context) {
+	user := h.service.GetSignedUser(c)
+	if user.UserId == "" {
+		handleServiceResponse(c, nil, domain.UnauthorizedError)
+		return
+	}
+
+	var body domain.CreateAttendanceLogRequest
+	if err := c.ShouldBindJSON(&body); err != nil {
+		handleResponse(c, BadRequest, err.Error())
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
+	defer cancel()
+
+	result, err := h.service.CreateAttendanceLog(ctx, user.UserId, user.StoreId, body.EventType)
+	if err != nil {
+		handleServiceResponse(c, nil, err)
+		return
+	}
+
+	handleResponse(c, CREATED, result)
 }

@@ -76,6 +76,17 @@ func (h *ShiftHandler) Create(c *gin.Context) {
 		return
 	}
 
+	// from_employee smenani topshirishdan oldin face id orqali check-out qilgan bo'lishi shart
+	fromLastEvent, err := h.service.GetTodayLastAttendanceEventType(ctx, body.FromEmployeeId)
+	if err != nil {
+		handleServiceResponse(c, nil, err)
+		return
+	}
+	if fromLastEvent != domain.AttendanceEventCheckOut {
+		handleServiceResponse(c, nil, domain.ShiftFromEmployeeNotCheckedOutError)
+		return
+	}
+
 	// get open operation info
 	err = h.db.WithContext(ctx).Raw(`
 		SELECT
@@ -112,6 +123,18 @@ func (h *ShiftHandler) Create(c *gin.Context) {
 		handleServiceResponse(c, InternalError, domain.InternalServerError)
 		return
 	}
+
+	// to_employee smenani qabul qilishdan oldin face id orqali check-in qilgan bo'lishi shart
+	toLastEvent, err := h.service.GetTodayLastAttendanceEventType(ctx, body.ToEmployeeId)
+	if err != nil {
+		handleServiceResponse(c, nil, err)
+		return
+	}
+	if toLastEvent != domain.AttendanceEventCheckIn {
+		handleServiceResponse(c, nil, domain.ShiftToEmployeeNotCheckedInError)
+		return
+	}
+
 	// get decrypted password
 	passoword, err := etc.Decrypt(toEmployee.Password, h.cfg.HashKey)
 	if err != nil {
