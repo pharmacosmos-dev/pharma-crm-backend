@@ -336,6 +336,21 @@ func (h *CashBoxOperationHandler) CashBoxOperationInfo(c *gin.Context) {
 		handleResponse(c, InternalError, err.Error())
 		return
 	}
+
+	// shu operatsiyaga tegishli xodim face id orqali check-out qilgan bo'lishi shart
+	ctx, cancel := context.WithTimeout(c.Request.Context(), constants.DefaultContextTimeout)
+	defer cancel()
+
+	lastEvent, err := h.service.GetTodayLastAttendanceEventType(ctx, cashBoxOperation.EmployeeID)
+	if err != nil {
+		handleServiceResponse(c, InternalError, err)
+		return
+	}
+	if lastEvent != domain.AttendanceEventCheckOut {
+		handleServiceResponse(c, nil, domain.CashboxCloseCheckOutRequiredError)
+		return
+	}
+
 	handleResponse(c, OK, cashBoxOperation)
 }
 
