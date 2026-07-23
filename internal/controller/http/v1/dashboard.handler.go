@@ -84,6 +84,18 @@ func (h *DashboardHandler) ChartStats(c *gin.Context) {
 		return
 	}
 
+	if user.StoreId != "" {
+		limitDate := time.Now().
+			AddDate(0, 0, -10).
+			Truncate(24 * time.Hour)
+
+		// agar start_date 10 kundan eski bo'lsa 10 kunga kesiladi
+		if params.StartDate.GetTime().Before(limitDate) {
+			customLimitDate := domain.CustomTime(limitDate)
+			params.StartDate = &customLimitDate
+		}
+	}
+
 	// bind store ids
 	var body domain.DashboardBody
 	if c.Request.Body != nil {
@@ -460,6 +472,18 @@ func (h *DashboardHandler) TopSeller(c *gin.Context) {
 	if params.StartDate == nil {
 		handleServiceResponse(c, BadRequest, domain.InvalidQueryError)
 		return
+	}
+
+	if user.StoreId != "" {
+		limitDate := time.Now().
+			AddDate(0, 0, -10).
+			Truncate(24 * time.Hour)
+
+		// agar start_date 10 kundan eski bo'lsa 10 kunga kesiladi
+		if params.StartDate.GetTime().Before(limitDate) {
+			customLimitDate := domain.CustomTime(limitDate)
+			params.StartDate = &customLimitDate
+		}
 	}
 
 	// bind store ids
