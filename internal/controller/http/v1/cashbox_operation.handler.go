@@ -186,17 +186,16 @@ func (h *CashBoxOperationHandler) CloseCashBox(c *gin.Context) {
 	defer cancel()
 
 	// kassani yopishdan oldin xodim face id orqali check-out qilgan bo'lishi shart
-	lastEvent, err := h.service.GetTodayLastAttendanceEventType(ctx, user.UserId)
-	if err != nil {
-		handleServiceResponse(c, InternalError, err)
-		return
-	}
-	if lastEvent != domain.AttendanceEventCheckOut {
-		handleServiceResponse(c, nil, domain.CashboxCloseCheckOutRequiredError)
-		return
-	}
-
-	err = h.service.CloseCashBoxOperation(ctx, cashBoxOperationId, &body, user.UserId)
+	// lastEvent, err := h.service.GetTodayLastAttendanceEventType(ctx, user.UserId)
+	// if err != nil {
+	// 	handleServiceResponse(c, InternalError, err)
+	// 	return
+	// }
+	// if lastEvent != domain.AttendanceEventCheckOut {
+	// 	handleServiceResponse(c, nil, domain.CashboxCloseCheckOutRequiredError)
+	// 	return
+	// }
+	err := h.service.CloseCashBoxOperation(ctx, cashBoxOperationId, &body, user.UserId)
 	if err != nil {
 		handleServiceResponse(c, InternalError, err)
 		return
@@ -338,19 +337,18 @@ func (h *CashBoxOperationHandler) CashBoxOperationInfo(c *gin.Context) {
 	}
 
 	// shu operatsiyaga tegishli xodim face id orqali check-out qilgan bo'lishi shart
-	ctx, cancel := context.WithTimeout(c.Request.Context(), constants.DefaultContextTimeout)
-	defer cancel()
+	// ctx, cancel := context.WithTimeout(c.Request.Context(), constants.DefaultContextTimeout)
+	// defer cancel()
 
-	lastEvent, err := h.service.GetTodayLastAttendanceEventType(ctx, cashBoxOperation.EmployeeID)
-	if err != nil {
-		handleServiceResponse(c, InternalError, err)
-		return
-	}
-	if lastEvent != domain.AttendanceEventCheckOut {
-		handleServiceResponse(c, nil, domain.CashboxCloseCheckOutRequiredError)
-		return
-	}
-
+	// lastEvent, err := h.service.GetTodayLastAttendanceEventType(ctx, cashBoxOperation.EmployeeID)
+	// if err != nil {
+	// 	handleServiceResponse(c, InternalError, err)
+	// 	return
+	// }
+	// if lastEvent != domain.AttendanceEventCheckOut {
+	// 	handleServiceResponse(c, nil, domain.CashboxCloseCheckOutRequiredError)
+	// 	return
+	// }
 	handleResponse(c, OK, cashBoxOperation)
 }
 
