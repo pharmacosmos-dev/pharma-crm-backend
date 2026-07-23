@@ -327,6 +327,17 @@ func (s *Services) FinalizeSale(ctx context.Context, req *domain.FinalSale) (*do
 		return nil, domain.PaymentTypeRequiredError
 	}
 
+	// Online zakaz uchun to'lov turi UzumTezkor bo'lib yaratilgan bo'lsa,
+	// finalize so'rovida faqat UzumTezkor to'lov turi yuborilishi mumkin.
+	if sale.Type == constants.SaleTypeOnline && sale.PaymentType == constants.PaymentTypeUzumTezkor {
+		for _, pt := range req.PaymentTypes {
+			if pt.Type != constants.PaymentTypeOnlineOrder || pt.AppType != constants.PaymentTypeUzumTezkor {
+				_ = tx.Rollback()
+				return nil, domain.OnlineOrderUzumTezkorPaymentRequiredError
+			}
+		}
+	}
+
 	// check sale amount and validate payment types
 	var customerBalance float64 = 0.00
 	if sale.Customer != nil {
@@ -638,7 +649,7 @@ func (s *Services) EposResult(ctx context.Context, req *domain.EposResponseReque
 	tx := s.db.Begin()
 	defer func() {
 		if r := recover(); r != nil {
-		_ = tx.Rollback()
+			_ = tx.Rollback()
 		}
 	}()
 
@@ -658,26 +669,26 @@ func (s *Services) EposResult(ctx context.Context, req *domain.EposResponseReque
 	// Epos response error
 	if req.Error {
 		if sale.Stage < constants.SaleStageOfdCancelled {
-		err = s.SaveEposResponse(ctx, req)
-		if err != nil {
-			_ = tx.Rollback()
-			return nil, err
-		}
-		updates := map[string]any{
-			"stage":      constants.SaleStageOfdCancelled,
-			"updated_at": time.Now(),
-		}
+			err = s.SaveEposResponse(ctx, req)
+			if err != nil {
+				_ = tx.Rollback()
+				return nil, err
+			}
+			updates := map[string]any{
+				"stage":      constants.SaleStageOfdCancelled,
+				"updated_at": time.Now(),
+			}
 
-		err = s.updateSaleFields(ctx, s.db, sale.Id, updates)
-		if err != nil {
-			_ = tx.Rollback()
-			return nil, err
-		}
+			err = s.updateSaleFields(ctx, s.db, sale.Id, updates)
+			if err != nil {
+				_ = tx.Rollback()
+				return nil, err
+			}
 		}
 
 		if err = tx.Commit().Error; err != nil {
-		s.log.Errorf("could not commit epos_result first transaction: %v", err)
-		return nil, domain.InternalServerError
+			s.log.Errorf("could not commit epos_result first transaction: %v", err)
+			return nil, domain.InternalServerError
 		}
 
 		return sale, nil
@@ -693,23 +704,23 @@ func (s *Services) EposResult(ctx context.Context, req *domain.EposResponseReque
 	// validate sale total_amount and cart_items total_price sum:
 	if sale.SaleType == constants.SaleTypeReturn {
 		if sale.TotalAmount*(-1) != itemsSum {
-		err = s.SaveEposResponse(ctx, req)
-		if err != nil {
+			err = s.SaveEposResponse(ctx, req)
+			if err != nil {
+				_ = tx.Rollback()
+				return nil, err
+			}
 			_ = tx.Rollback()
-			return nil, err
-		}
-		_ = tx.Rollback()
-		return nil, domain.InvalidSaleAmount
+			return nil, domain.InvalidSaleAmount
 		}
 	} else {
 		if sale.TotalAmount != itemsSum {
-		err = s.SaveEposResponse(ctx, req)
-		if err != nil {
+			err = s.SaveEposResponse(ctx, req)
+			if err != nil {
+				_ = tx.Rollback()
+				return nil, err
+			}
 			_ = tx.Rollback()
-			return nil, err
-		}
-		_ = tx.Rollback()
-		return nil, domain.InvalidSaleAmount
+			return nil, domain.InvalidSaleAmount
 		}
 	}
 
@@ -729,13 +740,13 @@ func (s *Services) EposResult(ctx context.Context, req *domain.EposResponseReque
 	if sale.SaleType == constants.SaleTypeReturn {
 		res, err := s.EposResultReturn(ctx, tx, req, sale, fiscal, user)
 		if err != nil {
-		_ = tx.Rollback()
-		return nil, err
+			_ = tx.Rollback()
+			return nil, err
 		}
 		// Commit transaction
 		if err = tx.Commit().Error; err != nil {
-		s.log.Errorf("could not commit epos-result-return transaction: %v", err)
-		return nil, domain.InternalServerError
+			s.log.Errorf("could not commit epos-result-return transaction: %v", err)
+			return nil, domain.InternalServerError
 		}
 
 		go s.updateStocksAfterReturnSaleFinished(sale.Id)
@@ -750,8 +761,8 @@ func (s *Services) EposResult(ctx context.Context, req *domain.EposResponseReque
 		req.Status = 1
 		err = s.SaveEposResponse(ctx, req)
 		if err != nil {
-		_ = tx.Rollback()
-		return nil, err
+			_ = tx.Rollback()
+			return nil, err
 		}
 
 		updates["stage"] = constants.SaleStageOfdSent
@@ -763,8 +774,8 @@ func (s *Services) EposResult(ctx context.Context, req *domain.EposResponseReque
 		// Save fiscal data immediately within transaction
 		err = s.updateSaleFields(ctx, tx, sale.Id, updates)
 		if err != nil {
-		_ = tx.Rollback()
-		return nil, err
+			_ = tx.Rollback()
+			return nil, err
 		}
 
 		// Update sale object for next stages
@@ -773,13 +784,11 @@ func (s *Services) EposResult(ctx context.Context, req *domain.EposResponseReque
 		// Clear updates for next stages
 		updates = map[string]any{}
 
-		
-
 	} else {
 		fiscal, err = s.getFiscalDataBySaleId(ctx, sale.Id)
 		if err != nil {
-		_ = tx.Rollback()
-		return nil, err
+			_ = tx.Rollback()
+			return nil, err
 		}
 	}
 
@@ -789,8 +798,8 @@ func (s *Services) EposResult(ctx context.Context, req *domain.EposResponseReque
 		defer cancel()
 		err = s.Payment(payCtx, tx, sale, &fiscal)
 		if err != nil {
-		_ = tx.Rollback()
-		return nil, err
+			_ = tx.Rollback()
+			return nil, err
 		}
 		updates["stage"] = constants.SaleStagePayFinished
 		updates["updated_at"] = time.Now()
@@ -802,18 +811,18 @@ func (s *Services) EposResult(ctx context.Context, req *domain.EposResponseReque
 	if sale.Stage < constants.SaleStageFinished {
 		// get customer if loyalty card added to sale
 		if sale.CashBack > 0 && sale.CustomerId != "" {
-		customer, err := s.GetCustomerById(ctx, tx, sale.CustomerId)
-		if err != nil {
-			_ = tx.Rollback()
-			return nil, err
-		}
-		sale.Customer = customer
+			customer, err := s.GetCustomerById(ctx, tx, sale.CustomerId)
+			if err != nil {
+				_ = tx.Rollback()
+				return nil, err
+			}
+			sale.Customer = customer
 		}
 
 		err = s.ApplySaleInventoryUpdate(ctx, tx, sale, "")
 		if err != nil {
-		_ = tx.Rollback()
-		return nil, err
+			_ = tx.Rollback()
+			return nil, err
 		}
 		updates["stage"] = constants.SaleStageFinished
 		updates["updated_at"] = time.Now()
@@ -829,12 +838,12 @@ func (s *Services) EposResult(ctx context.Context, req *domain.EposResponseReque
 	if len(updates) > 0 {
 		err = s.updateSaleFields(ctx, tx, req.SaleId, updates)
 		if err != nil {
-		_ = tx.Rollback()
-		return nil, err
+			_ = tx.Rollback()
+			return nil, err
 		}
 
 		if sale.ServiceType == constants.ServiceTypeNoor {
-		go s.SendOrderOfdToNoor(sale.SaleNumber, fiscal.QrCodeUrl)
+			go s.SendOrderOfdToNoor(sale.SaleNumber, fiscal.QrCodeUrl)
 		}
 	}
 
@@ -2562,15 +2571,15 @@ func (s *Services) GetDatasByMarkings(ctx context.Context, tx *gorm.DB, markings
 					s.log.Error("could not get barcode by product_id: %v", err)
 					return nil, err
 				}
-			}	
-			
+			}
+
 			if br.Id == "" {
 				br, err = s.getProductBarcodeUnitsByProductId(ctx, tx, cartItem.ProductId)
 				if err != nil {
 					s.log.Error("could not get barcode by product_id: %v", err)
 					return nil, err
 				}
-			}		
+			}
 			br.CartItemId = m.Id
 
 			// quantity + unit_quantity hisoblash
