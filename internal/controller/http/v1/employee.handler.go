@@ -45,6 +45,10 @@ func (h *EmployeeHandler) EmployeeRoutes(r *gin.RouterGroup) {
 		employee.GET("/bonus", h.SmenaBonus)
 		employee.POST("/attendance-face-id", h.CheckInOut)
 		employee.GET("/attendance/list", h.AttendanceList)
+		employee.PATCH("/:id/face-descriptor", h.CreateOrUpdateFaceDescriptor)
+		employee.GET("/:id/face-descriptor", h.GetEmployeeFaceDescriptor)
+		employee.DELETE("/:id/face-descriptor", h.DeleteEmployeeFaceDescriptor)
+		employee.GET("/list/face-descriptor", h.ListEmployeeFaceDescriptors)
 	}
 }
 
@@ -928,6 +932,182 @@ func (h *EmployeeHandler) AttendanceList(c *gin.Context) {
 	defer cancel()
 
 	results, count, err := h.service.GetAttendanceLogList(ctx, &params)
+	if err != nil {
+		handleServiceResponse(c, nil, err)
+		return
+	}
+
+	handleResponse(c, OK, utils.ListResponse(results, count, params.Limit, params.Offset))
+}
+
+// CreateOrUpdateFaceDescriptor godoc
+// @Summary      Create or update employee face descriptor
+// @Description  Xodim uchun yuz descriptorlarini (face-api.js orqali olingan array of arrays, "face_id" nomi bilan) yaratadi yoki mavjud bo'lsa yangilaydi. Har bir xodim uchun bitta yozuv saqlanadi.
+// @Tags         employees
+// @Security     BearerAuth
+// @Accept       json
+// @Produce      json
+// @Param        id     path     string                         true  "Employee id"
+// @Param        input  body     domain.FaceDescriptorRequest  true  "Face descriptor data"
+// @Success      200  {object}  v1.Response
+// @Failure      400  {object}  v1.Response
+// @Failure      401  {object}  v1.Response
+// @Failure      404  {object}  v1.Response
+// @Failure      500  {object}  v1.Response
+// @Router       /employee/{id}/face-descriptor [patch]
+func (h *EmployeeHandler) CreateOrUpdateFaceDescriptor(c *gin.Context) {
+	user := h.service.GetSignedUser(c)
+	if user.UserId == "" {
+		handleServiceResponse(c, nil, domain.UnauthorizedError)
+		return
+	}
+
+	id := c.Param("id")
+	if err := uuid.Validate(id); err != nil {
+		handleResponse(c, BadRequest, "Invalid id")
+		return
+	}
+
+	var body domain.FaceDescriptorRequest
+	if err := c.ShouldBindJSON(&body); err != nil {
+		h.log.Error(err)
+		handleResponse(c, BadRequest, err.Error())
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
+	defer cancel()
+
+	res, err := h.service.UpsertEmployeeFaceDescriptor(ctx, id, body.Descriptor)
+	if err != nil {
+		handleServiceResponse(c, nil, err)
+		return
+	}
+
+	handleResponse(c, OK, res)
+}
+
+// GetEmployeeFaceDescriptor godoc
+// @Summary      Get employee face descriptor
+// @Description  Xodimning saqlangan yuz descriptor yozuvini qaytaradi.
+// @Tags         employees
+// @Security     BearerAuth
+// @Accept       json
+// @Produce      json
+// @Param        id   path     string  true  "Employee id"
+// @Success      200  {object}  v1.Response
+// @Failure      400  {object}  v1.Response
+// @Failure      401  {object}  v1.Response
+// @Failure      404  {object}  v1.Response
+// @Failure      500  {object}  v1.Response
+// @Router       /employee/{id}/face-descriptor [get]
+func (h *EmployeeHandler) GetEmployeeFaceDescriptor(c *gin.Context) {
+	user := h.service.GetSignedUser(c)
+	if user.UserId == "" {
+		handleServiceResponse(c, nil, domain.UnauthorizedError)
+		return
+	}
+
+	id := c.Param("id")
+	if err := uuid.Validate(id); err != nil {
+		handleResponse(c, BadRequest, "Invalid id")
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
+	defer cancel()
+
+	res, err := h.service.GetEmployeeFaceDescriptor(ctx, id)
+	if err != nil {
+		handleServiceResponse(c, nil, err)
+		return
+	}
+
+	handleResponse(c, OK, res)
+}
+
+// DeleteEmployeeFaceDescriptor godoc
+// @Summary      Delete employee face descriptor
+// @Description  Xodimning saqlangan yuz descriptor yozuvini o'chiradi.
+// @Tags         employees
+// @Security     BearerAuth
+// @Accept       json
+// @Produce      json
+// @Param        id   path     string  true  "Employee id"
+// @Success      200  {object}  v1.Response
+// @Failure      400  {object}  v1.Response
+// @Failure      401  {object}  v1.Response
+// @Failure      404  {object}  v1.Response
+// @Failure      500  {object}  v1.Response
+// @Router       /employee/{id}/face-descriptor [delete]
+func (h *EmployeeHandler) DeleteEmployeeFaceDescriptor(c *gin.Context) {
+	user := h.service.GetSignedUser(c)
+	if user.UserId == "" {
+		handleServiceResponse(c, nil, domain.UnauthorizedError)
+		return
+	}
+
+	id := c.Param("id")
+	if err := uuid.Validate(id); err != nil {
+		handleResponse(c, BadRequest, "Invalid id")
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
+	defer cancel()
+
+	if err := h.service.DeleteEmployeeFaceDescriptor(ctx, id); err != nil {
+		handleServiceResponse(c, nil, err)
+		return
+	}
+
+	handleResponse(c, OK, "DELETED")
+}
+
+// ListEmployeeFaceDescriptors godoc
+// @Summary      List employee face descriptors
+// @Description  Filtrlar (store_id, company_id, employee_id) bo'yicha xodimlarning yuz descriptor yozuvlari ro'yxati. Admin bo'lmagan foydalanuvchilar faqat o'z do'koniga tegishli yozuvlarni ko'radi, store_id filtri ular uchun e'tiborga olinmaydi.
+// @Tags         employees
+// @Security     BearerAuth
+// @Accept       json
+// @Produce      json
+// @Param        store_id     query  string  false  "Store ID (faqat admin uchun filter sifatida ishlaydi)"
+// @Param        company_id   query  string  false  "Company ID (faqat admin uchun filter sifatida ishlaydi)"
+// @Param        employee_id  query  string  false  "Employee ID"
+// @Param        limit        query  int     false  "Limit"
+// @Param        offset       query  int     false  "Offset"
+// @Success      200 {object} v1.Response
+// @Failure      400 {object} v1.Response
+// @Failure      401 {object} v1.Response
+// @Failure      500 {object} v1.Response
+// @Router       /employee/list/face-descriptor [get]
+func (h *EmployeeHandler) ListEmployeeFaceDescriptors(c *gin.Context) {
+	user := h.service.GetSignedUser(c)
+	if user.UserId == "" {
+		handleServiceResponse(c, nil, domain.UnauthorizedError)
+		return
+	}
+
+	var params domain.EmployeeFaceDescriptorQueryParams
+	if err := c.ShouldBindQuery(&params); err != nil {
+		handleResponse(c, BadRequest, err.Error())
+		return
+	}
+
+	if !helper.IsAdmin(user) {
+		if user.StoreId == "" {
+			handleResponse(c, BadRequest, "store_id not found for user")
+			return
+		}
+		params.StoreId = user.StoreId
+	}
+
+	params.Limit, params.Offset = defaultLimitOffset(params.Limit, params.Offset)
+
+	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
+	defer cancel()
+
+	results, count, err := h.service.GetEmployeeFaceDescriptorList(ctx, &params)
 	if err != nil {
 		handleServiceResponse(c, nil, err)
 		return

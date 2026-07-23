@@ -1,0 +1,2 @@
+ALTER TABLE employee_face_descriptors
+ADD CONSTRAINT employee_face_descriptors_employee_id_unique UNIQUE (employee_id);

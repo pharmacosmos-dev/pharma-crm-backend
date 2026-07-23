@@ -1,0 +1,2 @@
+ALTER TABLE employee_face_descriptors
+DROP CONSTRAINT employee_face_descriptors_employee_id_unique;

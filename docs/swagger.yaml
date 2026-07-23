@@ -570,6 +570,19 @@ definitions:
       status:
         type: integer
     type: object
+  domain.FaceDescriptorRequest:
+    properties:
+      face_id:
+        items:
+          items:
+            format: float64
+            type: number
+          type: array
+        minItems: 1
+        type: array
+    required:
+    - face_id
+    type: object
   domain.FinalPaymentType:
     properties:
       amount:
@@ -6065,6 +6078,129 @@ paths:
       summary: Update employee
       tags:
       - employees
+  /employee/{id}/face-descriptor:
+    delete:
+      consumes:
+      - application/json
+      description: Xodimning saqlangan yuz descriptor yozuvini o'chiradi.
+      parameters:
+      - description: Employee id
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Delete employee face descriptor
+      tags:
+      - employees
+    get:
+      consumes:
+      - application/json
+      description: Xodimning saqlangan yuz descriptor yozuvini qaytaradi.
+      parameters:
+      - description: Employee id
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Get employee face descriptor
+      tags:
+      - employees
+    patch:
+      consumes:
+      - application/json
+      description: Xodim uchun yuz descriptorlarini (face-api.js orqali olingan array
+        of arrays, "face_id" nomi bilan) yaratadi yoki mavjud bo'lsa yangilaydi. Har
+        bir xodim uchun bitta yozuv saqlanadi.
+      parameters:
+      - description: Employee id
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Face descriptor data
+        in: body
+        name: input
+        required: true
+        schema:
+          $ref: '#/definitions/domain.FaceDescriptorRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Create or update employee face descriptor
+      tags:
+      - employees
   /employee/attendance-face-id:
     post:
       consumes:
@@ -6454,6 +6590,59 @@ paths:
       security:
       - BearerAuth: []
       summary: List employees
+      tags:
+      - employees
+  /employee/list/face-descriptor:
+    get:
+      consumes:
+      - application/json
+      description: Filtrlar (store_id, company_id, employee_id) bo'yicha xodimlarning
+        yuz descriptor yozuvlari ro'yxati. Admin bo'lmagan foydalanuvchilar faqat
+        o'z do'koniga tegishli yozuvlarni ko'radi, store_id filtri ular uchun e'tiborga
+        olinmaydi.
+      parameters:
+      - description: Store ID (faqat admin uchun filter sifatida ishlaydi)
+        in: query
+        name: store_id
+        type: string
+      - description: Company ID (faqat admin uchun filter sifatida ishlaydi)
+        in: query
+        name: company_id
+        type: string
+      - description: Employee ID
+        in: query
+        name: employee_id
+        type: string
+      - description: Limit
+        in: query
+        name: limit
+        type: integer
+      - description: Offset
+        in: query
+        name: offset
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: List employee face descriptors
       tags:
       - employees
   /employee/reset-password:
