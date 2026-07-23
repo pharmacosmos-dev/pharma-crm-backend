@@ -146,6 +146,20 @@ func (h *ImportHandler) List(c *gin.Context) {
 	}
 	params.Limit, params.Offset = defaultLimitOffset(params.Limit, params.Offset)
 
+	if user.StoreId != "" {
+		limitDate := time.Now().
+			AddDate(0, 0, -10).
+			Truncate(24 * time.Hour)
+
+		// start_date yuborilmagan bo'lsa default 10 kun
+		if params.StartDate == "" {
+			params.StartDate = limitDate.Format(time.RFC3339)
+		} else if parsed, err := time.Parse(time.RFC3339, params.StartDate); err == nil && parsed.Before(limitDate) {
+			// agar start_date 10 kundan eski bo'lsa 10 kunga kesiladi
+			params.StartDate = limitDate.Format(time.RFC3339)
+		}
+	}
+
 	// check if employee is not admin or superadmin
 	if !helper.IsAdmin(user) {
 		if user.StoreId != "" {
@@ -223,6 +237,21 @@ func (h *ImportHandler) ListStatus(c *gin.Context) {
 		handleServiceResponse(c, nil, domain.InvalidQueryError)
 		return
 	}
+
+	if user.StoreId != "" {
+		limitDate := time.Now().
+			AddDate(0, 0, -10).
+			Truncate(24 * time.Hour)
+
+		// start_date yuborilmagan bo'lsa default 10 kun
+		if params.StartDate == "" {
+			params.StartDate = limitDate.Format(time.RFC3339)
+		} else if parsed, err := time.Parse(time.RFC3339, params.StartDate); err == nil && parsed.Before(limitDate) {
+			// agar start_date 10 kundan eski bo'lsa 10 kunga kesiladi
+			params.StartDate = limitDate.Format(time.RFC3339)
+		}
+	}
+
 	// check if employee is not admin or superadmin
 	if !helper.IsAdmin(user) {
 		if user.StoreId != "" {
