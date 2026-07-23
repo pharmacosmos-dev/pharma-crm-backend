@@ -928,9 +928,9 @@ func (s *Services) DashboardProductStatistic(ctx context.Context, params *domain
 	)
 
 	// filter by created date to stay consistent with DashboardStockImportStatistic
-	if params.StartDate != nil && !params.StartDate.GetTime().IsZero() {
+	if params.EndDate != nil && !params.EndDate.GetTime().IsZero() {
 		filter += " AND sp.created_at <= ?"
-		args = append(args, params.StartDate.UTC())
+		args = append(args, params.EndDate.UTC())
 	}
 
 	// filter by several store ids
