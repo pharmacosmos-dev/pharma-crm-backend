@@ -479,9 +479,15 @@ func (s *Services) ConfirmRepricing(ctx context.Context, repricingID int, update
 		return domain.InternalServerError
 	}
 
+	// allaqachon completed yoki canceled bo'lgan repricing'ni qayta confirm qilishning oldini olish
+	if res.Status == constants.GeneralStatusCompleted || res.Status == constants.GeneralStatusCanceled {
+		_ = tx.Rollback()
+		return domain.AlreadyCompletedError
+	}
+
 	err = tx.WithContext(ctx).
 		Exec(`
-		UPDATE price_revalutions 
+		UPDATE price_revalutions
 		SET 
 			status = ?, 
 			updated_by = ?, 
