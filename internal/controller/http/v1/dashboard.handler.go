@@ -112,11 +112,17 @@ func (h *DashboardHandler) ChartStats(c *gin.Context) {
 		if len(body.StoreIds) == 0 {
 			params.StoreIds = []string{}
 		}
-	} else if isAdmin && params.IsFranchise != nil && *params.IsFranchise {
-		params.CompanyIds, _ = h.service.GetCompanyIds(ctx, true)
-		params.StoreIds = []string{}
-	} else if isAdmin && params.IsPharma != nil && *params.IsPharma {
-		params.CompanyIds, _ = h.service.GetCompanyIds(ctx, false)
+	} else if isAdmin && ((params.IsFranchise != nil && *params.IsFranchise) || (params.IsPharma != nil && *params.IsPharma)) {
+		var companyIds []string
+		if params.IsFranchise != nil && *params.IsFranchise {
+			ids, _ := h.service.GetCompanyIds(ctx, true)
+			companyIds = append(companyIds, ids...)
+		}
+		if params.IsPharma != nil && *params.IsPharma {
+			ids, _ := h.service.GetCompanyIds(ctx, false)
+			companyIds = append(companyIds, ids...)
+		}
+		params.CompanyIds = companyIds
 		params.StoreIds = []string{}
 	}
 
@@ -198,11 +204,17 @@ func (h *DashboardHandler) TopStores(c *gin.Context) {
 		if len(body.StoreIds) == 0 {
 			params.StoreIds = []string{}
 		}
-	} else if isAdmin && params.IsFranchise != nil && *params.IsFranchise {
-		params.CompanyIds, _ = h.service.GetCompanyIds(ctx, true)
-		params.StoreIds = []string{}
-	} else if isAdmin && params.IsPharma != nil && *params.IsPharma {
-		params.CompanyIds, _ = h.service.GetCompanyIds(ctx, false)
+	} else if isAdmin && ((params.IsFranchise != nil && *params.IsFranchise) || (params.IsPharma != nil && *params.IsPharma)) {
+		var companyIds []string
+		if params.IsFranchise != nil && *params.IsFranchise {
+			ids, _ := h.service.GetCompanyIds(ctx, true)
+			companyIds = append(companyIds, ids...)
+		}
+		if params.IsPharma != nil && *params.IsPharma {
+			ids, _ := h.service.GetCompanyIds(ctx, false)
+			companyIds = append(companyIds, ids...)
+		}
+		params.CompanyIds = companyIds
 		params.StoreIds = []string{}
 	}
 
@@ -290,11 +302,17 @@ func (h *DashboardHandler) TopProducts(c *gin.Context) {
 		if len(body.StoreIds) == 0 {
 			params.StoreIds = []string{}
 		}
-	} else if isAdmin && params.IsFranchise != nil && *params.IsFranchise {
-		params.CompanyIds, _ = h.service.GetCompanyIds(ctx, true)
-		params.StoreIds = []string{}
-	} else if isAdmin && params.IsPharma != nil && *params.IsPharma {
-		params.CompanyIds, _ = h.service.GetCompanyIds(ctx, false)
+	} else if isAdmin && ((params.IsFranchise != nil && *params.IsFranchise) || (params.IsPharma != nil && *params.IsPharma)) {
+		var companyIds []string
+		if params.IsFranchise != nil && *params.IsFranchise {
+			ids, _ := h.service.GetCompanyIds(ctx, true)
+			companyIds = append(companyIds, ids...)
+		}
+		if params.IsPharma != nil && *params.IsPharma {
+			ids, _ := h.service.GetCompanyIds(ctx, false)
+			companyIds = append(companyIds, ids...)
+		}
+		params.CompanyIds = companyIds
 		params.StoreIds = []string{}
 	}
 	// get dashboard data
@@ -379,11 +397,17 @@ func (h *DashboardHandler) BonusProducts(c *gin.Context) {
 		if len(body.StoreIds) == 0 {
 			params.StoreIds = []string{}
 		}
-	} else if isAdmin && params.IsFranchise != nil && *params.IsFranchise {
-		params.CompanyIds, _ = h.service.GetCompanyIds(ctx, true)
-		params.StoreIds = []string{}
-	} else if isAdmin && params.IsPharma != nil && *params.IsPharma {
-		params.CompanyIds, _ = h.service.GetCompanyIds(ctx, false)
+	} else if isAdmin && ((params.IsFranchise != nil && *params.IsFranchise) || (params.IsPharma != nil && *params.IsPharma)) {
+		var companyIds []string
+		if params.IsFranchise != nil && *params.IsFranchise {
+			ids, _ := h.service.GetCompanyIds(ctx, true)
+			companyIds = append(companyIds, ids...)
+		}
+		if params.IsPharma != nil && *params.IsPharma {
+			ids, _ := h.service.GetCompanyIds(ctx, false)
+			companyIds = append(companyIds, ids...)
+		}
+		params.CompanyIds = companyIds
 		params.StoreIds = []string{}
 	}
 
@@ -469,11 +493,17 @@ func (h *DashboardHandler) TopSeller(c *gin.Context) {
 		if len(body.StoreIds) == 0 {
 			params.StoreIds = []string{}
 		}
-	} else if isAdmin && params.IsFranchise != nil && *params.IsFranchise {
-		params.CompanyIds, _ = h.service.GetCompanyIds(ctx, true)
-		params.StoreIds = []string{}
-	} else if isAdmin && params.IsPharma != nil && *params.IsPharma {
-		params.CompanyIds, _ = h.service.GetCompanyIds(ctx, false)
+	} else if isAdmin && ((params.IsFranchise != nil && *params.IsFranchise) || (params.IsPharma != nil && *params.IsPharma)) {
+		var companyIds []string
+		if params.IsFranchise != nil && *params.IsFranchise {
+			ids, _ := h.service.GetCompanyIds(ctx, true)
+			companyIds = append(companyIds, ids...)
+		}
+		if params.IsPharma != nil && *params.IsPharma {
+			ids, _ := h.service.GetCompanyIds(ctx, false)
+			companyIds = append(companyIds, ids...)
+		}
+		params.CompanyIds = companyIds
 		params.StoreIds = []string{}
 	}
 
@@ -556,11 +586,17 @@ func (h *DashboardHandler) Payments(c *gin.Context) {
 		if len(body.StoreIds) == 0 {
 			params.StoreIds = []string{}
 		}
-	} else if isAdmin && params.IsFranchise != nil && *params.IsFranchise {
-		params.CompanyIds, _ = h.service.GetCompanyIds(ctx, true)
-		params.StoreIds = []string{}
-	} else if isAdmin && params.IsPharma != nil && *params.IsPharma {
-		params.CompanyIds, _ = h.service.GetCompanyIds(ctx, false)
+	} else if isAdmin && ((params.IsFranchise != nil && *params.IsFranchise) || (params.IsPharma != nil && *params.IsPharma)) {
+		var companyIds []string
+		if params.IsFranchise != nil && *params.IsFranchise {
+			ids, _ := h.service.GetCompanyIds(ctx, true)
+			companyIds = append(companyIds, ids...)
+		}
+		if params.IsPharma != nil && *params.IsPharma {
+			ids, _ := h.service.GetCompanyIds(ctx, false)
+			companyIds = append(companyIds, ids...)
+		}
+		params.CompanyIds = companyIds
 		params.StoreIds = []string{}
 	}
 
@@ -640,11 +676,17 @@ func (h *DashboardHandler) Transaction(c *gin.Context) {
 		if len(body.StoreIds) == 0 {
 			params.StoreIds = []string{}
 		}
-	} else if isAdmin && params.IsFranchise != nil && *params.IsFranchise {
-		params.CompanyIds, _ = h.service.GetCompanyIds(ctx, true)
-		params.StoreIds = []string{}
-	} else if isAdmin && params.IsPharma != nil && *params.IsPharma {
-		params.CompanyIds, _ = h.service.GetCompanyIds(ctx, false)
+	} else if isAdmin && ((params.IsFranchise != nil && *params.IsFranchise) || (params.IsPharma != nil && *params.IsPharma)) {
+		var companyIds []string
+		if params.IsFranchise != nil && *params.IsFranchise {
+			ids, _ := h.service.GetCompanyIds(ctx, true)
+			companyIds = append(companyIds, ids...)
+		}
+		if params.IsPharma != nil && *params.IsPharma {
+			ids, _ := h.service.GetCompanyIds(ctx, false)
+			companyIds = append(companyIds, ids...)
+		}
+		params.CompanyIds = companyIds
 		params.StoreIds = []string{}
 	}
 
@@ -717,11 +759,17 @@ func (h *DashboardHandler) OldImport(c *gin.Context) {
 		if len(body.StoreIds) == 0 {
 			params.StoreIds = []string{}
 		}
-	} else if isAdmin && params.IsFranchise != nil && *params.IsFranchise {
-		params.CompanyIds, _ = h.service.GetCompanyIds(ctx, true)
-		params.StoreIds = []string{}
-	} else if isAdmin && params.IsPharma != nil && *params.IsPharma {
-		params.CompanyIds, _ = h.service.GetCompanyIds(ctx, false)
+	} else if isAdmin && ((params.IsFranchise != nil && *params.IsFranchise) || (params.IsPharma != nil && *params.IsPharma)) {
+		var companyIds []string
+		if params.IsFranchise != nil && *params.IsFranchise {
+			ids, _ := h.service.GetCompanyIds(ctx, true)
+			companyIds = append(companyIds, ids...)
+		}
+		if params.IsPharma != nil && *params.IsPharma {
+			ids, _ := h.service.GetCompanyIds(ctx, false)
+			companyIds = append(companyIds, ids...)
+		}
+		params.CompanyIds = companyIds
 		params.StoreIds = []string{}
 	}
 
@@ -811,11 +859,17 @@ func (h *DashboardHandler) SaleStatistic(c *gin.Context) {
 		if len(body.StoreIds) == 0 {
 			params.StoreIds = []string{}
 		}
-	} else if isAdmin && params.IsFranchise != nil && *params.IsFranchise {
-		params.CompanyIds, _ = h.service.GetCompanyIds(ctx, true)
-		params.StoreIds = []string{}
-	} else if isAdmin && params.IsPharma != nil && *params.IsPharma {
-		params.CompanyIds, _ = h.service.GetCompanyIds(ctx, false)
+	} else if isAdmin && ((params.IsFranchise != nil && *params.IsFranchise) || (params.IsPharma != nil && *params.IsPharma)) {
+		var companyIds []string
+		if params.IsFranchise != nil && *params.IsFranchise {
+			ids, _ := h.service.GetCompanyIds(ctx, true)
+			companyIds = append(companyIds, ids...)
+		}
+		if params.IsPharma != nil && *params.IsPharma {
+			ids, _ := h.service.GetCompanyIds(ctx, false)
+			companyIds = append(companyIds, ids...)
+		}
+		params.CompanyIds = companyIds
 		params.StoreIds = []string{}
 	}
 
@@ -902,11 +956,17 @@ func (h *DashboardHandler) NetProfitStatistic(c *gin.Context) {
 		if len(body.StoreIds) == 0 {
 			params.StoreIds = []string{}
 		}
-	} else if isAdmin && params.IsFranchise != nil && *params.IsFranchise {
-		params.CompanyIds, _ = h.service.GetCompanyIds(ctx, true)
-		params.StoreIds = []string{}
-	} else if isAdmin && params.IsPharma != nil && *params.IsPharma {
-		params.CompanyIds, _ = h.service.GetCompanyIds(ctx, false)
+	} else if isAdmin && ((params.IsFranchise != nil && *params.IsFranchise) || (params.IsPharma != nil && *params.IsPharma)) {
+		var companyIds []string
+		if params.IsFranchise != nil && *params.IsFranchise {
+			ids, _ := h.service.GetCompanyIds(ctx, true)
+			companyIds = append(companyIds, ids...)
+		}
+		if params.IsPharma != nil && *params.IsPharma {
+			ids, _ := h.service.GetCompanyIds(ctx, false)
+			companyIds = append(companyIds, ids...)
+		}
+		params.CompanyIds = companyIds
 		params.StoreIds = []string{}
 	}
 
@@ -983,11 +1043,17 @@ func (h *DashboardHandler) ImportStatistic(c *gin.Context) {
 		if len(body.StoreIds) == 0 {
 			params.StoreIds = []string{}
 		}
-	} else if isAdmin && params.IsFranchise != nil && *params.IsFranchise {
-		params.CompanyIds, _ = h.service.GetCompanyIds(ctx, true)
-		params.StoreIds = []string{}
-	} else if isAdmin && params.IsPharma != nil && *params.IsPharma {
-		params.CompanyIds, _ = h.service.GetCompanyIds(ctx, false)
+	} else if isAdmin && ((params.IsFranchise != nil && *params.IsFranchise) || (params.IsPharma != nil && *params.IsPharma)) {
+		var companyIds []string
+		if params.IsFranchise != nil && *params.IsFranchise {
+			ids, _ := h.service.GetCompanyIds(ctx, true)
+			companyIds = append(companyIds, ids...)
+		}
+		if params.IsPharma != nil && *params.IsPharma {
+			ids, _ := h.service.GetCompanyIds(ctx, false)
+			companyIds = append(companyIds, ids...)
+		}
+		params.CompanyIds = companyIds
 		params.StoreIds = []string{}
 	}
 
@@ -1053,11 +1119,17 @@ func (h *DashboardHandler) StockImportStatistic(c *gin.Context) {
 		if len(body.StoreIds) == 0 {
 			params.StoreIds = []string{}
 		}
-	} else if isAdmin && params.IsFranchise != nil && *params.IsFranchise {
-		params.CompanyIds, _ = h.service.GetCompanyIds(ctx, true)
-		params.StoreIds = []string{}
-	} else if isAdmin && params.IsPharma != nil && *params.IsPharma {
-		params.CompanyIds, _ = h.service.GetCompanyIds(ctx, false)
+	} else if isAdmin && ((params.IsFranchise != nil && *params.IsFranchise) || (params.IsPharma != nil && *params.IsPharma)) {
+		var companyIds []string
+		if params.IsFranchise != nil && *params.IsFranchise {
+			ids, _ := h.service.GetCompanyIds(ctx, true)
+			companyIds = append(companyIds, ids...)
+		}
+		if params.IsPharma != nil && *params.IsPharma {
+			ids, _ := h.service.GetCompanyIds(ctx, false)
+			companyIds = append(companyIds, ids...)
+		}
+		params.CompanyIds = companyIds
 		params.StoreIds = []string{}
 	}
 
@@ -1125,11 +1197,17 @@ func (h *DashboardHandler) UntrackedPriceChanges(c *gin.Context) {
 		if len(body.StoreIds) == 0 {
 			params.StoreIds = []string{}
 		}
-	} else if isAdmin && params.IsFranchise != nil && *params.IsFranchise {
-		params.CompanyIds, _ = h.service.GetCompanyIds(ctx, true)
-		params.StoreIds = []string{}
-	} else if isAdmin && params.IsPharma != nil && *params.IsPharma {
-		params.CompanyIds, _ = h.service.GetCompanyIds(ctx, false)
+	} else if isAdmin && ((params.IsFranchise != nil && *params.IsFranchise) || (params.IsPharma != nil && *params.IsPharma)) {
+		var companyIds []string
+		if params.IsFranchise != nil && *params.IsFranchise {
+			ids, _ := h.service.GetCompanyIds(ctx, true)
+			companyIds = append(companyIds, ids...)
+		}
+		if params.IsPharma != nil && *params.IsPharma {
+			ids, _ := h.service.GetCompanyIds(ctx, false)
+			companyIds = append(companyIds, ids...)
+		}
+		params.CompanyIds = companyIds
 		params.StoreIds = []string{}
 	}
 
@@ -1205,11 +1283,17 @@ func (h *DashboardHandler) ProductStatistic(c *gin.Context) {
 		if len(body.StoreIds) == 0 {
 			params.StoreIds = []string{}
 		}
-	} else if isAdmin && params.IsFranchise != nil && *params.IsFranchise {
-		params.CompanyIds, _ = h.service.GetCompanyIds(ctx, true)
-		params.StoreIds = []string{}
-	} else if isAdmin && params.IsPharma != nil && *params.IsPharma {
-		params.CompanyIds, _ = h.service.GetCompanyIds(ctx, false)
+	} else if isAdmin && ((params.IsFranchise != nil && *params.IsFranchise) || (params.IsPharma != nil && *params.IsPharma)) {
+		var companyIds []string
+		if params.IsFranchise != nil && *params.IsFranchise {
+			ids, _ := h.service.GetCompanyIds(ctx, true)
+			companyIds = append(companyIds, ids...)
+		}
+		if params.IsPharma != nil && *params.IsPharma {
+			ids, _ := h.service.GetCompanyIds(ctx, false)
+			companyIds = append(companyIds, ids...)
+		}
+		params.CompanyIds = companyIds
 		params.StoreIds = []string{}
 	}
 
@@ -1291,11 +1375,17 @@ func (h *DashboardHandler) EmployeeBonus(c *gin.Context) {
 		if len(body.StoreIds) == 0 {
 			params.StoreIds = []string{}
 		}
-	} else if isAdmin && params.IsFranchise != nil && *params.IsFranchise {
-		params.CompanyIds, _ = h.service.GetCompanyIds(ctx, true)
-		params.StoreIds = []string{}
-	} else if isAdmin && params.IsPharma != nil && *params.IsPharma {
-		params.CompanyIds, _ = h.service.GetCompanyIds(ctx, false)
+	} else if isAdmin && ((params.IsFranchise != nil && *params.IsFranchise) || (params.IsPharma != nil && *params.IsPharma)) {
+		var companyIds []string
+		if params.IsFranchise != nil && *params.IsFranchise {
+			ids, _ := h.service.GetCompanyIds(ctx, true)
+			companyIds = append(companyIds, ids...)
+		}
+		if params.IsPharma != nil && *params.IsPharma {
+			ids, _ := h.service.GetCompanyIds(ctx, false)
+			companyIds = append(companyIds, ids...)
+		}
+		params.CompanyIds = companyIds
 		params.StoreIds = []string{}
 	}
 
@@ -1377,11 +1467,17 @@ func (h *DashboardHandler) LoyaltyCardStatistic(c *gin.Context) {
 		if len(body.StoreIds) == 0 {
 			params.StoreIds = []string{}
 		}
-	} else if isAdmin && params.IsFranchise != nil && *params.IsFranchise {
-		params.CompanyIds, _ = h.service.GetCompanyIds(ctx, true)
-		params.StoreIds = []string{}
-	} else if isAdmin && params.IsPharma != nil && *params.IsPharma {
-		params.CompanyIds, _ = h.service.GetCompanyIds(ctx, false)
+	} else if isAdmin && ((params.IsFranchise != nil && *params.IsFranchise) || (params.IsPharma != nil && *params.IsPharma)) {
+		var companyIds []string
+		if params.IsFranchise != nil && *params.IsFranchise {
+			ids, _ := h.service.GetCompanyIds(ctx, true)
+			companyIds = append(companyIds, ids...)
+		}
+		if params.IsPharma != nil && *params.IsPharma {
+			ids, _ := h.service.GetCompanyIds(ctx, false)
+			companyIds = append(companyIds, ids...)
+		}
+		params.CompanyIds = companyIds
 		params.StoreIds = []string{}
 	}
 
