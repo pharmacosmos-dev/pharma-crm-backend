@@ -3992,6 +3992,7 @@ func (s *Services) GetProductBarcodes(ctx context.Context, productId string, par
 			"pb.barcode",
 			"pb.mxik",
 			"pb.unit_code",
+			"pb.is_marking",
 			"pb.created_at",
 			"pb.updated_at",
 			"em.full_name AS created_by",
