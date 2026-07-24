@@ -8,6 +8,7 @@ type Company struct {
 	Name         string     `gorm:"name" json:"name"`
 	Email        string     `gorm:"email" json:"email"`
 	Phone        string     `gorm:"phone" json:"phone"`
+	IsFranchise  bool       `gorm:"is_franchise" json:"is_franchise"`
 	Country      string     `gorm:"country" json:"country"`
 	City         string     `gorm:"city" json:"city"`
 	PostalCode   string     `gorm:"postal_code" json:"postal_code"`
@@ -24,6 +25,7 @@ type CompanyRequest struct {
 	Name         string `gorm:"name" json:"name"`
 	Email        string `gorm:"email" json:"email"`
 	Phone        string `gorm:"phone" json:"phone"`
+	IsFranchise  bool   `gorm:"is_franchise" json:"is_franchise"`
 	Country      string `gorm:"country" json:"country"`
 	City         string `gorm:"city" json:"city"`
 	PostalCode   string `gorm:"postal_code" json:"postal_code"`
