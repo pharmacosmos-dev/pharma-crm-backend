@@ -994,7 +994,7 @@ func (s *Services) GetStoreProductByBarcode(ctx context.Context, barcode string)
 	return res, nil
 }
 
-func (s *Services) GetStoreProductByIdAndStoreId(ctx context.Context, tx *gorm.DB, id string, storeId string) (*domain.StoreProduct, error) {
+func (s *Services) GetStoreProductByIdAndStoreId(ctx context.Context, tx *gorm.DB, id string, storeId string, barcode string) (*domain.StoreProduct, error) {
 	var storeProduct domain.StoreProduct
 
 	err := tx.WithContext(ctx).
@@ -1007,12 +1007,18 @@ func (s *Services) GetStoreProductByIdAndStoreId(ctx context.Context, tx *gorm.D
 			"sp.retail_price",
 			"sp.supply_price",
 			"sp.vat",
-			"sp.is_marking",
+			"COALESCE(pbm.is_marking, false) AS is_marking",
 			"sp.expire_date",
 			"p.unit_per_pack",
 		).
 		Table("store_products sp").
 		Joins("JOIN products p ON sp.product_id = p.id").
+		Joins(`LEFT JOIN LATERAL (
+			SELECT is_marking FROM product_barcodes
+			WHERE product_id = p.id AND status = ?
+			ORDER BY (barcode = ?) DESC, created_at DESC
+			LIMIT 1
+		) pbm ON true`, constants.GeneralStatusCompleted, barcode).
 		Where("sp.store_id = ?", storeId).
 		Where("sp.id = ?", id).
 		First(&storeProduct).Error
@@ -4183,7 +4189,7 @@ func (s *Services) DeleteProductBarcode(ctx context.Context, productId string, r
 func (s *Services) getProductBarcodeUnitsByProductId(ctx context.Context, tx *gorm.DB, productId string) (domain.BarcodeResponse, error) {
 	var result domain.BarcodeResponse
 	err := tx.WithContext(ctx).Table("product_barcodes pb").
-		Select("pb.id, pb.barcode, pb.mxik, pb.unit_code").
+		Select("pb.id, pb.barcode, pb.mxik, pb.unit_code, pb.is_marking").
 		Where("pb.product_id = ? AND pb.status = 'completed' AND pb.mxik is not null AND pb.unit_code is not null ", productId).
 		Order("pb.created_at desc").
 		Limit(1).
@@ -4198,7 +4204,7 @@ func (s *Services) getProductBarcodeUnitsByProductId(ctx context.Context, tx *go
 func (s *Services) getProductBarcodeUnitsByProductBarcode(ctx context.Context, tx *gorm.DB, productId, barcode string) (domain.BarcodeResponse, error) {
 	var result domain.BarcodeResponse
 	err := tx.WithContext(ctx).Table("product_barcodes pb").
-		Select("pb.id, pb.barcode, pb.mxik, pb.unit_code").
+		Select("pb.id, pb.barcode, pb.mxik, pb.unit_code, pb.is_marking").
 		Where("pb.product_id = ? AND pb.barcode = ? AND pb.status = 'completed' AND pb.mxik is not null AND pb.unit_code is not null ", productId, barcode).
 		Order("pb.created_at desc").
 		Limit(1).

@@ -38,7 +38,7 @@ func (s *Services) CreateCartItem(ctx context.Context, req *domain.CartItemReque
 		return nil, domain.SaleIsClosedError
 	}
 
-	storeProduct, err := s.GetStoreProductByIdAndStoreId(ctx, tx, req.StoreProductId, sale.StoreId)
+	storeProduct, err := s.GetStoreProductByIdAndStoreId(ctx, tx, req.StoreProductId, sale.StoreId, req.Barcode)
 	if err != nil {
 		_ = tx.Rollback()
 		return nil, err
@@ -168,7 +168,7 @@ func (s *Services) FetchCartItems(ctx context.Context, saleId string, limit, off
 		p.name,
 		p.id as product_id,
 		p.unit_per_pack,
-		sp.is_marking,
+		COALESCE(pb2.is_marking, false) AS is_marking,
 		sp.is_checking,
 		sp.expire_date,
 		pb.bonus_amount,
@@ -204,7 +204,7 @@ func (s *Services) FetchCartItems(ctx context.Context, saleId string, limit, off
 		LEFT JOIN shelves sh ON p.shelf_id = sh.id
 		LEFT JOIN product_bonuses pb ON p.id = pb.product_id
 		LEFT JOIN LATERAL (
-			SELECT mxik, unit_code
+			SELECT mxik, unit_code, is_marking
 			FROM product_barcodes
 			WHERE product_id = p.id
 			AND barcode = ci.barcode
