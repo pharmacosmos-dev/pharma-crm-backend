@@ -3294,6 +3294,65 @@ func (s *Services) UpdatePackagingV3(ctx context.Context, req *domain.RevertPack
 	return nil
 }
 
+// FixPackagingQuantity - store_products va cart_items dagi unit_quantity ni berilgan unit_per_pack ga bo'ladi,
+// products.unit_per_pack ustunini o'zgartirmaydi. Takroriy update-packaging chaqiruvi tufayli ortiqcha
+// ko'paytirilib qolgan miqdorlarni qo'lda tuzatish uchun ishlatiladi.
+func (s *Services) FixPackagingQuantity(ctx context.Context, req *domain.UpdatePackagingRequest) error {
+	tx := s.db.Begin()
+	defer func() {
+		if r := recover(); r != nil {
+			_ = tx.Rollback()
+		}
+	}()
+
+	var product struct {
+		Id string `gorm:"column:id"`
+	}
+
+	err := tx.WithContext(ctx).Table("products").Take(&product, "id = ?", req.ProductId).Error
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			_ = tx.Rollback()
+			s.log.Error("product not found by id")
+			return domain.NotFoundError
+		}
+		_ = tx.Rollback()
+		s.log.Errorf("could not find product by id: %v", err)
+		return domain.InternalServerError
+	}
+
+	err = tx.WithContext(ctx).Exec(
+		"UPDATE store_products SET unit_quantity = unit_quantity / ? WHERE product_id = ?;",
+		req.UnitPerPack, req.ProductId,
+	).Error
+	if err != nil {
+		_ = tx.Rollback()
+		s.log.Errorf("could not fix store_products.unit_quantity: %v", err)
+		return domain.InternalServerError
+	}
+
+	err = tx.WithContext(ctx).Exec(`
+		UPDATE cart_items ci
+		SET unit_quantity = ci.unit_quantity / ?
+		FROM store_products sp
+		WHERE ci.store_product_id = sp.id
+		AND sp.product_id = ?`,
+		req.UnitPerPack, req.ProductId,
+	).Error
+	if err != nil {
+		_ = tx.Rollback()
+		s.log.Errorf("could not fix cart_items.unit_quantity: %v", err)
+		return domain.InternalServerError
+	}
+
+	if err = tx.Commit().Error; err != nil {
+		s.log.Errorf("could not commit fix packaging quantity transaction: %v", err)
+		return domain.InternalServerError
+	}
+
+	return nil
+}
+
 func (s *Services) IncrementQuantity(tx *gorm.DB, id string, quantity int) error {
 	err := tx.Exec(`UPDATE store_products SET unit_quantity = unit_quantity + ? WHERE id = ?`, quantity, id).Error
 	if err != nil {

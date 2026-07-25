@@ -12909,6 +12909,48 @@ paths:
       summary: Export products by import as Excel
       tags:
       - products
+  /product/fix-packaging-quantity:
+    put:
+      consumes:
+      - application/json
+      description: Divide store_products and cart_items unit_quantity by the given
+        unit_per_pack, without changing products.unit_per_pack. Use to correct quantities
+        left over-multiplied by a duplicate update-packaging call.
+      parameters:
+      - description: Fix Packaging Quantity
+        in: body
+        name: data
+        required: true
+        schema:
+          $ref: '#/definitions/domain.UpdatePackagingRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Fix over-multiplied packaging quantity
+      tags:
+      - products
   /product/generate-barcode:
     post:
       consumes:

@@ -77,6 +77,7 @@ func (h *ProductHandler) ProductRoutes(r *gin.RouterGroup) {
 		product.PUT("/update-packaging", h.UpdatePackaging)
 		product.PUT("/update-packaging-v2", h.UpdatePackagingV2)
 		product.PUT("/revert-packaging", h.UpdatePackagingV3)
+		product.PUT("/fix-packaging-quantity", h.FixPackagingQuantity)
 		product.POST("/list-store-products", h.ListStoreProducts)
 		product.POST("/photo-alert", h.CreateProductPhotoAlert)
 		product.POST("/photo-alert/list", h.ListProductPhotoAlert)
@@ -3621,6 +3622,42 @@ func (h *ProductHandler) UpdateOstatok(c *gin.Context) {
 	}
 
 	handleResponse(c, OK, "UPDATED")
+}
+
+// FixPackagingQuantity godoc
+// @Summary Fix over-multiplied packaging quantity
+// @Description Divide store_products and cart_items unit_quantity by the given unit_per_pack, without changing products.unit_per_pack. Use to correct quantities left over-multiplied by a duplicate update-packaging call.
+// @Tags products
+// @Security BearerAuth
+// @Accept json
+// @Produce json
+// @Param data body domain.UpdatePackagingRequest true "Fix Packaging Quantity"
+// @Success 200 {object} v1.Response
+// @Failure 400 {object} v1.Response
+// @Failure 401 {object} v1.Response
+// @Failure 404 {object} v1.Response
+// @Failure 500 {object} v1.Response
+// @Router /product/fix-packaging-quantity [put]
+func (h *ProductHandler) FixPackagingQuantity(c *gin.Context) {
+	var req domain.UpdatePackagingRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		handleServiceResponse(c, BadRequest, domain.InvalidRequestBodyError)
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
+	defer cancel()
+
+	mu := h.getProductLock(req.ProductId)
+	mu.Lock()
+	defer mu.Unlock()
+
+	if err := h.service.FixPackagingQuantity(ctx, &req); err != nil {
+		handleServiceResponse(c, InternalError, err)
+		return
+	}
+
+	handleResponse(c, OK, "Packaging quantity fixed successfully")
 }
 
 // lock order for parallel request
