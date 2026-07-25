@@ -225,17 +225,17 @@ func (h *SaleHandler) GetSales(c *gin.Context) {
 
 	if user.StoreId != "" {
 		limitDate := time.Now().
-			AddDate(0, 0, -10).
+			AddDate(0, 0, -60).
 			Truncate(24 * time.Hour)
 
 		// time.Time -> domain.CustomTime
 		customLimitDate := domain.CustomTime(limitDate)
 
-		// start_date yuborilmagan bo‘lsa default 14 kun
+		// start_date yuborilmagan bo‘lsa default 60 kun
 		if params.StartDate == nil || params.StartDate.GetTime().IsZero() {
 			params.StartDate = &customLimitDate
 		} else {
-			// agar start_date 10 kundan eski bo‘lsa 10 kunga kesiladi
+			// agar start_date 60 kundan eski bo‘lsa 60 kunga kesiladi
 			if params.StartDate.GetTime().Before(limitDate) {
 				params.StartDate = &customLimitDate
 			}
@@ -260,11 +260,11 @@ func (h *SaleHandler) GetSales(c *gin.Context) {
 		}
 	}
 
-	if len(user.StoreIds) > 0 {
-		params.StoreIds = user.StoreIds
-		params.StoreId = ""
-		params.CompanyId = ""
-	}
+	// if len(user.StoreIds) > 0 {
+	// 	params.StoreIds = user.StoreIds
+	// 	params.StoreId = ""
+	// 	params.CompanyId = ""
+	// }
 
 	// get sale list data
 	res, totalCount, err := h.service.GetSales(ctx, &params, user)
@@ -322,17 +322,17 @@ func (h *SaleHandler) ExportSalesExcel(c *gin.Context) {
 
 	if user.StoreId != "" {
 		limitDate := time.Now().
-			AddDate(0, 0, -10).
+			AddDate(0, 0, -60).
 			Truncate(24 * time.Hour)
 
 		// time.Time -> domain.CustomTime
 		customLimitDate := domain.CustomTime(limitDate)
 
-		// start_date yuborilmagan bo'lsa default 10 kun
+		// start_date yuborilmagan bo'lsa default 60 kun
 		if params.StartDate == nil || params.StartDate.GetTime().IsZero() {
 			params.StartDate = &customLimitDate
 		} else if params.StartDate.GetTime().Before(limitDate) {
-			// agar start_date 10 kundan eski bo'lsa 10 kunga kesiladi
+			// agar start_date 60 kundan eski bo'lsa 60 kunga kesiladi
 			params.StartDate = &customLimitDate
 		}
 	}
@@ -537,17 +537,17 @@ func (h *SaleHandler) GetSalesStats(c *gin.Context) {
 
 	if user.StoreId != "" {
 		limitDate := time.Now().
-			AddDate(0, 0, -10).
+			AddDate(0, 0, -60).
 			Truncate(24 * time.Hour)
 
 		// time.Time -> domain.CustomTime
 		customLimitDate := domain.CustomTime(limitDate)
 
-		// start_date yuborilmagan bo‘lsa default 10 kun
+		// start_date yuborilmagan bo‘lsa default 60 kun
 		if params.StartDate == nil || params.StartDate.GetTime().IsZero() {
 			params.StartDate = &customLimitDate
 		} else {
-			// agar start_date 10 kundan eski bo‘lsa 10 kunga kesiladi
+			// agar start_date 60 kundan eski bo‘lsa 60 kunga kesiladi
 			if params.StartDate.GetTime().Before(limitDate) {
 				params.StartDate = &customLimitDate
 			}
@@ -597,11 +597,11 @@ func (h *SaleHandler) GetSalesStats(c *gin.Context) {
 	}
 	// admin: hech qanday filter yo'q — barchasini ko'radi
 
-	if len(user.StoreIds) > 0 {
-		params.StoreIds = user.StoreIds
-		params.StoreId = ""
-		params.CompanyId = ""
-	}
+	// if len(user.StoreIds) > 0 {
+	// 	params.StoreIds = user.StoreIds
+	// 	params.StoreId = ""
+	// 	params.CompanyId = ""
+	// }
 
 	res, err := h.service.GetSalesStats(ctx, &params, user)
 	if err != nil {

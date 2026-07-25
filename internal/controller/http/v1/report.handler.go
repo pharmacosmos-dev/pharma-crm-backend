@@ -732,6 +732,25 @@ func (h *ReportHandler) StoreReportAmount(c *gin.Context) {
 	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
 	defer cancel()
 
+	if user.StoreId != "" {
+		limitDate := time.Now().
+			AddDate(0, 0, -60).
+			Truncate(24 * time.Hour)
+
+		// time.Time -> domain.CustomTime
+		customLimitDate := domain.CustomTime(limitDate)
+
+		// start_date yuborilmagan bo‘lsa default 60 kun
+		if params.StartDate == nil || params.StartDate.GetTime().IsZero() {
+			params.StartDate = &customLimitDate
+		} else {
+			// agar start_date 60 kundan eski bo‘lsa 60 kunga kesiladi
+			if params.StartDate.GetTime().Before(limitDate) {
+				params.StartDate = &customLimitDate
+			}
+		}
+	}
+
 	// check if employee is not admin or superadmin
 	if !utils.In(user.Role, constants.AllAdminRoles...) {
 		if user.StoreId != "" {
@@ -741,9 +760,25 @@ func (h *ReportHandler) StoreReportAmount(c *gin.Context) {
 	}
 
 	if len(user.StoreIds) > 0 {
+		limitDate := time.Now().
+			AddDate(0, 0, -60).
+			Truncate(24 * time.Hour)
+
+		// time.Time -> domain.CustomTime
+		customLimitDate := domain.CustomTime(limitDate)
 		params.StoreIds = user.StoreIds
 		params.StoreId = ""
 		params.CompanyId = ""
+		
+		// start_date yuborilmagan bo‘lsa default 60 kun
+		if params.StartDate == nil || params.StartDate.GetTime().IsZero() {
+			params.StartDate = &customLimitDate
+		} else {
+			// agar start_date 60 kundan eski bo‘lsa 60 kunga kesiladi
+			if params.StartDate.GetTime().Before(limitDate) {
+				params.StartDate = &customLimitDate
+			}
+		}
 	}
 	// get store report with payment type amounts
 	res, totalCount, err := h.service.GetStoreAmountReport(ctx, &params)
@@ -897,6 +932,25 @@ func (h *ReportHandler) StoreReportStats(c *gin.Context) {
 	ctx, cancel := context.WithTimeout(context.Background(), constants.ContextTimeoutForReports)
 	defer cancel()
 
+	if user.StoreId != "" {
+		limitDate := time.Now().
+			AddDate(0, 0, -60).
+			Truncate(24 * time.Hour)
+
+		// time.Time -> domain.CustomTime
+		customLimitDate := domain.CustomTime(limitDate)
+
+		// start_date yuborilmagan bo‘lsa default 60 kun
+		if params.StartDate == nil || params.StartDate.GetTime().IsZero() {
+			params.StartDate = &customLimitDate
+		} else {
+			// agar start_date 60 kundan eski bo‘lsa 60 kunga kesiladi
+			if params.StartDate.GetTime().Before(limitDate) {
+				params.StartDate = &customLimitDate
+			}
+		}
+	}
+
 	// check if employee is not admin or superadmin
 	if !utils.In(user.Role, constants.AllAdminRoles...) {
 		if user.StoreId != "" {
@@ -906,9 +960,24 @@ func (h *ReportHandler) StoreReportStats(c *gin.Context) {
 	}
 
 	if len(user.StoreIds) > 0 {
+		limitDate := time.Now().
+			AddDate(0, 0, -60).
+			Truncate(24 * time.Hour)
+
+		// time.Time -> domain.CustomTime
+		customLimitDate := domain.CustomTime(limitDate)
 		params.StoreIds = user.StoreIds
 		params.StoreId = ""
 		params.CompanyId = ""
+		// start_date yuborilmagan bo‘lsa default 60 kun
+		if params.StartDate == nil || params.StartDate.GetTime().IsZero() {
+			params.StartDate = &customLimitDate
+		} else {
+			// agar start_date 60 kundan eski bo‘lsa 60 kunga kesiladi
+			if params.StartDate.GetTime().Before(limitDate) {
+				params.StartDate = &customLimitDate
+			}
+		}
 	}
 
 	// get store report with payment type amounts
