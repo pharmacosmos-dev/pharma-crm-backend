@@ -163,6 +163,11 @@ func (s *Services) createOrGetProductAndImportDetails(
 			return err
 		}
 
+		// unit_per_pack kelmasa yoki 0 bo'lsa, default 1 qo'yiladi; aks holda 1C dan kelgan qiymat ishlatiladi
+		if products[i].Unit_PerPack <= 0 {
+			products[i].Unit_PerPack = 1
+		}
+
 		// create product id
 		productId := uuid.New().String()
 		// create or update product
@@ -177,16 +182,20 @@ func (s *Services) createOrGetProductAndImportDetails(
 			company_id,
 			country_id,
 			is_return,
-			requires_prescription
+			requires_prescription,
+			unit_per_pack,
+			unit_code
 			)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 		ON CONFLICT (material_code) DO UPDATE
 		SET
 			producer_id = EXCLUDED.producer_id,
 			is_marking = EXCLUDED.is_marking,
 			country_id = EXCLUDED.country_id,
 			is_return = EXCLUDED.is_return,
-			requires_prescription = EXCLUDED.requires_prescription
+			requires_prescription = EXCLUDED.requires_prescription,
+			unit_per_pack = EXCLUDED.unit_per_pack,
+			unit_code = EXCLUDED.unit_code
 		RETURNING id`,
 			products[i].MaterialCode,
 			products[i].Name,
@@ -198,6 +207,8 @@ func (s *Services) createOrGetProductAndImportDetails(
 			countryId,
 			products[i].Is_return,
 			products[i].RequiresPrescription,
+			products[i].Unit_PerPack,
+			products[i].UnitCode,
 		).Scan(&productId).Error
 		if err != nil {
 			s.log.Errorf("could not creating new product on importing: %v", err)
@@ -208,10 +219,12 @@ func (s *Services) createOrGetProductAndImportDetails(
 				product_id, 
 				barcode,
 				mxik, 
-				status
+				status,
+				is_marking,
+				unit_code
 				)
-    		SELECT 
-				?, ?, ?, ?
+    		SELECT
+				?, ?, ?, ?, ?, ?
     		WHERE NOT EXISTS (
     		    SELECT 1 FROM product_barcodes 
     		    WHERE product_id = ? AND barcode = ? AND status = ?
@@ -220,6 +233,8 @@ func (s *Services) createOrGetProductAndImportDetails(
 			products[i].Barcode,
 			products[i].Ikpu,
 			constants.GeneralStatusCompleted,
+			products[i].Mar,
+			products[i].UnitCode,
 			productId,
 			products[i].Barcode,
 			constants.GeneralStatusCompleted,

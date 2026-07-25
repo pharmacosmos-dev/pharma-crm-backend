@@ -52,6 +52,8 @@ type ProductRequestOnecDto struct {
 	Country              string   `gorm:"country" json:"country" validate:"required,min=1,max=255"`
 	Is_return            bool     `gorm:"is_return" json:"is_return"`
 	RequiresPrescription bool     `gorm:"requires_prescription" json:"requires_prescription"`
+	Unit_PerPack		 int      `gorm:"unit_per_pack" json:"unit_per_pack"`
+	UnitCode			 string   `gorm:"unit_code" json:"unit_code"`
 }
 
 type RequestOnec struct {

@@ -32242,6 +32242,9 @@ const docTemplate = `{
                 "email": {
                     "type": "string"
                 },
+                "is_franchise": {
+                    "type": "boolean"
+                },
                 "legal_address": {
                     "type": "string"
                 },
@@ -34278,6 +34281,12 @@ const docTemplate = `{
                 },
                 "supply_price_vat": {
                     "type": "number"
+                },
+                "unit_code": {
+                    "type": "string"
+                },
+                "unit_per_pack": {
+                    "type": "integer"
                 },
                 "vat": {
                     "type": "string"

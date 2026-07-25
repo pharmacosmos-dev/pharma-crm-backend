@@ -27,7 +27,7 @@ func (h *ProductOnecHandler) ProductOnecRoutes(r *gin.RouterGroup) {
 	onec := r.Group("/product1c")
 	logger := OnecRequestLogger(h.db, h.log)
 	{
-		onec.POST("", h.Create)
+		onec.POST("", logger, h.Create)
 		onec.GET("/list", h.ListProductByStoreCode)
 		onec.POST("/repricing", logger, h.ProductRepricing)
 		onec.POST("/multi-repricing", logger, h.MultiProductRepricing)
