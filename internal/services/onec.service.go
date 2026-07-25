@@ -214,34 +214,45 @@ func (s *Services) createOrGetProductAndImportDetails(
 			s.log.Errorf("could not creating new product on importing: %v", err)
 			return domain.InternalServerError
 		}
-		err = tx.WithContext(ctx).Exec(`
-    		INSERT INTO product_barcodes (
-				product_id, 
-				barcode,
-				mxik, 
-				status,
-				is_marking,
-				unit_code
-				)
-    		SELECT
-				?, ?, ?, ?, ?, ?
-    		WHERE NOT EXISTS (
-    		    SELECT 1 FROM product_barcodes 
-    		    WHERE product_id = ? AND barcode = ? AND status = ?
-    		)
-		`, productId,
-			products[i].Barcode,
+		// product_id va barcode bo'yicha mavjud bo'lsa - update, aks holda - create
+		barcodeUpdate := tx.WithContext(ctx).Exec(`
+			UPDATE product_barcodes
+			SET mxik = ?, is_marking = ?, unit_code = ?, updated_at = NOW()
+			WHERE product_id = ? AND barcode = ?
+		`,
 			products[i].Ikpu,
-			constants.GeneralStatusCompleted,
 			products[i].Mar,
 			products[i].UnitCode,
 			productId,
 			products[i].Barcode,
-			constants.GeneralStatusCompleted,
-		).Error
-		if err != nil {
-			s.log.Errorf("could not create product barcode: %v", err)
+		)
+		if barcodeUpdate.Error != nil {
+			s.log.Errorf("could not update product barcode: %v", barcodeUpdate.Error)
 			return domain.InternalServerError
+		}
+		if barcodeUpdate.RowsAffected == 0 {
+			err = tx.WithContext(ctx).Exec(`
+				INSERT INTO product_barcodes (
+					product_id,
+					barcode,
+					mxik,
+					status,
+					is_marking,
+					unit_code
+					)
+				VALUES (?, ?, ?, ?, ?, ?)
+			`,
+				productId,
+				products[i].Barcode,
+				products[i].Ikpu,
+				constants.GeneralStatusCompleted,
+				products[i].Mar,
+				products[i].UnitCode,
+			).Error
+			if err != nil {
+				s.log.Errorf("could not create product barcode: %v", err)
+				return domain.InternalServerError
+			}
 		}
 		// create import_detail
 		var id string
