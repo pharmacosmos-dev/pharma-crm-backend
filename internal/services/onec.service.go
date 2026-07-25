@@ -183,10 +183,9 @@ func (s *Services) createOrGetProductAndImportDetails(
 			country_id,
 			is_return,
 			requires_prescription,
-			unit_per_pack,
 			unit_code
 			)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 		ON CONFLICT (material_code) DO UPDATE
 		SET
 			producer_id = EXCLUDED.producer_id,
@@ -194,7 +193,6 @@ func (s *Services) createOrGetProductAndImportDetails(
 			country_id = EXCLUDED.country_id,
 			is_return = EXCLUDED.is_return,
 			requires_prescription = EXCLUDED.requires_prescription,
-			unit_per_pack = EXCLUDED.unit_per_pack,
 			unit_code = EXCLUDED.unit_code
 		RETURNING id`,
 			products[i].MaterialCode,
@@ -207,7 +205,6 @@ func (s *Services) createOrGetProductAndImportDetails(
 			countryId,
 			products[i].Is_return,
 			products[i].RequiresPrescription,
-			products[i].Unit_PerPack,
 			products[i].UnitCode,
 		).Scan(&productId).Error
 		if err != nil {
