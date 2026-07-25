@@ -322,7 +322,7 @@ type UpdateProductBarcodeRequest struct {
 	Barcode   string `json:"barcode"`
 	Mxik      string `json:"mxik"`
 	UnitCode  string `json:"unit_code"`
-	IsMarking bool   `json:"is_marking"`
+	IsMarking *bool  `json:"is_marking"`
 	UpdatedBy string `json:"-"`
 }
 

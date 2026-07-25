@@ -4119,7 +4119,9 @@ func (s *Services) UpdateProductBarcode(ctx context.Context, productId string, r
 	if req.UnitCode != "" {
 		updates["unit_code"] = req.UnitCode
 	}
-
+	if req.IsMarking != nil {
+		updates["is_marking"] = *req.IsMarking
+	}
 	updates["created_by"] = req.UpdatedBy
 	updates["updated_at"] = time.Now()
 
