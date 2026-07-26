@@ -7733,6 +7733,38 @@ paths:
       summary: update product infos
       tags:
       - helper
+  /helper/upload-cart-item-quantities:
+    post:
+      consumes:
+      - multipart/form-data
+      description: 'CSV columns: 1) id, 2) unit_quantity, 3) quantity. Updates cart_items.unit_quantity
+        and cart_items.quantity by id'
+      parameters:
+      - description: CSV file (.csv) with id, unit_quantity, quantity columns
+        in: formData
+        name: file
+        required: true
+        type: file
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Upload cart item quantities csv
+      tags:
+      - helper
   /helper/upload-categories-json:
     post:
       consumes:

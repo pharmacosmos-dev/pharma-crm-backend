@@ -2,6 +2,7 @@ package v1
 
 import (
 	"bytes"
+	"encoding/csv"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -57,6 +58,7 @@ func (h *HelperHandler) HelperRoutes(r *gin.RouterGroup) {
 		helper.POST("/check-online-price-by-ids", h.CheckOnlinePriceByIds)
 		helper.POST("/check-products-by-material-code", h.CheckProductsByMaterialCode)
 		helper.POST("/upload-product-categories", h.UploadProductCategories)
+		helper.POST("/upload-cart-item-quantities", h.UploadCartItemQuantities)
 		// helper.POST("/upload-category", h.UploadCategory)
 		// helper.POST("/upload-customer", h.UploadCustomer)
 		// helper.POST("/upload-import", h.UploadImport)
@@ -727,6 +729,142 @@ func (h *HelperHandler) UploadProductProducer(c *gin.Context) {
 		"producers_created": created,
 		"skipped":           skippedRows,
 	})
+}
+
+// UploadCartItemQuantities godoc
+// @Summary Upload cart item quantities csv
+// @Description CSV columns: 1) id, 2) unit_quantity, 3) quantity. Updates cart_items.unit_quantity and cart_items.quantity by id
+// @Tags helper
+// @Security BearerAuth
+// @Accept multipart/form-data
+// @Produce json
+// @Param file formData file true "CSV file (.csv) with id, unit_quantity, quantity columns"
+// @Success 200 {object} v1.Response
+// @Failure 400 {object} v1.Response
+// @Failure 500 {object} v1.Response
+// @Router /helper/upload-cart-item-quantities [POST]
+func (h *HelperHandler) UploadCartItemQuantities(c *gin.Context) {
+	var file domain.File
+	if err := c.ShouldBind(&file); err != nil {
+		handleResponse(c, BadRequest, err.Error())
+		return
+	}
+
+	ext := filepath.Ext(file.File.Filename)
+	if ext != ".csv" {
+		handleResponse(c, BadRequest, "Unsupported file format")
+		return
+	}
+
+	newFilename := uuid.New().String() + ext
+	savePath := filepath.Join("uploads", newFilename)
+	if err := c.SaveUploadedFile(file.File, savePath); err != nil {
+		h.log.Error("Failed to save file: ", err.Error())
+		handleResponse(c, InternalError, "Failed to save file")
+		return
+	}
+	defer os.Remove(savePath)
+
+	rows, err := readCSVRows(savePath)
+	if err != nil {
+		h.log.Error("Failed to read .csv file: ", err.Error())
+		handleResponse(c, BadRequest, "Failed to process file")
+		return
+	}
+	if len(rows) == 0 {
+		handleResponse(c, BadRequest, "Empty file")
+		return
+	}
+
+	tx := h.db.Begin()
+	defer func() {
+		if r := recover(); r != nil {
+			tx.Rollback()
+		}
+	}()
+
+	updated := 0
+	var skippedRows []map[string]any
+
+	for idx, row := range rows[1:] { // skip header
+		rowNumber := idx + 2
+		if len(row) < 3 {
+			skippedRows = append(skippedRows, map[string]any{
+				"row":    rowNumber,
+				"reason": "not enough columns",
+				"data":   row,
+			})
+			continue
+		}
+
+		id := strings.TrimSpace(row[0])
+		if id == "" {
+			skippedRows = append(skippedRows, map[string]any{
+				"row":    rowNumber,
+				"reason": "empty id",
+				"data":   row,
+			})
+			continue
+		}
+
+		unitQuantity := cast.ToInt(row[1])
+		quantity := cast.ToInt(row[2])
+
+		result := tx.Exec(`UPDATE cart_items SET unit_quantity = ?, quantity = ? WHERE id = ?`,
+			unitQuantity, quantity, id)
+		if result.Error != nil {
+			tx.Rollback()
+			h.log.Errorf("could not update cart_item(%s) quantities: %v", id, result.Error)
+			handleResponse(c, InternalError, result.Error.Error())
+			return
+		}
+		if result.RowsAffected == 0 {
+			skippedRows = append(skippedRows, map[string]any{
+				"row":    rowNumber,
+				"reason": "cart_item not found",
+				"id":     id,
+			})
+			continue
+		}
+		updated++
+	}
+
+	if err := tx.Commit().Error; err != nil {
+		h.log.Error("Failed to commit transaction: ", err.Error())
+		handleResponse(c, InternalError, err.Error())
+		return
+	}
+
+	handleResponse(c, OK, gin.H{
+		"updated": updated,
+		"skipped": skippedRows,
+	})
+}
+
+// readCSVRows reads a csv file, auto-detecting comma vs semicolon delimiter
+// and stripping a leading UTF-8 BOM (common in Excel-exported csv files).
+func readCSVRows(path string) ([][]string, error) {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return nil, err
+	}
+	data = bytes.TrimPrefix(data, []byte{0xEF, 0xBB, 0xBF})
+
+	firstLine := data
+	if idx := bytes.IndexByte(data, '\n'); idx >= 0 {
+		firstLine = data[:idx]
+	}
+	delimiter := ','
+	if bytes.Count(firstLine, []byte{';'}) > bytes.Count(firstLine, []byte{','}) {
+		delimiter = ';'
+	}
+
+	reader := csv.NewReader(bytes.NewReader(data))
+	reader.Comma = delimiter
+	reader.FieldsPerRecord = -1
+	reader.TrimLeadingSpace = true
+
+	return reader.ReadAll()
 }
 
 func transferIsMarking(isMarking string) bool {
