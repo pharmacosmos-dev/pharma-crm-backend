@@ -12879,6 +12879,32 @@ paths:
       summary: Get min, max products
       tags:
       - products
+  /product/export-product-barcodes:
+    get:
+      consumes:
+      - application/json
+      description: Export full product_barcodes data (joined with product name and
+        material_code) to an excel file
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Export product barcodes to excel
+      tags:
+      - products
   /product/export-products-by-import:
     get:
       consumes:
