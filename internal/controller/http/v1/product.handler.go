@@ -98,6 +98,7 @@ func (h *ProductHandler) ProductRoutes(r *gin.RouterGroup) {
 		product.PUT("/:id/barcodes", h.UpdateProductBarcode)
 		product.POST("/:id/barcodes", h.CreateProductBarcode)
 		product.DELETE("/:id/barcodes", h.DeleteProductBarcode)
+		product.GET("/export-product-barcodes", h.ExportProductBarcodes)
 		product.GET("/export-products-by-import", h.ExportProductsByImport)
 		product.GET("/store-product-import-detail", h.ListStoreProductsWithImportDetail)
 		product.PATCH("/store-product/:id/unit-quantity", h.UpdateStoreProductUnitQuantity)
@@ -3750,6 +3751,75 @@ func (h *ProductHandler) GetProductBarcodes(c *gin.Context) {
 	data := utils.ListResponse(items, totalCount, params.Limit, params.Offset)
 
 	handleResponse(c, OK, data)
+}
+
+// ExportProductBarcodes godoc
+// @Summary      Export product barcodes to excel
+// @Description  Export full product_barcodes data (joined with product name and material_code) to an excel file
+// @Tags         products
+// @Security     BearerAuth
+// @Accept       json
+// @Produce      json
+// @Success      200 {object} v1.Response
+// @Failure      400 {object} v1.Response
+// @Failure      500 {object} v1.Response
+// @Router       /product/export-product-barcodes [GET]
+func (h *ProductHandler) ExportProductBarcodes(c *gin.Context) {
+	user := h.service.GetSignedUser(c)
+	if user.UserId == "" {
+		handleServiceResponse(c, nil, domain.UnauthorizedError)
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
+	defer cancel()
+
+	items, err := h.service.GetAllProductBarcodesForExport(ctx)
+	if err != nil {
+		handleServiceResponse(c, nil, err)
+		return
+	}
+
+	f := excelize.NewFile()
+	f, err = h.productBarcodesExport(f, items)
+	if err != nil {
+		handleServiceResponse(c, nil, domain.InternalServerError)
+		return
+	}
+
+	saveExcelToUploads(c, f, *h.log, "product_barcodes")
+}
+
+// productBarcodesExport builds the product_barcodes export sheet
+func (h *ProductHandler) productBarcodesExport(f *excelize.File, res []domain.ProductBarcodeExportItem) (*excelize.File, error) {
+	sheetName := "ProductBarcodes"
+	f.SetSheetName("Sheet1", sheetName)
+
+	headers := []string{"Код", "Наименование", "Штрих-код", "Старый штрих-код", "MXIK", "Код упаковки", "Маркировка", "Статус", "Дата создания", "Дата обновления"}
+	if err := setExcelHeaders(f, sheetName, headers); err != nil {
+		h.log.Error("Failed to create style:", err)
+		return nil, errors.New("failed to create style")
+	}
+
+	for i, item := range res {
+		row := strconv.Itoa(i + 2)
+		f.SetCellValue(sheetName, "A"+row, item.MaterialCode)
+		f.SetCellValue(sheetName, "B"+row, item.ProductName)
+		f.SetCellValue(sheetName, "C"+row, item.Barcode)
+		f.SetCellValue(sheetName, "D"+row, item.OldBarcode)
+		f.SetCellValue(sheetName, "E"+row, item.Mxik)
+		f.SetCellValue(sheetName, "F"+row, item.UnitCode)
+		f.SetCellValue(sheetName, "G"+row, item.IsMarking)
+		f.SetCellValue(sheetName, "H"+row, item.Status)
+		if item.CreatedAt != nil {
+			f.SetCellValue(sheetName, "I"+row, item.CreatedAt.Format(time.DateOnly))
+		}
+		if item.UpdatedAt != nil {
+			f.SetCellValue(sheetName, "J"+row, item.UpdatedAt.Format(time.DateOnly))
+		}
+	}
+
+	return f, nil
 }
 
 // CreateProductBarcode godoc

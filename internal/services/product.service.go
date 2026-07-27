@@ -4084,6 +4084,35 @@ func (s *Services) GetProductBarcodes(ctx context.Context, productId string, par
 	return items, totalCount, nil
 }
 
+func (s *Services) GetAllProductBarcodesForExport(ctx context.Context) ([]domain.ProductBarcodeExportItem, error) {
+	var items []domain.ProductBarcodeExportItem
+
+	err := s.db.WithContext(ctx).
+		Select(
+			"pb.id",
+			"p.material_code",
+			"p.name AS product_name",
+			"pb.barcode",
+			"pb.old_barcode",
+			"pb.mxik",
+			"pb.unit_code",
+			"pb.is_marking",
+			"pb.status",
+			"pb.created_at",
+			"pb.updated_at",
+		).
+		Table("product_barcodes pb").
+		Joins("LEFT JOIN products p ON p.id = pb.product_id").
+		Order("pb.created_at DESC").
+		Find(&items).Error
+	if err != nil {
+		s.log.Errorf("failed to get product barcodes for export: %v", err)
+		return nil, domain.InternalServerError
+	}
+
+	return items, nil
+}
+
 func (s *Services) CreateProductBarcodes(
 	ctx context.Context,
 	productId string,

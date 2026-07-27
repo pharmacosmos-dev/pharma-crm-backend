@@ -326,6 +326,20 @@ type UpdateProductBarcodeRequest struct {
 	UpdatedBy string `json:"-"`
 }
 
+type ProductBarcodeExportItem struct {
+	ID           string     `gorm:"column:id"`
+	MaterialCode int        `gorm:"column:material_code"`
+	ProductName  string     `gorm:"column:product_name"`
+	Barcode      string     `gorm:"column:barcode"`
+	OldBarcode   string     `gorm:"column:old_barcode"`
+	Mxik         string     `gorm:"column:mxik"`
+	UnitCode     string     `gorm:"column:unit_code"`
+	IsMarking    bool       `gorm:"column:is_marking"`
+	Status       string     `gorm:"column:status"`
+	CreatedAt    *time.Time `gorm:"column:created_at"`
+	UpdatedAt    *time.Time `gorm:"column:updated_at"`
+}
+
 type DeleteProductBarcodeRequest struct {
 	ID string `json:"id"` // faqat bitta ID
 }
