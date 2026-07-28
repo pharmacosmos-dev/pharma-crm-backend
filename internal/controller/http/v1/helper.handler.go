@@ -19,8 +19,8 @@ import (
 
 	"github.com/agnivade/levenshtein"
 	"github.com/gin-gonic/gin"
-	"golang.org/x/text/unicode/norm"
 	"github.com/lib/pq"
+	"golang.org/x/text/unicode/norm"
 
 	"github.com/google/uuid"
 	"github.com/pharma-crm-backend/domain"
@@ -312,7 +312,7 @@ func (h *HelperHandler) UploadMxik(c *gin.Context) {
 		h.log.Errorf("Failed to get rows: %v", err)
 		handleResponse(c, InternalError, "Failed to get rows")
 		return
-	}	
+	}
 	now := time.Now()
 	// build query
 	query := `
@@ -321,7 +321,7 @@ func (h *HelperHandler) UploadMxik(c *gin.Context) {
 	var count = 0
 	// Process rows
 	for _, row := range rows[1:] {
-		if(len(row) > 8) {	
+		if len(row) > 8 {
 			err := h.db.Debug().Exec(query,
 				strings.TrimSpace(row[3]),
 				strings.ReplaceAll(row[7], " ", ""),
@@ -329,15 +329,14 @@ func (h *HelperHandler) UploadMxik(c *gin.Context) {
 				transferIsMarking(strings.TrimSpace(row[6])),
 				strings.TrimSpace(row[5]),
 				parseIntComma(row[1]),
-				
 			).Error
-				
+
 			if err != nil {
 				h.log.Error("could not updated product(%s) mxik(%s): %v", strings.TrimSpace(row[2]), err)
 			} else {
 				count++
 			}
-		}	
+		}
 	}
 
 	go h.updateStoreProductMxik(now)
@@ -551,6 +550,10 @@ func (h *HelperHandler) UploadBarcodeMxikUnit(c *gin.Context) {
 		handleResponse(c, InternalError, "Failed to get Excel rows")
 		return
 	}
+	if len(rows) <= 1 {
+		handleResponse(c, BadRequest, "Empty file")
+		return
+	}
 
 	tx := h.db.Begin()
 	defer func() {
@@ -561,7 +564,9 @@ func (h *HelperHandler) UploadBarcodeMxikUnit(c *gin.Context) {
 
 	now := time.Now()
 	updated := 0
-	var skippedRows []map[string]any
+	skipped := 0
+	productNotFound := 0
+	barcodeRowNotFound := 0
 
 	type barcodeRow struct {
 		ID       string
@@ -572,11 +577,8 @@ func (h *HelperHandler) UploadBarcodeMxikUnit(c *gin.Context) {
 	for idx, row := range rows[1:] { // skip header
 		rowNumber := idx + 2
 		if len(row) < 4 {
-			skippedRows = append(skippedRows, map[string]any{
-				"row":    rowNumber,
-				"reason": "not enough columns",
-				"data":   row,
-			})
+			h.log.Warnf("row %d skipped: not enough columns", rowNumber)
+			skipped++
 			continue
 		}
 
@@ -594,30 +596,22 @@ func (h *HelperHandler) UploadBarcodeMxikUnit(c *gin.Context) {
 		}
 
 		if materialCode == 0 {
-			skippedRows = append(skippedRows, map[string]any{
-				"row":    rowNumber,
-				"reason": "empty or invalid material_code",
-				"data":   row,
-			})
+			h.log.Warnf("row %d skipped: empty or invalid material_code", rowNumber)
+			skipped++
 			continue
 		}
 		if mxik == "" && unitCode == "" {
-			skippedRows = append(skippedRows, map[string]any{
-				"row":    rowNumber,
-				"reason": "mxik and unit_code both empty in excel",
-				"data":   row,
-			})
+			h.log.Warnf("row %d skipped: mxik and unit_code both empty in excel", rowNumber)
+			skipped++
 			continue
 		}
 
 		var productID string
 		if err := tx.Raw(`SELECT id FROM products WHERE material_code = ?`, materialCode).
 			Scan(&productID).Error; err != nil || productID == "" {
-			skippedRows = append(skippedRows, map[string]any{
-				"row":    rowNumber,
-				"reason": "product not found for material_code",
-				"data":   row,
-			})
+			h.log.Warnf("row %d skipped: product not found for material_code %d", rowNumber, materialCode)
+			skipped++
+			productNotFound++
 			continue
 		}
 
@@ -644,30 +638,32 @@ func (h *HelperHandler) UploadBarcodeMxikUnit(c *gin.Context) {
 		}
 
 		if existing.ID == "" {
-			skippedRows = append(skippedRows, map[string]any{
-				"row":    rowNumber,
-				"reason": "matching product_barcodes row not found",
-				"data":   row,
-			})
+			h.log.Warnf("row %d skipped: matching product_barcodes row not found", rowNumber)
+			skipped++
+			barcodeRowNotFound++
 			continue
 		}
 
-		if strings.TrimSpace(existing.Mxik) != "" || strings.TrimSpace(existing.UnitCode) != "" {
-			// never overwrite values that are already set
-			skippedRows = append(skippedRows, map[string]any{
-				"row":    rowNumber,
-				"reason": "mxik/unit_code already set, skipped",
-				"data":   row,
-			})
-			continue
-		}
+		mxikMissing := strings.TrimSpace(existing.Mxik) == ""
+		unitCodeMissing := strings.TrimSpace(existing.UnitCode) == ""
 
 		newMxik, newUnitCode := existing.Mxik, existing.UnitCode
-		if mxik != "" {
+		changed := false
+		// fill each field independently — only when it's blank in the DB and excel has a value;
+		// a field that's already set is never overwritten, even if the other one gets filled in
+		if mxikMissing && mxik != "" {
 			newMxik = mxik
+			changed = true
 		}
-		if unitCode != "" {
+		if unitCodeMissing && unitCode != "" {
 			newUnitCode = unitCode
+			changed = true
+		}
+
+		if !changed {
+			h.log.Warnf("row %d skipped: nothing to fill in (mxik/unit_code already set or excel has no value)", rowNumber)
+			skipped++
+			continue
 		}
 
 		if err := tx.Exec(`UPDATE product_barcodes SET mxik = ?, unit_code = ?, updated_at = ? WHERE id = ?`,
@@ -685,8 +681,10 @@ func (h *HelperHandler) UploadBarcodeMxikUnit(c *gin.Context) {
 	}
 
 	handleResponse(c, OK, gin.H{
-		"updated": updated,
-		"skipped": skippedRows,
+		"updated":               updated,
+		"skipped":               skipped,
+		"product_not_found":     productNotFound,
+		"barcode_row_not_found": barcodeRowNotFound,
 	})
 }
 
@@ -1091,7 +1089,7 @@ func (h *HelperHandler) updateStoreProductMxik(now time.Time) {
 	// UPDATE store_products sp
 	// SET mxik = p.mxik, unit_code = p.unit_code, unit_label = p.unit_label, is_marking = p.is_marking, barcode = p.barcode, updated_at = now()
 	// FROM products p
-	// WHERE sp.product_id = p.id AND sp.unit_quantity > 0 AND p.updated_at >= now() - interval '5 minute'; 
+	// WHERE sp.product_id = p.id AND sp.unit_quantity > 0 AND p.updated_at >= now() - interval '5 minute';
 	// `).Error
 	// if err != nil {
 	// 	h.log.Errorf("could not update store product mxik: %v", err)
@@ -2847,7 +2845,6 @@ func isNumeric(s string) bool {
 	return true
 }
 
-
 // UploadTerminalIDs godoc
 // @Summary Upload terminal IDs
 // @Description Upload an Excel file containing terminal IDs and map them to stores by store code.
@@ -3136,7 +3133,6 @@ func (h *HelperHandler) UploadIsReturn(c *gin.Context) {
 		"updated": updated,
 	})
 }
-
 
 // UploadCountry godoc
 // @Summary Upload Country update excel
@@ -3643,7 +3639,3 @@ func (h *HelperHandler) UploadProductCategories(c *gin.Context) {
 		"skipped":   skipped,
 	})
 }
-
-
-
-
