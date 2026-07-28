@@ -8357,6 +8357,55 @@ const docTemplate = `{
                 }
             }
         },
+        "/helper/upload-barcode-mxik-unit": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Excel columns: 1) material_code, 2) barcode, 3) mxik, 4) unit_code.\nFor each row, finds the product by material_code, then finds the matching\nproduct_barcodes row (by product_id+barcode, falling back to the product's\nrow with an empty barcode). Only fills mxik/unit_code when BOTH are currently\nempty in the database and the excel provides at least one of them; existing\nnon-empty values are never overwritten and no new rows are created.",
+                "consumes": [
+                    "multipart/form-data"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "helper"
+                ],
+                "summary": "Upload excel to fill in missing mxik/unit_code on product_barcodes",
+                "parameters": [
+                    {
+                        "type": "file",
+                        "description": "Excel file (.xlsx) with material_code, barcode, mxik, unit_code columns",
+                        "name": "file",
+                        "in": "formData",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    }
+                }
+            }
+        },
         "/helper/upload-cart-item-quantities": {
             "post": {
                 "security": [

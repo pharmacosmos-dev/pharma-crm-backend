@@ -7733,6 +7733,44 @@ paths:
       summary: update product infos
       tags:
       - helper
+  /helper/upload-barcode-mxik-unit:
+    post:
+      consumes:
+      - multipart/form-data
+      description: |-
+        Excel columns: 1) material_code, 2) barcode, 3) mxik, 4) unit_code.
+        For each row, finds the product by material_code, then finds the matching
+        product_barcodes row (by product_id+barcode, falling back to the product's
+        row with an empty barcode). Only fills mxik/unit_code when BOTH are currently
+        empty in the database and the excel provides at least one of them; existing
+        non-empty values are never overwritten and no new rows are created.
+      parameters:
+      - description: Excel file (.xlsx) with material_code, barcode, mxik, unit_code
+          columns
+        in: formData
+        name: file
+        required: true
+        type: file
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Upload excel to fill in missing mxik/unit_code on product_barcodes
+      tags:
+      - helper
   /helper/upload-cart-item-quantities:
     post:
       consumes:

@@ -48,6 +48,7 @@ func (h *HelperHandler) HelperRoutes(r *gin.RouterGroup) {
 		helper.POST("/upload-mxik", h.UploadMxik)
 		helper.POST("/epos", h.EposTransmitter)
 		helper.POST("/upload-product-barcodes", h.UploadProductBarcodes)
+		helper.POST("/upload-barcode-mxik-unit", h.UploadBarcodeMxikUnit)
 		helper.POST("/upload-store-products", h.UploadStoreProducts)
 		helper.POST("/upload-product-producer", h.UploadProductProducer)
 		helper.POST("/upload-store-terminals", h.UploadTerminalIDs)
@@ -496,6 +497,188 @@ func (h *HelperHandler) UploadProductBarcodes(c *gin.Context) {
 	handleResponse(c, OK, gin.H{
 		"created": created,
 		"updated": updated,
+	})
+}
+
+// UploadBarcodeMxikUnit godoc
+// @Summary Upload excel to fill in missing mxik/unit_code on product_barcodes
+// @Description Excel columns: 1) material_code, 2) barcode, 3) mxik, 4) unit_code.
+// @Description For each row, finds the product by material_code, then finds the matching
+// @Description product_barcodes row (by product_id+barcode, falling back to the product's
+// @Description row with an empty barcode). Only fills mxik/unit_code when BOTH are currently
+// @Description empty in the database and the excel provides at least one of them; existing
+// @Description non-empty values are never overwritten and no new rows are created.
+// @Tags helper
+// @Security BearerAuth
+// @Accept multipart/form-data
+// @Produce json
+// @Param file formData file true "Excel file (.xlsx) with material_code, barcode, mxik, unit_code columns"
+// @Success 200 {object} v1.Response
+// @Failure 400 {object} v1.Response
+// @Failure 500 {object} v1.Response
+// @Router /helper/upload-barcode-mxik-unit [POST]
+func (h *HelperHandler) UploadBarcodeMxikUnit(c *gin.Context) {
+	var file domain.File
+	if err := c.ShouldBind(&file); err != nil {
+		handleResponse(c, BadRequest, err.Error())
+		return
+	}
+
+	ext := filepath.Ext(file.File.Filename)
+	if ext != ".xlsx" && ext != ".xls" {
+		handleResponse(c, BadRequest, "Unsupported file format")
+		return
+	}
+
+	newFilename := uuid.New().String() + ext
+	savePath := filepath.Join("uploads", newFilename)
+	if err := c.SaveUploadedFile(file.File, savePath); err != nil {
+		handleResponse(c, InternalError, "Failed to save file")
+		return
+	}
+	defer os.Remove(savePath)
+
+	xlsx, err := excelize.OpenFile(savePath)
+	if err != nil {
+		handleResponse(c, BadRequest, "Failed to open Excel file")
+		return
+	}
+	defer xlsx.Close()
+
+	sheetName := xlsx.GetSheetName(0)
+	rows, err := xlsx.GetRows(sheetName)
+	if err != nil {
+		handleResponse(c, InternalError, "Failed to get Excel rows")
+		return
+	}
+
+	tx := h.db.Begin()
+	defer func() {
+		if r := recover(); r != nil {
+			tx.Rollback()
+		}
+	}()
+
+	now := time.Now()
+	updated := 0
+	var skippedRows []map[string]any
+
+	type barcodeRow struct {
+		ID       string
+		Mxik     string
+		UnitCode string
+	}
+
+	for idx, row := range rows[1:] { // skip header
+		rowNumber := idx + 2
+		if len(row) < 4 {
+			skippedRows = append(skippedRows, map[string]any{
+				"row":    rowNumber,
+				"reason": "not enough columns",
+				"data":   row,
+			})
+			continue
+		}
+
+		materialCode := parseIntComma(row[0])
+		barcode := strings.TrimSpace(row[1])
+		mxik := strings.TrimSpace(row[2])
+		unitCode := strings.ReplaceAll(strings.TrimSpace(row[3]), " ", "")
+
+		if materialCode == 0 {
+			skippedRows = append(skippedRows, map[string]any{
+				"row":    rowNumber,
+				"reason": "empty or invalid material_code",
+				"data":   row,
+			})
+			continue
+		}
+		if mxik == "" && unitCode == "" {
+			skippedRows = append(skippedRows, map[string]any{
+				"row":    rowNumber,
+				"reason": "mxik and unit_code both empty in excel",
+				"data":   row,
+			})
+			continue
+		}
+
+		var productID string
+		if err := tx.Raw(`SELECT id FROM products WHERE material_code = ?`, materialCode).
+			Scan(&productID).Error; err != nil || productID == "" {
+			skippedRows = append(skippedRows, map[string]any{
+				"row":    rowNumber,
+				"reason": "product not found for material_code",
+				"data":   row,
+			})
+			continue
+		}
+
+		// 1) exact match by product_id + barcode from excel
+		// COALESCE so a SQL NULL mxik/unit_code scans as "" instead of erroring out
+		var existing barcodeRow
+		if err := tx.Raw(`SELECT id, COALESCE(mxik, '') AS mxik, COALESCE(unit_code, '') AS unit_code
+			FROM product_barcodes WHERE product_id = ? AND barcode = ? LIMIT 1`,
+			productID, barcode).Scan(&existing).Error; err != nil {
+			tx.Rollback()
+			handleResponse(c, InternalError, err.Error())
+			return
+		}
+
+		// 2) fallback: the product's placeholder row with an empty barcode
+		if existing.ID == "" && barcode != "" {
+			if err := tx.Raw(`SELECT id, COALESCE(mxik, '') AS mxik, COALESCE(unit_code, '') AS unit_code
+				FROM product_barcodes WHERE product_id = ? AND barcode = '' LIMIT 1`,
+				productID).Scan(&existing).Error; err != nil {
+				tx.Rollback()
+				handleResponse(c, InternalError, err.Error())
+				return
+			}
+		}
+
+		if existing.ID == "" {
+			skippedRows = append(skippedRows, map[string]any{
+				"row":    rowNumber,
+				"reason": "matching product_barcodes row not found",
+				"data":   row,
+			})
+			continue
+		}
+
+		if strings.TrimSpace(existing.Mxik) != "" || strings.TrimSpace(existing.UnitCode) != "" {
+			// never overwrite values that are already set
+			skippedRows = append(skippedRows, map[string]any{
+				"row":    rowNumber,
+				"reason": "mxik/unit_code already set, skipped",
+				"data":   row,
+			})
+			continue
+		}
+
+		newMxik, newUnitCode := existing.Mxik, existing.UnitCode
+		if mxik != "" {
+			newMxik = mxik
+		}
+		if unitCode != "" {
+			newUnitCode = unitCode
+		}
+
+		if err := tx.Exec(`UPDATE product_barcodes SET mxik = ?, unit_code = ?, updated_at = ? WHERE id = ?`,
+			newMxik, newUnitCode, now, existing.ID).Error; err != nil {
+			tx.Rollback()
+			handleResponse(c, InternalError, err.Error())
+			return
+		}
+		updated++
+	}
+
+	if err := tx.Commit().Error; err != nil {
+		handleResponse(c, InternalError, err.Error())
+		return
+	}
+
+	handleResponse(c, OK, gin.H{
+		"updated": updated,
+		"skipped": skippedRows,
 	})
 }
 
