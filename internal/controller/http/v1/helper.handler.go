@@ -584,6 +584,14 @@ func (h *HelperHandler) UploadBarcodeMxikUnit(c *gin.Context) {
 		barcode := strings.TrimSpace(row[1])
 		mxik := strings.TrimSpace(row[2])
 		unitCode := strings.ReplaceAll(strings.TrimSpace(row[3]), " ", "")
+		// Excel often shows a blank numeric-formatted cell as "0" — treat that as no value
+		// so it never overwrites a NULL/empty mxik or unit_code with the literal "0".
+		if mxik == "0" {
+			mxik = ""
+		}
+		if unitCode == "0" {
+			unitCode = ""
+		}
 
 		if materialCode == 0 {
 			skippedRows = append(skippedRows, map[string]any{
