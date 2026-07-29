@@ -440,6 +440,12 @@ func (h *ReportHandler) GetProductsReport(c *gin.Context) {
 		handleServiceResponse(c, BadRequest, domain.InvalidQueryError)
 		return
 	}
+
+	// Bind JSON body (store_ids)
+	if c.Request.Body != nil {
+		_ = c.ShouldBindJSON(&params.StoreIds)
+	}
+
 	// check if employee is not admin or superadmin
 	if !helper.IsAdmin(user) {
 		if user.StoreId != "" {
@@ -498,6 +504,11 @@ func (h *ReportHandler) GetProductsReportStats(c *gin.Context) {
 	if err := c.ShouldBindQuery(&params); err != nil {
 		handleServiceResponse(c, nil, domain.InvalidQueryError)
 		return
+	}
+
+	// Bind JSON body (store_ids)
+	if c.Request.Body != nil {
+		_ = c.ShouldBindJSON(&params.StoreIds)
 	}
 
 	// check if employee is not admin or superadmin
