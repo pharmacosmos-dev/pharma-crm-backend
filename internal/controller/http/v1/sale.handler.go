@@ -261,7 +261,7 @@ func (h *SaleHandler) GetSales(c *gin.Context) {
 	}
 
 	// Kassir roli faqat o'z sotuvlarini ko'radi, qolgan rollar (masalan, Zavedyushiy) to'liq ko'radi
-	if user.Role == constants.RoleCashier {
+	if user.Role == "Кассир" {
 		params.VendorId = user.UserId
 	}
 
@@ -319,6 +319,7 @@ func (h *SaleHandler) ExportSalesExcel(c *gin.Context) {
 		return
 	}
 
+
 	if user.StoreId != "" {
 		limitDate := time.Now().
 			AddDate(0, 0, -60).
@@ -334,6 +335,10 @@ func (h *SaleHandler) ExportSalesExcel(c *gin.Context) {
 			// agar start_date 60 kundan eski bo'lsa 60 kunga kesiladi
 			params.StartDate = &customLimitDate
 		}
+	}
+
+	if user.Role == "Кассир" {
+		params.VendorId = user.UserId
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
@@ -597,7 +602,7 @@ func (h *SaleHandler) GetSalesStats(c *gin.Context) {
 	// admin: hech qanday filter yo'q — barchasini ko'radi
 
 	// Kassir roli faqat o'z sotuvlari bo'yicha statistikani ko'radi, qolgan rollar (masalan, Zavedyushiy) to'liq ko'radi
-	if user.Role == constants.RoleCashier {
+	if user.Role == "Кассир" {
 		params.VendorId = user.UserId
 	}
 
