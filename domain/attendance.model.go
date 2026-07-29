@@ -14,6 +14,7 @@ type AttendanceLog struct {
 	EmployeeId string     `gorm:"column:employee_id" json:"employee_id"`
 	EventType  string     `gorm:"column:event_type" json:"event_type"`
 	EventAt    time.Time  `gorm:"column:event_at" json:"event_at"`
+	Photo      *string    `gorm:"column:photo" json:"photo,omitempty"`
 	CreatedAt  *time.Time `gorm:"column:created_at" json:"created_at"`
 	UpdatedAt  *time.Time `gorm:"column:updated_at" json:"updated_at"`
 }
@@ -26,6 +27,7 @@ func (AttendanceLog) TableName() string {
 // event_type qat'iy "check-in" yoki "check-out" bo'lishi kerak.
 type CreateAttendanceLogRequest struct {
 	EventType string `json:"event_type" binding:"required" example:"check-in"`
+	FaceIdUrl string `json:"face_id_url"`
 }
 
 // AttendanceLogQueryParams — check-in/check-out ro'yxati uchun filter parametrlari.
@@ -47,5 +49,6 @@ type AttendanceLogListItem struct {
 	EmployeeName string     `json:"employee_name"`
 	EventType    string     `json:"event_type"`
 	EventAt      time.Time  `json:"event_at"`
+	Photo        *string    `json:"photo"`
 	CreatedAt    *time.Time `json:"created_at"`
 }

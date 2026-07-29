@@ -43,7 +43,7 @@ func (s *Services) GetTodayLastAttendanceEventType(ctx context.Context, employee
 // bo'yicha oxirgi voqeaga qarab tekshiriladi: hech qanday voqea yo'q yoki oxirgisi
 // check-out bo'lsa faqat check-in, oxirgisi check-in bo'lsa faqat check-out qilish
 // mumkin — kechagi kun voqealari hisobga olinmaydi.
-func (s *Services) CreateAttendanceLog(ctx context.Context, employeeId, storeId, eventType string) (*domain.AttendanceLog, error) {
+func (s *Services) CreateAttendanceLog(ctx context.Context, employeeId, storeId, eventType, photo string) (*domain.AttendanceLog, error) {
 	if eventType != domain.AttendanceEventCheckIn && eventType != domain.AttendanceEventCheckOut {
 		return nil, domain.InvalidEventTypeError
 	}
@@ -70,12 +70,18 @@ func (s *Services) CreateAttendanceLog(ctx context.Context, employeeId, storeId,
 		storeIdPtr = &storeId
 	}
 
+	var photoPtr *string
+	if photo != "" {
+		photoPtr = &photo
+	}
+
 	log := domain.AttendanceLog{
 		Id:         uuid.New().String(),
 		StoreId:    storeIdPtr,
 		EmployeeId: employeeId,
 		EventType:  eventType,
 		EventAt:    time.Now(),
+		Photo:      photoPtr,
 	}
 
 	if err := s.db.WithContext(ctx).Create(&log).Error; err != nil {
@@ -130,6 +136,7 @@ func (s *Services) GetAttendanceLogList(ctx context.Context, params *domain.Atte
 			COALESCE(e.full_name, '') AS employee_name,
 			al.event_type,
 			al.event_at,
+			al.photo,
 			al.created_at
 		`).
 		Order("al.event_at DESC")

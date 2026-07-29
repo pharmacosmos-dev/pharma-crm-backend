@@ -879,7 +879,7 @@ func (h *EmployeeHandler) CheckInOut(c *gin.Context) {
 	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
 	defer cancel()
 
-	result, err := h.service.CreateAttendanceLog(ctx, user.UserId, user.StoreId, body.EventType)
+	result, err := h.service.CreateAttendanceLog(ctx, user.UserId, user.StoreId, body.EventType, body.FaceIdUrl)
 	if err != nil {
 		handleServiceResponse(c, nil, err)
 		return
