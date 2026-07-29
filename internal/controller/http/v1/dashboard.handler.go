@@ -910,7 +910,7 @@ func (h *DashboardHandler) SaleStatistic(c *gin.Context) {
 	}
 
 	// Kassir roli faqat o'z sotuvlari bo'yicha statistikani ko'radi, qolgan rollar (masalan, Zavedyushiy) to'liq ko'radi
-	if user.Role == "Кассир" {
+	if user.Role == constants.RoleNameCashier {
 		params.EmployeeId = user.UserId
 	}
 

@@ -267,6 +267,7 @@ const (
 // employee.RoleType constants above
 const (
 	RoleNameZavStore = "Заведующий" // store head/manager: exempt from the sale stats 14-day date range limit
+	RoleNameCashier  = "Кассир"     // cashier: sale stats/list restricted to their own sales
 )
 
 // movement type

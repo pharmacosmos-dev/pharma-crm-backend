@@ -261,7 +261,7 @@ func (h *SaleHandler) GetSales(c *gin.Context) {
 	}
 
 	// Kassir roli faqat o'z sotuvlarini ko'radi, qolgan rollar (masalan, Zavedyushiy) to'liq ko'radi
-	if user.Role == "Кассир" {
+	if user.Role == constants.RoleNameCashier {
 		params.VendorId = user.UserId
 	}
 
@@ -337,7 +337,7 @@ func (h *SaleHandler) ExportSalesExcel(c *gin.Context) {
 		}
 	}
 
-	if user.Role == "Кассир" {
+	if user.Role == constants.RoleNameCashier {
 		params.VendorId = user.UserId
 	}
 
@@ -602,7 +602,7 @@ func (h *SaleHandler) GetSalesStats(c *gin.Context) {
 	// admin: hech qanday filter yo'q — barchasini ko'radi
 
 	// Kassir roli faqat o'z sotuvlari bo'yicha statistikani ko'radi, qolgan rollar (masalan, Zavedyushiy) to'liq ko'radi
-	if user.Role == "Кассир" {
+	if user.Role == constants.RoleNameCashier {
 		params.VendorId = user.UserId
 	}
 
