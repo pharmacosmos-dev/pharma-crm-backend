@@ -909,6 +909,11 @@ func (h *DashboardHandler) SaleStatistic(c *gin.Context) {
 		params.StoreIds = []string{}
 	}
 
+	// Kassir roli faqat o'z sotuvlari bo'yicha statistikani ko'radi, qolgan rollar (masalan, Zavedyushiy) to'liq ko'radi
+	if user.Role == constants.RoleCashier {
+		params.EmployeeId = user.UserId
+	}
+
 	// get dashboard data
 	res, err := h.service.DashboardSaleStatistic(ctx, &params)
 	if err != nil {

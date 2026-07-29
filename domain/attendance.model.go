@@ -14,7 +14,7 @@ type AttendanceLog struct {
 	EmployeeId string     `gorm:"column:employee_id" json:"employee_id"`
 	EventType  string     `gorm:"column:event_type" json:"event_type"`
 	EventAt    time.Time  `gorm:"column:event_at" json:"event_at"`
-	Photo      *string    `gorm:"column:photo" json:"photo,omitempty"`
+	FaceIdUrl  *string    `gorm:"column:face_id_url" json:"face_id_url,omitempty"`
 	CreatedAt  *time.Time `gorm:"column:created_at" json:"created_at"`
 	UpdatedAt  *time.Time `gorm:"column:updated_at" json:"updated_at"`
 }
@@ -49,6 +49,6 @@ type AttendanceLogListItem struct {
 	EmployeeName string     `json:"employee_name"`
 	EventType    string     `json:"event_type"`
 	EventAt      time.Time  `json:"event_at"`
-	Photo        *string    `json:"photo"`
+	FaceIdUrl    *string    `json:"face_id_url"`
 	CreatedAt    *time.Time `json:"created_at"`
 }

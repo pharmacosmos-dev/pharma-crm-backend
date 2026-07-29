@@ -4,6 +4,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
@@ -44,6 +46,7 @@ func (h *EmployeeHandler) EmployeeRoutes(r *gin.RouterGroup) {
 		employee.PUT("/unblock", h.UnBlockEmployee)
 		employee.GET("/bonus", h.SmenaBonus)
 		employee.POST("/attendance-face-id", h.CheckInOut)
+		employee.DELETE("/attendance-face-id/:id", h.DeleteAttendanceFaceId)
 		employee.GET("/attendance/list", h.AttendanceList)
 		employee.PATCH("/:id/face-descriptor", h.CreateOrUpdateFaceDescriptor)
 		employee.GET("/:id/face-descriptor", h.GetEmployeeFaceDescriptor)
@@ -886,6 +889,51 @@ func (h *EmployeeHandler) CheckInOut(c *gin.Context) {
 	}
 
 	handleResponse(c, CREATED, result)
+}
+
+// DeleteAttendanceFaceId godoc
+// @Summary      Delete attendance photo
+// @Description  attendance_logs yozuvining face_id_url maydonini NULL qiladi va tegishli faylni upload papkadan o'chiradi.
+// @Tags         employees
+// @Security     BearerAuth
+// @Produce      json
+// @Param        id  path  string  true  "Attendance log ID"
+// @Success      200  {object}  v1.Response
+// @Failure      400  {object}  v1.Response
+// @Failure      401  {object}  v1.Response
+// @Failure      404  {object}  v1.Response
+// @Failure      500  {object}  v1.Response
+// @Router       /employee/attendance-face-id/{id} [delete]
+func (h *EmployeeHandler) DeleteAttendanceFaceId(c *gin.Context) {
+	user := h.service.GetSignedUser(c)
+	if user.UserId == "" {
+		handleServiceResponse(c, nil, domain.UnauthorizedError)
+		return
+	}
+
+	id := c.Param("id")
+	if err := uuid.Validate(id); err != nil {
+		handleResponse(c, BadRequest, "Invalid id")
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
+	defer cancel()
+
+	fileName, err := h.service.ClearAttendanceLogFaceIdUrl(ctx, id)
+	if err != nil {
+		handleServiceResponse(c, nil, err)
+		return
+	}
+
+	if fileName != "" {
+		filePath := filepath.Join("./app/uploads", fileName)
+		if removeErr := os.Remove(filePath); removeErr != nil && !os.IsNotExist(removeErr) {
+			h.log.Errorf("could not delete attendance photo file: %v", removeErr)
+		}
+	}
+
+	handleResponse(c, OK, "DELETED")
 }
 
 // AttendanceList godoc

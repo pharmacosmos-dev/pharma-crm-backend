@@ -690,6 +690,10 @@ func (s *Services) DashboardSaleStatistic(ctx context.Context, params *domain.Da
 		qb = qb.Where("st.company_id IN(?)", params.CompanyIds)
 	}
 
+	if params.EmployeeId != "" {
+		qb = qb.Where("s.employee_id = ?", params.EmployeeId)
+	}
+
 	var res domain.DashboardSaleStatistic
 	err := qb.Debug().Take(&res).Error
 	if err != nil {

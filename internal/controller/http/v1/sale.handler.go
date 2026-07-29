@@ -260,6 +260,11 @@ func (h *SaleHandler) GetSales(c *gin.Context) {
 		}
 	}
 
+	// Kassir roli faqat o'z sotuvlarini ko'radi, qolgan rollar (masalan, Zavedyushiy) to'liq ko'radi
+	if user.Role == constants.RoleCashier {
+		params.VendorId = user.UserId
+	}
+
 	// get sale list data
 	res, totalCount, err := h.service.GetSales(ctx, &params, user)
 	if err != nil {
@@ -590,6 +595,11 @@ func (h *SaleHandler) GetSalesStats(c *gin.Context) {
 		}
 	}
 	// admin: hech qanday filter yo'q — barchasini ko'radi
+
+	// Kassir roli faqat o'z sotuvlari bo'yicha statistikani ko'radi, qolgan rollar (masalan, Zavedyushiy) to'liq ko'radi
+	if user.Role == constants.RoleCashier {
+		params.VendorId = user.UserId
+	}
 
 	res, err := h.service.GetSalesStats(ctx, &params, user)
 	if err != nil {

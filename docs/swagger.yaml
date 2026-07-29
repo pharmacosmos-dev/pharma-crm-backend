@@ -317,6 +317,8 @@ definitions:
       event_type:
         example: check-in
         type: string
+      face_id_url:
+        type: string
     required:
     - event_type
     type: object
@@ -6250,6 +6252,44 @@ paths:
       security:
       - BearerAuth: []
       summary: Employee attendance-face-id check-in / check-out
+      tags:
+      - employees
+  /employee/attendance-face-id/{id}:
+    delete:
+      description: attendance_logs yozuvining face_id_url maydonini NULL qiladi va
+        tegishli faylni upload papkadan o'chiradi.
+      parameters:
+      - description: Attendance log ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Delete attendance photo
       tags:
       - employees
   /employee/attendance/list:

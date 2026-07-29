@@ -5730,6 +5730,64 @@ const docTemplate = `{
                 }
             }
         },
+        "/employee/attendance-face-id/{id}": {
+            "delete": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "attendance_logs yozuvining face_id_url maydonini NULL qiladi va tegishli faylni upload papkadan o'chiradi.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "employees"
+                ],
+                "summary": "Delete attendance photo",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Attendance log ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    }
+                }
+            }
+        },
         "/employee/attendance/list": {
             "get": {
                 "security": [
@@ -32514,6 +32572,9 @@ const docTemplate = `{
                 "event_type": {
                     "type": "string",
                     "example": "check-in"
+                },
+                "face_id_url": {
+                    "type": "string"
                 }
             }
         },

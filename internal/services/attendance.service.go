@@ -43,7 +43,7 @@ func (s *Services) GetTodayLastAttendanceEventType(ctx context.Context, employee
 // bo'yicha oxirgi voqeaga qarab tekshiriladi: hech qanday voqea yo'q yoki oxirgisi
 // check-out bo'lsa faqat check-in, oxirgisi check-in bo'lsa faqat check-out qilish
 // mumkin — kechagi kun voqealari hisobga olinmaydi.
-func (s *Services) CreateAttendanceLog(ctx context.Context, employeeId, storeId, eventType, photo string) (*domain.AttendanceLog, error) {
+func (s *Services) CreateAttendanceLog(ctx context.Context, employeeId, storeId, eventType, faceIdUrl string) (*domain.AttendanceLog, error) {
 	if eventType != domain.AttendanceEventCheckIn && eventType != domain.AttendanceEventCheckOut {
 		return nil, domain.InvalidEventTypeError
 	}
@@ -70,9 +70,9 @@ func (s *Services) CreateAttendanceLog(ctx context.Context, employeeId, storeId,
 		storeIdPtr = &storeId
 	}
 
-	var photoPtr *string
-	if photo != "" {
-		photoPtr = &photo
+	var faceIdUrlPtr *string
+	if faceIdUrl != "" {
+		faceIdUrlPtr = &faceIdUrl
 	}
 
 	log := domain.AttendanceLog{
@@ -81,7 +81,7 @@ func (s *Services) CreateAttendanceLog(ctx context.Context, employeeId, storeId,
 		EmployeeId: employeeId,
 		EventType:  eventType,
 		EventAt:    time.Now(),
-		Photo:      photoPtr,
+		FaceIdUrl:  faceIdUrlPtr,
 	}
 
 	if err := s.db.WithContext(ctx).Create(&log).Error; err != nil {
@@ -90,6 +90,35 @@ func (s *Services) CreateAttendanceLog(ctx context.Context, employeeId, storeId,
 	}
 
 	return &log, nil
+}
+
+// ClearAttendanceLogFaceIdUrl — attendance_logs yozuvining face_id_url maydonini
+// NULL qiladi va eski qiymatni (fayl nomini) qaytaradi, handler shu nom bo'yicha
+// faylni upload papkadan o'chiradi.
+func (s *Services) ClearAttendanceLogFaceIdUrl(ctx context.Context, id string) (string, error) {
+	var log domain.AttendanceLog
+	if err := s.db.WithContext(ctx).Take(&log, "id = ?", id).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return "", domain.ResourceNotFoundError
+		}
+		s.log.Errorf("could not get attendance log: %v", err)
+		return "", domain.InternalServerError
+	}
+
+	var oldFaceIdUrl string
+	if log.FaceIdUrl != nil {
+		oldFaceIdUrl = *log.FaceIdUrl
+	}
+
+	if err := s.db.WithContext(ctx).
+		Model(&domain.AttendanceLog{}).
+		Where("id = ?", id).
+		Update("face_id_url", nil).Error; err != nil {
+		s.log.Errorf("could not clear attendance log face_id_url: %v", err)
+		return "", domain.InternalServerError
+	}
+
+	return oldFaceIdUrl, nil
 }
 
 // GetAttendanceLogList — check-in/check-out yozuvlari ro'yxati, store_id, employee_id
@@ -136,7 +165,7 @@ func (s *Services) GetAttendanceLogList(ctx context.Context, params *domain.Atte
 			COALESCE(e.full_name, '') AS employee_name,
 			al.event_type,
 			al.event_at,
-			al.photo,
+			al.face_id_url,
 			al.created_at
 		`).
 		Order("al.event_at DESC")

@@ -62,6 +62,7 @@ type SaleQueryParams struct {
 	StartDate       *CustomTime `form:"start_date" validate:"date"`
 	EndDate         *CustomTime `form:"end_date" validate:"date"`
 	VendorId        string      `form:"vendor_id"`
+	EmployeeId      string      `form:"employee_id"`
 	PaymentTypeId   string      `form:"payment_type_id"`
 	CashboxId       string      `form:"cashbox_id"`
 	Limit           int         `form:"limit"`

@@ -107,6 +107,7 @@ type DashboardQueryParam struct {
 	// CompanyId   string              `form:"company_id"`
 	StoreIds    []string    `form:"store_ids"`
 	CompanyIds  []string    `form:"company_ids"`
+	EmployeeId  string      `form:"employee_id"`
 	StartDate   *CustomTime `form:"start_date"`
 	EndDate     *CustomTime `form:"end_date"`
 	Type        string      `form:"type"`
