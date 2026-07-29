@@ -1568,7 +1568,7 @@ func (h *ProductHandler) ArzonProductExport(c *gin.Context) {
 	f.SetSheetName("Sheet1", sheetName)
 
 	// Headerlar
-	headers := []string{"Наименование", "Производитель", "Цена"}
+	headers := []string{"Наименование", "Производитель", "Цена", "Кол-во"}
 
 	err = setExcelHeaders(f, sheetName, headers)
 	if err != nil {
@@ -1583,6 +1583,7 @@ func (h *ProductHandler) ArzonProductExport(c *gin.Context) {
 		f.SetCellValue(sheetName, "A"+row, imp.Name)
 		f.SetCellValue(sheetName, "B"+row, imp.ProducerName)
 		f.SetCellValue(sheetName, "C"+row, imp.RetailPrice)
+		f.SetCellValue(sheetName, "D"+row, imp.Count)
 	}
 
 	saveExcelToUploads(c, f, *h.log, "product_list")

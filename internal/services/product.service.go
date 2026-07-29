@@ -1875,10 +1875,11 @@ func (s *Services) ProductListForArzon(ctx context.Context, storeId string) ([]d
 	var res []domain.ProductArzon
 	err := s.db.WithContext(ctx).
 		Raw(`
-	SELECT 
-		p.id, p.name, 
-		COALESCE(pr.name, '') AS producer_name, 
-		MIN(sp.retail_price) AS retail_price
+	SELECT
+		p.id, p.name,
+		COALESCE(pr.name, '') AS producer_name,
+		MIN(sp.retail_price) AS retail_price,
+		COUNT(sp.id) AS count
 	FROM store_products sp
 	JOIN products p ON sp.product_id = p.id
 	LEFT JOIN producers pr ON p.producer_id = pr.id
