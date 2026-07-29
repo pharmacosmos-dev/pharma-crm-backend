@@ -261,13 +261,13 @@ func (h *SaleHandler) GetSales(c *gin.Context) {
 	}
 
 	// Kassir roli (employee_roles orqali) faqat o'z sotuvlarini ko'radi, qolgan rollar (masalan, Zavedyushiy) to'liq ko'radi
-	isCashier, err := h.service.EmployeeHasRole(ctx, user.UserId, constants.RoleNameCashier)
-	if err != nil {
-		h.log.Error(err)
-	}
-	if isCashier {
-		params.VendorId = user.UserId
-	}
+	// isCashier, err := h.service.EmployeeHasRole(ctx, user.UserId, constants.RoleNameCashier)
+	// if err != nil {
+	// 	h.log.Error(err)
+	// }
+	// if isCashier {
+	// 	params.VendorId = user.UserId
+	// }
 
 	// get sale list data
 	res, totalCount, err := h.service.GetSales(ctx, &params, user)
@@ -611,13 +611,13 @@ func (h *SaleHandler) GetSalesStats(c *gin.Context) {
 	// admin: hech qanday filter yo'q — barchasini ko'radi
 
 	// Kassir roli (employee_roles orqali) faqat o'z sotuvlari bo'yicha statistikani ko'radi, qolgan rollar (masalan, Zavedyushiy) to'liq ko'radi
-	isCashier, err := h.service.EmployeeHasRole(ctx, user.UserId, constants.RoleNameCashier)
-	if err != nil {
-		h.log.Error(err)
-	}
-	if isCashier {
-		params.VendorId = user.UserId
-	}
+	// isCashier, err := h.service.EmployeeHasRole(ctx, user.UserId, constants.RoleNameCashier)
+	// if err != nil {
+	// 	h.log.Error(err)
+	// }
+	// if isCashier {
+	// 	params.VendorId = user.UserId
+	// }
 
 	res, err := h.service.GetSalesStats(ctx, &params, user)
 	if err != nil {
