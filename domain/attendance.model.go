@@ -30,10 +30,16 @@ type CreateAttendanceLogRequest struct {
 
 // AttendanceLogQueryParams — check-in/check-out ro'yxati uchun filter parametrlari.
 // date "2006-01-02" formatida, Toshkent vaqti bo'yicha shu kunning voqealarini qaytaradi.
+// start_date/end_date berilsa, date o'rniga oraliq bo'yicha filtrlaydi (ikkalasi ham
+// ixtiyoriy — faqat start_date berilsa, shu sanadan keyingi hammasi qaytadi va aksincha).
 type AttendanceLogQueryParams struct {
 	StoreId    string `form:"store_id"`
 	EmployeeId string `form:"employee_id"`
+	Name       string `form:"name"`
+	Phone      string `form:"phone"`
 	Date       string `form:"date"`
+	StartDate  string `form:"start_date"`
+	EndDate    string `form:"end_date"`
 	Limit      int    `form:"limit"`
 	Offset     int    `form:"offset"`
 }
@@ -45,7 +51,43 @@ type AttendanceLogListItem struct {
 	StoreName    string     `json:"store_name"`
 	EmployeeId   string     `json:"employee_id"`
 	EmployeeName string     `json:"employee_name"`
+	EmployeePhone string    `json:"employee_phone"`
 	EventType    string     `json:"event_type"`
 	EventAt      time.Time  `json:"event_at"`
 	CreatedAt    *time.Time `json:"created_at"`
+}
+
+// EmployeeAttendanceDayQueryParams — kunlik davomat (employee_attendance_days) ro'yxati
+// uchun filter parametrlari. start_date/end_date "2006-01-02" formatida, work_date
+// bo'yicha oraliq filtri (ikkalasi ham ixtiyoriy, mustaqil qo'llanadi).
+type EmployeeAttendanceDayQueryParams struct {
+	StoreId   string `form:"store_id"`
+	Name      string `form:"name"`
+	Phone     string `form:"phone"`
+	StartDate string `form:"start_date"`
+	EndDate   string `form:"end_date"`
+	Limit     int    `form:"limit"`
+	Offset    int    `form:"offset"`
+}
+
+// EmployeeAttendanceDayListItem — GET list javobi uchun, xodim va do'kon nomi bilan birga.
+type EmployeeAttendanceDayListItem struct {
+	Id               string     `json:"id"`
+	EmployeeId       string     `json:"employee_id"`
+	EmployeeName     string     `json:"employee_name"`
+	EmployeePhone    string     `json:"employee_phone"`
+	StoreId          *string    `json:"store_id"`
+	StoreName        string     `json:"store_name"`
+	WorkDate         time.Time  `json:"work_date"`
+	PlannedStartAt   *time.Time `json:"planned_start_at"`
+	FirstCheckIn     *time.Time `json:"first_check_in"`
+	LastCheckOut     *time.Time `json:"last_check_out"`
+	WorkedMinutes    int        `json:"worked_minutes"`
+	LateMinutes      int        `json:"late_minutes"`
+	SalesAmount      float64    `json:"sales_amount"`
+	IsAbsent         bool       `json:"is_absent"`
+	IsManualOverride bool       `json:"is_manual_override"`
+	Comment          *string    `json:"comment"`
+	CreatedAt        *time.Time `json:"created_at"`
+	UpdatedAt        *time.Time `json:"updated_at"`
 }

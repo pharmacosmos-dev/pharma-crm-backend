@@ -43,6 +43,11 @@ type Employee struct {
 	Status         string           `gorm:"status" json:"status"`
 	Birthdate      string           `gorm:"birthdate" json:"birthdate"`
 	Photo          string           `gorm:"photo" json:"photo"`
+	// StartDate/EndDate — smenaning kunlik boshlanish/tugash vaqti (TIME, "HH:MM" formatida),
+	// sana emas. employee_attendance_days.planned_start_at shundan hisoblanadi.
+	StartDate      *string          `gorm:"start_date" json:"start_date,omitempty"`
+	EndDate        *string          `gorm:"end_date" json:"end_date,omitempty"`
+	Salary         float64          `gorm:"salary" json:"salary"`
 	RoleType       string           `gorm:"role_type" json:"role_type,omitempty"`
 	CreatedAt      *time.Time       `gorm:"created_at" json:"created_at"`
 	UpdatedAt      *time.Time       `gorm:"updated_at" json:"updated_at"`
@@ -70,6 +75,9 @@ type EmployeeRequest struct {
 	Password  *string        `gorm:"password" json:"password"`
 	Language  string         `gorm:"language" json:"language" validate:"required,oneof=uz en ru"`
 	Birthdate string         `gorm:"birthdate" json:"birthdate"`
+	StartDate *string        `gorm:"start_date" json:"start_date"`
+	EndDate   *string        `gorm:"end_date" json:"end_date"`
+	Salary    float64        `gorm:"salary" json:"salary"`
 }
 
 // Reset password request

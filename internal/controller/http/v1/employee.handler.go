@@ -45,6 +45,7 @@ func (h *EmployeeHandler) EmployeeRoutes(r *gin.RouterGroup) {
 		employee.GET("/bonus", h.SmenaBonus)
 		employee.POST("/attendance-face-id", h.CheckInOut)
 		employee.GET("/attendance/list", h.AttendanceList)
+		employee.GET("/attendance-days/list", h.EmployeeAttendanceDayList)
 		employee.PATCH("/:id/face-descriptor", h.CreateOrUpdateFaceDescriptor)
 		employee.GET("/:id/face-descriptor", h.GetEmployeeFaceDescriptor)
 		employee.DELETE("/:id/face-descriptor", h.DeleteEmployeeFaceDescriptor)
@@ -371,6 +372,9 @@ func (h *EmployeeHandler) Update(c *gin.Context) {
 		"language":   body.Language,
 		"birthdate":  body.Birthdate,
 		"store_ids":  body.StoreIds,
+		"start_date": body.StartDate,
+		"end_date":   body.EndDate,
+		"salary":     body.Salary,
 	}
 
 	if body.Password != nil {
@@ -897,7 +901,11 @@ func (h *EmployeeHandler) CheckInOut(c *gin.Context) {
 // @Produce      json
 // @Param        store_id     query  string  false  "Store ID (faqat admin uchun filter sifatida ishlaydi)"
 // @Param        employee_id  query  string  false  "Employee ID"
+// @Param        name         query  string  false  "Xodim ismi bo'yicha qidiruv"
+// @Param        phone        query  string  false  "Xodim telefoni bo'yicha qidiruv"
 // @Param        date         query  string  false  "Sana (2006-01-02, Toshkent vaqti bo'yicha)"
+// @Param        start_date   query  string  false  "Oraliq boshlanishi (2006-01-02)"
+// @Param        end_date     query  string  false  "Oraliq tugashi (2006-01-02)"
 // @Param        limit        query  int     false  "Limit"
 // @Param        offset       query  int     false  "Offset"
 // @Success      200 {object} v1.Response
@@ -932,6 +940,60 @@ func (h *EmployeeHandler) AttendanceList(c *gin.Context) {
 	defer cancel()
 
 	results, count, err := h.service.GetAttendanceLogList(ctx, &params)
+	if err != nil {
+		handleServiceResponse(c, nil, err)
+		return
+	}
+
+	handleResponse(c, OK, utils.ListResponse(results, count, params.Limit, params.Offset))
+}
+
+// EmployeeAttendanceDayList godoc
+// @Summary      Employee attendance day list
+// @Description  Xodimlarning kunlik davomat yig'indisi ro'yxati (employee_attendance_days). Admin bo'lmagan foydalanuvchilar faqat o'z do'koniga tegishli yozuvlarni ko'radi, store_id filtri ular uchun e'tiborga olinmaydi.
+// @Tags         employees
+// @Security     BearerAuth
+// @Accept       json
+// @Produce      json
+// @Param        store_id    query  string  false  "Store ID (faqat admin uchun filter sifatida ishlaydi)"
+// @Param        name        query  string  false  "Xodim ismi bo'yicha qidiruv"
+// @Param        phone       query  string  false  "Xodim telefoni bo'yicha qidiruv"
+// @Param        start_date  query  string  false  "Oraliq boshlanishi (2006-01-02, work_date bo'yicha)"
+// @Param        end_date    query  string  false  "Oraliq tugashi (2006-01-02, work_date bo'yicha)"
+// @Param        limit       query  int     false  "Limit"
+// @Param        offset      query  int     false  "Offset"
+// @Success      200 {object} v1.Response
+// @Failure      400 {object} v1.Response
+// @Failure      401 {object} v1.Response
+// @Failure      500 {object} v1.Response
+// @Router       /employee/attendance-days/list [get]
+func (h *EmployeeHandler) EmployeeAttendanceDayList(c *gin.Context) {
+	user := h.service.GetSignedUser(c)
+	if user.UserId == "" {
+		handleServiceResponse(c, nil, domain.UnauthorizedError)
+		return
+	}
+
+	var params domain.EmployeeAttendanceDayQueryParams
+	if err := c.ShouldBindQuery(&params); err != nil {
+		handleResponse(c, BadRequest, err.Error())
+		return
+	}
+
+	if !helper.IsAdmin(user) {
+		if user.StoreId == "" {
+			handleResponse(c, BadRequest, "store_id not found for user")
+			return
+		}
+		params.StoreId = user.StoreId
+	}
+
+	params.Limit, params.Offset = defaultLimitOffset(params.Limit, params.Offset)
+
+	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
+	defer cancel()
+
+	results, count, err := h.service.GetEmployeeAttendanceDayList(ctx, &params)
 	if err != nil {
 		handleServiceResponse(c, nil, err)
 		return
