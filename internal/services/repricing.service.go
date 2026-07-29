@@ -222,12 +222,10 @@ func (s *Services) GetRepricingList(ctx context.Context, params *domain.QueryPar
 		Preload("UpdatedBy").
 		Select(`price_revalutions.*,
 						COUNT(prd.store_product_id) AS count,
-						SUM(COALESCE((prd.old_retail_price / NULLIF(p.unit_per_pack, 0)) * sp.unit_quantity, 0)) AS total_old_retail_price,
-						SUM(COALESCE((prd.new_retail_price / NULLIF(p.unit_per_pack, 0)) * sp.unit_quantity, 0)) AS total_new_retail_price,
-						SUM(COALESCE(((prd.new_retail_price - prd.old_retail_price) / NULLIF(p.unit_per_pack, 0)) * sp.unit_quantity, 0)) AS total_price_difference
+						SUM(prd.old_retail_price) AS total_old_retail_price,
+						SUM(prd.new_retail_price) AS total_new_retail_price,
+						SUM(prd.new_retail_price - prd.old_retail_price) AS total_price_difference
 		`).Joins("LEFT JOIN price_revalution_details prd ON price_revalutions.id = prd.price_revalution_id").
-		Joins("LEFT JOIN store_products sp ON prd.store_product_id = sp.id").
-		Joins("LEFT JOIN products p ON prd.product_id = p.id").
 		Group("price_revalutions.id")
 
 	if len(params.StoreIDs) > 0 {
@@ -422,10 +420,10 @@ func (s *Services) RepricingDetailStatus(ctx context.Context, repricingID int, p
 	query := `
 		SELECT
 			COALESCE(COUNT(prd.id), 0) AS count,
-			COALESCE(SUM(prd.old_retail_price), 0) AS total_old_retail_price,
-			COALESCE(SUM(prd.new_retail_price), 0) AS total_new_retail_price,
-			COALESCE(SUM(prd.old_supply_price), 0) AS total_old_supply_price,
--- 			COALESCE(SUM(prd.new_supply_price), 0) AS total_new_supply_price,
+			COALESCE(SUM((prd.old_retail_price / NULLIF(p.unit_per_pack, 0)) * sp.unit_quantity), 0) AS total_old_retail_price,
+			COALESCE(SUM((prd.new_retail_price / NULLIF(p.unit_per_pack, 0)) * sp.unit_quantity), 0) AS total_new_retail_price,
+			COALESCE(SUM((prd.old_supply_price / NULLIF(p.unit_per_pack, 0)) * sp.unit_quantity), 0) AS total_old_supply_price,
+-- 			COALESCE(SUM((prd.new_supply_price / NULLIF(p.unit_per_pack, 0)) * sp.unit_quantity), 0) AS total_new_supply_price,
 			ROUND(AVG(
 				CASE WHEN prd.old_supply_price = 0 THEN 0
 					 ELSE ((prd.old_retail_price - prd.old_supply_price) / prd.old_supply_price) * 100
@@ -438,6 +436,7 @@ func (s *Services) RepricingDetailStatus(ctx context.Context, repricingID int, p
 			), 2) AS avg_new_markup
 		FROM price_revalution_details prd
 		JOIN products p ON p.id = prd.product_id
+		LEFT JOIN store_products sp ON sp.id = prd.store_product_id
 		WHERE prd.price_revalution_id = ?
 	`
 
