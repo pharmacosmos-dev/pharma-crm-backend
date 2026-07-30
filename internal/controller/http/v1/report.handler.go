@@ -1128,6 +1128,8 @@ func (h *ReportHandler) ReportTopProducts(c *gin.Context) {
 			params.StoreId = user.StoreId
 		}
 		params.CompanyId = user.CompanyId
+	} else {
+		isAdmin = true
 	}
 
 	if !isAdmin && user.Role == constants.RoleFranchise {
@@ -1212,6 +1214,8 @@ func (h *ReportHandler) ReportTopSeller(c *gin.Context) {
 			params.StoreId = user.StoreId
 		}
 		params.CompanyId = user.CompanyId
+	} else {
+		isAdmin = true
 	}
 
 	if !isAdmin && user.Role == constants.RoleFranchise {
@@ -1374,6 +1378,8 @@ func (h *ReportHandler) ReportTopStores(c *gin.Context) {
 			params.StoreId = user.StoreId
 		}
 		params.CompanyId = user.CompanyId
+	} else {
+		isAdmin = true
 	}
 
 	if !isAdmin && user.Role == constants.RoleFranchise {

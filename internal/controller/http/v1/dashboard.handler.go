@@ -86,10 +86,10 @@ func (h *DashboardHandler) ChartStats(c *gin.Context) {
 
 	if user.StoreId != "" {
 		limitDate := time.Now().
-			AddDate(0, 0, -60).
+			AddDate(0, 0, -10).
 			Truncate(24 * time.Hour)
 
-		// agar start_date 60 kundan eski bo'lsa 60 kunga kesiladi
+		// agar start_date 10 kundan eski bo'lsa 10 kunga kesiladi
 		if params.StartDate.GetTime().Before(limitDate) {
 			customLimitDate := domain.CustomTime(limitDate)
 			params.StartDate = &customLimitDate
@@ -136,6 +136,15 @@ func (h *DashboardHandler) ChartStats(c *gin.Context) {
 		}
 		params.CompanyIds = companyIds
 		params.StoreIds = []string{}
+	}
+
+	// Kassir roli (employee_roles orqali) faqat o'z sotuvlari bo'yicha statistikani ko'radi, qolgan rollar (masalan, Zavedyushiy) to'liq ko'radi
+	isCashier, err := h.service.EmployeeHasRole(ctx, user.UserId, constants.RoleNameCashier)
+	if err != nil {
+		h.log.Error(err)
+	}
+	if isCashier {
+		params.EmployeeId = user.UserId
 	}
 
 	// get dashboard data
