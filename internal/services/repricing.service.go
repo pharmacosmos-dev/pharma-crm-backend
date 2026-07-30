@@ -419,7 +419,7 @@ func (s *Services) RepricingDetailList(repricingID int, param *domain.QueryParam
 func (s *Services) RepricingDetailStatus(ctx context.Context, repricingID int, params *domain.QueryParam) (*domain.RepricingDetailStatusSummary, error) {
 	query := `
 		SELECT
-			COALESCE(SUM(idet.accepted_count), 0) AS count,
+			ROUND(COALESCE(SUM(idet.accepted_count), 0))::bigint AS count,
 			COALESCE(SUM(idet.accepted_count * prd.old_retail_price), 0) AS total_old_retail_price,
 			COALESCE(SUM(idet.accepted_count * prd.new_retail_price), 0) AS total_new_retail_price,
 			COALESCE(SUM(idet.accepted_count * prd.old_supply_price), 0) AS total_old_supply_price,
