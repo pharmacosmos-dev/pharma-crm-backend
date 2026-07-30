@@ -419,11 +419,10 @@ func (s *Services) RepricingDetailList(repricingID int, param *domain.QueryParam
 func (s *Services) RepricingDetailStatus(ctx context.Context, repricingID int, params *domain.QueryParam) (*domain.RepricingDetailStatusSummary, error) {
 	query := `
 		SELECT
-			COALESCE(COUNT(prd.id), 0) AS count,
-			COALESCE(SUM(prd.old_retail_price), 0) AS total_old_retail_price,
-			COALESCE(SUM(prd.new_retail_price), 0) AS total_new_retail_price,
-			COALESCE(SUM(prd.old_supply_price), 0) AS total_old_supply_price,
--- 			COALESCE(SUM(prd.new_supply_price), 0) AS total_new_supply_price,
+			COALESCE(SUM(idet.accepted_count), 0) AS count,
+			COALESCE(SUM(idet.accepted_count * prd.old_retail_price), 0) AS total_old_retail_price,
+			COALESCE(SUM(idet.accepted_count * prd.new_retail_price), 0) AS total_new_retail_price,
+			COALESCE(SUM(idet.accepted_count * prd.old_supply_price), 0) AS total_old_supply_price,
 			ROUND(AVG(
 				CASE WHEN prd.old_supply_price = 0 THEN 0
 					 ELSE ((prd.old_retail_price - prd.old_supply_price) / prd.old_supply_price) * 100
@@ -436,6 +435,8 @@ func (s *Services) RepricingDetailStatus(ctx context.Context, repricingID int, p
 			), 2) AS avg_new_markup
 		FROM price_revalution_details prd
 		JOIN products p ON p.id = prd.product_id
+		LEFT JOIN store_products sp ON sp.id = prd.store_product_id
+		LEFT JOIN import_details idet ON idet.id = sp.import_detail_id
 		WHERE prd.price_revalution_id = ?
 	`
 
