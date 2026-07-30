@@ -16,6 +16,8 @@ type ReportQueryParam struct {
 	Order      string      `form:"order"`
 	EmployeeId string      `form:"employee_id"`
 	ProducerId string      `form:"producer_id"`
+	IsFranchise *bool      `form:"is_franchise"`
+	IsPharma    *bool      `form:"is_pharma"`
 	CompanyId  string      `form:"company_id"`
 	StoreIds   []string    `json:"store_ids"`
 	CompanyIds []string    `json:"company_ids"`
@@ -196,6 +198,11 @@ type DiscountCardReport struct {
 	TotalDiscount        float64 `json:"total_discount"`
 	TotalWithDiscount    float64 `json:"total_with_discount"`
 	TotalCount           int64   `json:"-"`
+}
+
+type TopBody struct {
+	StoreIds   []string `json:"store_ids"`
+	CompanyIds []string `json:"company_ids"`
 }
 
 // type RemainingProduct struct {

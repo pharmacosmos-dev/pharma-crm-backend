@@ -26,6 +26,30 @@ func (h *Handler) NewReportHandler(r *gin.RouterGroup) {
 	report.ReportRoutes(r)
 }
 
+// tashkentDateStr — berilgan vaqtni Toshkent vaqti bo'yicha "YYYY-MM-DD" ko'rinishida qaytaradi
+func tashkentDateStr(t time.Time) string {
+	return t.UTC().Add(domain.TashkentTimeDif).Format("2006-01-02")
+}
+
+// isTashkentToday — berilgan vaqt Toshkent vaqti bo'yicha bugungi kunga to'g'ri keladimi
+func isTashkentToday(t time.Time) bool {
+	return tashkentDateStr(t) == tashkentDateStr(time.Now())
+}
+
+// cashierReportFilterApplies — Kassir uchun employee_id cheklovi qachon qo'llanilishini aniqlaydi:
+// start_date bugungi kun bo'lsa cheklov qo'llanilmaydi (hammasi ko'rinadi); aks holda
+// (start_date boshqa kun, end_date esa bugungi kun yoki undan oldingi kun bo'lsa) cheklov qo'llanadi
+func cashierReportFilterApplies(params *domain.ReportQueryParam) bool {
+	if params.StartDate != nil && isTashkentToday(params.StartDate.GetTime()) {
+		return false
+	}
+	today := tashkentDateStr(time.Now())
+	if params.EndDate != nil && tashkentDateStr(params.EndDate.GetTime()) > today {
+		return false
+	}
+	return true
+}
+
 func (h *ReportHandler) ReportRoutes(r *gin.RouterGroup) {
 	report := r.Group("/report")
 	{
@@ -745,17 +769,17 @@ func (h *ReportHandler) StoreReportAmount(c *gin.Context) {
 
 	if user.StoreId != "" {
 		limitDate := time.Now().
-			AddDate(0, 0, -60).
+			AddDate(0, 0, -10).
 			Truncate(24 * time.Hour)
 
 		// time.Time -> domain.CustomTime
 		customLimitDate := domain.CustomTime(limitDate)
 
-		// start_date yuborilmagan bo‘lsa default 60 kun
+		// start_date yuborilmagan bo‘lsa default 10 kun
 		if params.StartDate == nil || params.StartDate.GetTime().IsZero() {
 			params.StartDate = &customLimitDate
 		} else {
-			// agar start_date 60 kundan eski bo‘lsa 60 kunga kesiladi
+			// agar start_date 10 kundan eski bo‘lsa 10 kunga kesiladi
 			if params.StartDate.GetTime().Before(limitDate) {
 				params.StartDate = &customLimitDate
 			}
@@ -792,12 +816,13 @@ func (h *ReportHandler) StoreReportAmount(c *gin.Context) {
 		}
 	}
 
-	// Kassir roli (employee_roles orqali) faqat o'z sotuvlarini ko'radi
+	// Kassir roli (employee_roles orqali) faqat bugungi kundan boshqa (masalan, default 10 kunlik)
+	// oraliqlarda o'z sotuvlarini ko'radi; start_date bugungi kun bo'lsa cheklov qo'llanilmaydi
 	isCashier, err := h.service.EmployeeHasRole(ctx, user.UserId, constants.RoleNameCashier)
 	if err != nil {
 		h.log.Error(err)
 	}
-	if isCashier {
+	if isCashier && cashierReportFilterApplies(&params) {
 		params.EmployeeId = user.UserId
 	}
 	// get store report with payment type amounts
@@ -884,12 +909,13 @@ func (h *ReportHandler) StoreReportAmountExport(c *gin.Context) {
 		params.CompanyIds = []string{user.CompanyId}
 	}
 
-	// Kassir roli (employee_roles orqali) faqat o'z sotuvlarini ko'radi
+	// Kassir roli (employee_roles orqali) faqat bugungi kundan boshqa oraliqlarda o'z sotuvlarini ko'radi;
+	// start_date bugungi kun bo'lsa cheklov qo'llanilmaydi
 	isCashier, err := h.service.EmployeeHasRole(ctx, user.UserId, constants.RoleNameCashier)
 	if err != nil {
 		h.log.Error(err)
 	}
-	if isCashier {
+	if isCashier && cashierReportFilterApplies(&params) {
 		params.EmployeeId = user.UserId
 	}
 
@@ -984,17 +1010,17 @@ func (h *ReportHandler) StoreReportStats(c *gin.Context) {
 
 	if user.StoreId != "" {
 		limitDate := time.Now().
-			AddDate(0, 0, -60).
+			AddDate(0, 0, -10).
 			Truncate(24 * time.Hour)
 
 		// time.Time -> domain.CustomTime
 		customLimitDate := domain.CustomTime(limitDate)
 
-		// start_date yuborilmagan bo‘lsa default 60 kun
+		// start_date yuborilmagan bo‘lsa default 10 kun
 		if params.StartDate == nil || params.StartDate.GetTime().IsZero() {
 			params.StartDate = &customLimitDate
 		} else {
-			// agar start_date 60 kundan eski bo‘lsa 60 kunga kesiladi
+			// agar start_date 10 kundan eski bo‘lsa 10 kunga kesiladi
 			if params.StartDate.GetTime().Before(limitDate) {
 				params.StartDate = &customLimitDate
 			}
@@ -1011,7 +1037,7 @@ func (h *ReportHandler) StoreReportStats(c *gin.Context) {
 
 	if len(user.StoreIds) > 0 {
 		limitDate := time.Now().
-			AddDate(0, 0, -60).
+			AddDate(0, 0, -10).
 			Truncate(24 * time.Hour)
 
 		// time.Time -> domain.CustomTime
@@ -1019,23 +1045,24 @@ func (h *ReportHandler) StoreReportStats(c *gin.Context) {
 		params.StoreIds = user.StoreIds
 		params.StoreId = ""
 		params.CompanyId = ""
-		// start_date yuborilmagan bo‘lsa default 60 kun
+		// start_date yuborilmagan bo‘lsa default 10 kun
 		if params.StartDate == nil || params.StartDate.GetTime().IsZero() {
 			params.StartDate = &customLimitDate
 		} else {
-			// agar start_date 60 kundan eski bo‘lsa 60 kunga kesiladi
+			// agar start_date 10 kundan eski bo‘lsa 10 kunga kesiladi
 			if params.StartDate.GetTime().Before(limitDate) {
 				params.StartDate = &customLimitDate
 			}
 		}
 	}
 
-	// Kassir roli (employee_roles orqali) faqat o'z sotuvlarini ko'radi
+	// Kassir roli (employee_roles orqali) faqat bugungi kundan boshqa (masalan, default 10 kunlik)
+	// oraliqlarda o'z sotuvlarini ko'radi; start_date bugungi kun bo'lsa cheklov qo'llanilmaydi
 	isCashier, err := h.service.EmployeeHasRole(ctx, user.UserId, constants.RoleNameCashier)
 	if err != nil {
 		h.log.Error(err)
 	}
-	if isCashier {
+	if isCashier && cashierReportFilterApplies(&params) {
 		params.EmployeeId = user.UserId
 	}
 
@@ -1075,6 +1102,8 @@ func (h *ReportHandler) ReportTopProducts(c *gin.Context) {
 	}
 
 	var params domain.ReportQueryParam
+	var body domain.TopBody
+
 	// bind query parameters
 	err := c.ShouldBindQuery(&params)
 	if err != nil {
@@ -1091,6 +1120,7 @@ func (h *ReportHandler) ReportTopProducts(c *gin.Context) {
 	defer cancel()
 	// get limit offset with checking default
 	params.Limit, params.Offset = defaultLimitOffset(params.Limit, params.Offset)
+	var isAdmin bool
 
 	// check if employee is not admin or superadmin
 	if !helper.IsAdmin(user) {
@@ -1098,6 +1128,25 @@ func (h *ReportHandler) ReportTopProducts(c *gin.Context) {
 			params.StoreId = user.StoreId
 		}
 		params.CompanyId = user.CompanyId
+	}
+
+	if !isAdmin && user.Role == constants.RoleFranchise {
+		params.CompanyIds, _ = h.service.GetCompanyIds(ctx, true)
+		if len(body.StoreIds) == 0 {
+			params.StoreIds = []string{}
+		}
+	} else if isAdmin && ((params.IsFranchise != nil && *params.IsFranchise) || (params.IsPharma != nil && *params.IsPharma)) {
+		var companyIds []string
+		if params.IsFranchise != nil && *params.IsFranchise {
+			ids, _ := h.service.GetCompanyIds(ctx, true)
+			companyIds = append(companyIds, ids...)
+		}
+		if params.IsPharma != nil && *params.IsPharma {
+			ids, _ := h.service.GetCompanyIds(ctx, false)
+			companyIds = append(companyIds, ids...)
+		}
+		params.CompanyIds = companyIds
+		params.StoreIds = []string{}
 	}
 	// get report TopProducts data
 	res, totalCount, err := h.service.GetTopProductsReport(ctx, &params)
@@ -1136,12 +1185,14 @@ func (h *ReportHandler) ReportTopSeller(c *gin.Context) {
 	}
 
 	var params domain.ReportQueryParam
+	var body domain.TopBody
 	// bind query parameters
 	err := c.ShouldBindQuery(&params)
 	if err != nil {
 		handleServiceResponse(c, BadRequest, domain.InvalidQueryError)
 		return
 	}
+	
 	// bind store ids
 	if c.Request.Body != nil {
 		_ = c.ShouldBindJSON(&params.StoreIds)
@@ -1153,12 +1204,33 @@ func (h *ReportHandler) ReportTopSeller(c *gin.Context) {
 	// get limit offset with checking default
 	params.Limit, params.Offset = defaultLimitOffset(params.Limit, params.Offset)
 
+	var isAdmin bool
+
 	// check if employee is not admin or superadmin
 	if !helper.IsAdmin(user) {
 		if user.StoreId != "" {
 			params.StoreId = user.StoreId
 		}
 		params.CompanyId = user.CompanyId
+	}
+
+	if !isAdmin && user.Role == constants.RoleFranchise {
+		params.CompanyIds, _ = h.service.GetCompanyIds(ctx, true)
+		if len(body.StoreIds) == 0 {
+			params.StoreIds = []string{}
+		}
+	} else if isAdmin && ((params.IsFranchise != nil && *params.IsFranchise) || (params.IsPharma != nil && *params.IsPharma)) {
+		var companyIds []string
+		if params.IsFranchise != nil && *params.IsFranchise {
+			ids, _ := h.service.GetCompanyIds(ctx, true)
+			companyIds = append(companyIds, ids...)
+		}
+		if params.IsPharma != nil && *params.IsPharma {
+			ids, _ := h.service.GetCompanyIds(ctx, false)
+			companyIds = append(companyIds, ids...)
+		}
+		params.CompanyIds = companyIds
+		params.StoreIds = []string{}
 	}
 	// get top seller data
 	res, totalCount, err := h.service.GetTopSellersReport(ctx, &params)
@@ -1281,6 +1353,7 @@ func (h *ReportHandler) ReportTopStores(c *gin.Context) {
 	}
 
 	var params domain.ReportQueryParam
+	var body domain.TopBody
 	// bind query parameters
 	err := c.ShouldBindQuery(&params)
 	if err != nil {
@@ -1293,6 +1366,7 @@ func (h *ReportHandler) ReportTopStores(c *gin.Context) {
 
 	// get limit offset with checking default
 	params.Limit, params.Offset = defaultLimitOffset(params.Limit, params.Offset)
+	var isAdmin bool
 
 	// check if employee is not admin or superadmin
 	if !helper.IsAdmin(user) {
@@ -1301,6 +1375,26 @@ func (h *ReportHandler) ReportTopStores(c *gin.Context) {
 		}
 		params.CompanyId = user.CompanyId
 	}
+
+	if !isAdmin && user.Role == constants.RoleFranchise {
+		params.CompanyIds, _ = h.service.GetCompanyIds(ctx, true)
+		if len(body.StoreIds) == 0 {
+			params.StoreIds = []string{}
+		}
+	} else if isAdmin && ((params.IsFranchise != nil && *params.IsFranchise) || (params.IsPharma != nil && *params.IsPharma)) {
+		var companyIds []string
+		if params.IsFranchise != nil && *params.IsFranchise {
+			ids, _ := h.service.GetCompanyIds(ctx, true)
+			companyIds = append(companyIds, ids...)
+		}
+		if params.IsPharma != nil && *params.IsPharma {
+			ids, _ := h.service.GetCompanyIds(ctx, false)
+			companyIds = append(companyIds, ids...)
+		}
+		params.CompanyIds = companyIds
+		params.StoreIds = []string{}
+	}
+
 	// get top stores data
 	res, totalCount, err := h.service.GetTopStoresReport(ctx, &params)
 	if err != nil {

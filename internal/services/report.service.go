@@ -574,6 +574,7 @@ func (s *Services) GetTopProductsReport(ctx context.Context, params *domain.Repo
 		Table("cart_items ci").
 		Joins("JOIN sales s ON s.id = ci.sale_id").
 		Joins("JOIN products p ON p.id = ci.product_id").
+		Joins("JOIN stores st ON s.store_id = st.id").
 		Where("s.stage IN(?)", constants.FinishedSaleStages)
 
 	if params.StartDate != nil && !params.StartDate.GetTime().IsZero() {
@@ -586,6 +587,10 @@ func (s *Services) GetTopProductsReport(ctx context.Context, params *domain.Repo
 
 	if params.Search != "" {
 		qb.Where("p.name ILIKE ?", "%"+params.Search+"%")
+	}
+
+	if len(params.CompanyIds) > 0 {
+		qb = qb.Where("st.company_id IN(?)", params.CompanyIds)
 	}
 
 	// Store filter
@@ -665,6 +670,11 @@ func (s *Services) GetTopSellersReport(ctx context.Context, params *domain.Repor
 	if len(params.StoreIds) > 0 {
 		qb = qb.Where("s.store_id IN (?)", params.StoreIds)
 	}
+
+	if len(params.CompanyIds) > 0 {
+		qb = qb.Where("st.company_id IN(?)", params.CompanyIds)
+	}
+
 	if params.StoreId != "" {
 		qb = qb.Where("s.store_id = ?", params.StoreId)
 	}
