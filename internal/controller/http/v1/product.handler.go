@@ -2897,22 +2897,22 @@ func (h *ProductHandler) SingleProductDashboard(c *gin.Context) {
 	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
 	defer cancel()
 
-	if user.StoreId != "" {
-		limitDate := time.Now().
-			AddDate(0, 0, -10).
-			Truncate(24 * time.Hour)
+	// if user.StoreId != "" {
+	// 	limitDate := time.Now().
+	// 		AddDate(0, 0, -10).
+	// 		Truncate(24 * time.Hour)
 
-		// time.Time -> domain.CustomTime
-		customLimitDate := domain.CustomTime(limitDate)
+	// 	// time.Time -> domain.CustomTime
+	// 	customLimitDate := domain.CustomTime(limitDate)
 
-		// start_date yuborilmagan bo'lsa default 10 kun
-		if params.StartDate == nil || params.StartDate.GetTime().IsZero() {
-			params.StartDate = &customLimitDate
-		} else if params.StartDate.GetTime().Before(limitDate) {
-			// agar start_date 10 kundan eski bo'lsa 10 kunga kesiladi
-			params.StartDate = &customLimitDate
-		}
-	}
+	// 	// start_date yuborilmagan bo'lsa default 10 kun
+	// 	if params.StartDate == nil || params.StartDate.GetTime().IsZero() {
+	// 		params.StartDate = &customLimitDate
+	// 	} else if params.StartDate.GetTime().Before(limitDate) {
+	// 		// agar start_date 10 kundan eski bo'lsa 10 kunga kesiladi
+	// 		params.StartDate = &customLimitDate
+	// 	}
+	// }
 
 	if !helper.IsAdmin(user) {
 		params.CompanyId = user.CompanyId
