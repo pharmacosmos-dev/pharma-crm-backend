@@ -791,6 +791,15 @@ func (h *ReportHandler) StoreReportAmount(c *gin.Context) {
 			}
 		}
 	}
+
+	// Kassir roli (employee_roles orqali) faqat o'z sotuvlarini ko'radi
+	isCashier, err := h.service.EmployeeHasRole(ctx, user.UserId, constants.RoleNameCashier)
+	if err != nil {
+		h.log.Error(err)
+	}
+	if isCashier {
+		params.EmployeeId = user.UserId
+	}
 	// get store report with payment type amounts
 	res, totalCount, err := h.service.GetStoreAmountReport(ctx, &params)
 	if err != nil {
@@ -843,6 +852,25 @@ func (h *ReportHandler) StoreReportAmountExport(c *gin.Context) {
 	params.StoreIds = body.StoreIds
 	params.CompanyIds = body.CompanyIds
 
+	if user.StoreId != "" {
+		limitDate := time.Now().
+			AddDate(0, 0, -60).
+			Truncate(24 * time.Hour)
+
+		// time.Time -> domain.CustomTime
+		customLimitDate := domain.CustomTime(limitDate)
+
+		// start_date yuborilmagan bo‘lsa default 60 kun
+		if params.StartDate == nil || params.StartDate.GetTime().IsZero() {
+			params.StartDate = &customLimitDate
+		} else {
+			// agar start_date 60 kundan eski bo‘lsa 60 kunga kesiladi
+			if params.StartDate.GetTime().Before(limitDate) {
+				params.StartDate = &customLimitDate
+			}
+		}
+	}
+
 	params.Limit, params.Offset = defaultLimitOffset(params.Limit, params.Offset)
 
 	ctx, cancel := context.WithTimeout(context.Background(), constants.ContextTimeoutForReports)
@@ -855,6 +883,16 @@ func (h *ReportHandler) StoreReportAmountExport(c *gin.Context) {
 		}
 		params.CompanyIds = []string{user.CompanyId}
 	}
+
+	// Kassir roli (employee_roles orqali) faqat o'z sotuvlarini ko'radi
+	isCashier, err := h.service.EmployeeHasRole(ctx, user.UserId, constants.RoleNameCashier)
+	if err != nil {
+		h.log.Error(err)
+	}
+	if isCashier {
+		params.EmployeeId = user.UserId
+	}
+
 	// get store report with payment type amounts
 	res, _, err := h.service.GetStoreAmountReport(ctx, &params)
 	if err != nil {
@@ -990,6 +1028,15 @@ func (h *ReportHandler) StoreReportStats(c *gin.Context) {
 				params.StartDate = &customLimitDate
 			}
 		}
+	}
+
+	// Kassir roli (employee_roles orqali) faqat o'z sotuvlarini ko'radi
+	isCashier, err := h.service.EmployeeHasRole(ctx, user.UserId, constants.RoleNameCashier)
+	if err != nil {
+		h.log.Error(err)
+	}
+	if isCashier {
+		params.EmployeeId = user.UserId
 	}
 
 	// get store report with payment type amounts

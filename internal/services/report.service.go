@@ -430,6 +430,9 @@ func (s *Services) GetStoreAmountReport(ctx context.Context, params *domain.Repo
 	} else if params.StoreId != "" {
 		qb = qb.Where("s.id = ?", params.StoreId)
 	}
+	if params.EmployeeId != "" {
+		qb = qb.Where("sa.employee_id = ?", params.EmployeeId)
+	}
 	if len(params.CompanyIds) > 0 {
 		qb = qb.Where("s.company_id IN(?)", params.CompanyIds)
 	}
@@ -534,6 +537,9 @@ func (s *Services) ReportByStoreStats(ctx context.Context, params *domain.Report
 	}
 	if params.Search != "" {
 		qb = qb.Where("s.name ILIKE ?", "%"+params.Search+"%")
+	}
+	if params.EmployeeId != "" {
+		qb = qb.Where("sa.employee_id = ?", params.EmployeeId)
 	}
 	if params.StartDate != nil && !params.StartDate.GetTime().IsZero() {
 		qb = qb.Where("sa.completed_at >= ?", params.StartDate.UTC())
