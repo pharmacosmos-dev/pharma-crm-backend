@@ -33,11 +33,12 @@ type CreateAttendanceLogRequest struct {
 // AttendanceLogQueryParams — check-in/check-out ro'yxati uchun filter parametrlari.
 // date "2006-01-02" formatida, Toshkent vaqti bo'yicha shu kunning voqealarini qaytaradi.
 type AttendanceLogQueryParams struct {
-	StoreId    string `form:"store_id"`
-	EmployeeId string `form:"employee_id"`
-	Date       string `form:"date"`
-	Limit      int    `form:"limit"`
-	Offset     int    `form:"offset"`
+	StoreId    string   `form:"store_id"`
+	StoreIds   []string `form:"store_ids"`
+	EmployeeId string   `form:"employee_id"`
+	Date       string   `form:"date"`
+	Limit      int      `form:"limit"`
+	Offset     int      `form:"offset"`
 }
 
 // AttendanceLogListItem — GET list javobi uchun, xodim va do'kon nomi bilan birga.

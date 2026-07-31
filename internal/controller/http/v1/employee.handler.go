@@ -944,6 +944,7 @@ func (h *EmployeeHandler) DeleteAttendanceFaceId(c *gin.Context) {
 // @Accept       json
 // @Produce      json
 // @Param        store_id     query  string  false  "Store ID (faqat admin uchun filter sifatida ishlaydi)"
+// @Param        store_ids    query  []string  false  "Store IDs (faqat admin uchun filter sifatida ishlaydi)"
 // @Param        employee_id  query  string  false  "Employee ID"
 // @Param        date         query  string  false  "Sana (2006-01-02, Toshkent vaqti bo'yicha)"
 // @Param        limit        query  int     false  "Limit"
@@ -967,11 +968,16 @@ func (h *EmployeeHandler) AttendanceList(c *gin.Context) {
 	}
 
 	if !helper.IsAdmin(user) {
-		if user.StoreId == "" {
+		if len(user.StoreIds) > 0 {
+			params.StoreIds = user.StoreIds
+			params.StoreId = ""
+		} else if user.StoreId != "" {
+			params.StoreId = user.StoreId
+			params.StoreIds = nil
+		} else {
 			handleResponse(c, BadRequest, "store_id not found for user")
 			return
 		}
-		params.StoreId = user.StoreId
 	}
 
 	params.Limit, params.Offset = defaultLimitOffset(params.Limit, params.Offset)

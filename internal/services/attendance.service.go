@@ -129,7 +129,10 @@ func (s *Services) GetAttendanceLogList(ctx context.Context, params *domain.Atte
 		Joins("LEFT JOIN employees e ON e.id = al.employee_id").
 		Joins("LEFT JOIN stores s ON s.id = al.store_id")
 
-	if params.StoreId != "" {
+	if len(params.StoreIds) > 0 {
+		countQuery = countQuery.Where("al.store_id IN (?)", params.StoreIds)
+		query = query.Where("al.store_id IN (?)", params.StoreIds)
+	} else if params.StoreId != "" {
 		countQuery = countQuery.Where("al.store_id = ?", params.StoreId)
 		query = query.Where("al.store_id = ?", params.StoreId)
 	}
