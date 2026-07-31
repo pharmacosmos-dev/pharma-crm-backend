@@ -863,7 +863,19 @@ func (h *DashboardHandler) SaleStatistic(c *gin.Context) {
 		return
 	}
 
-	if user.StoreId != "" {
+	// Kassir roli (employee_roles orqali) faqat o'z sotuvlari bo'yicha statistikani ko'radi, qolgan rollar (masalan, Zavedyushiy) to'liq ko'radi
+	isCashier, err := h.service.EmployeeHasRole(ctx, user.UserId, constants.RoleNameCashier)
+	if err != nil {
+		h.log.Error(err)
+	}
+	isZavStore, err := h.service.EmployeeHasRole(ctx, user.UserId, constants.RoleNameZavStore)
+	if err != nil {
+		h.log.Error(err)
+	}
+
+	// 10 kunlik cheklov faqat Kassir va Zavedyushiy uchun qo'llaniladi; do'konga tegishli
+	// boshqa rollar uchun cheklovsiz to'liq oraliq ruxsat etiladi
+	if user.StoreId != "" && (isCashier || isZavStore) {
 		limitDate := time.Now().
 			AddDate(0, 0, -10).
 			Truncate(24 * time.Hour)
@@ -918,11 +930,6 @@ func (h *DashboardHandler) SaleStatistic(c *gin.Context) {
 		params.StoreIds = []string{}
 	}
 
-	// Kassir roli (employee_roles orqali) faqat o'z sotuvlari bo'yicha statistikani ko'radi, qolgan rollar (masalan, Zavedyushiy) to'liq ko'radi
-	isCashier, err := h.service.EmployeeHasRole(ctx, user.UserId, constants.RoleNameCashier)
-	if err != nil {
-		h.log.Error(err)
-	}
 	if isCashier {
 		params.EmployeeId = user.UserId
 	}
