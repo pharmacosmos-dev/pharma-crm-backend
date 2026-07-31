@@ -223,7 +223,22 @@ func (h *SaleHandler) GetSales(c *gin.Context) {
 		return
 	}
 
-	if user.StoreId != "" {
+	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
+	defer cancel()
+
+	// Kassir roli (employee_roles orqali) faqat o'z sotuvlarini ko'radi, qolgan rollar (masalan, Zavedyushiy) to'liq ko'radi
+	isCashier, err := h.service.EmployeeHasRole(ctx, user.UserId, constants.RoleNameCashier)
+	if err != nil {
+		h.log.Error(err)
+	}
+	isZavStore, err := h.service.EmployeeHasRole(ctx, user.UserId, constants.RoleNameZavStore)
+	if err != nil {
+		h.log.Error(err)
+	}
+
+	// 10 kunlik cheklov faqat Kassir va Zavedyushiy uchun qo'llaniladi; do'konga tegishli
+	// boshqa rollar uchun cheklovsiz to'liq oraliq ruxsat etiladi
+	if user.StoreId != "" && (isCashier || isZavStore) {
 		limitDate := time.Now().
 			AddDate(0, 0, -10).
 			Truncate(24 * time.Hour)
@@ -242,9 +257,6 @@ func (h *SaleHandler) GetSales(c *gin.Context) {
 		}
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
-	defer cancel()
-
 	// get limit offset with checking default
 	params.Limit, params.Offset = defaultLimitOffset(params.Limit, params.Offset)
 	if !helper.IsAdmin(user) {
@@ -260,11 +272,6 @@ func (h *SaleHandler) GetSales(c *gin.Context) {
 		}
 	}
 
-	// Kassir roli (employee_roles orqali) faqat o'z sotuvlarini ko'radi, qolgan rollar (masalan, Zavedyushiy) to'liq ko'radi
-	isCashier, err := h.service.EmployeeHasRole(ctx, user.UserId, constants.RoleNameCashier)
-	if err != nil {
-		h.log.Error(err)
-	}
 	if isCashier {
 		params.VendorId = user.UserId
 	}
@@ -324,7 +331,22 @@ func (h *SaleHandler) ExportSalesExcel(c *gin.Context) {
 	}
 
 
-	if user.StoreId != "" {
+	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
+	defer cancel()
+
+	// Kassir roli (employee_roles orqali) faqat o'z sotuvlarini ko'radi, qolgan rollar (masalan, Zavedyushiy) to'liq ko'radi
+	isCashier, err := h.service.EmployeeHasRole(ctx, user.UserId, constants.RoleNameCashier)
+	if err != nil {
+		h.log.Error(err)
+	}
+	isZavStore, err := h.service.EmployeeHasRole(ctx, user.UserId, constants.RoleNameZavStore)
+	if err != nil {
+		h.log.Error(err)
+	}
+
+	// 10 kunlik cheklov faqat Kassir va Zavedyushiy uchun qo'llaniladi; do'konga tegishli
+	// boshqa rollar uchun cheklovsiz to'liq oraliq ruxsat etiladi
+	if user.StoreId != "" && (isCashier || isZavStore) {
 		limitDate := time.Now().
 			AddDate(0, 0, -10).
 			Truncate(24 * time.Hour)
@@ -341,14 +363,6 @@ func (h *SaleHandler) ExportSalesExcel(c *gin.Context) {
 		}
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
-	defer cancel()
-
-	// Kassir roli (employee_roles orqali) faqat o'z sotuvlarini ko'radi
-	isCashier, err := h.service.EmployeeHasRole(ctx, user.UserId, constants.RoleNameCashier)
-	if err != nil {
-		h.log.Error(err)
-	}
 	if isCashier {
 		params.VendorId = user.UserId
 	}
@@ -548,7 +562,19 @@ func (h *SaleHandler) GetSalesStats(c *gin.Context) {
 	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
 	defer cancel()
 
-	if user.StoreId != "" {
+	// Kassir roli (employee_roles orqali) faqat o'z sotuvlari bo'yicha statistikani ko'radi, qolgan rollar (masalan, Zavedyushiy) to'liq ko'radi
+	isCashier, err := h.service.EmployeeHasRole(ctx, user.UserId, constants.RoleNameCashier)
+	if err != nil {
+		h.log.Error(err)
+	}
+	isZavStore, err := h.service.EmployeeHasRole(ctx, user.UserId, constants.RoleNameZavStore)
+	if err != nil {
+		h.log.Error(err)
+	}
+
+	// 10 kunlik cheklov faqat Kassir va Zavedyushiy uchun qo'llaniladi; do'konga tegishli
+	// boshqa rollar uchun cheklovsiz to'liq oraliq ruxsat etiladi
+	if user.StoreId != "" && (isCashier || isZavStore) {
 		limitDate := time.Now().
 			AddDate(0, 0, -10).
 			Truncate(24 * time.Hour)
@@ -567,33 +593,6 @@ func (h *SaleHandler) GetSalesStats(c *gin.Context) {
 		}
 	}
 
-	// if user.StoreId != "" {
-	// 	// "Заведующий" rolidagi xodimlar uchun 14 kunlik cheklov qo'llanilmaydi
-	// 	isZavStore, err := h.service.EmployeeHasRole(ctx, user.UserId, constants.RoleNameZavStore)
-	// 	if err != nil {
-	// 		h.log.Error(err)
-	// 	}
-
-	// 	if !isZavStore {
-	// 		limitDate := time.Now().
-	// 			AddDate(0, 0, -14).
-	// 			Truncate(24 * time.Hour)
-
-	// 		// time.Time -> domain.CustomTime
-	// 		customLimitDate := domain.CustomTime(limitDate)
-
-	// 		// start_date yuborilmagan bo‘lsa default 14 kun
-	// 		if params.StartDate == nil || params.StartDate.GetTime().IsZero() {
-	// 			params.StartDate = &customLimitDate
-	// 		} else {
-	// 			// agar start_date 14 kundan eski bo‘lsa 14 kunga kesiladi
-	// 			if params.StartDate.GetTime().Before(limitDate) {
-	// 				params.StartDate = &customLimitDate
-	// 			}
-	// 		}
-	// 	}
-	// }
-
 	// check user role
 	if !helper.IsAdmin(user) {
 		if user.Role == constants.RoleFranchise {
@@ -610,11 +609,6 @@ func (h *SaleHandler) GetSalesStats(c *gin.Context) {
 	}
 	// admin: hech qanday filter yo'q — barchasini ko'radi
 
-	// Kassir roli (employee_roles orqali) faqat o'z sotuvlari bo'yicha statistikani ko'radi, qolgan rollar (masalan, Zavedyushiy) to'liq ko'radi
-	isCashier, err := h.service.EmployeeHasRole(ctx, user.UserId, constants.RoleNameCashier)
-	if err != nil {
-		h.log.Error(err)
-	}
 	if isCashier {
 		params.VendorId = user.UserId
 	}
