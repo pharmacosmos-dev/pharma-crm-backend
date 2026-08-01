@@ -417,9 +417,9 @@ func (h *SaleHandler) ExportSalesExcel(c *gin.Context) {
 		f.SetCellValue(sheetName, "M"+row, sale.CashBoxName)
 		f.SetCellValue(sheetName, "N"+row, sale.FullName)
 		if sale.CustomerName != nil {
-			f.SetCellValue(sheetName, "N"+row, *sale.CustomerName)
+			f.SetCellValue(sheetName, "O"+row, *sale.CustomerName)
 		} else {
-			f.SetCellValue(sheetName, "N"+row, "N/A")
+			f.SetCellValue(sheetName, "O"+row, "N/A")
 		}
 	}
 
