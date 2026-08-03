@@ -5723,6 +5723,63 @@
                 }
             }
         },
+        "/employee/attendance-face-id/cleanup-old": {
+            "delete": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "keep_days'dan eski (Toshkent vaqti bo'yicha kun sanog'i) barcha check-in/check-out rasmlarining face_id_url maydonini NULL qiladi va tegishli fayllarni upload papkadan o'chiradi. Masalan keep_days=2 (standart) bo'lsa, faqat bugungi va kechagi kun rasmlari saqlanadi, undan oldingi barcha kunlar tozalanadi. Faqat admin huquqiga ega foydalanuvchilar chaqira oladi.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "employees"
+                ],
+                "summary": "Cleanup old attendance photos (admin)",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Nechta oxirgi kun saqlanishi kerak (standart 2)",
+                        "name": "keep_days",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    }
+                }
+            }
+        },
         "/employee/attendance-face-id/{id}": {
             "delete": {
                 "security": [
@@ -5781,6 +5838,75 @@
                 }
             }
         },
+        "/employee/attendance-manual": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Admin tomonidan berilgan employee_id, event_type va event_at bo'yicha attendance_logs yozuvini qo'lda yaratadi. Face id orqali check-in/check-out ishlamay qolgan hollarda ishlatiladi uchun. Faqat admin huquqiga ega foydalanuvchilar chaqira oladi.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "employees"
+                ],
+                "summary": "Manually create attendance check-in/check-out (admin)",
+                "parameters": [
+                    {
+                        "description": "Manual attendance data",
+                        "name": "input",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/domain.ManualCreateAttendanceLogRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    }
+                }
+            }
+        },
         "/employee/attendance/list": {
             "get": {
                 "security": [
@@ -5788,7 +5914,7 @@
                         "BearerAuth": []
                     }
                 ],
-                "description": "Xodimlarning check-in/check-out yozuvlari ro'yxati. Admin bo'lmagan foydalanuvchilar faqat o'z do'koniga tegishli yozuvlarni ko'radi, store_id filtri ular uchun e'tiborga olinmaydi.",
+                "description": "Xodimlarning check-in/check-out yozuvlari ro'yxati. start_date va end_date SaleStatistic bilan bir xil ishlaydi: end_date berilmasa start_date kuni yakunigacha (23:59) qamrab olinadi, ya'ni faqat start_date sifatida bugungi kun berilsa faqat bugungi kun qaytadi. Aniq do'konga bog'langan foydalanuvchilar (user.store_id mavjud) uchun ro'yxat bo'sh qaytariladi; faqat store_id'siz foydalanuvchilar uchun ma'lumot qaytadi.",
                 "consumes": [
                     "application/json"
                 ],
@@ -5814,8 +5940,21 @@
                     },
                     {
                         "type": "string",
-                        "description": "Sana (2006-01-02, Toshkent vaqti bo'yicha)",
-                        "name": "date",
+                        "description": "Event type (check-in yoki check-out)",
+                        "name": "event_type",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Start Date (RFC3339, masalan 2026-08-03T00:00:00+05:00)",
+                        "name": "start_date",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "End Date (RFC3339)",
+                        "name": "end_date",
                         "in": "query"
                     },
                     {
@@ -33504,6 +33643,28 @@
                 "type": {
                     "type": "string",
                     "example": "in/out"
+                }
+            }
+        },
+        "domain.ManualCreateAttendanceLogRequest": {
+            "type": "object",
+            "required": [
+                "employee_id",
+                "event_at",
+                "event_type"
+            ],
+            "properties": {
+                "employee_id": {
+                    "type": "string",
+                    "example": "cd378978-2454-4c55-b5a4-3c3267d1c4c4"
+                },
+                "event_at": {
+                    "type": "string",
+                    "example": "2026-08-03T15:34:27+05:00"
+                },
+                "event_type": {
+                    "type": "string",
+                    "example": "check-in"
                 }
             }
         },

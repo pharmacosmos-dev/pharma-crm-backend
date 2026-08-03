@@ -943,6 +943,22 @@ definitions:
         example: in/out
         type: string
     type: object
+  domain.ManualCreateAttendanceLogRequest:
+    properties:
+      employee_id:
+        example: cd378978-2454-4c55-b5a4-3c3267d1c4c4
+        type: string
+      event_at:
+        example: "2026-08-03T15:34:27+05:00"
+        type: string
+      event_type:
+        example: check-in
+        type: string
+    required:
+    - employee_id
+    - event_at
+    - event_type
+    type: object
   domain.MarkingData:
     properties:
       dmed_id:
@@ -6292,13 +6308,103 @@ paths:
       summary: Delete attendance photo
       tags:
       - employees
+  /employee/attendance-face-id/cleanup-old:
+    delete:
+      description: keep_days'dan eski (Toshkent vaqti bo'yicha kun sanog'i) barcha
+        check-in/check-out rasmlarining face_id_url maydonini NULL qiladi va tegishli
+        fayllarni upload papkadan o'chiradi. Masalan keep_days=2 (standart) bo'lsa,
+        faqat bugungi va kechagi kun rasmlari saqlanadi, undan oldingi barcha kunlar
+        tozalanadi. Faqat admin huquqiga ega foydalanuvchilar chaqira oladi.
+      parameters:
+      - description: Nechta oxirgi kun saqlanishi kerak (standart 2)
+        in: query
+        name: keep_days
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Cleanup old attendance photos (admin)
+      tags:
+      - employees
+  /employee/attendance-manual:
+    post:
+      consumes:
+      - application/json
+      description: Admin tomonidan berilgan employee_id, event_type va event_at bo'yicha
+        attendance_logs yozuvini qo'lda yaratadi. Face id orqali check-in/check-out
+        ishlamay qolgan hollarda ishlatiladi uchun. Faqat admin huquqiga ega foydalanuvchilar
+        chaqira oladi.
+      parameters:
+      - description: Manual attendance data
+        in: body
+        name: input
+        required: true
+        schema:
+          $ref: '#/definitions/domain.ManualCreateAttendanceLogRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Manually create attendance check-in/check-out (admin)
+      tags:
+      - employees
   /employee/attendance/list:
     get:
       consumes:
       - application/json
-      description: Xodimlarning check-in/check-out yozuvlari ro'yxati. Admin bo'lmagan
-        foydalanuvchilar faqat o'z do'koniga tegishli yozuvlarni ko'radi, store_id
-        filtri ular uchun e'tiborga olinmaydi.
+      description: 'Xodimlarning check-in/check-out yozuvlari ro''yxati. start_date
+        va end_date SaleStatistic bilan bir xil ishlaydi: end_date berilmasa start_date
+        kuni yakunigacha (23:59) qamrab olinadi, ya''ni faqat start_date sifatida
+        bugungi kun berilsa faqat bugungi kun qaytadi. Aniq do''konga bog''langan
+        foydalanuvchilar (user.store_id mavjud) uchun ro''yxat bo''sh qaytariladi;
+        faqat store_id''siz foydalanuvchilar uchun ma''lumot qaytadi.'
       parameters:
       - description: Store ID (faqat admin uchun filter sifatida ishlaydi)
         in: query
@@ -6308,9 +6414,18 @@ paths:
         in: query
         name: employee_id
         type: string
-      - description: Sana (2006-01-02, Toshkent vaqti bo'yicha)
+      - description: Event type (check-in yoki check-out)
         in: query
-        name: date
+        name: event_type
+        type: string
+      - description: Start Date (RFC3339, masalan 2026-08-03T00:00:00+05:00)
+        in: query
+        name: start_date
+        required: true
+        type: string
+      - description: End Date (RFC3339)
+        in: query
+        name: end_date
         type: string
       - description: Limit
         in: query

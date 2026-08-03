@@ -30,14 +30,26 @@ type CreateAttendanceLogRequest struct {
 	FaceIdUrl string `json:"face_id_url"`
 }
 
+// ManualCreateAttendanceLogRequest — admin tomonidan xodim uchun qo'lda check-in/check-out
+// yozuvi qo'shish so'rovi (face id orqali belgilash ishlamay qolgan hollar uchun).
+// event_type qat'iy "check-in" yoki "check-out" bo'lishi kerak.
+type ManualCreateAttendanceLogRequest struct {
+	EmployeeId string    `json:"employee_id" binding:"required" example:"cd378978-2454-4c55-b5a4-3c3267d1c4c4"`
+	EventType  string    `json:"event_type" binding:"required" example:"check-in"`
+	EventAt    time.Time `json:"event_at" binding:"required" example:"2026-08-03T15:34:27+05:00"`
+}
+
 // AttendanceLogQueryParams — check-in/check-out ro'yxati uchun filter parametrlari.
-// date "2006-01-02" formatida, Toshkent vaqti bo'yicha shu kunning voqealarini qaytaradi.
+// start_date va end_date DashboardQueryParam/SaleStatistic bilan bir xil ishlaydi:
+// end_date berilmasa, start_date kuni yakunigacha (default 23:59) qamrab olinadi.
 type AttendanceLogQueryParams struct {
-	StoreId    string `form:"store_id"`
-	EmployeeId string `form:"employee_id"`
-	Date       string `form:"date"`
-	Limit      int    `form:"limit"`
-	Offset     int    `form:"offset"`
+	StoreId    string      `form:"store_id"`
+	EmployeeId string      `form:"employee_id"`
+	EventType  string      `form:"event_type"`
+	StartDate  *CustomTime `form:"start_date"`
+	EndDate    *CustomTime `form:"end_date"`
+	Limit      int         `form:"limit"`
+	Offset     int         `form:"offset"`
 }
 
 // AttendanceLogListItem — GET list javobi uchun, xodim va do'kon nomi bilan birga.

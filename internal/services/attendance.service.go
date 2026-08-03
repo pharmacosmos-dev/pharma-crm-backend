@@ -7,7 +7,6 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/pharma-crm-backend/domain"
-	"github.com/pharma-crm-backend/domain/constants"
 	"gorm.io/gorm"
 )
 
@@ -92,6 +91,46 @@ func (s *Services) CreateAttendanceLog(ctx context.Context, employeeId, storeId,
 	return &log, nil
 }
 
+// CreateManualAttendanceLog — admin tomonidan berilgan employee_id, event_type va
+// event_at asosida attendance_logs yozuvini qo'lda yaratadi (face id orqali belgilash
+// ishlamay qolgan hollar uchun). Xodimning store_id'si employees jadvalidan olinadi,
+// ketma-ketlik (check-in/check-out navbati) tekshiruvi qo'llanilmaydi — bu qo'lda
+// tuzatish uchun mo'ljallangan.
+func (s *Services) CreateManualAttendanceLog(ctx context.Context, employeeId, eventType string, eventAt time.Time) (*domain.AttendanceLog, error) {
+	if eventType != domain.AttendanceEventCheckIn && eventType != domain.AttendanceEventCheckOut {
+		return nil, domain.InvalidEventTypeError
+	}
+
+	var employee domain.Employee
+	if err := s.db.WithContext(ctx).Select("id", "store_id").Take(&employee, "id = ?", employeeId).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, domain.ResourceNotFoundError
+		}
+		s.log.Errorf("could not get employee: %v", err)
+		return nil, domain.InternalServerError
+	}
+
+	var storeIdPtr *string
+	if employee.StoreId != "" {
+		storeIdPtr = &employee.StoreId
+	}
+
+	log := domain.AttendanceLog{
+		Id:         uuid.New().String(),
+		StoreId:    storeIdPtr,
+		EmployeeId: employeeId,
+		EventType:  eventType,
+		EventAt:    eventAt,
+	}
+
+	if err := s.db.WithContext(ctx).Create(&log).Error; err != nil {
+		s.log.Errorf("could not create manual attendance log: %v", err)
+		return nil, domain.InternalServerError
+	}
+
+	return &log, nil
+}
+
 // ClearAttendanceLogFaceIdUrl — attendance_logs yozuvining face_id_url maydonini
 // NULL qiladi va eski qiymatni (fayl nomini) qaytaradi, handler shu nom bo'yicha
 // faylni upload papkadan o'chiradi.
@@ -121,13 +160,43 @@ func (s *Services) ClearAttendanceLogFaceIdUrl(ctx context.Context, id string) (
 	return oldFaceIdUrl, nil
 }
 
+// CleanupOldAttendanceFaceIds — keepDays kundan eski (Toshkent vaqti bo'yicha kun sanog'i)
+// check-in/check-out rasmlarining face_id_url maydonini NULL qiladi va o'chirilgan fayl
+// nomlarini qaytaradi (handler shu fayllarni ./app/uploads papkadan o'chiradi).
+// Masalan keepDays=2 bo'lsa, bugungi va kechagi kun rasmlari saqlanib qoladi,
+// undan oldingi barcha kunlar (masalan, 1-avgust, 31-iyul, ...) tozalanadi.
+func (s *Services) CleanupOldAttendanceFaceIds(ctx context.Context, keepDays int) ([]string, error) {
+	var fileNames []string
+	err := s.db.WithContext(ctx).Raw(`
+		UPDATE attendance_logs
+		SET face_id_url = NULL
+		WHERE face_id_url IS NOT NULL
+		  AND (event_at + interval '5 hours')::date < (CURRENT_DATE - ?::int)
+		RETURNING face_id_url
+	`, keepDays-1).Scan(&fileNames).Error
+	if err != nil {
+		s.log.Errorf("could not cleanup old attendance face ids: %v", err)
+		return nil, domain.InternalServerError
+	}
+
+	return fileNames, nil
+}
+
 // GetAttendanceLogList — check-in/check-out yozuvlari ro'yxati, store_id, employee_id
-// va date (Toshkent vaqti bo'yicha bitta kun) filtrlari bilan.
+// va start_date/end_date (SaleStatistic bilan bir xil: end_date berilmasa start_date
+// kuni yakunigacha qamrab olinadi) filtrlari bilan.
 func (s *Services) GetAttendanceLogList(ctx context.Context, params *domain.AttendanceLogQueryParams) ([]domain.AttendanceLogListItem, int64, error) {
-	countQuery := s.db.WithContext(ctx).Table("attendance_logs al")
+	var (
+		startTimeInUTC = (*params.StartDate).ToUTC().GetString()
+		endTimeInUTC   = domain.AddDefaultDuration(*params.StartDate, params.EndDate).ToUTC().GetString()
+	)
+
+	countQuery := s.db.WithContext(ctx).Table("attendance_logs al").
+		Where("al.event_at BETWEEN ? AND ?", startTimeInUTC, endTimeInUTC)
 	query := s.db.WithContext(ctx).Table("attendance_logs al").
 		Joins("LEFT JOIN employees e ON e.id = al.employee_id").
-		Joins("LEFT JOIN stores s ON s.id = al.store_id")
+		Joins("LEFT JOIN stores s ON s.id = al.store_id").
+		Where("al.event_at BETWEEN ? AND ?", startTimeInUTC, endTimeInUTC)
 
 	if params.StoreId != "" {
 		countQuery = countQuery.Where("al.store_id = ?", params.StoreId)
@@ -139,12 +208,9 @@ func (s *Services) GetAttendanceLogList(ctx context.Context, params *domain.Atte
 		query = query.Where("al.employee_id = ?", params.EmployeeId)
 	}
 
-	if params.Date != "" {
-		if _, err := time.Parse(constants.TimeOnlyDateFormat, params.Date); err != nil {
-			return nil, 0, domain.InvalidTimeFormatError
-		}
-		countQuery = countQuery.Where("(al.event_at + interval '5 hours')::date = ?::date", params.Date)
-		query = query.Where("(al.event_at + interval '5 hours')::date = ?::date", params.Date)
+	if params.EventType != "" {
+		countQuery = countQuery.Where("al.event_type = ?", params.EventType)
+		query = query.Where("al.event_type = ?", params.EventType)
 	}
 
 	var total int64

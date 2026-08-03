@@ -47,7 +47,9 @@ func (h *EmployeeHandler) EmployeeRoutes(r *gin.RouterGroup) {
 		employee.GET("/bonus", h.SmenaBonus)
 		employee.POST("/attendance-face-id", h.CheckInOut)
 		employee.DELETE("/attendance-face-id/:id", h.DeleteAttendanceFaceId)
+		employee.DELETE("/attendance-face-id/cleanup-old", h.CleanupOldAttendanceFaceIds)
 		employee.GET("/attendance/list", h.AttendanceList)
+		employee.POST("/attendance-manual", h.CreateAttendanceLogManual)
 		employee.PATCH("/:id/face-descriptor", h.CreateOrUpdateFaceDescriptor)
 		employee.GET("/:id/face-descriptor", h.GetEmployeeFaceDescriptor)
 		employee.DELETE("/:id/face-descriptor", h.DeleteEmployeeFaceDescriptor)
@@ -55,7 +57,7 @@ func (h *EmployeeHandler) EmployeeRoutes(r *gin.RouterGroup) {
 	}
 }
 
-// @Summary      Create employee
+// @Summary      Create employee 
 // @Description  Create a new employee in the system
 // @Tags         employees
 // @Accept       json
@@ -891,6 +893,51 @@ func (h *EmployeeHandler) CheckInOut(c *gin.Context) {
 	handleResponse(c, CREATED, result)
 }
 
+// CreateAttendanceLogManual godoc
+// @Summary      Manually create attendance check-in/check-out (admin)
+// @Description  Admin tomonidan berilgan employee_id, event_type va event_at bo'yicha attendance_logs yozuvini qo'lda yaratadi. Face id orqali check-in/check-out ishlamay qolgan hollarda ishlatiladi uchun. Faqat admin huquqiga ega foydalanuvchilar chaqira oladi.
+// @Tags         employees
+// @Security     BearerAuth
+// @Accept       json
+// @Produce      json
+// @Param        input body domain.ManualCreateAttendanceLogRequest true "Manual attendance data"
+// @Success      201  {object}  v1.Response
+// @Failure      400  {object}  v1.Response
+// @Failure      401  {object}  v1.Response
+// @Failure      403  {object}  v1.Response
+// @Failure      404  {object}  v1.Response
+// @Failure      500  {object}  v1.Response
+// @Router       /employee/attendance-manual [post]
+func (h *EmployeeHandler) CreateAttendanceLogManual(c *gin.Context) {
+	user := h.service.GetSignedUser(c)
+	if user.UserId == "" {
+		handleServiceResponse(c, nil, domain.UnauthorizedError)
+		return
+	}
+
+	// if !helper.IsAdmin(user) {
+	// 	handleResponse(c, FORBIDDEN, "Only admin can add attendance manually")
+	// 	return
+	// }
+
+	var body domain.ManualCreateAttendanceLogRequest
+	if err := c.ShouldBindJSON(&body); err != nil {
+		handleResponse(c, BadRequest, err.Error())
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
+	defer cancel()
+
+	result, err := h.service.CreateManualAttendanceLog(ctx, body.EmployeeId, body.EventType, body.EventAt)
+	if err != nil {
+		handleServiceResponse(c, nil, err)
+		return
+	}
+
+	handleResponse(c, CREATED, result)
+}
+
 // DeleteAttendanceFaceId godoc
 // @Summary      Delete attendance photo
 // @Description  attendance_logs yozuvining face_id_url maydonini NULL qiladi va tegishli faylni upload papkadan o'chiradi.
@@ -936,16 +983,75 @@ func (h *EmployeeHandler) DeleteAttendanceFaceId(c *gin.Context) {
 	handleResponse(c, OK, "DELETED")
 }
 
+// CleanupOldAttendanceFaceIds godoc
+// @Summary      Cleanup old attendance photos (admin)
+// @Description  keep_days'dan eski (Toshkent vaqti bo'yicha kun sanog'i) barcha check-in/check-out rasmlarining face_id_url maydonini NULL qiladi va tegishli fayllarni upload papkadan o'chiradi. Masalan keep_days=2 (standart) bo'lsa, faqat bugungi va kechagi kun rasmlari saqlanadi, undan oldingi barcha kunlar tozalanadi. Faqat admin huquqiga ega foydalanuvchilar chaqira oladi.
+// @Tags         employees
+// @Security     BearerAuth
+// @Produce      json
+// @Param        keep_days  query  int  false  "Nechta oxirgi kun saqlanishi kerak (standart 2)"
+// @Success      200  {object}  v1.Response
+// @Failure      400  {object}  v1.Response
+// @Failure      401  {object}  v1.Response
+// @Failure      403  {object}  v1.Response
+// @Failure      500  {object}  v1.Response
+// @Router       /employee/attendance-face-id/cleanup-old [delete]
+func (h *EmployeeHandler) CleanupOldAttendanceFaceIds(c *gin.Context) {
+	user := h.service.GetSignedUser(c)
+	if user.UserId == "" {
+		handleServiceResponse(c, nil, domain.UnauthorizedError)
+		return
+	}
+
+	if !helper.IsAdmin(user) {
+		handleResponse(c, FORBIDDEN, "Only admin can cleanup attendance photos")
+		return
+	}
+
+	keepDays := 2
+	if raw := c.Query("keep_days"); raw != "" {
+		parsed, err := strconv.Atoi(raw)
+		if err != nil || parsed < 0 {
+			handleResponse(c, BadRequest, "Invalid keep_days")
+			return
+		}
+		keepDays = parsed
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
+	defer cancel()
+
+	fileNames, err := h.service.CleanupOldAttendanceFaceIds(ctx, keepDays)
+	if err != nil {
+		handleServiceResponse(c, nil, err)
+		return
+	}
+
+	for _, fileName := range fileNames {
+		if fileName == "" {
+			continue
+		}
+		filePath := filepath.Join("./app/uploads", fileName)
+		if removeErr := os.Remove(filePath); removeErr != nil && !os.IsNotExist(removeErr) {
+			h.log.Errorf("could not delete attendance photo file: %v", removeErr)
+		}
+	}
+
+	handleResponse(c, OK, gin.H{"cleaned_count": len(fileNames)})
+}
+
 // AttendanceList godoc
 // @Summary      Attendance check-in / check-out list
-// @Description  Xodimlarning check-in/check-out yozuvlari ro'yxati. Aniq do'konga bog'langan foydalanuvchilar (user.store_id mavjud) uchun ro'yxat bo'sh qaytariladi; faqat store_id'siz foydalanuvchilar uchun ma'lumot qaytadi.
+// @Description  Xodimlarning check-in/check-out yozuvlari ro'yxati. start_date va end_date SaleStatistic bilan bir xil ishlaydi: end_date berilmasa start_date kuni yakunigacha (23:59) qamrab olinadi, ya'ni faqat start_date sifatida bugungi kun berilsa faqat bugungi kun qaytadi. Aniq do'konga bog'langan foydalanuvchilar (user.store_id mavjud) uchun ro'yxat bo'sh qaytariladi; faqat store_id'siz foydalanuvchilar uchun ma'lumot qaytadi.
 // @Tags         employees
 // @Security     BearerAuth
 // @Accept       json
 // @Produce      json
 // @Param        store_id     query  string  false  "Store ID (faqat admin uchun filter sifatida ishlaydi)"
 // @Param        employee_id  query  string  false  "Employee ID"
-// @Param        date         query  string  false  "Sana (2006-01-02, Toshkent vaqti bo'yicha)"
+// @Param        event_type   query  string  false  "Event type (check-in yoki check-out)"
+// @Param        start_date   query  string  true   "Start Date (RFC3339, masalan 2026-08-03T00:00:00+05:00)"
+// @Param        end_date     query  string  false  "End Date (RFC3339)"
 // @Param        limit        query  int     false  "Limit"
 // @Param        offset       query  int     false  "Offset"
 // @Success      200 {object} v1.Response
@@ -966,9 +1072,18 @@ func (h *EmployeeHandler) AttendanceList(c *gin.Context) {
 		return
 	}
 
+	if params.StartDate == nil {
+		handleServiceResponse(c, BadRequest, domain.InvalidQueryError)
+		return
+	}
+
+	if params.EventType != "" && params.EventType != domain.AttendanceEventCheckIn && params.EventType != domain.AttendanceEventCheckOut {
+		handleServiceResponse(c, BadRequest, domain.InvalidEventTypeError)
+		return
+	}
+
 	params.Limit, params.Offset = defaultLimitOffset(params.Limit, params.Offset)
 
-	// aniq do'konga bog'langan xodimlar (user.StoreId mavjud) uchun ro'yxat bo'sh qaytariladi
 	if user.StoreId != "" {
 		handleResponse(c, OK, utils.ListResponse([]domain.AttendanceLogListItem{}, 0, params.Limit, params.Offset))
 		return
