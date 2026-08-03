@@ -9,14 +9,15 @@ const (
 
 // AttendanceLog — xodimning check-in/check-out voqealari jurnali.
 type AttendanceLog struct {
-	Id         string     `gorm:"column:id" json:"id"`
-	StoreId    *string    `gorm:"column:store_id" json:"store_id,omitempty"`
-	EmployeeId string     `gorm:"column:employee_id" json:"employee_id"`
-	EventType  string     `gorm:"column:event_type" json:"event_type"`
-	EventAt    time.Time  `gorm:"column:event_at" json:"event_at"`
-	FaceIdUrl  *string    `gorm:"column:face_id_url" json:"face_id_url,omitempty"`
-	CreatedAt  *time.Time `gorm:"column:created_at" json:"created_at"`
-	UpdatedAt  *time.Time `gorm:"column:updated_at" json:"updated_at"`
+	Id           string     `gorm:"column:id" json:"id"`
+	StoreId      *string    `gorm:"column:store_id" json:"store_id,omitempty"`
+	EmployeeId   string     `gorm:"column:employee_id" json:"employee_id"`
+	EventType    string     `gorm:"column:event_type" json:"event_type"`
+	EventAt      time.Time  `gorm:"column:event_at" json:"event_at"`
+	FaceIdUrl    *string    `gorm:"column:face_id_url" json:"face_id_url,omitempty"`
+	IsAutoClosed bool       `gorm:"column:is_auto_closed" json:"is_auto_closed"`
+	CreatedAt    *time.Time `gorm:"column:created_at" json:"created_at"`
+	UpdatedAt    *time.Time `gorm:"column:updated_at" json:"updated_at"`
 }
 
 func (AttendanceLog) TableName() string {
@@ -65,6 +66,7 @@ type AttendanceLogListItem struct {
 	EventType     string     `json:"event_type"`
 	EventAt       time.Time  `json:"event_at"`
 	FaceIdUrl     *string    `json:"face_id_url"`
+	IsAutoClosed  bool       `json:"is_auto_closed"`
 	CreatedAt     *time.Time `json:"created_at"`
 }
 

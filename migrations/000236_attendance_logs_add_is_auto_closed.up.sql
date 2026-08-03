@@ -1,0 +1,1 @@
+ALTER TABLE "attendance_logs" ADD COLUMN IF NOT EXISTS "is_auto_closed" BOOLEAN NOT NULL DEFAULT FALSE;

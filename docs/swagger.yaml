@@ -6225,6 +6225,66 @@ paths:
       summary: Create or update employee face descriptor
       tags:
       - employees
+  /employee/attendance-days/list:
+    get:
+      consumes:
+      - application/json
+      description: Xodimlarning kunlik davomat yig'indisi ro'yxati (employee_attendance_days).
+        Admin bo'lmagan foydalanuvchilar faqat o'z do'koniga tegishli yozuvlarni ko'radi,
+        store_id filtri ular uchun e'tiborga olinmaydi.
+      parameters:
+      - description: Store ID (faqat admin uchun filter sifatida ishlaydi)
+        in: query
+        name: store_id
+        type: string
+      - description: Xodim ismi bo'yicha qidiruv
+        in: query
+        name: name
+        type: string
+      - description: Xodim telefoni bo'yicha qidiruv
+        in: query
+        name: phone
+        type: string
+      - description: Oraliq boshlanishi (2006-01-02, work_date bo'yicha)
+        in: query
+        name: start_date
+        type: string
+      - description: Oraliq tugashi (2006-01-02, work_date bo'yicha)
+        in: query
+        name: end_date
+        type: string
+      - description: Limit
+        in: query
+        name: limit
+        type: integer
+      - description: Offset
+        in: query
+        name: offset
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Employee attendance day list
+      tags:
+      - employees
   /employee/attendance-face-id:
     post:
       consumes:
@@ -6417,6 +6477,14 @@ paths:
       - description: Event type (check-in yoki check-out)
         in: query
         name: event_type
+        type: string
+      - description: Xodim ismi bo'yicha qidiruv
+        in: query
+        name: name
+        type: string
+      - description: Xodim telefoni bo'yicha qidiruv
+        in: query
+        name: phone
         type: string
       - description: Start Date (RFC3339, masalan 2026-08-03T00:00:00+05:00)
         in: query

@@ -111,7 +111,15 @@ func RegisterCronJobs(service *services.Services) (*cron.Cron, error) {
 		service.AutoCreateMonthlyStoreTargets()
 	})
 
+	// 58 18 UTC = 23:58 Tashkent — bugungi kun tugashidan oldin check-out qilinmagan
+	// check-in'larni avtomatik yopadi (event_at=bugun 23:59:59, is_auto_closed=true)
+	c.AddFunc("58 18 * * *", func() {
+		log.Println("Starting auto-close unclosed attendance logs...")
+		service.AutoCloseUnclosedAttendanceLogs()
+	})
+
 	// 59 18 UTC = 23:59 Tashkent — kechagi Toshkent kuni to'liq yakunlangach ishlaydi
+	// (kechagi kunning check-out'lari yuqoridagi auto-close orqali bir kun oldin yopilgan bo'ladi)
 	c.AddFunc("59 18 * * *", func() {
 		log.Println("Starting aggregate employee attendance days...")
 		service.AggregateEmployeeAttendanceDays()

@@ -244,6 +244,7 @@ func (s *Services) GetAttendanceLogList(ctx context.Context, params *domain.Atte
 			al.event_type,
 			al.event_at,
 			al.face_id_url,
+			al.is_auto_closed,
 			al.created_at
 		`).
 		Order("al.event_at DESC")
@@ -271,13 +272,18 @@ func (s *Services) GetAttendanceLogList(ctx context.Context, params *domain.Atte
 // AggregateEmployeeAttendanceDays — har kuni cron orqali chaqiriladi. Kechagi kun (Toshkent
 // vaqti bo'yicha) uchun attendance_logs'dagi xom check-in/check-out voqealarini xodim
 // bo'yicha yig'ib, employee_attendance_days'ga yozadi (mavjud qator bo'lsa yangilaydi).
-// Faqat "Кассир" va "Заведующий" rolidagi xodimlar hisobga olinadi —
-// rol nomi roles.name bo'yicha solishtiriladi, shu rollar keyinchalik qayta nomlansa
-// shu yerdagi ro'yxatni ham yangilash kerak. planned_start_at va late_minutes faqat
-// employees.start_date to'ldirilgan xodimlar uchun hisoblanadi — bo'lmasa NULL/0 qoladi.
-// sales_amount — sales jadvalidan shu xodimning shu kundagi yakunlangan savdolari yig'indisi
-// (sale_type='SALE' AND stage=9, boshqa servislarda ham shu filtr ishlatiladi).
-// is_manual_override=true bo'lgan kunlarga HR tuzatishini yo'qotmaslik uchun tegilmaydi.
+// worked_minutes — shu kun ichidagi HAR BIR check-in/check-out jufti orasidagi vaqtlar
+// yig'indisi (bir necha marta kelib-ketgan bo'lsa ham to'g'ri hisoblanadi uchun oraliqdagi
+// tanaffuslar hisobga olinmaydi) — faqat bevosita ketma-ket kelgan check-in→check-out
+// juftlari hisoblanadi (LAG orqali), yolg'iz qolgan yoki noto'g'ri ketma-ketlikdagi
+// voqealar hisobga olinmaydi. Faqat "Кассир" va "Заведующий" rolidagi xodimlar hisobga
+// olinadi — rol nomi roles.name bo'yicha solishtiriladi, shu rollar keyinchalik qayta
+// nomlansa shu yerdagi ro'yxatni ham yangilash kerak. planned_start_at va late_minutes
+// faqat employees.start_date to'ldirilgan xodimlar uchun hisoblanadi — bo'lmasa NULL/0
+// qoladi. sales_amount — sales jadvalidan shu xodimning shu kundagi yakunlangan
+// savdolari yig'indisi (sale_type='SALE' AND stage=9, boshqa servislarda ham shu filtr
+// ishlatiladi). is_manual_override=true bo'lgan kunlarga HR tuzatishini yo'qotmaslik
+// uchun tegilmaydi.
 func (s *Services) AggregateEmployeeAttendanceDays() {
 	err := s.db.Exec(`
 		INSERT INTO employee_attendance_days
@@ -293,9 +299,7 @@ func (s *Services) AggregateEmployeeAttendanceDays() {
 		         ELSE NULL END,
 		    l.first_check_in,
 		    l.last_check_out,
-		    CASE WHEN l.first_check_in IS NOT NULL AND l.last_check_out IS NOT NULL
-		         THEN GREATEST(0, ROUND(EXTRACT(EPOCH FROM (l.last_check_out - l.first_check_in)) / 60))::int
-		         ELSE 0 END,
+		    GREATEST(0, ROUND(l.worked_seconds / 60))::int,
 		    CASE WHEN e.start_date IS NOT NULL AND l.first_check_in IS NOT NULL
 		         THEN GREATEST(0, ROUND(EXTRACT(EPOCH FROM (l.first_check_in - ((l.work_date + e.start_date) AT TIME ZONE 'Asia/Tashkent'))) / 60))::int
 		         ELSE 0 END,
@@ -308,12 +312,26 @@ func (s *Services) AggregateEmployeeAttendanceDays() {
 		    SELECT
 		        employee_id,
 		        (array_agg(store_id ORDER BY event_at))[1]            AS store_id,
-		        (event_at + interval '5 hours')::date                 AS work_date,
+		        work_date,
 		        MIN(event_at) FILTER (WHERE event_type = 'check-in')  AS first_check_in,
-		        MAX(event_at) FILTER (WHERE event_type = 'check-out') AS last_check_out
-		    FROM attendance_logs
-		    WHERE (event_at + interval '5 hours')::date = (NOW() + interval '5 hours')::date - 1
-		    GROUP BY employee_id, (event_at + interval '5 hours')::date
+		        MAX(event_at) FILTER (WHERE event_type = 'check-out') AS last_check_out,
+		        SUM(worked_seconds)                                   AS worked_seconds
+		    FROM (
+		        SELECT
+		            employee_id,
+		            store_id,
+		            event_type,
+		            event_at,
+		            (event_at + interval '5 hours')::date AS work_date,
+		            CASE WHEN event_type = 'check-out'
+		                      AND LAG(event_type) OVER w = 'check-in'
+		                 THEN EXTRACT(EPOCH FROM (event_at - LAG(event_at) OVER w))
+		                 ELSE 0 END AS worked_seconds
+		        FROM attendance_logs
+		        WHERE (event_at + interval '5 hours')::date = (NOW() + interval '5 hours')::date - 1
+		        WINDOW w AS (PARTITION BY employee_id, (event_at + interval '5 hours')::date ORDER BY event_at)
+		    ) paired
+		    GROUP BY employee_id, work_date
 		) l
 		JOIN employees e ON e.id = l.employee_id
 		    AND e.is_active = TRUE
@@ -411,6 +429,47 @@ func (s *Services) AggregateEmployeeAttendanceDays() {
 		return
 	}
 	s.log.Infof("AggregateEmployeeAttendanceDays completed")
+}
+
+// AutoCloseUnclosedAttendanceLogs — har kuni cron orqali chaqiriladi. Bugungi kun (Toshkent
+// vaqti bo'yicha) uchun har bir xodimning ENG OXIRGI voqeasini tekshiradi: agar u
+// "check-in" bo'lsa (ya'ni xodim shu kuni check-out qilishni unutgan bo'lsa),
+// event_at=bugun 23:59:59 (Toshkent) bilan avtomatik "check-out" yozuvi qo'shadi va
+// is_auto_closed=true bilan belgilaydi. Bir kunda bir necha marta check-in/check-out
+// qilgan xodimlarga ta'sir qilmaydi — faqat kunning eng oxirgi voqeasi check-in bo'lgan
+// holatlarda ishlaydi. Ushbu funksiya AggregateEmployeeAttendanceDays'dan oldingi kunni
+// yopadi, shuning uchun ertasi kuni ishlaydigan agregatsiya worked_minutes'ni to'g'ri
+// hisoblay oladi (check-out allaqachon mavjud bo'ladi).
+func (s *Services) AutoCloseUnclosedAttendanceLogs() {
+	err := s.db.Exec(`
+		INSERT INTO attendance_logs (id, store_id, employee_id, event_type, event_at, is_auto_closed, created_at, updated_at)
+		SELECT
+		    uuid_generate_v4(),
+		    l.store_id,
+		    l.employee_id,
+		    'check-out',
+		    (l.work_date + INTERVAL '23:59:59') AT TIME ZONE 'Asia/Tashkent',
+		    TRUE,
+		    NOW(),
+		    NOW()
+		FROM (
+		    SELECT DISTINCT ON (employee_id)
+		        employee_id,
+		        store_id,
+		        event_type,
+		        (event_at + interval '5 hours')::date AS work_date
+		    FROM attendance_logs
+		    WHERE (event_at + interval '5 hours')::date = (NOW() + interval '5 hours')::date
+		    ORDER BY employee_id, event_at DESC
+		) l
+		WHERE l.event_type = 'check-in'
+	`).Error
+
+	if err != nil {
+		s.log.Errorf("cron AutoCloseUnclosedAttendanceLogs: %v", err)
+		return
+	}
+	s.log.Infof("AutoCloseUnclosedAttendanceLogs completed")
 }
 
 // GetEmployeeAttendanceDayList — kunlik davomat yig'indisi ro'yxati (employee_attendance_days),
