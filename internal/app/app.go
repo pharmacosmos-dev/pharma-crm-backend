@@ -111,5 +111,11 @@ func RegisterCronJobs(service *services.Services) (*cron.Cron, error) {
 		service.AutoCreateMonthlyStoreTargets()
 	})
 
+	// 59 18 UTC = 23:59 Tashkent — kechagi Toshkent kuni to'liq yakunlangach ishlaydi
+	c.AddFunc("59 18 * * *", func() {
+		log.Println("Starting aggregate employee attendance days...")
+		service.AggregateEmployeeAttendanceDays()
+	})
+
 	return c, nil
 }
