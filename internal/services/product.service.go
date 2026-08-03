@@ -1244,8 +1244,11 @@ func (s *Services) GetStoreProductsByProductId(ctx context.Context, params *doma
 func (s *Services) GetNoorProducts(params *domain.NoorQueryParam) ([]domain.NoorProduct, error) {
 	var (
 		res    []domain.NoorProduct
-		filter string
-		args   []any
+		filter = ` WHERE p.requires_prescription = false AND EXISTS (
+			SELECT 1 FROM online_products_price opp
+			WHERE opp.product_id = p.id AND opp.type = ?
+		) `
+		args = []any{constants.ServiceTypeUzum}
 	)
 
 	if params.UpdatedAt != "" {
@@ -1253,7 +1256,7 @@ func (s *Services) GetNoorProducts(params *domain.NoorQueryParam) ([]domain.Noor
 			s.log.Errorf("could not parse updated_at param: %v", err)
 			return nil, domain.InvalidTimeFormatError
 		}
-		filter = " WHERE p.updated_at >= ? "
+		filter += " AND p.updated_at >= ? "
 		args = append(args, params.UpdatedAt)
 	}
 	query := `
@@ -1290,27 +1293,38 @@ func (s *Services) GetNoorStoreProducts(params *domain.NoorQueryParam) ([]domain
 
 	var (
 		res    []domain.NoorStoreProduct
-		filter = " WHERE sp.updated_at >= ? "
+		filter = " WHERE p.requires_prescription = false AND sp.updated_at >= ? "
+		args   = []any{constants.ServiceTypeUzum, params.UpdatedAt}
 	)
 
 	if params.ShopId != "" {
-		filter += " AND sp.store_id = '" + params.ShopId + "' "
+		filter += " AND sp.store_id = ? "
+		args = append(args, params.ShopId)
 	}
+
+	args = append(args, params.Limit, params.Offset)
 
 	query := `
 	SELECT
 		sp.store_id,
 		sp.product_id,
 		SUM(sp.unit_quantity/(p.unit_per_pack/p.blister_count)) AS quantity,
-		ROUND(MAX(sp.retail_price/p.blister_count), 0) AS price
+		ROUND(opp.retail_price)::int AS price
 	FROM store_products sp
 	JOIN products p ON sp.product_id = p.id
+	JOIN LATERAL (
+		SELECT retail_price
+		FROM online_products_price
+		WHERE product_id = sp.product_id AND type = ?
+		ORDER BY created_at DESC
+		LIMIT 1
+	) opp ON true
 	` + filter + `
-	GROUP BY sp.product_id, sp.store_id
+	GROUP BY sp.product_id, sp.store_id, opp.retail_price
 	LIMIT ? OFFSET ?;
 	`
 	// execute query
-	err := s.db.Raw(query, params.UpdatedAt, params.Limit, params.Offset).Scan(&res).Error
+	err := s.db.Raw(query, args...).Scan(&res).Error
 	if err != nil {
 		s.log.Errorf("could not get store_products for noor: %v", err)
 		return res, domain.InternalServerError
