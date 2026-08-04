@@ -5694,25 +5694,25 @@ const docTemplate = `{
                     },
                     {
                         "type": "string",
-                        "description": "Xodim ismi bo'yicha qidiruv",
-                        "name": "name",
+                        "description": "Employee ID",
+                        "name": "employee_id",
                         "in": "query"
                     },
                     {
                         "type": "string",
-                        "description": "Xodim telefoni bo'yicha qidiruv",
-                        "name": "phone",
+                        "description": "Xodim ismi yoki telefoni bo'yicha qidiruv",
+                        "name": "search",
                         "in": "query"
                     },
                     {
                         "type": "string",
-                        "description": "Oraliq boshlanishi (2006-01-02, work_date bo'yicha)",
+                        "description": "Oraliq boshlanishi (2006-01-02 yoki RFC3339, work_date bo'yicha)",
                         "name": "start_date",
                         "in": "query"
                     },
                     {
                         "type": "string",
-                        "description": "Oraliq tugashi (2006-01-02, work_date bo'yicha)",
+                        "description": "Oraliq tugashi (2006-01-02 yoki RFC3339, work_date bo'yicha)",
                         "name": "end_date",
                         "in": "query"
                     },
@@ -6043,14 +6043,8 @@ const docTemplate = `{
                     },
                     {
                         "type": "string",
-                        "description": "Xodim ismi bo'yicha qidiruv",
-                        "name": "name",
-                        "in": "query"
-                    },
-                    {
-                        "type": "string",
-                        "description": "Xodim telefoni bo'yicha qidiruv",
-                        "name": "phone",
+                        "description": "Xodim ismi yoki telefoni bo'yicha qidiruv",
+                        "name": "search",
                         "in": "query"
                     },
                     {
@@ -28643,6 +28637,12 @@ const docTemplate = `{
                         "type": "string",
                         "description": "Store ID (faqat admin uchun filter sifatida ishlaydi, bo'sh bo'lsa barcha do'konlar)",
                         "name": "store_id",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Do'kon nomi bo'yicha qidiruv",
+                        "name": "search",
                         "in": "query"
                     },
                     {

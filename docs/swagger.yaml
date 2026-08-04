@@ -6237,19 +6237,19 @@ paths:
         in: query
         name: store_id
         type: string
-      - description: Xodim ismi bo'yicha qidiruv
+      - description: Employee ID
         in: query
-        name: name
+        name: employee_id
         type: string
-      - description: Xodim telefoni bo'yicha qidiruv
+      - description: Xodim ismi yoki telefoni bo'yicha qidiruv
         in: query
-        name: phone
+        name: search
         type: string
-      - description: Oraliq boshlanishi (2006-01-02, work_date bo'yicha)
+      - description: Oraliq boshlanishi (2006-01-02 yoki RFC3339, work_date bo'yicha)
         in: query
         name: start_date
         type: string
-      - description: Oraliq tugashi (2006-01-02, work_date bo'yicha)
+      - description: Oraliq tugashi (2006-01-02 yoki RFC3339, work_date bo'yicha)
         in: query
         name: end_date
         type: string
@@ -6478,13 +6478,9 @@ paths:
         in: query
         name: event_type
         type: string
-      - description: Xodim ismi bo'yicha qidiruv
+      - description: Xodim ismi yoki telefoni bo'yicha qidiruv
         in: query
-        name: name
-        type: string
-      - description: Xodim telefoni bo'yicha qidiruv
-        in: query
-        name: phone
+        name: search
         type: string
       - description: Start Date (RFC3339, masalan 2026-08-03T00:00:00+05:00)
         in: query
@@ -20843,6 +20839,10 @@ paths:
           barcha do'konlar)
         in: query
         name: store_id
+        type: string
+      - description: Do'kon nomi bo'yicha qidiruv
+        in: query
+        name: search
         type: string
       - description: Start Date (RFC3339, masalan 2026-08-03T00:00:00+05:00)
         in: query

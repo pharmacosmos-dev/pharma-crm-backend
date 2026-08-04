@@ -229,14 +229,9 @@ func (s *Services) GetAttendanceLogList(ctx context.Context, params *domain.Atte
 		query = query.Where("al.event_type = ?", params.EventType)
 	}
 
-	if params.Name != "" {
-		countQuery = countQuery.Where("e.full_name ILIKE ?", "%"+params.Name+"%")
-		query = query.Where("e.full_name ILIKE ?", "%"+params.Name+"%")
-	}
-
-	if params.Phone != "" {
-		countQuery = countQuery.Where("e.phone ILIKE ?", "%"+params.Phone+"%")
-		query = query.Where("e.phone ILIKE ?", "%"+params.Phone+"%")
+	if params.Search != "" {
+		countQuery = countQuery.Where("(e.full_name ILIKE ? OR e.phone ILIKE ?)", "%"+params.Search+"%", "%"+params.Search+"%")
+		query = query.Where("(e.full_name ILIKE ? OR e.phone ILIKE ?)", "%"+params.Search+"%", "%"+params.Search+"%")
 	}
 
 	var total int64
@@ -501,14 +496,14 @@ func (s *Services) GetEmployeeAttendanceDayList(ctx context.Context, params *dom
 		query = query.Where("ead.store_id = ?", params.StoreId)
 	}
 
-	if params.Name != "" {
-		countQuery = countQuery.Where("e.full_name ILIKE ?", "%"+params.Name+"%")
-		query = query.Where("e.full_name ILIKE ?", "%"+params.Name+"%")
+	if params.EmployeeId != "" {
+		countQuery = countQuery.Where("ead.employee_id = ?", params.EmployeeId)
+		query = query.Where("ead.employee_id = ?", params.EmployeeId)
 	}
 
-	if params.Phone != "" {
-		countQuery = countQuery.Where("e.phone ILIKE ?", "%"+params.Phone+"%")
-		query = query.Where("e.phone ILIKE ?", "%"+params.Phone+"%")
+	if params.Search != "" {
+		countQuery = countQuery.Where("(e.full_name ILIKE ? OR e.phone ILIKE ?)", "%"+params.Search+"%", "%"+params.Search+"%")
+		query = query.Where("(e.full_name ILIKE ? OR e.phone ILIKE ?)", "%"+params.Search+"%", "%"+params.Search+"%")
 	}
 
 	if params.StartDate != "" {
@@ -597,14 +592,18 @@ func (s *Services) GetStoreWorkingHours(ctx context.Context, params *domain.Stor
 
 	// 1-qadam: shu oraliqda kamida bitta check-in/check-out jufti bo'lgan do'konlar
 	// ro'yxatini (nomi bo'yicha tartiblangan) sahifalab olamiz.
+	searchPattern := "%" + params.Search + "%"
+
 	var total int64
 	if err := s.db.WithContext(ctx).Raw(`
-		SELECT COUNT(DISTINCT store_id)
-		FROM attendance_logs
-		WHERE event_at BETWEEN ? AND ?
-		  AND store_id IS NOT NULL
-		  AND (? = '' OR store_id::text = ?)
-	`, startTimeInUTC, endTimeInUTC, params.StoreId, params.StoreId).Scan(&total).Error; err != nil {
+		SELECT COUNT(DISTINCT al.store_id)
+		FROM attendance_logs al
+		LEFT JOIN stores s ON s.id = al.store_id
+		WHERE al.event_at BETWEEN ? AND ?
+		  AND al.store_id IS NOT NULL
+		  AND (? = '' OR al.store_id::text = ?)
+		  AND (? = '' OR s.name ILIKE ?)
+	`, startTimeInUTC, endTimeInUTC, params.StoreId, params.StoreId, params.Search, searchPattern).Scan(&total).Error; err != nil {
 		s.log.Errorf("could not count stores for working hours: %v", err)
 		return nil, 0, domain.InternalServerError
 	}
@@ -621,10 +620,11 @@ func (s *Services) GetStoreWorkingHours(ctx context.Context, params *domain.Stor
 		WHERE al.event_at BETWEEN ? AND ?
 		  AND al.store_id IS NOT NULL
 		  AND (? = '' OR al.store_id::text = ?)
+		  AND (? = '' OR s.name ILIKE ?)
 		GROUP BY al.store_id, s.name
 		ORDER BY s.name ASC
 		LIMIT ? OFFSET ?
-	`, startTimeInUTC, endTimeInUTC, params.StoreId, params.StoreId, params.Limit, params.Offset).Scan(&storeIds).Error; err != nil {
+	`, startTimeInUTC, endTimeInUTC, params.StoreId, params.StoreId, params.Search, searchPattern, params.Limit, params.Offset).Scan(&storeIds).Error; err != nil {
 		s.log.Errorf("could not list stores for working hours: %v", err)
 		return nil, 0, domain.InternalServerError
 	}

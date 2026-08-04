@@ -422,6 +422,7 @@ func (h *StoreHandler) Delete(c *gin.Context) {
 // @Accept       json
 // @Produce      json
 // @Param        store_id    query  string  false  "Store ID (faqat admin uchun filter sifatida ishlaydi, bo'sh bo'lsa barcha do'konlar)"
+// @Param        search      query  string  false  "Do'kon nomi bo'yicha qidiruv"
 // @Param        start_date  query  string  true   "Start Date (RFC3339, masalan 2026-08-03T00:00:00+05:00)"
 // @Param        end_date    query  string  false  "End Date (RFC3339)"
 // @Param        limit       query  int     false  "Nechta do'kon qaytarilishi kerak (standart 10)"

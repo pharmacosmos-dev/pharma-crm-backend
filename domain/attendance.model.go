@@ -43,12 +43,12 @@ type ManualCreateAttendanceLogRequest struct {
 // AttendanceLogQueryParams — check-in/check-out ro'yxati uchun filter parametrlari.
 // start_date va end_date DashboardQueryParam/SaleStatistic bilan bir xil ishlaydi:
 // end_date berilmasa, start_date kuni yakunigacha (default 23:59) qamrab olinadi.
+// search — xodim ismi va telefoni bo'yicha bitta qidiruv (OR).
 type AttendanceLogQueryParams struct {
 	StoreId    string      `form:"store_id"`
 	EmployeeId string      `form:"employee_id"`
 	EventType  string      `form:"event_type"`
-	Name       string      `form:"name"`
-	Phone      string      `form:"phone"`
+	Search     string      `form:"search"`
 	StartDate  *CustomTime `form:"start_date"`
 	EndDate    *CustomTime `form:"end_date"`
 	Limit      int         `form:"limit"`
@@ -71,16 +71,17 @@ type AttendanceLogListItem struct {
 }
 
 // EmployeeAttendanceDayQueryParams — kunlik davomat (employee_attendance_days) ro'yxati
-// uchun filter parametrlari. start_date/end_date "2006-01-02" formatida, work_date
-// bo'yicha oraliq filtri (ikkalasi ham ixtiyoriy, mustaqil qo'llanadi).
+// uchun filter parametrlari. start_date/end_date "2006-01-02" formatida yoki vaqt bilan
+// (RFC3339) yuborilishi mumkin, work_date bo'yicha oraliq filtri (ikkalasi ham ixtiyoriy,
+// mustaqil qo'llanadi). search — xodim ismi va telefoni bo'yicha bitta qidiruv (OR).
 type EmployeeAttendanceDayQueryParams struct {
-	StoreId   string `form:"store_id"`
-	Name      string `form:"name"`
-	Phone     string `form:"phone"`
-	StartDate string `form:"start_date"`
-	EndDate   string `form:"end_date"`
-	Limit     int    `form:"limit"`
-	Offset    int    `form:"offset"`
+	StoreId    string `form:"store_id"`
+	EmployeeId string `form:"employee_id"`
+	Search     string `form:"search"`
+	StartDate  string `form:"start_date"`
+	EndDate    string `form:"end_date"`
+	Limit      int    `form:"limit"`
+	Offset     int    `form:"offset"`
 }
 
 // EmployeeAttendanceDayListItem — GET list javobi uchun, xodim va do'kon nomi bilan birga.
@@ -108,9 +109,11 @@ type EmployeeAttendanceDayListItem struct {
 // StoreWorkingHoursQueryParams — do'konning xodimlar check-in/check-out voqealari
 // asosida hisoblangan "ish vaqti" hisobotini olish uchun filter parametrlari.
 // start_date va end_date SaleStatistic bilan bir xil ishlaydi: end_date berilmasa,
-// start_date kuni yakunigacha (default 23:59) qamrab olinadi.
+// start_date kuni yakunigacha (default 23:59) qamrab olinadi. search — do'kon nomi
+// bo'yicha qidiruv.
 type StoreWorkingHoursQueryParams struct {
 	StoreId   string      `form:"store_id"`
+	Search    string      `form:"search"`
 	StartDate *CustomTime `form:"start_date"`
 	EndDate   *CustomTime `form:"end_date"`
 	Limit     int         `form:"limit"`

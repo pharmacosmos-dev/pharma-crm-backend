@@ -1054,8 +1054,7 @@ func (h *EmployeeHandler) CleanupOldAttendanceFaceIds(c *gin.Context) {
 // @Param        store_id     query  string  false  "Store ID (faqat admin uchun filter sifatida ishlaydi)"
 // @Param        employee_id  query  string  false  "Employee ID"
 // @Param        event_type   query  string  false  "Event type (check-in yoki check-out)"
-// @Param        name         query  string  false  "Xodim ismi bo'yicha qidiruv"
-// @Param        phone        query  string  false  "Xodim telefoni bo'yicha qidiruv"
+// @Param        search       query  string  false  "Xodim ismi yoki telefoni bo'yicha qidiruv"
 // @Param        start_date   query  string  true   "Start Date (RFC3339, masalan 2026-08-03T00:00:00+05:00)"
 // @Param        end_date     query  string  false  "End Date (RFC3339)"
 // @Param        limit        query  int     false  "Limit"
@@ -1109,13 +1108,13 @@ func (h *EmployeeHandler) AttendanceList(c *gin.Context) {
 // @Security     BearerAuth
 // @Accept       json
 // @Produce      json
-// @Param        store_id    query  string  false  "Store ID (faqat admin uchun filter sifatida ishlaydi)"
-// @Param        name        query  string  false  "Xodim ismi bo'yicha qidiruv"
-// @Param        phone       query  string  false  "Xodim telefoni bo'yicha qidiruv"
-// @Param        start_date  query  string  false  "Oraliq boshlanishi (2006-01-02, work_date bo'yicha)"
-// @Param        end_date    query  string  false  "Oraliq tugashi (2006-01-02, work_date bo'yicha)"
-// @Param        limit       query  int     false  "Limit"
-// @Param        offset      query  int     false  "Offset"
+// @Param        store_id     query  string  false  "Store ID (faqat admin uchun filter sifatida ishlaydi)"
+// @Param        employee_id  query  string  false  "Employee ID"
+// @Param        search       query  string  false  "Xodim ismi yoki telefoni bo'yicha qidiruv"
+// @Param        start_date   query  string  false  "Oraliq boshlanishi (2006-01-02 yoki RFC3339, work_date bo'yicha)"
+// @Param        end_date     query  string  false  "Oraliq tugashi (2006-01-02 yoki RFC3339, work_date bo'yicha)"
+// @Param        limit        query  int     false  "Limit"
+// @Param        offset       query  int     false  "Offset"
 // @Success      200 {object} v1.Response
 // @Failure      400 {object} v1.Response
 // @Failure      401 {object} v1.Response
