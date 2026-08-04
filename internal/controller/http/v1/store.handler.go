@@ -34,6 +34,7 @@ func (h *StoreHandler) StoreRoutes(r *gin.RouterGroup) {
 		store.GET("/:id", h.Get)
 		store.GET("/list", h.FetchStores)
 		store.GET("/export-excel", h.ExportExcel)
+		store.GET("/working-hours", h.GetStoreWorkingHours)
 		store.PUT("/:id", h.Update)
 		store.PUT("/online-order", h.UpdateOnlineOrder)
 		store.DELETE("/:id", h.Delete)
@@ -411,4 +412,57 @@ func (h *StoreHandler) Delete(c *gin.Context) {
 		return
 	}
 	handleResponse(c, OK, "DELETED")
+}
+
+// GetStoreWorkingHours godoc
+// @Summary      Store working hours (from attendance)
+// @Description  Do'kon(lar)ning xodimlar check-in/check-out voqealari asosida necha soat "ishlagani"ni qaytaradi (Toshkent kuni bo'yicha, start_date/end_date oralig'ida, har kun uchun alohida). Bir vaqtning o'zida bir nechta xodim ishlagan bo'lsa (masalan bir necha smena), ularning oraliqlari ustma-ust tushgan qismi ikki marta hisoblanmaydi. Aniq do'konga bog'langan foydalanuvchilar (user.store_id mavjud) uchun faqat o'z do'koni qaytadi, store_id filtri ular uchun e'tiborga olinmaydi.
+// @Tags         stores
+// @Security     BearerAuth
+// @Accept       json
+// @Produce      json
+// @Param        store_id    query  string  false  "Store ID (faqat admin uchun filter sifatida ishlaydi, bo'sh bo'lsa barcha do'konlar)"
+// @Param        start_date  query  string  true   "Start Date (RFC3339, masalan 2026-08-03T00:00:00+05:00)"
+// @Param        end_date    query  string  false  "End Date (RFC3339)"
+// @Param        limit       query  int     false  "Nechta do'kon qaytarilishi kerak (standart 10)"
+// @Param        offset      query  int     false  "Offset"
+// @Success      200 {object} v1.Response
+// @Failure      400 {object} v1.Response
+// @Failure      401 {object} v1.Response
+// @Failure      500 {object} v1.Response
+// @Router       /store/working-hours [get]
+func (h *StoreHandler) GetStoreWorkingHours(c *gin.Context) {
+	user := h.service.GetSignedUser(c)
+	if user.UserId == "" {
+		handleServiceResponse(c, nil, domain.UnauthorizedError)
+		return
+	}
+
+	var params domain.StoreWorkingHoursQueryParams
+	if err := c.ShouldBindQuery(&params); err != nil {
+		handleResponse(c, BadRequest, err.Error())
+		return
+	}
+
+	if params.StartDate == nil {
+		handleServiceResponse(c, BadRequest, domain.InvalidQueryError)
+		return
+	}
+
+	if !helper.IsAdmin(user) {
+		params.StoreId = user.StoreId
+	}
+
+	params.Limit, params.Offset = defaultLimitOffset(params.Limit, params.Offset)
+
+	ctx, cancel := context.WithTimeout(c.Request.Context(), constants.DefaultContextTimeout)
+	defer cancel()
+
+	results, total, err := h.service.GetStoreWorkingHours(ctx, &params)
+	if err != nil {
+		handleServiceResponse(c, nil, err)
+		return
+	}
+
+	handleResponse(c, OK, utils.ListResponse(results, total, params.Limit, params.Offset))
 }

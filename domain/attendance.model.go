@@ -104,3 +104,27 @@ type EmployeeAttendanceDayListItem struct {
 	CreatedAt        *time.Time `json:"created_at"`
 	UpdatedAt        *time.Time `json:"updated_at"`
 }
+
+// StoreWorkingHoursQueryParams — do'konning xodimlar check-in/check-out voqealari
+// asosida hisoblangan "ish vaqti" hisobotini olish uchun filter parametrlari.
+// start_date va end_date SaleStatistic bilan bir xil ishlaydi: end_date berilmasa,
+// start_date kuni yakunigacha (default 23:59) qamrab olinadi.
+type StoreWorkingHoursQueryParams struct {
+	StoreId   string      `form:"store_id"`
+	StartDate *CustomTime `form:"start_date"`
+	EndDate   *CustomTime `form:"end_date"`
+	Limit     int         `form:"limit"`
+	Offset    int         `form:"offset"`
+}
+
+// StoreWorkingHoursListItem — bitta do'konning bitta kundagi (Toshkent vaqti bo'yicha)
+// ish vaqti natijasi. worked_minutes/worked_hours — o'sha kunda kamida bitta xodim
+// check-in qilgan vaqt oralig'i (bir nechta xodimning ustma-ust tushgan smenalari
+// ikki marta hisoblanmaydi — barcha oraliqlar birlashtirilgan holda hisoblanadi).
+type StoreWorkingHoursListItem struct {
+	StoreId       string  `json:"store_id"`
+	StoreName     string  `json:"store_name"`
+	WorkDate      string  `json:"work_date"`
+	WorkedMinutes int     `json:"worked_minutes"`
+	WorkedHours   float64 `json:"worked_hours"`
+}

@@ -3,6 +3,7 @@ package services
 import (
 	"context"
 	"errors"
+	"math"
 	"time"
 
 	"github.com/google/uuid"
@@ -559,6 +560,125 @@ func (s *Services) GetEmployeeAttendanceDayList(ctx context.Context, params *dom
 
 	if results == nil {
 		results = []domain.EmployeeAttendanceDayListItem{}
+	}
+
+	return results, total, nil
+}
+
+// GetStoreWorkingHours — do'kon(lar)ning xodimlar check-in/check-out voqealari asosida
+// necha soat "ishlagani"ni hisoblaydi (Toshkent kuni bo'yicha, start_date/end_date
+// oralig'ida). Bitta do'konda bir nechta xodim bir vaqtda ishlagan bo'lsa (masalan
+// 2 smena, 4 xodim), ularning check-in/check-out oraliqlari ustma-ust tushgan qismi
+// ikki marta hisoblanmaydi — barcha xodimlarning oraliqlari birlashtiriladi ("gaps and
+// islands" texnikasi orqali) va faqat kamida bitta xodim ishlagan vaqt hisoblanadi.
+// Kunning biror qismida hech qanday xodim check-in qilmagan bo'lsa, o'sha qism umuman
+// hisobga kirmaydi (natijada 0 soatgacha tushishi mumkin).
+// limit/offset DO'KONLAR soni bo'yicha sahifalanadi (har bir do'kon start_date/end_date
+// oralig'idagi barcha kunlari bilan birga qaytadi, natija yarim kesilmaydi).
+func (s *Services) GetStoreWorkingHours(ctx context.Context, params *domain.StoreWorkingHoursQueryParams) ([]domain.StoreWorkingHoursListItem, int64, error) {
+	startTimeInUTC := (*params.StartDate).ToUTC().GetString()
+	endTimeInUTC := domain.AddDefaultDuration(*params.StartDate, params.EndDate).ToUTC().GetString()
+
+	// 1-qadam: shu oraliqda kamida bitta check-in/check-out jufti bo'lgan do'konlar
+	// ro'yxatini (nomi bo'yicha tartiblangan) sahifalab olamiz.
+	var total int64
+	if err := s.db.WithContext(ctx).Raw(`
+		SELECT COUNT(DISTINCT store_id)
+		FROM attendance_logs
+		WHERE event_at BETWEEN ? AND ?
+		  AND store_id IS NOT NULL
+		  AND (? = '' OR store_id::text = ?)
+	`, startTimeInUTC, endTimeInUTC, params.StoreId, params.StoreId).Scan(&total).Error; err != nil {
+		s.log.Errorf("could not count stores for working hours: %v", err)
+		return nil, 0, domain.InternalServerError
+	}
+
+	if total == 0 {
+		return []domain.StoreWorkingHoursListItem{}, 0, nil
+	}
+
+	var storeIds []string
+	if err := s.db.WithContext(ctx).Raw(`
+		SELECT al.store_id
+		FROM attendance_logs al
+		LEFT JOIN stores s ON s.id = al.store_id
+		WHERE al.event_at BETWEEN ? AND ?
+		  AND al.store_id IS NOT NULL
+		  AND (? = '' OR al.store_id::text = ?)
+		GROUP BY al.store_id, s.name
+		ORDER BY s.name ASC
+		LIMIT ? OFFSET ?
+	`, startTimeInUTC, endTimeInUTC, params.StoreId, params.StoreId, params.Limit, params.Offset).Scan(&storeIds).Error; err != nil {
+		s.log.Errorf("could not list stores for working hours: %v", err)
+		return nil, 0, domain.InternalServerError
+	}
+
+	if len(storeIds) == 0 {
+		return []domain.StoreWorkingHoursListItem{}, total, nil
+	}
+
+	// 2-qadam: faqat shu sahifadagi do'konlar uchun ish vaqtini hisoblaymiz.
+	var results []domain.StoreWorkingHoursListItem
+	err := s.db.WithContext(ctx).Raw(`
+		WITH events AS (
+		    SELECT
+		        store_id,
+		        event_type,
+		        event_at,
+		        (event_at + interval '5 hours')::date AS work_date,
+		        LAG(event_type) OVER w AS prev_type,
+		        LAG(event_at) OVER w AS prev_at
+		    FROM attendance_logs
+		    WHERE event_at BETWEEN ? AND ?
+		      AND store_id IN (?)
+		    WINDOW w AS (PARTITION BY employee_id, (event_at + interval '5 hours')::date ORDER BY event_at)
+		),
+		pairs AS (
+		    SELECT store_id, work_date, prev_at AS check_in, event_at AS check_out
+		    FROM events
+		    WHERE event_type = 'check-out' AND prev_type = 'check-in'
+		),
+		with_prev_end AS (
+		    SELECT p.*,
+		        MAX(check_out) OVER (
+		            PARTITION BY store_id, work_date ORDER BY check_in
+		            ROWS BETWEEN UNBOUNDED PRECEDING AND 1 PRECEDING
+		        ) AS prev_max_end
+		    FROM pairs p
+		),
+		islands AS (
+		    SELECT w.*,
+		        SUM(CASE WHEN prev_max_end IS NULL OR check_in > prev_max_end THEN 1 ELSE 0 END)
+		            OVER (PARTITION BY store_id, work_date ORDER BY check_in) AS grp
+		    FROM with_prev_end w
+		),
+		merged AS (
+		    SELECT store_id, work_date, grp, MIN(check_in) AS interval_start, MAX(check_out) AS interval_end
+		    FROM islands
+		    GROUP BY store_id, work_date, grp
+		)
+		SELECT
+		    m.store_id,
+		    COALESCE(s.name, '') AS store_name,
+		    m.work_date::text AS work_date,
+		    GREATEST(0, ROUND(SUM(EXTRACT(EPOCH FROM (m.interval_end - m.interval_start))) / 60))::int AS worked_minutes
+		FROM merged m
+		LEFT JOIN stores s ON s.id = m.store_id
+		GROUP BY m.store_id, s.name, m.work_date
+		ORDER BY s.name ASC, m.work_date DESC
+	`, startTimeInUTC, endTimeInUTC, storeIds).Scan(&results).Error
+
+	if err != nil {
+		s.log.Errorf("could not get store working hours: %v", err)
+		return nil, 0, domain.InternalServerError
+	}
+
+	if results == nil {
+		results = []domain.StoreWorkingHoursListItem{}
+	}
+
+	for i := range results {
+		results[i].WorkedHours = math.Round(float64(results[i].WorkedMinutes)/60*100) / 100
 	}
 
 	return results, total, nil

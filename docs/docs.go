@@ -28620,6 +28620,85 @@ const docTemplate = `{
                 }
             }
         },
+        "/store/working-hours": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Do'kon(lar)ning xodimlar check-in/check-out voqealari asosida necha soat \"ishlagani\"ni qaytaradi (Toshkent kuni bo'yicha, start_date/end_date oralig'ida, har kun uchun alohida). Bir vaqtning o'zida bir nechta xodim ishlagan bo'lsa (masalan bir necha smena), ularning oraliqlari ustma-ust tushgan qismi ikki marta hisoblanmaydi. Aniq do'konga bog'langan foydalanuvchilar (user.store_id mavjud) uchun faqat o'z do'koni qaytadi, store_id filtri ular uchun e'tiborga olinmaydi.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "stores"
+                ],
+                "summary": "Store working hours (from attendance)",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Store ID (faqat admin uchun filter sifatida ishlaydi, bo'sh bo'lsa barcha do'konlar)",
+                        "name": "store_id",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Start Date (RFC3339, masalan 2026-08-03T00:00:00+05:00)",
+                        "name": "start_date",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "End Date (RFC3339)",
+                        "name": "end_date",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Nechta do'kon qaytarilishi kerak (standart 10)",
+                        "name": "limit",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Offset",
+                        "name": "offset",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    }
+                }
+            }
+        },
         "/store/{id}": {
             "get": {
                 "security": [
