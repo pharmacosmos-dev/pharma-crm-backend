@@ -1090,11 +1090,6 @@ func (h *EmployeeHandler) AttendanceList(c *gin.Context) {
 
 	params.Limit, params.Offset = defaultLimitOffset(params.Limit, params.Offset)
 
-	if user.StoreId != "" {
-		handleResponse(c, OK, utils.ListResponse([]domain.AttendanceLogListItem{}, 0, params.Limit, params.Offset))
-		return
-	}
-
 	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
 	defer cancel()
 
