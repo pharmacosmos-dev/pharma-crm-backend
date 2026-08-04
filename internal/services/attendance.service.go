@@ -3,6 +3,7 @@ package services
 import (
 	"context"
 	"errors"
+	"fmt"
 	"math"
 	"time"
 
@@ -11,6 +12,19 @@ import (
 	"github.com/pharma-crm-backend/domain/constants"
 	"gorm.io/gorm"
 )
+
+// parseDateOnly — "2006-01-02" yoki vaqt bilan (RFC3339, masalan
+// "2026-08-04T15:30:00+05:00") kelgan sana qiymatini qabul qiladi va faqat sana
+// qismini ("2006-01-02") qaytaradi — vaqt qismi bo'lsa e'tiborga olinmaydi.
+func parseDateOnly(value string) (string, error) {
+	if t, err := time.Parse(constants.TimeOnlyDateFormat, value); err == nil {
+		return t.Format(constants.TimeOnlyDateFormat), nil
+	}
+	if t, err := time.Parse(time.RFC3339, value); err == nil {
+		return t.Format(constants.TimeOnlyDateFormat), nil
+	}
+	return "", fmt.Errorf("invalid date format: %s", value)
+}
 
 // GetTodayLastAttendanceEventType — xodimning bugungi kun (Toshkent vaqti) bo'yicha
 // eng oxirgi attendance_logs voqeasi turini qaytaradi. Bugun hech qanday voqea
@@ -498,19 +512,21 @@ func (s *Services) GetEmployeeAttendanceDayList(ctx context.Context, params *dom
 	}
 
 	if params.StartDate != "" {
-		if _, err := time.Parse(constants.TimeOnlyDateFormat, params.StartDate); err != nil {
+		startDate, err := parseDateOnly(params.StartDate)
+		if err != nil {
 			return nil, 0, domain.InvalidTimeFormatError
 		}
-		countQuery = countQuery.Where("ead.work_date >= ?::date", params.StartDate)
-		query = query.Where("ead.work_date >= ?::date", params.StartDate)
+		countQuery = countQuery.Where("ead.work_date >= ?::date", startDate)
+		query = query.Where("ead.work_date >= ?::date", startDate)
 	}
 
 	if params.EndDate != "" {
-		if _, err := time.Parse(constants.TimeOnlyDateFormat, params.EndDate); err != nil {
+		endDate, err := parseDateOnly(params.EndDate)
+		if err != nil {
 			return nil, 0, domain.InvalidTimeFormatError
 		}
-		countQuery = countQuery.Where("ead.work_date <= ?::date", params.EndDate)
-		query = query.Where("ead.work_date <= ?::date", params.EndDate)
+		countQuery = countQuery.Where("ead.work_date <= ?::date", endDate)
+		query = query.Where("ead.work_date <= ?::date", endDate)
 	}
 
 	var total int64
@@ -661,7 +677,9 @@ func (s *Services) GetStoreWorkingHours(ctx context.Context, params *domain.Stor
 		    m.store_id,
 		    COALESCE(s.name, '') AS store_name,
 		    m.work_date::text AS work_date,
-		    GREATEST(0, ROUND(SUM(EXTRACT(EPOCH FROM (m.interval_end - m.interval_start))) / 60))::int AS worked_minutes
+		    GREATEST(0, ROUND(SUM(EXTRACT(EPOCH FROM (m.interval_end - m.interval_start))) / 60))::int AS worked_minutes,
+		    MIN(m.interval_start) AS open_date,
+		    MAX(m.interval_end) AS close_date
 		FROM merged m
 		LEFT JOIN stores s ON s.id = m.store_id
 		GROUP BY m.store_id, s.name, m.work_date

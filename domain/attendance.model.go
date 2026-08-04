@@ -121,10 +121,14 @@ type StoreWorkingHoursQueryParams struct {
 // ish vaqti natijasi. worked_minutes/worked_hours — o'sha kunda kamida bitta xodim
 // check-in qilgan vaqt oralig'i (bir nechta xodimning ustma-ust tushgan smenalari
 // ikki marta hisoblanmaydi — barcha oraliqlar birlashtirilgan holda hisoblanadi).
+// open_date/close_date — shu kunda xodimlar orasida eng birinchi kelgan (check-in)
+// va eng oxirgi ketgan (check-out) vaqti.
 type StoreWorkingHoursListItem struct {
-	StoreId       string  `json:"store_id"`
-	StoreName     string  `json:"store_name"`
-	WorkDate      string  `json:"work_date"`
-	WorkedMinutes int     `json:"worked_minutes"`
-	WorkedHours   float64 `json:"worked_hours"`
+	StoreId       string     `json:"store_id"`
+	StoreName     string     `json:"store_name"`
+	WorkDate      string     `json:"work_date"`
+	WorkedMinutes int        `json:"worked_minutes"`
+	WorkedHours   float64    `json:"worked_hours"`
+	OpenDate      *time.Time `json:"open_date"`
+	CloseDate     *time.Time `json:"close_date"`
 }
