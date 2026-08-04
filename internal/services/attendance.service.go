@@ -208,6 +208,7 @@ func (s *Services) GetAttendanceLogList(ctx context.Context, params *domain.Atte
 	)
 
 	countQuery := s.db.WithContext(ctx).Table("attendance_logs al").
+		Joins("LEFT JOIN employees e ON e.id = al.employee_id").
 		Where("al.event_at BETWEEN ? AND ?", startTimeInUTC, endTimeInUTC)
 	query := s.db.WithContext(ctx).Table("attendance_logs al").
 		Joins("LEFT JOIN employees e ON e.id = al.employee_id").
