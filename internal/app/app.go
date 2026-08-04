@@ -120,7 +120,7 @@ func RegisterCronJobs(service *services.Services) (*cron.Cron, error) {
 
 	// 30 19 UTC = 00:30 Tashkent — kechagi Toshkent kuni to'liq yakunlangach ishlaydi
 	// (kechagi kunning check-out'lari yuqoridagi auto-close orqali bir kun oldin yopilgan bo'ladi)
-	c.AddFunc("*/5 * * * *", func() { //30 19 * * *
+	c.AddFunc("30 19 * * *", func() { //30 19 * * *
 		log.Println("Starting aggregate employee attendance days...")
 		service.AggregateEmployeeAttendanceDays()
 	})
