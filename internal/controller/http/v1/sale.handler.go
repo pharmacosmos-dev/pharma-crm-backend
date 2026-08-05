@@ -413,7 +413,7 @@ func (h *SaleHandler) ExportSalesExcel(c *gin.Context) {
 		f.SetCellValue(sheetName, "I"+row, sale.LoyaltyCard)
 		f.SetCellValue(sheetName, "J"+row, sale.TotalDiscount)
 		f.SetCellValue(sheetName, "K"+row, sale.TotalAmount)
-		f.SetCellValue(sheetName, "L"+row, sale.CompletedAt.Add(time.Hour*5).Format(time.DateOnly))
+		f.SetCellValue(sheetName, "L"+row, sale.CompletedAt.Add(time.Hour*5).Format("2006-01-02 15:04:05"))
 		f.SetCellValue(sheetName, "M"+row, sale.CashBoxName)
 		f.SetCellValue(sheetName, "N"+row, sale.FullName)
 		if sale.CustomerName != nil {
