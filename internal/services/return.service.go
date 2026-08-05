@@ -670,11 +670,17 @@ func (s *Services) ReturnDetailList(param *domain.ReturnDetailParam) ([]domain.R
 			p.material_code,
 			p.unit_per_pack,
 			sp.expire_date,
-			COALESCE(sp.barcode, p.barcode) AS barcode,
+			pb.barcode,
 			ut.short_name,
 			pr.name AS producer`).
 		Joins("JOIN products p ON transfer_details.product_id = p.id").
 		Joins("JOIN store_products sp ON transfer_details.store_product_id = sp.id").
+		Joins(`LEFT JOIN LATERAL (
+			SELECT barcode FROM product_barcodes
+			WHERE product_id = p.id AND status = 'completed'
+			ORDER BY created_at DESC
+			LIMIT 1
+		) pb ON true`).
 		Joins("LEFT JOIN producers pr ON p.producer_id = pr.id").
 		Joins("LEFT JOIN unit_types ut ON p.unit_type_id = ut.id").
 		Where("transfer_details.transfer_id = ?", param.ReturnId)
@@ -682,13 +688,19 @@ func (s *Services) ReturnDetailList(param *domain.ReturnDetailParam) ([]domain.R
 	if param.Search != "" {
 		switch utils.DefineProductSearchQuery(param.Search) {
 		case "barcode":
-			query = query.Where("COALESCE(sp.barcode, p.barcode) = ?", param.Search)
+			query = query.Where(`EXISTS (
+				SELECT 1 FROM product_barcodes pb2
+				WHERE pb2.product_id = p.id AND pb2.status = 'completed' AND pb2.barcode = ?
+			)`, param.Search)
 		case "name/category":
 			param.Search = fmt.Sprintf("%%%s%%", param.Search)
 			query = query.Where("p.name ILIKE ?", param.Search)
 		default:
 			param.Search = fmt.Sprintf("%%%s%%", param.Search)
-			query = query.Where("p.name ILIKE ? OR COALESCE(sp.barcode, p.barcode) LIKE ?", param.Search, param.Search)
+			query = query.Where(`p.name ILIKE ? OR EXISTS (
+				SELECT 1 FROM product_barcodes pb2
+				WHERE pb2.product_id = p.id AND pb2.status = 'completed' AND pb2.barcode ILIKE ?
+			)`, param.Search, param.Search)
 		}
 	}
 	// filter with return stats
