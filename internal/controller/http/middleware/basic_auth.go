@@ -16,8 +16,8 @@ func BasicAuth() Config {
 	return Config{
 		Users: []User{
 			{
-				UserName: "pharma",
-				Password: "54321",
+				UserName: "pharma_cosmos",
+				Password: "qwerty7654321",
 			},
 		},
 		RestrictedUrls: []string{
