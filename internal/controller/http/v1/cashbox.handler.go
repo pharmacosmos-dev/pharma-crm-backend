@@ -202,6 +202,16 @@ func (h *CashBoxHandler) List(c *gin.Context) {
 			FALSE
 		) AS is_open,
 		COALESCE(
+			(SELECT e.id
+			FROM cashbox_operations co
+			JOIN employees e ON e.id = co.current_employee_id
+			WHERE co.cash_box_id = c.id
+			AND co.is_open = TRUE
+			ORDER BY co.created_at DESC
+			LIMIT 1),
+			''
+		) AS employee_id,
+		COALESCE(
 			(SELECT e.full_name
 			FROM cashbox_operations co
 			JOIN employees e ON e.id = co.current_employee_id
