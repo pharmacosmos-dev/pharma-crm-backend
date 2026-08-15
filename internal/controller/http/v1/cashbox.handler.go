@@ -208,8 +208,7 @@ func (h *CashBoxHandler) List(c *gin.Context) {
 			WHERE co.cash_box_id = c.id
 			AND co.is_open = TRUE
 			ORDER BY co.created_at DESC
-			LIMIT 1),
-			''
+			LIMIT 1)
 		) AS employee_id,
 		COALESCE(
 			(SELECT e.full_name
