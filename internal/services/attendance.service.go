@@ -644,8 +644,6 @@ func (s *Services) GetStoreWorkingHours(ctx context.Context, params *domain.Stor
 	err := s.db.WithContext(ctx).Raw(`
 
 		WITH dates AS (
-			-- Start_date -> end_date oralig'idagi barcha
-			-- Toshkent kunlarini yaratamiz.
 			SELECT generate_series(
 				(?::timestamptz + interval '5 hours')::date,
 				(?::timestamptz + interval '5 hours')::date,
@@ -718,7 +716,7 @@ func (s *Services) GetStoreWorkingHours(ctx context.Context, params *domain.Stor
 		AND w.work_date = d.work_date
 		WHERE s.id IN (?)
 		ORDER BY s.name ASC, d.work_date DESC
-	`, startTimeInUTC, endTimeInUTC, storeIds).Scan(&results).Error
+	`, startTimeInUTC, endTimeInUTC, startTimeInUTC, endTimeInUTC, storeIds).Scan(&results).Error
 
 	if err != nil {
 		s.log.Errorf("could not get store working hours: %v", err)
