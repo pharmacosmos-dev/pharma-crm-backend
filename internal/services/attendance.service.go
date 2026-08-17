@@ -597,14 +597,16 @@ func (s *Services) GetStoreWorkingHours(ctx context.Context, params *domain.Stor
 
 	var total int64
 	if err := s.db.WithContext(ctx).Raw(`
-		SELECT COUNT(DISTINCT al.store_id)
-		FROM attendance_logs al
-		LEFT JOIN stores s ON s.id = al.store_id
-		WHERE al.event_at BETWEEN ? AND ?
-		  AND al.store_id IS NOT NULL
-		  AND (? = '' OR al.store_id::text = ?)
+		SELECT COUNT(*)
+		FROM stores s
+		WHERE (? = '' OR s.id::text = ?)
 		  AND (? = '' OR s.name ILIKE ?)
-	`, startTimeInUTC, endTimeInUTC, params.StoreId, params.StoreId, params.Search, searchPattern).Scan(&total).Error; err != nil {
+	`,
+		params.StoreId,
+		params.StoreId,
+		params.Search,
+		searchPattern,
+	).Scan(&total).Error; err != nil {
 		s.log.Errorf("could not count stores for working hours: %v", err)
 		return nil, 0, domain.InternalServerError
 	}
@@ -615,17 +617,20 @@ func (s *Services) GetStoreWorkingHours(ctx context.Context, params *domain.Stor
 
 	var storeIds []string
 	if err := s.db.WithContext(ctx).Raw(`
-		SELECT al.store_id
-		FROM attendance_logs al
-		LEFT JOIN stores s ON s.id = al.store_id
-		WHERE al.event_at BETWEEN ? AND ?
-		  AND al.store_id IS NOT NULL
-		  AND (? = '' OR al.store_id::text = ?)
+		SELECT s.id
+		FROM stores s
+		WHERE (? = '' OR s.id::text = ?)
 		  AND (? = '' OR s.name ILIKE ?)
-		GROUP BY al.store_id, s.name
 		ORDER BY s.name ASC
 		LIMIT ? OFFSET ?
-	`, startTimeInUTC, endTimeInUTC, params.StoreId, params.StoreId, params.Search, searchPattern, params.Limit, params.Offset).Scan(&storeIds).Error; err != nil {
+	`,
+		params.StoreId,
+		params.StoreId,
+		params.Search,
+		searchPattern,
+		params.Limit,
+		params.Offset,
+	).Scan(&storeIds).Error; err != nil {
 		s.log.Errorf("could not list stores for working hours: %v", err)
 		return nil, 0, domain.InternalServerError
 	}
