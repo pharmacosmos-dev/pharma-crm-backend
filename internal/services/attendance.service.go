@@ -716,7 +716,7 @@ func (s *Services) GetStoreWorkingHours(ctx context.Context, params *domain.Stor
 		AND w.work_date = d.work_date
 		WHERE s.id IN (?)
 		ORDER BY s.name ASC, d.work_date DESC
-	`, startTimeInUTC, endTimeInUTC, startTimeInUTC, endTimeInUTC, storeIds).Scan(&results).Error
+	`, startTimeInUTC, endTimeInUTC, startTimeInUTC, endTimeInUTC, storeIds, storeIds).Scan(&results).Error
 
 	if err != nil {
 		s.log.Errorf("could not get store working hours: %v", err)
