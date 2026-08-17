@@ -642,7 +642,18 @@ func (s *Services) GetStoreWorkingHours(ctx context.Context, params *domain.Stor
 	// 2-qadam: faqat shu sahifadagi do'konlar uchun ish vaqtini hisoblaymiz.
 	var results []domain.StoreWorkingHoursListItem
 	err := s.db.WithContext(ctx).Raw(`
-		WITH events AS (
+
+		WITH dates AS (
+			-- Start_date -> end_date oralig'idagi barcha
+			-- Toshkent kunlarini yaratamiz.
+			SELECT generate_series(
+				(?::timestamptz + interval '5 hours')::date,
+				(?::timestamptz + interval '5 hours')::date,
+				interval '1 day'
+			)::date AS work_date
+		),
+
+		events AS (
 		    SELECT
 		        store_id,
 		        event_type,
@@ -678,18 +689,35 @@ func (s *Services) GetStoreWorkingHours(ctx context.Context, params *domain.Stor
 		    SELECT store_id, work_date, grp, MIN(check_in) AS interval_start, MAX(check_out) AS interval_end
 		    FROM islands
 		    GROUP BY store_id, work_date, grp
+		),
+		working AS (
+		    SELECT
+		        store_id,
+		        work_date,
+				GREATEST(0, ROUND(SUM(EXTRACT(EPOCH FROM (interval_end - interval_start))) / 60))::int AS worked_minutes,
+		        MIN(interval_start) AS open_date,
+		        MAX(interval_end) AS close_date
+
+		    FROM merged
+
+		    GROUP BY
+		        store_id,
+		        work_date
 		)
 		SELECT
-		    m.store_id,
-		    COALESCE(s.name, '') AS store_name,
-		    m.work_date::text AS work_date,
-		    GREATEST(0, ROUND(SUM(EXTRACT(EPOCH FROM (m.interval_end - m.interval_start))) / 60))::int AS worked_minutes,
-		    MIN(m.interval_start) AS open_date,
-		    MAX(m.interval_end) AS close_date
-		FROM merged m
-		LEFT JOIN stores s ON s.id = m.store_id
-		GROUP BY m.store_id, s.name, m.work_date
-		ORDER BY s.name ASC, m.work_date DESC
+			s.id AS store_id,
+			COALESCE(s.name, '') AS store_name,
+			d.work_date::text AS work_date,
+			COALESCE(w.worked_minutes, 0)::int AS worked_minutes,
+			w.open_date,
+			w.close_date
+		FROM stores s
+		CROSS JOIN dates d
+		LEFT JOIN working w
+			ON w.store_id = s.id
+		AND w.work_date = d.work_date
+		WHERE s.id IN (?)
+		ORDER BY s.name ASC, d.work_date DESC
 	`, startTimeInUTC, endTimeInUTC, storeIds).Scan(&results).Error
 
 	if err != nil {
