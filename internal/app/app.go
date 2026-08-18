@@ -125,5 +125,10 @@ func RegisterCronJobs(service *services.Services) (*cron.Cron, error) {
 		service.AggregateEmployeeAttendanceDays()
 	})
 
+	c.AddFunc("*/2 * * * *", func() {
+		log.Println("Update employee attendance days...")
+		service.UpdateEmployeeAttendanceDays()
+	})
+
 	return c, nil
 }

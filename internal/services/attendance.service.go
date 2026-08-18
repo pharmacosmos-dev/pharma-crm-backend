@@ -483,6 +483,174 @@ func (s *Services) AutoCloseUnclosedAttendanceLogs() {
 	s.log.Infof("AutoCloseUnclosedAttendanceLogs completed")
 }
 
+// UpdateEmployeeAttendanceDays — har kuni Toshkent vaqti bilan 01:00 da ishlaydi.
+//
+// Vazifasi:
+// 1. Kecha 23:59:59 da avtomatik yopilgan attendance loglarni topadi.
+// 2. Agar employee bugungi kunda hali hech qanday attendance event yubormagan bo'lsa,
+//    kechagi auto-close vaqtini check-in vaqtiga + 4 soat qilib o'zgartiradi.
+// 3. Agar check-in + 4 soat yangi kunga o'tib ketsa, auto-close o'zgartirilmaydi.
+// 4. employee_attendance_days dagi kechagi last_check_out va worked_minutes
+//    qayta hisoblanadi.
+// 5. is_manual_override=true bo'lgan yozuvlarga tegilmaydi.
+func (s *Services) UpdateEmployeeAttendanceDays() {
+	err := s.db.Transaction(func(tx *gorm.DB) error {
+
+		err := tx.Exec(`
+			WITH yesterday_auto_closed AS (
+				SELECT
+					al.id AS auto_close_id,
+					al.employee_id,
+					al.store_id,
+					al.event_at AS auto_close_at,
+					(
+						SELECT al2.event_at
+						FROM attendance_logs al2
+						WHERE al2.employee_id = al.employee_id
+						  AND al2.event_at < al.event_at
+						  AND al2.event_type = 'check-in'
+						  AND (al2.event_at + interval '5 hours')::date =
+						      (NOW() + interval '5 hours')::date - 1
+						ORDER BY al2.event_at DESC
+						LIMIT 1
+					) AS check_in_at
+				FROM attendance_logs al
+				WHERE al.is_auto_closed = TRUE
+				  AND al.event_type = 'check-out'
+				  AND (al.event_at + interval '5 hours')::date =
+				      (NOW() + interval '5 hours')::date - 1
+				  AND (al.event_at AT TIME ZONE 'Asia/Tashkent')::time =
+				      TIME '23:59:59'
+			),
+
+			eligible AS (
+				SELECT
+					y.auto_close_id,
+					y.employee_id,
+					y.check_in_at,
+					y.check_in_at + interval '4 hours' AS new_check_out_at
+				FROM yesterday_auto_closed y
+				WHERE y.check_in_at IS NOT NULL
+
+				  -- Bugungi kunda employee attendance qilmagan bo'lishi kerak.
+				  AND NOT EXISTS (
+					  SELECT 1
+					  FROM attendance_logs today
+					  WHERE today.employee_id = y.employee_id
+					    AND (today.event_at + interval '5 hours')::date =
+					        (NOW() + interval '5 hours')::date
+				  )
+
+				  -- check-in + 4 soat yangi kunga o'tib ketmasligi kerak.
+				  AND (
+					  y.check_in_at + interval '4 hours'
+				  ) < (
+					  ((NOW() + interval '5 hours')::date)
+					  AT TIME ZONE 'Asia/Tashkent'
+				  )
+			)
+
+			UPDATE attendance_logs al
+			SET
+				event_at = e.new_check_out_at,
+				updated_at = NOW()
+			FROM eligible e
+			WHERE al.id = e.auto_close_id
+		`).Error
+
+		if err != nil {
+			return err
+		}
+
+		err = tx.Exec(`
+			WITH yesterday_logs AS (
+				SELECT
+					al.employee_id,
+					al.store_id,
+					al.event_type,
+					al.event_at,
+
+					-- oldingi event turi
+					LAG(al.event_type) OVER (
+						PARTITION BY
+							al.employee_id,
+							(al.event_at + interval '5 hours')::date
+						ORDER BY al.event_at
+					) AS prev_event_type,
+
+					-- oldingi event vaqti
+					LAG(al.event_at) OVER (
+						PARTITION BY
+							al.employee_id,
+							(al.event_at + interval '5 hours')::date
+						ORDER BY al.event_at
+					) AS prev_event_at
+
+				FROM attendance_logs al
+				WHERE (al.event_at + interval '5 hours')::date =
+				      (NOW() + interval '5 hours')::date - 1
+			),
+
+			aggregated AS (
+				SELECT
+					employee_id,
+
+					MIN(event_at) FILTER (
+						WHERE event_type = 'check-in'
+					) AS first_check_in,
+
+					MAX(event_at) FILTER (
+						WHERE event_type = 'check-out'
+					) AS last_check_out,
+
+					SUM(
+						CASE
+							WHEN event_type = 'check-out'
+							 AND prev_event_type = 'check-in'
+							THEN EXTRACT(
+								EPOCH FROM (event_at - prev_event_at)
+							)
+							ELSE 0
+						END
+					) AS worked_seconds
+
+				FROM yesterday_logs
+				GROUP BY employee_id
+			)
+
+			UPDATE employee_attendance_days ead
+			SET
+				first_check_in = a.first_check_in,
+				last_check_out = a.last_check_out,
+				worked_minutes = GREATEST(
+					0,
+					ROUND(a.worked_seconds / 60)
+				)::int,
+				updated_at = NOW()
+			FROM aggregated a
+			WHERE ead.employee_id = a.employee_id
+			  AND ead.work_date =
+			      (NOW() + interval '5 hours')::date - 1
+
+			  -- HR tomonidan qo'lda o'zgartirilgan yozuvga tegmaymiz
+			  AND ead.is_manual_override = FALSE
+		`).Error
+
+		if err != nil {
+			return err
+		}
+
+		return nil
+	})
+
+	if err != nil {
+		s.log.Errorf("cron UpdateEmployeeAttendanceDays: %v", err)
+		return
+	}
+
+	s.log.Infof("UpdateEmployeeAttendanceDays completed")
+}
+
 // GetEmployeeAttendanceDayList — kunlik davomat yig'indisi ro'yxati (employee_attendance_days),
 // store_id, xodim ismi/telefoni va work_date oraliqi (start_date/end_date) filtrlari bilan.
 func (s *Services) GetEmployeeAttendanceDayList(ctx context.Context, params *domain.EmployeeAttendanceDayQueryParams) ([]domain.EmployeeAttendanceDayListItem, int64, error) {
