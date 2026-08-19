@@ -1294,7 +1294,7 @@ func (s *Services) GetNoorStoreProducts(params *domain.NoorQueryParam) ([]domain
 	var (
 		res    []domain.NoorStoreProduct
 		filter = " WHERE p.requires_prescription = false AND sp.updated_at >= ? AND sp.unit_quantity > 0"
-		args   = []any{params.UpdatedAt, constants.ServiceTypeUzum}
+		args   = []any{constants.ServiceTypeUzum, params.UpdatedAt}
 	)
 
 	if params.ShopId != "" {
