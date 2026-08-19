@@ -1293,8 +1293,8 @@ func (s *Services) GetNoorStoreProducts(params *domain.NoorQueryParam) ([]domain
 
 	var (
 		res    []domain.NoorStoreProduct
-		filter = " WHERE p.requires_prescription = false AND sp.updated_at >= ? "
-		args   = []any{constants.ServiceTypeUzum, params.UpdatedAt}
+		filter = " WHERE p.requires_prescription = false AND sp.updated_at >= ? AND sp.unit_quantity > 0"
+		args   = []any{params.UpdatedAt, constants.ServiceTypeUzum}
 	)
 
 	if params.ShopId != "" {
@@ -1321,6 +1321,7 @@ func (s *Services) GetNoorStoreProducts(params *domain.NoorQueryParam) ([]domain
 	) opp ON true
 	` + filter + `
 	GROUP BY sp.product_id, sp.store_id, opp.retail_price
+	HAVING SUM(sp.unit_quantity/(p.unit_per_pack/p.blister_count)) > 0
 	LIMIT ? OFFSET ?;
 	`
 	// execute query
