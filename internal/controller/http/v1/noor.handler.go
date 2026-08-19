@@ -39,7 +39,6 @@ func (h *NoorHandler) NoorRoutes(r *gin.RouterGroup) {
 // @Produce 	json
 // @Param   	limit 	query     int      false "Limit"
 // @Param   	offset 	query     int      false "Offset"
-// @param		updatedAt query   string   false "updatedAt"
 // @Success 	200 {object} []domain.NoorProduct
 // @Failure 	400 {object} v1.IntegrationErrorResponse
 // @Failure 	500 {object} v1.IntegrationErrorResponse
@@ -70,7 +69,6 @@ func (h *NoorHandler) ProductList(c *gin.Context) {
 // @Security    BasicAuth
 // @Accept 		json
 // @Produce 	json
-// @Param		updatedAt query   string   false "updatedAt"
 // @Param		shopId  query   string   false "Shop ID"
 // @Param   	limit 	query     int      false "Limit"
 // @Param   	offset 	query     int      false "Offset"

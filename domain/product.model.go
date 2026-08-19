@@ -462,7 +462,6 @@ type NoorStore struct {
 }
 
 type NoorQueryParam struct {
-	UpdatedAt string `form:"updatedAt"`
 	Limit     int    `form:"limit"`
 	Offset    int    `form:"offset"`
 	Search    string `form:"search"`

@@ -10500,10 +10500,6 @@ paths:
         in: query
         name: offset
         type: integer
-      - description: updatedAt
-        in: query
-        name: updatedAt
-        type: string
       produces:
       - application/json
       responses:
@@ -10532,10 +10528,6 @@ paths:
       - application/json
       description: List Store Products
       parameters:
-      - description: updatedAt
-        in: query
-        name: updatedAt
-        type: string
       - description: Shop ID
         in: query
         name: shopId

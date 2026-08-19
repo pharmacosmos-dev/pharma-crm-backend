@@ -1251,14 +1251,14 @@ func (s *Services) GetNoorProducts(params *domain.NoorQueryParam) ([]domain.Noor
 		args = []any{constants.ServiceTypeUzum}
 	)
 
-	if params.UpdatedAt != "" {
-		if _, err := time.Parse(time.RFC3339, params.UpdatedAt); err != nil {
-			s.log.Errorf("could not parse updated_at param: %v", err)
-			return nil, domain.InvalidTimeFormatError
-		}
-		filter += " AND p.updated_at >= ? "
-		args = append(args, params.UpdatedAt)
-	}
+	// if params.UpdatedAt != "" {
+	// 	if _, err := time.Parse(time.RFC3339, params.UpdatedAt); err != nil {
+	// 		s.log.Errorf("could not parse updated_at param: %v", err)
+	// 		return nil, domain.InvalidTimeFormatError
+	// 	}
+	// 	filter += " AND p.updated_at >= ? "
+	// 	args = append(args, params.UpdatedAt)
+	// }
 	query := `
 	SELECT
 		p.id,
@@ -1286,15 +1286,15 @@ func (s *Services) GetNoorProducts(params *domain.NoorQueryParam) ([]domain.Noor
 }
 
 func (s *Services) GetNoorStoreProducts(params *domain.NoorQueryParam) ([]domain.NoorStoreProduct, error) {
-	if _, err := time.Parse(time.RFC3339, params.UpdatedAt); err != nil {
-		s.log.Errorf("could not parse updated_at param: %v", err)
-		return nil, domain.InvalidTimeFormatError
-	}
+	// if _, err := time.Parse(time.RFC3339, params.UpdatedAt); err != nil {
+	// 	s.log.Errorf("could not parse updated_at param: %v", err)
+	// 	return nil, domain.InvalidTimeFormatError
+	// }
 
 	var (
 		res    []domain.NoorStoreProduct
-		filter = " WHERE p.requires_prescription = false AND sp.updated_at >= ? AND sp.unit_quantity > 0"
-		args   = []any{constants.ServiceTypeUzum, params.UpdatedAt}
+		filter = " WHERE p.requires_prescription = false AND sp.unit_quantity > 0"
+		args   = []any{constants.ServiceTypeUzum}
 	)
 
 	if params.ShopId != "" {
