@@ -37,7 +37,8 @@ func (s *Services) GetTodayLastAttendanceEventType(ctx context.Context, employee
 		SELECT event_type
 		FROM attendance_logs
 		WHERE employee_id = ?
-		  AND (event_at + interval '5 hours')::date = CURRENT_DATE
+		  AND (event_at AT TIME ZONE 'Asia/Tashkent')::date =
+		      (CURRENT_TIMESTAMP AT TIME ZONE 'Asia/Tashkent')::date
 		ORDER BY event_at DESC
 		LIMIT 1
 	`, employeeId).Take(&last).Error
