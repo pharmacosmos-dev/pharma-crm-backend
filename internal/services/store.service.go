@@ -245,11 +245,14 @@ func (s *Services) GetAllStoreMapInfo(ctx context.Context, params *domain.StoreM
 						event_at
 					FROM attendance_logs
 					WHERE store_id IS NOT NULL
+					  AND (event_at AT TIME ZONE 'Asia/Tashkent')::date =
+					      (CURRENT_TIMESTAMP AT TIME ZONE 'Asia/Tashkent')::date
 					ORDER BY
 						employee_id,
-						event_at DESC
+						event_at DESC,
+						id DESC
 				) latest
-				WHERE latest.event_type = 'check_in'
+				WHERE latest.event_type = 'check-in'
 				GROUP BY latest.store_id
 			) attendance
 				ON attendance.store_id = stores.id
@@ -342,11 +345,14 @@ func (s *Services) GetStoreByIdMapInfo(ctx context.Context, storeId string,) (*d
 						event_at
 					FROM attendance_logs
 					WHERE store_id IS NOT NULL
+					  AND (event_at AT TIME ZONE 'Asia/Tashkent')::date =
+					      (CURRENT_TIMESTAMP AT TIME ZONE 'Asia/Tashkent')::date
 					ORDER BY
 						employee_id,
-						event_at DESC
+						event_at DESC,
+						id DESC
 				) latest
-				WHERE latest.event_type = 'check_in'
+				WHERE latest.event_type = 'check-in'
 				GROUP BY latest.store_id
 			) attendance
 				ON attendance.store_id = stores.id
@@ -368,4 +374,4 @@ func (s *Services) GetStoreByIdMapInfo(ctx context.Context, storeId string,) (*d
 	}
 
 	return &storeMapInfo, nil
-} 
+}
