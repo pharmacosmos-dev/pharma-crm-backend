@@ -8398,6 +8398,38 @@ paths:
       summary: Upload requires prescription update excel
       tags:
       - helper
+  /helper/upload-store-map-info:
+    post:
+      consumes:
+      - multipart/form-data
+      description: 'Updates stores by store_code from an Excel file. Expected columns:
+        store_code, location (latitude, longitude), address, work_hours.'
+      parameters:
+      - description: Excel file (.xlsx)
+        in: formData
+        name: file
+        required: true
+        type: file
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Upload store map information
+      tags:
+      - helper
   /helper/upload-store-products:
     post:
       consumes:

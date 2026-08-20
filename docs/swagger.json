@@ -9329,6 +9329,55 @@
                 }
             }
         },
+        "/helper/upload-store-map-info": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Updates stores by store_code from an Excel file. Expected columns: store_code, location (latitude, longitude), address, work_hours.",
+                "consumes": [
+                    "multipart/form-data"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "helper"
+                ],
+                "summary": "Upload store map information",
+                "parameters": [
+                    {
+                        "type": "file",
+                        "description": "Excel file (.xlsx)",
+                        "name": "file",
+                        "in": "formData",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    }
+                }
+            }
+        },
         "/helper/upload-store-products": {
             "post": {
                 "security": [

@@ -52,6 +52,7 @@ func (h *HelperHandler) HelperRoutes(r *gin.RouterGroup) {
 		helper.POST("/upload-store-products", h.UploadStoreProducts)
 		helper.POST("/upload-product-producer", h.UploadProductProducer)
 		helper.POST("/upload-store-terminals", h.UploadTerminalIDs)
+		helper.POST("/upload-store-map-info", h.UploadStoreMapInfo)
 		helper.POST("/upload-requires-prescription", h.UploadRequiresPrescription)
 		helper.POST("/upload-is-return", h.UploadIsReturn)
 		helper.POST("/upload-product-country", h.UploadProductCountry)
@@ -2936,6 +2937,128 @@ func (h *HelperHandler) UploadTerminalIDs(c *gin.Context) {
 	}
 
 	handleResponse(c, OK, "Terminal IDs successfully updated")
+}
+
+// UploadStoreMapInfo godoc
+// @Summary Upload store map information
+// @Description Updates stores by store_code from an Excel file. Expected columns: store_code, location (latitude, longitude), address, work_hours.
+// @Tags helper
+// @Security BearerAuth
+// @Accept multipart/form-data
+// @Produce json
+// @Param file formData file true "Excel file (.xlsx)"
+// @Success 200 {object} v1.Response
+// @Failure 400 {object} v1.Response
+// @Failure 500 {object} v1.Response
+// @Router /helper/upload-store-map-info [post]
+func (h *HelperHandler) UploadStoreMapInfo(c *gin.Context) {
+	file, fileHeader, err := c.Request.FormFile("file")
+	if err != nil {
+		handleResponse(c, BadRequest, "File is required")
+		return
+	}
+	defer file.Close()
+
+	if strings.ToLower(filepath.Ext(fileHeader.Filename)) != ".xlsx" {
+		handleResponse(c, BadRequest, "Invalid file format, only .xlsx is supported")
+		return
+	}
+
+	f, err := excelize.OpenReader(file)
+	if err != nil {
+		h.log.Errorf("failed to open store map info excel file: %v", err)
+		handleResponse(c, BadRequest, "Could not read excel file")
+		return
+	}
+	defer f.Close()
+
+	sheets := f.GetSheetList()
+	if len(sheets) == 0 {
+		handleResponse(c, BadRequest, "Excel file has no sheets")
+		return
+	}
+
+	rows, err := f.GetRows(sheets[0])
+	if err != nil {
+		h.log.Errorf("failed to get store map info rows: %v", err)
+		handleResponse(c, BadRequest, "Could not read rows from excel")
+		return
+	}
+
+	const updateStoreMapInfoQuery = `
+		UPDATE stores
+		SET coordinates = ST_SetSRID(ST_MakePoint(?, ?), 4326)::geography,
+			location = ?,
+			address = ?,
+			work_hours = ?,
+			updated_at = NOW()
+		WHERE store_code = ?`
+
+	updated, skipped := 0, 0
+	for rowIndex, row := range rows {
+		if rowIndex == 0 { // header: store_code, location, address, work_hours
+			continue
+		}
+		if len(row) < 4 {
+			skipped++
+			h.log.Warnf("store map info row %d has fewer than 4 columns", rowIndex+1)
+			continue
+		}
+
+		storeCode, err := strconv.Atoi(strings.TrimSpace(row[0]))
+		if err != nil {
+			skipped++
+			h.log.Warnf("invalid store_code at row %d: %q", rowIndex+1, row[0])
+			continue
+		}
+
+		latitude, longitude, location, ok := parseLatitudeLongitude(row[1])
+		if !ok {
+			skipped++
+			h.log.Warnf("invalid location at row %d for store_code=%d: %q", rowIndex+1, storeCode, row[1])
+			continue
+		}
+
+		result := h.db.WithContext(c.Request.Context()).Exec(
+			updateStoreMapInfoQuery,
+			longitude, // PostGIS POINT uses longitude first
+			latitude,
+			location,
+			strings.TrimSpace(row[2]),
+			strings.TrimSpace(row[3]),
+			storeCode,
+		)
+		if result.Error != nil {
+			skipped++
+			h.log.Warnf("could not update store map info for store_code=%d: %v", storeCode, result.Error)
+			continue
+		}
+		if result.RowsAffected == 0 {
+			skipped++
+			h.log.Warnf("store not found for store_code=%d", storeCode)
+			continue
+		}
+		updated++
+	}
+
+	handleResponse(c, OK, fmt.Sprintf("Store map info successfully updated: %d; skipped: %d", updated, skipped))
+}
+
+// parseLatitudeLongitude parses Excel's "latitude, longitude" format. The returned
+// location string is normalized so it can also be stored in stores.location.
+func parseLatitudeLongitude(value string) (latitude, longitude float64, location string, ok bool) {
+	parts := strings.Split(strings.TrimSpace(value), ",")
+	if len(parts) != 2 {
+		return 0, 0, "", false
+	}
+
+	latitude, latErr := strconv.ParseFloat(strings.TrimSpace(parts[0]), 64)
+	longitude, lonErr := strconv.ParseFloat(strings.TrimSpace(parts[1]), 64)
+	if latErr != nil || lonErr != nil || latitude < -90 || latitude > 90 || longitude < -180 || longitude > 180 {
+		return 0, 0, "", false
+	}
+
+	return latitude, longitude, fmt.Sprintf("%g, %g", latitude, longitude), true
 }
 
 // UploadRequiresPrescription godoc
