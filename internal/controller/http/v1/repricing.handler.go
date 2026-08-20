@@ -624,7 +624,7 @@ func (h *RepricingHandler) AddRetailPrice(c *gin.Context) {
 		}
 	}()
 
-	if body.Percent > 0 && repricingId != "" {
+	if body.Percent != 0 && repricingId != "" {
 		query := `
 				UPDATE price_revalution_details
 				SET 
