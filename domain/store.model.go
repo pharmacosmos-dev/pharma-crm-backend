@@ -116,11 +116,11 @@ type StoreMapInfoQueryParams struct {
 type StoreMapInfo struct {
 	Id            string  `json:"id"`
 	Name          string  `json:"name"`
-	// SalesAmount   float64 `json:"sales_amount"`
-	// CashBoxCount  int64   `json:"cash_box_count"`
+	SalesAmount   float64 `json:"sales_amount"`
+	CashBoxCount  int64   `json:"cash_box_count"`
 	WorkHours     string  `json:"work_hours"`
 	Phone         string  `json:"phone"`
-	// EmployeeCount int64   `json:"employee_count"`
+	EmployeeCount int64   `json:"employee_count"`
 	IsOnlineOrder bool    `json:"is_online_order"`
 	IsOpen        bool    `json:"is_open"`
 	Address       string  `json:"address"`
