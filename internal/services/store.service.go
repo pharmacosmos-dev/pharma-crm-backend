@@ -137,7 +137,7 @@ func (s *Services) GetStores(ctx context.Context, params *domain.StoreQueryParam
 }
 
 func (s *Services) UpdateAverateStoreTargetSales() error {
-	err := s.db.Exec( `
+	err := s.db.Exec(`
 		UPDATE stores
 		SET average_target_sales = sub.avg_sales
 		FROM (
@@ -162,7 +162,6 @@ func (s *Services) UpdateAverateStoreTargetSales() error {
 	return nil
 }
 
-
 func (s *Services) GetAllStoreMapInfo(ctx context.Context, params *domain.StoreMapInfoQueryParams) ([]domain.StoreMapInfo, error) {
 
 	qb := s.db.WithContext(ctx).
@@ -182,29 +181,35 @@ func (s *Services) GetAllStoreMapInfo(ctx context.Context, params *domain.StoreM
 			ST_AsText(stores.coordinates) AS coordinates,
 
 			COALESCE(sales.sales_amount, 0) AS sales_amount,
+			COALESCE(sales.sales_count, 0) AS sales_count,
+			COALESCE(sales.sales_aggregate_sum, 0) AS sales_aggregate_sum,
+			COALESCE(sales.average_sales_amount, 0) AS average_sales_amount,
 
 			COALESCE(cash_boxes.cash_box_count, 0) AS cash_box_count,
 
 			COALESCE(employees.employee_count, 0) AS employee_count,
 
-			COALESCE(attendance.is_open, false) AS is_open
+			COALESCE(attendance.is_open, false) AS is_open,
+			attendance.opened_at,
+			attendance.closed_at
 		`).
-
 		Joins(`
 			LEFT JOIN (
 				SELECT
 					store_id,
-					SUM(total_amount) AS sales_amount
+					SUM(total_amount) AS sales_amount,
+					COUNT(*) AS sales_count,
+					SUM(total_amount) AS sales_aggregate_sum,
+					SUM(total_amount) / NULLIF(COUNT(*), 0) AS average_sales_amount
 				FROM sales
-				WHERE created_at >= CURRENT_DATE
-				  AND created_at < CURRENT_DATE + INTERVAL '1 day'
+				WHERE created_at >= (CURRENT_TIMESTAMP AT TIME ZONE 'Asia/Tashkent')::date
+				  AND created_at < (CURRENT_TIMESTAMP AT TIME ZONE 'Asia/Tashkent')::date + INTERVAL '1 day'
 				  AND store_id IS NOT NULL
 				  AND is_active = true
 				GROUP BY store_id
 			) sales
 				ON sales.store_id = stores.id
 		`).
-
 		Joins(`
 			LEFT JOIN (
 				SELECT
@@ -217,7 +222,6 @@ func (s *Services) GetAllStoreMapInfo(ctx context.Context, params *domain.StoreM
 			) cash_boxes
 				ON cash_boxes.store_id = stores.id
 		`).
-
 		Joins(`
 			LEFT JOIN (
 				SELECT
@@ -231,29 +235,38 @@ func (s *Services) GetAllStoreMapInfo(ctx context.Context, params *domain.StoreM
 			) employees
 				ON employees.store_id = stores.id
 		`).
-
 		Joins(`
 			LEFT JOIN (
 				SELECT
-					latest.store_id,
-					TRUE AS is_open
+					timeline.store_id,
+					COALESCE(open_state.is_open, false) AS is_open,
+					timeline.opened_at,
+					timeline.closed_at
 				FROM (
-					SELECT DISTINCT ON (employee_id)
-						employee_id,
+					SELECT
 						store_id,
-						event_type,
-						event_at
+						MIN(event_at) FILTER (WHERE event_type = 'check-in') AS opened_at,
+						MAX(event_at) FILTER (WHERE event_type = 'check-out') AS closed_at
 					FROM attendance_logs
 					WHERE store_id IS NOT NULL
 					  AND (event_at AT TIME ZONE 'Asia/Tashkent')::date =
 					      (CURRENT_TIMESTAMP AT TIME ZONE 'Asia/Tashkent')::date
-					ORDER BY
-						employee_id,
-						event_at DESC,
-						id DESC
-				) latest
-				WHERE latest.event_type = 'check-in'
-				GROUP BY latest.store_id
+					GROUP BY store_id
+				) timeline
+				LEFT JOIN (
+					SELECT latest.store_id, TRUE AS is_open
+					FROM (
+						SELECT DISTINCT ON (employee_id)
+							employee_id, store_id, event_type
+						FROM attendance_logs
+						WHERE store_id IS NOT NULL
+						  AND (event_at AT TIME ZONE 'Asia/Tashkent')::date =
+						      (CURRENT_TIMESTAMP AT TIME ZONE 'Asia/Tashkent')::date
+						ORDER BY employee_id, event_at DESC, id DESC
+					) latest
+					WHERE latest.event_type = 'check-in'
+					GROUP BY latest.store_id
+				) open_state ON open_state.store_id = timeline.store_id
 			) attendance
 				ON attendance.store_id = stores.id
 		`)
@@ -309,10 +322,86 @@ func (s *Services) GetAllStoreMapInfo(ctx context.Context, params *domain.StoreM
 		return nil, domain.InternalServerError
 	}
 
+	for i := range stores {
+		stores[i].Employees = make([]domain.StoreMapInfoEmployee, 0)
+		stores[i].PaymentTypes = make([]domain.StoreMapInfoPaymentType, 0)
+	}
+
+	var employeeRows []struct {
+		StoreId  string `gorm:"column:store_id"`
+		Id       string `gorm:"column:id"`
+		FullName string `gorm:"column:full_name"`
+	}
+	if err := s.db.WithContext(ctx).
+		Table("employees").
+		Select("store_id, id, full_name").
+		Where("deleted_at IS NULL AND is_active = true AND store_id IS NOT NULL").
+		Order("full_name ASC").
+		Find(&employeeRows).Error; err != nil {
+		s.log.Errorf("could not get store map employees: %v", err)
+		return nil, domain.InternalServerError
+	}
+
+	employeesByStore := make(map[string][]domain.StoreMapInfoEmployee)
+	for _, employee := range employeeRows {
+		employeesByStore[employee.StoreId] = append(employeesByStore[employee.StoreId], domain.StoreMapInfoEmployee{
+			Id:       employee.Id,
+			FullName: employee.FullName,
+		})
+	}
+
+	var paymentRows []struct {
+		StoreId string  `gorm:"column:store_id"`
+		Type    string  `gorm:"column:type"`
+		Amount  float64 `gorm:"column:amount"`
+	}
+	if err := s.db.WithContext(ctx).Raw(`
+		SELECT sales.store_id, payment.type, SUM(payment.amount) AS amount
+		FROM sales
+		CROSS JOIN LATERAL (
+			VALUES
+				('cash', COALESCE(sales.cash, 0)),
+				('click', COALESCE(sales.click, 0)),
+				('humo', COALESCE(sales.humo, 0)),
+				('uzcard', COALESCE(sales.uzcard, 0)),
+				('payme', COALESCE(sales.payme, 0)),
+				('alif', COALESCE(sales.alif, 0)),
+				('uzum', COALESCE(sales.uzum, 0)),
+				('uzum_tez_kor', COALESCE(sales.uzum_tez_kor, 0)),
+				('loyalty_card', COALESCE(sales.loyalty_card, 0))
+		) AS payment(type, amount)
+		WHERE sales.created_at >= (CURRENT_TIMESTAMP AT TIME ZONE 'Asia/Tashkent')::date
+		  AND sales.created_at < (CURRENT_TIMESTAMP AT TIME ZONE 'Asia/Tashkent')::date + INTERVAL '1 day'
+		  AND sales.is_active = true
+		  AND payment.amount <> 0
+		GROUP BY sales.store_id, payment.type
+		ORDER BY sales.store_id, payment.type
+	`).Scan(&paymentRows).Error; err != nil {
+		s.log.Errorf("could not get store map payment types: %v", err)
+		return nil, domain.InternalServerError
+	}
+
+	paymentsByStore := make(map[string][]domain.StoreMapInfoPaymentType)
+	for _, payment := range paymentRows {
+		paymentsByStore[payment.StoreId] = append(paymentsByStore[payment.StoreId], domain.StoreMapInfoPaymentType{
+			Type:   payment.Type,
+			Amount: payment.Amount,
+		})
+	}
+
+	for i := range stores {
+		if employees, ok := employeesByStore[stores[i].Id]; ok {
+			stores[i].Employees = employees
+		}
+		if payments, ok := paymentsByStore[stores[i].Id]; ok {
+			stores[i].PaymentTypes = payments
+		}
+	}
+
 	return stores, nil
 }
 
-func (s *Services) GetStoreByIdMapInfo(ctx context.Context, storeId string,) (*domain.StoreMapInfo, error)	{
+func (s *Services) GetStoreByIdMapInfo(ctx context.Context, storeId string) (*domain.StoreMapInfo, error) {
 	qb := s.db.WithContext(ctx).
 		Model(&domain.Store{}).
 		Select(`
@@ -331,7 +420,6 @@ func (s *Services) GetStoreByIdMapInfo(ctx context.Context, storeId string,) (*d
 
 			COALESCE(attendance.is_open, false) AS is_open
 		`).
-
 		Joins(`
 			LEFT JOIN (
 				SELECT
