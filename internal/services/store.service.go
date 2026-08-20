@@ -161,3 +161,163 @@ func (s *Services) UpdateAverateStoreTargetSales() error {
 	}
 	return nil
 }
+
+
+func (s *Services) GetAllStoreMapInfo(
+	ctx context.Context,
+	params *domain.StoreMapInfoQueryParams,
+) ([]domain.StoreMapInfo, error) {
+
+	qb := s.db.WithContext(ctx).
+		Model(&domain.Store{}).
+		Select(`
+			stores.id,
+			stores.name,
+			stores.address,
+			stores.store_code,
+			stores.inn,
+			stores.work_hours,
+			stores.is_online_order,
+			stores.created_at,
+			stores.updated_at,
+
+			ST_AsText(stores.coordinates) AS coordinates,
+
+			COALESCE(sales.sales_amount, 0) AS sales_amount,
+
+			COALESCE(cash_boxes.cash_box_count, 0) AS cash_box_count,
+
+			COALESCE(employees.employee_count, 0) AS employee_count,
+
+			COALESCE(attendance.is_open, false) AS is_open
+		`).
+
+		Joins(`
+			LEFT JOIN (
+				SELECT
+					store_id,
+					SUM(total_amount) AS sales_amount
+				FROM sales
+				WHERE created_at >= CURRENT_DATE
+				  AND created_at < CURRENT_DATE + INTERVAL '1 day'
+				  AND store_id IS NOT NULL
+				  AND is_active = true
+				GROUP BY store_id
+			) sales
+				ON sales.store_id = stores.id
+		`).
+
+		Joins(`
+			LEFT JOIN (
+				SELECT
+					store_id,
+					COUNT(*) AS cash_box_count
+				FROM cash_boxes
+				WHERE deleted_at IS NULL
+				  AND is_active = true
+				GROUP BY store_id
+			) cash_boxes
+				ON cash_boxes.store_id = stores.id
+		`).
+
+		Joins(`
+			LEFT JOIN (
+				SELECT
+					store_id,
+					COUNT(*) AS employee_count
+				FROM employees
+				WHERE deleted_at IS NULL
+				  AND is_active = true
+				  AND store_id IS NOT NULL
+				GROUP BY store_id
+			) employees
+				ON employees.store_id = stores.id
+		`).
+
+		Joins(`
+			LEFT JOIN (
+				SELECT
+					latest.store_id,
+					TRUE AS is_open
+				FROM (
+					SELECT DISTINCT ON (employee_id)
+						employee_id,
+						store_id,
+						event_type,
+						event_at
+					FROM attendance_logs
+					WHERE event_at >= (
+						DATE_TRUNC(
+							'day',
+							NOW() AT TIME ZONE 'Asia/Tashkent'
+						) AT TIME ZONE 'Asia/Tashkent'
+					)
+					AND event_at < (
+						(
+							DATE_TRUNC(
+								'day',
+								NOW() AT TIME ZONE 'Asia/Tashkent'
+							) + INTERVAL '1 day'
+						) AT TIME ZONE 'Asia/Tashkent'
+					)
+					ORDER BY employee_id, event_at DESC
+				) latest
+				WHERE latest.event_type = 'check_in'
+				GROUP BY latest.store_id
+			) attendance
+			ON attendance.store_id = stores.id
+		`)
+
+	if params.Search != "" {
+		searchPattern := fmt.Sprintf("%%%s%%", params.Search)
+
+		qb = qb.Where(
+			"stores.name ILIKE ? OR stores.detailed_name ILIKE ?",
+			searchPattern,
+			searchPattern,
+		)
+	}
+
+	if params.IsFranchise != nil {
+		qb = qb.Where(`
+			stores.company_id IN (
+				SELECT id
+				FROM companies
+				WHERE is_franchise = ?
+			)
+		`, *params.IsFranchise)
+	}
+
+	if params.IsPharma != nil {
+		qb = qb.Where(`
+			stores.company_id IN (
+				SELECT id
+				FROM companies
+				WHERE is_pharma = ?
+			)
+		`, *params.IsPharma)
+	}
+
+	if params.IsOnline != nil {
+		qb = qb.Where(
+			"stores.is_online_order = ?",
+			*params.IsOnline,
+		)
+	}
+
+	var stores []domain.StoreMapInfo
+
+	err := qb.
+		Order("stores.created_at DESC").
+		Find(&stores).Error
+
+	if err != nil {
+		s.log.Errorf(
+			"could not get all store map info: %v",
+			err,
+		)
+		return nil, domain.InternalServerError
+	}
+
+	return stores, nil
+}

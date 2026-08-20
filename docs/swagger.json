@@ -28400,6 +28400,78 @@
                 }
             }
         },
+        "/store/all-store-map-info": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Get all store map info",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "stores"
+                ],
+                "summary": "Get all store map info",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Do'kon nomi bo'yicha qidiruv",
+                        "name": "search",
+                        "in": "query"
+                    },
+                    {
+                        "type": "boolean",
+                        "description": "Franchise do'konlarini filterlash",
+                        "name": "is_franchise",
+                        "in": "query"
+                    },
+                    {
+                        "type": "boolean",
+                        "description": "Pharma do'konlarini filterlash",
+                        "name": "is_pharma",
+                        "in": "query"
+                    },
+                    {
+                        "type": "boolean",
+                        "description": "Online order do'konlarini filterlash",
+                        "name": "is_online",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    }
+                }
+            }
+        },
         "/store/export-excel": {
             "get": {
                 "security": [

@@ -20691,6 +20691,52 @@ paths:
       summary: Update a store
       tags:
       - stores
+  /store/all-store-map-info:
+    get:
+      consumes:
+      - application/json
+      description: Get all store map info
+      parameters:
+      - description: Do'kon nomi bo'yicha qidiruv
+        in: query
+        name: search
+        type: string
+      - description: Franchise do'konlarini filterlash
+        in: query
+        name: is_franchise
+        type: boolean
+      - description: Pharma do'konlarini filterlash
+        in: query
+        name: is_pharma
+        type: boolean
+      - description: Online order do'konlarini filterlash
+        in: query
+        name: is_online
+        type: boolean
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Get all store map info
+      tags:
+      - stores
   /store/export-excel:
     get:
       consumes:

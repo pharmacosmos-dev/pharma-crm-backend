@@ -38,6 +38,7 @@ func (h *StoreHandler) StoreRoutes(r *gin.RouterGroup) {
 		store.PUT("/:id", h.Update)
 		store.PUT("/online-order", h.UpdateOnlineOrder)
 		store.DELETE("/:id", h.Delete)
+		store.GET("/all-store-map-info", h.GetAllStoreMapInfo)
 	}
 }
 
@@ -467,3 +468,46 @@ func (h *StoreHandler) GetStoreWorkingHours(c *gin.Context) {
 
 	handleResponse(c, OK, utils.ListResponse(results, total, params.Limit, params.Offset))
 }
+
+
+// GetAllStoreMapInfo godoc
+// @Summary      Get all store map info
+// @Description  Get all store map info
+// @Tags         stores
+// @Security     BearerAuth
+// @Accept       json
+// @Produce      json
+// @Param        search   query  string  false  "Do'kon nomi bo'yicha qidiruv"
+// @Param        is_franchise  query  bool    false  "Franchise do'konlarini filterlash"
+// @Param        is_pharma     query  bool    false  "Pharma do'konlarini filterlash"
+// @Param        is_online     query  bool    false  "Online order do'konlarini filterlash"
+// @Success      200 {object} v1.Response
+// @Failure      400 {object} v1.Response
+// @Failure      401 {object} v1.Response
+// @Failure      500 {object} v1.Response
+// @Router       /store/all-store-map-info [get]
+func (h *StoreHandler) GetAllStoreMapInfo(c *gin.Context) {
+	user := h.service.GetSignedUser(c)
+	if user.UserId == "" {
+		handleServiceResponse(c, nil, domain.UnauthorizedError)
+		return
+	}
+
+	var params domain.StoreMapInfoQueryParams
+	if err := c.ShouldBindQuery(&params); err != nil {
+		handleResponse(c, BadRequest, err.Error())
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(c.Request.Context(), constants.DefaultContextTimeout)
+	defer cancel()
+
+	results, err := h.service.GetAllStoreMapInfo(ctx, &params)
+	if err != nil {
+		handleServiceResponse(c, nil, err)
+		return
+	}
+
+	handleResponse(c, OK, results)
+}
+

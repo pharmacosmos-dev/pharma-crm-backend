@@ -105,3 +105,27 @@ type StoreQueryParams struct {
 	Limit         int      `form:"limit"`
 	Offset        int      `form:"offset"`
 }
+
+type StoreMapInfoQueryParams struct {
+	Search      string `form:"search"`
+	IsFranchise *bool  `form:"is_franchise"`
+	IsPharma    *bool  `form:"is_pharma"`
+	IsOnline    *bool  `form:"is_online"`
+}
+
+type StoreMapInfo struct {
+	Id            string  `json:"id"`
+	Name          string  `json:"name"`
+	SalesAmount   float64 `json:"sales_amount"`
+	CashBoxCount  int64   `json:"cash_box_count"`
+	WorkHours     string  `json:"work_hours"`
+	EmployeeCount int64   `json:"employee_count"`
+	IsOnlineOrder bool    `json:"is_online_order"`
+	IsOpen        bool    `json:"is_open"`
+	Address       string  `json:"address"`
+	Inn           string  `json:"inn"`
+	StoreCode     string  `json:"store_code"`
+	CreatedAt     string  `json:"created_at"`
+	UpdatedAt     string  `json:"updated_at"`
+	Coordinates   Point   `json:"coordinates"`
+}
