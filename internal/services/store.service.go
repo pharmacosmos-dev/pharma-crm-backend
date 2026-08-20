@@ -163,10 +163,7 @@ func (s *Services) UpdateAverateStoreTargetSales() error {
 }
 
 
-func (s *Services) GetAllStoreMapInfo(
-	ctx context.Context,
-	params *domain.StoreMapInfoQueryParams,
-) ([]domain.StoreMapInfo, error) {
+func (s *Services) GetAllStoreMapInfo(ctx context.Context, params *domain.StoreMapInfoQueryParams) ([]domain.StoreMapInfo, error) {
 
 	qb := s.db.WithContext(ctx).
 		Model(&domain.Store{}).
@@ -177,6 +174,7 @@ func (s *Services) GetAllStoreMapInfo(
 			stores.store_code,
 			stores.inn,
 			stores.work_hours,
+			stores.phone,
 			stores.is_online_order,
 			stores.created_at,
 			stores.updated_at,
@@ -246,26 +244,15 @@ func (s *Services) GetAllStoreMapInfo(
 						event_type,
 						event_at
 					FROM attendance_logs
-					WHERE event_at >= (
-						DATE_TRUNC(
-							'day',
-							NOW() AT TIME ZONE 'Asia/Tashkent'
-						) AT TIME ZONE 'Asia/Tashkent'
-					)
-					AND event_at < (
-						(
-							DATE_TRUNC(
-								'day',
-								NOW() AT TIME ZONE 'Asia/Tashkent'
-							) + INTERVAL '1 day'
-						) AT TIME ZONE 'Asia/Tashkent'
-					)
-					ORDER BY employee_id, event_at DESC
+					WHERE store_id IS NOT NULL
+					ORDER BY
+						employee_id,
+						event_at DESC
 				) latest
 				WHERE latest.event_type = 'check_in'
 				GROUP BY latest.store_id
 			) attendance
-			ON attendance.store_id = stores.id
+				ON attendance.store_id = stores.id
 		`)
 
 	if params.Search != "" {
@@ -321,3 +308,64 @@ func (s *Services) GetAllStoreMapInfo(
 
 	return stores, nil
 }
+
+func (s *Services) GetStoreByIdMapInfo(ctx context.Context, storeId string,) (*domain.StoreMapInfo, error)	{
+	qb := s.db.WithContext(ctx).
+		Model(&domain.Store{}).
+		Select(`
+			stores.id,
+			stores.name,
+			stores.address,
+			stores.store_code,
+			stores.inn,
+			stores.work_hours,
+			stores.phone,
+			stores.is_online_order,
+			stores.created_at,
+			stores.updated_at,
+
+			ST_AsText(stores.coordinates) AS coordinates,
+
+			COALESCE(attendance.is_open, false) AS is_open
+		`).
+
+		Joins(`
+			LEFT JOIN (
+				SELECT
+					latest.store_id,
+					TRUE AS is_open
+				FROM (
+					SELECT DISTINCT ON (employee_id)
+						employee_id,
+						store_id,
+						event_type,
+						event_at
+					FROM attendance_logs
+					WHERE store_id IS NOT NULL
+					ORDER BY
+						employee_id,
+						event_at DESC
+				) latest
+				WHERE latest.event_type = 'check_in'
+				GROUP BY latest.store_id
+			) attendance
+				ON attendance.store_id = stores.id
+		`).
+		Where("stores.id = ?", storeId)
+
+	var storeMapInfo domain.StoreMapInfo
+
+	err := qb.
+		Order("stores.created_at DESC").
+		Find(&storeMapInfo).Error
+
+	if err != nil {
+		s.log.Errorf(
+			"could not get store map info by id: %v",
+			err,
+		)
+		return nil, domain.InternalServerError
+	}
+
+	return &storeMapInfo, nil
+} 
