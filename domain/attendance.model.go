@@ -68,6 +68,7 @@ type AttendanceLogListItem struct {
 	FaceIdUrl     *string    `json:"face_id_url"`
 	IsAutoClosed  bool       `json:"is_auto_closed"`
 	CreatedAt     *time.Time `json:"created_at"`
+	UpdatedAt     *time.Time `json:"updated_at"`
 }
 
 // EmployeeAttendanceDayQueryParams — kunlik davomat (employee_attendance_days) ro'yxati

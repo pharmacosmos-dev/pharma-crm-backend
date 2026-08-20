@@ -257,7 +257,8 @@ func (s *Services) GetAttendanceLogList(ctx context.Context, params *domain.Atte
 			al.event_at,
 			al.face_id_url,
 			al.is_auto_closed,
-			al.created_at
+			al.created_at,
+			al.updated_at
 		`).
 		Order("al.event_at DESC")
 
