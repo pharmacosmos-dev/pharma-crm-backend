@@ -6870,6 +6870,106 @@ paths:
       summary: List employee face descriptors
       tags:
       - employees
+  /employee/payroll/my:
+    get:
+      consumes:
+      - application/json
+      description: 'Token egasining o''z oylik ko''rsatkichlari: ism-familiyasi, do''koni
+        va shu oy uchun umumiy ma''lumotlar (qancha ishladi, oylik, KPI, bonus, avans,
+        ushlab qolishlar, qo''lga tegadigan summa). Joriy oy so''ralsa jonli hisoblanadi
+        (oy boshidan bugungi kungacha), o''tgan oy so''ralsa employee_payrolls''dan
+        olinadi.'
+      parameters:
+      - description: 'Yil (default: joriy)'
+        in: query
+        name: year
+        type: integer
+      - description: 'Oy 1-12 (default: joriy)'
+        in: query
+        name: month
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: My payroll
+      tags:
+      - employees
+  /employee/payroll/stores:
+    get:
+      consumes:
+      - application/json
+      description: Do'konlar kesimida xodimlarning oylik ko'rsatkichlari (ishlagan
+        soati, oylik, KPI, bonus, ushlab qolishlar). Pagination do'konlarga qo'yiladi
+        — har bir do'kon ichida uning xodimlari keladi. Joriy oy so'ralsa ma'lumot
+        jonli hisoblanadi (oy boshidan bugungi kungacha), o'tgan oy so'ralsa employee_payrolls
+        jadvalidan olinadi. year/month berilmasa joriy oy.
+      parameters:
+      - description: 'Yil (default: joriy)'
+        in: query
+        name: year
+        type: integer
+      - description: 'Oy 1-12 (default: joriy)'
+        in: query
+        name: month
+        type: integer
+      - description: Bitta do'kon bo'yicha filtr
+        in: query
+        name: store_id
+        type: string
+      - description: Limit (do'konlar soni)
+        in: query
+        name: limit
+        type: integer
+      - description: Offset
+        in: query
+        name: offset
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Payroll by stores
+      tags:
+      - employees
   /employee/reset-password:
     put:
       consumes:

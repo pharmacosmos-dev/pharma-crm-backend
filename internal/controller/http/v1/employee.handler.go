@@ -55,6 +55,8 @@ func (h *EmployeeHandler) EmployeeRoutes(r *gin.RouterGroup) {
 		employee.GET("/:id/face-descriptor", h.GetEmployeeFaceDescriptor)
 		employee.DELETE("/:id/face-descriptor", h.DeleteEmployeeFaceDescriptor)
 		employee.GET("/list/face-descriptor", h.ListEmployeeFaceDescriptors)
+		employee.GET("/payroll/stores", h.StorePayrollList)
+		employee.GET("/payroll/my", h.MyPayroll)
 	}
 }
 
@@ -1156,6 +1158,101 @@ func (h *EmployeeHandler) EmployeeAttendanceDayList(c *gin.Context) {
 	}
 
 	handleResponse(c, OK, utils.ListResponse(results, count, params.Limit, params.Offset))
+}
+
+// StorePayrollList godoc
+// @Summary      Payroll by stores
+// @Description  Do'konlar kesimida xodimlarning oylik ko'rsatkichlari (ishlagan soati, oylik, KPI, bonus, ushlab qolishlar). Pagination do'konlarga qo'yiladi — har bir do'kon ichida uning xodimlari keladi. Joriy oy so'ralsa ma'lumot jonli hisoblanadi (oy boshidan bugungi kungacha), o'tgan oy so'ralsa employee_payrolls jadvalidan olinadi. year/month berilmasa joriy oy.
+// @Tags         employees
+// @Security     BearerAuth
+// @Accept       json
+// @Produce      json
+// @Param        year      query  int     false  "Yil (default: joriy)"
+// @Param        month     query  int     false  "Oy 1-12 (default: joriy)"
+// @Param        store_id  query  string  false  "Bitta do'kon bo'yicha filtr"
+// @Param        limit     query  int     false  "Limit (do'konlar soni)"
+// @Param        offset    query  int     false  "Offset"
+// @Success      200  {object}  v1.Response
+// @Failure      400  {object}  v1.Response
+// @Failure      401  {object}  v1.Response
+// @Failure      500  {object}  v1.Response
+// @Router       /employee/payroll/stores [get]
+func (h *EmployeeHandler) StorePayrollList(c *gin.Context) {
+	user := h.service.GetSignedUser(c)
+	if user.UserId == "" {
+		handleServiceResponse(c, nil, domain.UnauthorizedError)
+		return
+	}
+
+	var params domain.EmployeePayrollQueryParams
+	if err := c.ShouldBindQuery(&params); err != nil {
+		handleResponse(c, BadRequest, err.Error())
+		return
+	}
+
+	// Admin bo'lmasa faqat o'z kompaniyasi va o'z do'konini ko'radi
+	if !helper.IsAdmin(user) {
+		params.CompanyId = user.CompanyId
+		if user.StoreId != "" {
+			params.StoreId = user.StoreId
+		}
+	}
+
+	params.Limit, params.Offset = defaultLimitOffset(params.Limit, params.Offset)
+
+	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
+	defer cancel()
+
+	res, totalCount, period, err := h.service.GetStorePayrolls(ctx, &params)
+	if err != nil {
+		handleServiceResponse(c, nil, err)
+		return
+	}
+
+	result := utils.ListResponse(res, totalCount, params.Limit, params.Offset)
+	result["period"] = period
+
+	handleResponse(c, OK, result)
+}
+
+// MyPayroll godoc
+// @Summary      My payroll
+// @Description  Token egasining o'z oylik ko'rsatkichlari: ism-familiyasi, do'koni va shu oy uchun umumiy ma'lumotlar (qancha ishladi, oylik, KPI, bonus, avans, ushlab qolishlar, qo'lga tegadigan summa). Joriy oy so'ralsa jonli hisoblanadi (oy boshidan bugungi kungacha), o'tgan oy so'ralsa employee_payrolls'dan olinadi.
+// @Tags         employees
+// @Security     BearerAuth
+// @Accept       json
+// @Produce      json
+// @Param        year   query  int  false  "Yil (default: joriy)"
+// @Param        month  query  int  false  "Oy 1-12 (default: joriy)"
+// @Success      200  {object}  v1.Response
+// @Failure      400  {object}  v1.Response
+// @Failure      401  {object}  v1.Response
+// @Failure      404  {object}  v1.Response
+// @Failure      500  {object}  v1.Response
+// @Router       /employee/payroll/my [get]
+func (h *EmployeeHandler) MyPayroll(c *gin.Context) {
+	user := h.service.GetSignedUser(c)
+	if user.UserId == "" {
+		handleServiceResponse(c, nil, domain.UnauthorizedError)
+		return
+	}
+
+	var params domain.EmployeePayrollQueryParams
+	if err := c.ShouldBindQuery(&params); err != nil {
+		handleResponse(c, BadRequest, err.Error())
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
+	defer cancel()
+
+	res, err := h.service.GetMyPayroll(ctx, user.UserId, params.Year, params.Month)
+	if err != nil {
+		handleServiceResponse(c, nil, err)
+		return
+	}
+
+	handleResponse(c, OK, res)
 }
 
 // CreateOrUpdateFaceDescriptor godoc

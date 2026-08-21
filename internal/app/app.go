@@ -111,6 +111,16 @@ func RegisterCronJobs(service *services.Services) (*cron.Cron, error) {
 		service.AutoCreateMonthlyStoreTargets()
 	})
 
+	// 00 05 UTC = 10:00 Toshkent, har oyning 1-kuni — tugagan o'tgan oyning yakuniy
+	// oylik hisobini employee_payrolls'ga snapshot qiladi.
+	// Ataylab kech: o'tgan oyning oxirgi kuni employee_attendance_days'ga
+	// AggregateEmployeeAttendanceDays (30 19 UTC = 00:30 Toshkent) orqali tushadi,
+	// shuning uchun snapshot undan keyin olinishi shart.
+	// c.AddFunc("00 05 1 * *", func() {
+	// 	log.Println("Starting auto create monthly employee payrolls...")
+	// 	service.AutoCreateMonthlyPayrolls()
+	// })
+
 	// 58 18 UTC = 23:58 Tashkent — bugungi kun tugashidan oldin check-out qilinmagan
 	// check-in'larni avtomatik yopadi (event_at=bugun 23:59:59, is_auto_closed=true)
 	c.AddFunc("59 18 * * *", func() {
