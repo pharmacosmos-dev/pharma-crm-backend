@@ -1886,13 +1886,18 @@ LIMIT ? OFFSET ?;
 	return res, totalCount, nil
 }
 
-// GetProductMovementsAfterLastInventory GetProductMovements bilan bir xil logikada ishlaydi.
-// Yagona farqi: har bir do'kon uchun shu mahsulot kirgan oxirgi inventarizatsiya
-// (imports.entry_type = 2, status = 'completed', updated_at bo'yicha eng oxirgisi) topiladi va
-// undan oldingi harakatlar (import, sotuv, vozvrat, transfer va h.k.) umuman hisobga olinmaydi.
-// Oxirgi inventarizatsiyaning shu product_id bo'yicha scanned_count qiymati esa ro'yxatga
-// birinchi "import" (entry_type = 1) sifatida qo'shiladi.
-// Agar do'konda shu mahsulot bo'yicha inventarizatsiya bo'lmagan bo'lsa - butun tarix qaytadi.
+// GetProductMovementsAfterLastInventory GetProductMovements bilan bir xil logikada ishlaydi,
+// lekin do'kon (store_id) bo'yicha ishlaydi va product_id majburiy emas.
+//
+// Har bir do'kon uchun oxirgi inventarizatsiya (imports.entry_type = 2, status = 'completed',
+// updated_at bo'yicha eng oxirgisi) topiladi va undan oldingi harakatlar (import, sotuv,
+// vozvrat, transfer va h.k.) umuman hisobga olinmaydi. Oxirgi inventarizatsiyada har bir
+// product_id uchun kiritilgan scanned_count esa ro'yxatga birinchi "import" (entry_type = 1)
+// sifatida qo'shiladi.
+//
+// product_id berilsa - faqat shu mahsulot bo'yicha, berilmasa - do'kondagi barcha mahsulotlar
+// bo'yicha (hujjat qatoridagi quantity - hujjatdagi barcha mahsulotlar yig'indisi, donada).
+// Agar do'konda inventarizatsiya bo'lmagan bo'lsa - butun tarix qaytadi.
 //
 // Diqqat: kesish chegarasi sifatida inventarizatsiyaning created_at'i olinadi, updated_at emas.
 // Sababi - imports jadvalidagi trg_update_imports_totals trigger'i har qanday INSERT/UPDATE'da
@@ -1913,7 +1918,8 @@ SELECT
 	p.id AS product_id,
 	p.unit_per_pack
 FROM products p
-WHERE p.id = ?
+WHERE 1 = 1
+%s
 ),
 last_inventory AS (
     SELECT DISTINCT ON (im.store_id)
@@ -1944,12 +1950,12 @@ last_inventory_data AS (
         COALESCE(li.name, '') AS name,
         li.status,
         NULL::jsonb AS metadata,
-        vd.unit_per_pack
+        CASE WHEN COUNT(DISTINCT vd.product_id) = 1 THEN MIN(vd.unit_per_pack) ELSE 0 END AS unit_per_pack
     FROM last_inventory li
     JOIN stores s ON s.id = li.store_id
     JOIN import_details imd ON imd.import_id = li.id
     JOIN var_data vd ON imd.product_id = vd.product_id
-    GROUP BY li.id, li.public_id, li.created_at, s.name, li.name, li.status, vd.unit_per_pack
+    GROUP BY li.id, li.public_id, li.created_at, s.name, li.name, li.status
 ),
 import_data AS (
     SELECT
@@ -1963,7 +1969,7 @@ import_data AS (
         COALESCE(im.name, '') AS name,
         im.status,
         NULL::jsonb AS metadata,
-        vd.unit_per_pack
+        CASE WHEN COUNT(DISTINCT vd.product_id) = 1 THEN MIN(vd.unit_per_pack) ELSE 0 END AS unit_per_pack
     FROM imports im
     JOIN stores s ON im.store_id = s.id
     JOIN import_details imd ON im.id = imd.import_id
@@ -1972,7 +1978,7 @@ import_data AS (
     WHERE im.entry_type = 1 AND im.status = 'completed'
       AND (li.created_at IS NULL OR im.created_at > li.created_at)
     %s
-    GROUP BY im.id, s.id, vd.unit_per_pack
+    GROUP BY im.id, s.id
 ),
 inventory_data AS (
     SELECT
@@ -1984,16 +1990,16 @@ inventory_data AS (
         im.status,
         jsonb_build_object(
             'current_quantity',    ROUND(SUM(imd.received_count::numeric / vd.unit_per_pack), 4),
-            'current_unit',        ROUND(MOD(SUM(imd.received_count)::numeric, vd.unit_per_pack), 4),
+            'current_unit',        ROUND(MOD(SUM(imd.received_count)::numeric, MIN(vd.unit_per_pack)), 4),
             'fact_quantity',       ROUND(SUM(imd.scanned_count::numeric / vd.unit_per_pack), 4),
-            'fact_unit',           ROUND(MOD(SUM(imd.scanned_count)::numeric, vd.unit_per_pack), 4),
+            'fact_unit',           ROUND(MOD(SUM(imd.scanned_count)::numeric, MIN(vd.unit_per_pack)), 4),
             'difference_quantity', ROUND(SUM((imd.scanned_count - imd.received_count)::numeric / vd.unit_per_pack), 4),
-            'difference_unit',     ROUND(MOD(SUM(imd.scanned_count - imd.received_count)::numeric, vd.unit_per_pack), 4),
+            'difference_unit',     ROUND(MOD(SUM(imd.scanned_count - imd.received_count)::numeric, MIN(vd.unit_per_pack)), 4),
             'current_sum',         ROUND(SUM(imd.retail_price_vat * (imd.received_count::numeric / vd.unit_per_pack)), 2),
             'fact_sum',            ROUND(SUM(imd.retail_price_vat * (imd.scanned_count::numeric / vd.unit_per_pack)), 2),
             'difference_sum',      ROUND(SUM(imd.retail_price_vat * ((imd.scanned_count - imd.received_count)::numeric / vd.unit_per_pack)), 2)
         ) AS metadata,
-        vd.unit_per_pack
+        CASE WHEN COUNT(DISTINCT vd.product_id) = 1 THEN MIN(vd.unit_per_pack) ELSE 0 END AS unit_per_pack
     FROM imports im
     JOIN stores s ON im.store_id = s.id
     JOIN import_details imd ON im.id = imd.import_id
@@ -2002,7 +2008,7 @@ inventory_data AS (
     WHERE im.entry_type = 2 AND im.status = 'completed'
       AND (li.created_at IS NULL OR im.created_at > li.created_at)
     %s
-    GROUP BY im.id, s.id, vd.unit_per_pack
+    GROUP BY im.id, s.id
 ),
 sales_data AS (
     SELECT
@@ -2015,7 +2021,7 @@ sales_data AS (
         sa.sale_type AS name,
         sa.status,
         NULL::jsonb AS metadata,
-        vd.unit_per_pack
+        CASE WHEN COUNT(DISTINCT vd.product_id) = 1 THEN MIN(vd.unit_per_pack) ELSE 0 END AS unit_per_pack
     FROM sales sa
     JOIN stores st ON st.id = sa.store_id
     JOIN cart_items ci ON ci.sale_id = sa.id
@@ -2027,18 +2033,18 @@ sales_data AS (
     WHERE sa.stage IN (9, 11)
       AND (li.created_at IS NULL OR COALESCE(sa.completed_at, sa.created_at) > li.created_at)
     %s
-    GROUP BY sa.id, st.id, vd.unit_per_pack
+    GROUP BY sa.id, st.id
 ),
 vozvrat_data AS (
     SELECT
         tr.id, tr.public_id::int, 5 AS entry_type, tr.created_at,
         s.name AS store_name,
-        SUM(td.accepted_count) * vd.unit_per_pack * (-1) AS quantity,
+        SUM(td.accepted_count * vd.unit_per_pack) * (-1) AS quantity,
         SUM(td.accepted_count * td.retail_price) * (-1) AS sum,
         tr.name as name,
         tr.status,
         NULL::jsonb AS metadata,
-        vd.unit_per_pack
+        CASE WHEN COUNT(DISTINCT vd.product_id) = 1 THEN MIN(vd.unit_per_pack) ELSE 0 END AS unit_per_pack
     FROM transfer_details td
     JOIN transfers tr ON td.transfer_id = tr.id
     JOIN var_data vd ON td.product_id = vd.product_id
@@ -2047,7 +2053,7 @@ vozvrat_data AS (
     WHERE (tr.status = 'completed' OR tr.status = 'sent-to-1c') AND tr.entry_type = 2
       AND (li.created_at IS NULL OR tr.created_at > li.created_at)
     %s
-    GROUP BY tr.id, s.id, vd.unit_per_pack
+    GROUP BY tr.id, s.id
 ),
 transfer_in_data AS (
     SELECT
@@ -2055,12 +2061,12 @@ transfer_in_data AS (
         6 AS entry_type,
         tr.created_at,
         fs.name || ' -> ' || ts.name as store_name,
-        SUM(td.accepted_count) * vd.unit_per_pack AS quantity,
+        SUM(td.accepted_count * vd.unit_per_pack) AS quantity,
         SUM(td.accepted_count * td.retail_price) AS sum,
         tr.name as name,
         tr.status,
         NULL::jsonb AS metadata,
-        vd.unit_per_pack
+        CASE WHEN COUNT(DISTINCT vd.product_id) = 1 THEN MIN(vd.unit_per_pack) ELSE 0 END AS unit_per_pack
     FROM transfer_details td
     JOIN transfers tr ON td.transfer_id = tr.id
     JOIN var_data vd ON td.product_id = vd.product_id
@@ -2070,7 +2076,7 @@ transfer_in_data AS (
     WHERE (tr.status = 'completed' OR tr.status = 'sent-to-1c') AND tr.entry_type = 1
       AND (li.created_at IS NULL OR tr.created_at > li.created_at)
     %s
-    GROUP BY tr.id, fs.id, ts.id, vd.unit_per_pack
+    GROUP BY tr.id, fs.id, ts.id
  ),
  transfer_out_data AS (
     SELECT
@@ -2079,12 +2085,12 @@ transfer_in_data AS (
         6 AS entry_type,
         tr.created_at,
         fs.name || ' -> ' || ts.name as store_name,
-        SUM(td.accepted_count) * vd.unit_per_pack * (-1) AS quantity,
+        SUM(td.accepted_count * vd.unit_per_pack) * (-1) AS quantity,
         SUM(td.accepted_count * td.retail_price * (-1)) AS sum,
         tr.name as name,
         tr.status,
         NULL::jsonb AS metadata,
-        vd.unit_per_pack
+        CASE WHEN COUNT(DISTINCT vd.product_id) = 1 THEN MIN(vd.unit_per_pack) ELSE 0 END AS unit_per_pack
     FROM transfer_details td
     JOIN transfers tr ON td.transfer_id = tr.id
     JOIN var_data vd ON td.product_id = vd.product_id
@@ -2094,18 +2100,18 @@ transfer_in_data AS (
     WHERE (tr.status = 'completed' OR tr.status = 'sent-to-1c') AND tr.entry_type = 1
       AND (li.created_at IS NULL OR tr.created_at > li.created_at)
     %s
-    GROUP BY tr.id, fs.id, ts.id, vd.unit_per_pack
+    GROUP BY tr.id, fs.id, ts.id
  ),
 vozvrat_pending_data AS (
     SELECT
         tr.id, tr.public_id::int, 5 AS entry_type, tr.created_at,
         s.name AS store_name,
-        SUM(td.expected_count) * vd.unit_per_pack * (-1) AS quantity,
+        SUM(td.expected_count * vd.unit_per_pack) * (-1) AS quantity,
         SUM(td.expected_count * td.retail_price) * (-1) AS sum,
         tr.name as name,
         tr.status,
         NULL::jsonb AS metadata,
-        vd.unit_per_pack
+        CASE WHEN COUNT(DISTINCT vd.product_id) = 1 THEN MIN(vd.unit_per_pack) ELSE 0 END AS unit_per_pack
     FROM transfer_details td
     JOIN transfers tr ON td.transfer_id = tr.id
     JOIN var_data vd ON td.product_id = vd.product_id
@@ -2114,7 +2120,7 @@ vozvrat_pending_data AS (
     WHERE tr.status NOT IN ('new', 'completed', 'sent-to-1c', 'failed_sent_to_1c', 'canceled') AND tr.entry_type = 2
       AND (li.created_at IS NULL OR tr.created_at > li.created_at)
     %s
-    GROUP BY tr.id, s.id, vd.unit_per_pack
+    GROUP BY tr.id, s.id
 ),
 transfer_in_pending_data AS (
     SELECT
@@ -2122,12 +2128,12 @@ transfer_in_pending_data AS (
         6 AS entry_type,
         tr.created_at,
         fs.name || ' -> ' || ts.name as store_name,
-        SUM(td.expected_count) * vd.unit_per_pack AS quantity,
+        SUM(td.expected_count * vd.unit_per_pack) AS quantity,
         SUM(td.expected_count * td.retail_price) AS sum,
         tr.name as name,
         tr.status,
         NULL::jsonb AS metadata,
-        vd.unit_per_pack
+        CASE WHEN COUNT(DISTINCT vd.product_id) = 1 THEN MIN(vd.unit_per_pack) ELSE 0 END AS unit_per_pack
     FROM transfer_details td
     JOIN transfers tr ON td.transfer_id = tr.id
     JOIN var_data vd ON td.product_id = vd.product_id
@@ -2137,7 +2143,7 @@ transfer_in_pending_data AS (
     WHERE tr.status NOT IN ('new', 'completed', 'sent-to-1c', 'failed_sent_to_1c', 'canceled') AND tr.entry_type = 1
       AND (li.created_at IS NULL OR tr.created_at > li.created_at)
     %s
-    GROUP BY tr.id, fs.id, ts.id, vd.unit_per_pack
+    GROUP BY tr.id, fs.id, ts.id
 ),
 transfer_out_pending_data AS (
     SELECT
@@ -2146,12 +2152,12 @@ transfer_out_pending_data AS (
         6 AS entry_type,
         tr.created_at,
         fs.name || ' -> ' || ts.name as store_name,
-        SUM(td.expected_count) * vd.unit_per_pack * (-1) AS quantity,
+        SUM(td.expected_count * vd.unit_per_pack) * (-1) AS quantity,
         SUM(td.expected_count * td.retail_price) * (-1) AS sum,
         tr.name as name,
         tr.status,
         NULL::jsonb AS metadata,
-        vd.unit_per_pack
+        CASE WHEN COUNT(DISTINCT vd.product_id) = 1 THEN MIN(vd.unit_per_pack) ELSE 0 END AS unit_per_pack
     FROM transfer_details td
     JOIN transfers tr ON td.transfer_id = tr.id
     JOIN var_data vd ON td.product_id = vd.product_id
@@ -2161,7 +2167,7 @@ transfer_out_pending_data AS (
     WHERE tr.status NOT IN ('new', 'completed', 'sent-to-1c', 'failed_sent_to_1c', 'canceled') AND tr.entry_type = 1
       AND (li.created_at IS NULL OR tr.created_at > li.created_at)
     %s
-    GROUP BY tr.id, fs.id, ts.id, vd.unit_per_pack
+    GROUP BY tr.id, fs.id, ts.id
 )
 SELECT *, COUNT(*) OVER() AS total_count
 FROM (
@@ -2216,7 +2222,21 @@ LIMIT ? OFFSET ?;
 		outerWhere = "WHERE 1=1" + timeFilter + entryTypeFilter
 	}
 
-	hasImportStoreDateFilter := params.StartDate != nil &&
+	// product_id ixtiyoriy. Berilsa - faqat shu mahsulot bo'yicha (eski xatti-harakat),
+	// berilmasa - do'kondagi barcha mahsulotlar bo'yicha. Ikkinchi holatda hujjat qatoridagi
+	// quantity - hujjatdagi barcha mahsulotlar yig'indisi (donada), unit_per_pack esa 0
+	// bo'ladi va count "5 (3/10)" ko'rinishida emas, oddiy dona bo'lib chiqadi.
+	productFilter := ""
+	var productArgs []any
+	if params.ProductId != "" {
+		productFilter = "AND p.id = ?"
+		productArgs = append(productArgs, params.ProductId)
+	}
+
+	// bu optimizatsiya (faqat shu mahsulot import bo'lgan do'konlar bilan cheklash)
+	// faqat bitta mahsulot so'ralganda ma'noga ega
+	hasImportStoreDateFilter := params.ProductId != "" &&
+		params.StartDate != nil &&
 		!params.StartDate.GetTime().IsZero() &&
 		params.EndDate != nil &&
 		!params.EndDate.GetTime().IsZero()
@@ -2260,6 +2280,7 @@ LIMIT ? OFFSET ?;
 
 		query = fmt.Sprintf(
 			baseQuery,
+			productFilter,
 			lastInventoryFilter,
 			importDataFilter,
 			inventoryDataFilter,
@@ -2273,7 +2294,7 @@ LIMIT ? OFFSET ?;
 			outerWhere,
 		)
 
-		args = []any{params.ProductId}
+		args = append([]any{}, productArgs...)
 
 		if hasImportStoreDateFilter {
 			args = append(args, importedStoreIds)                             // last_inventory
@@ -2327,6 +2348,7 @@ LIMIT ? OFFSET ?;
 
 		query = fmt.Sprintf(
 			baseQuery,
+			productFilter,
 			"AND im.store_id = ?",
 			"AND im.store_id = ?",
 			"AND im.store_id = ?",
@@ -2339,8 +2361,8 @@ LIMIT ? OFFSET ?;
 			"AND tr.from_store_id = ?",
 			outerWhere,
 		)
-		args = []any{
-			params.ProductId,
+		args = append([]any{}, productArgs...)
+		args = append(args,
 			params.StoreId, // last_inventory
 			params.StoreId, // import_data
 			params.StoreId, // inventory_data
@@ -2351,7 +2373,7 @@ LIMIT ? OFFSET ?;
 			params.StoreId, // vozvrat_pending_data
 			params.StoreId, // transfer_in_pending_data
 			params.StoreId, // transfer_out_pending_data
-		}
+		)
 		args = append(args, timeArgs...)
 		args = append(args, entryTypeArgs...)
 		args = append(args, params.Limit, params.Offset)
@@ -2359,6 +2381,7 @@ LIMIT ? OFFSET ?;
 	} else if params.StoreId == "" && params.CompanyId != "" {
 		query = fmt.Sprintf(
 			baseQuery,
+			productFilter,
 			"AND s.company_id = ?",
 			"AND s.company_id = ?",
 			"AND s.company_id = ?",
@@ -2371,8 +2394,8 @@ LIMIT ? OFFSET ?;
 			"AND fs.company_id = ?",
 			outerWhere,
 		)
-		args = []any{
-			params.ProductId,
+		args = append([]any{}, productArgs...)
+		args = append(args,
 			params.CompanyId, // last_inventory
 			params.CompanyId, // import_data
 			params.CompanyId, // inventory_data
@@ -2383,7 +2406,7 @@ LIMIT ? OFFSET ?;
 			params.CompanyId, // vozvrat_pending_data
 			params.CompanyId, // transfer_in_pending_data
 			params.CompanyId, // transfer_out_pending_data
-		}
+		)
 		args = append(args, timeArgs...)
 		args = append(args, entryTypeArgs...)
 		args = append(args, params.Limit, params.Offset)
@@ -2391,6 +2414,7 @@ LIMIT ? OFFSET ?;
 	} else { // both storeId and companyId
 		query = fmt.Sprintf(
 			baseQuery,
+			productFilter,
 			"AND im.store_id = ? AND s.company_id = ?",
 			"AND im.store_id = ? AND s.company_id = ?",
 			"AND im.store_id = ? AND s.company_id = ?",
@@ -2403,8 +2427,8 @@ LIMIT ? OFFSET ?;
 			"AND tr.from_store_id = ? AND fs.company_id = ?",
 			outerWhere,
 		)
-		args = []any{
-			params.ProductId,
+		args = append([]any{}, productArgs...)
+		args = append(args,
 			params.StoreId, params.CompanyId, // last_inventory
 			params.StoreId, params.CompanyId, // import_data
 			params.StoreId, params.CompanyId, // inventory_data
@@ -2415,7 +2439,7 @@ LIMIT ? OFFSET ?;
 			params.StoreId, params.CompanyId, // vozvrat_pending_data
 			params.StoreId, params.CompanyId, // transfer_in_pending_data
 			params.StoreId, params.CompanyId, // transfer_out_pending_data
-		}
+		)
 		args = append(args, timeArgs...)
 		args = append(args, entryTypeArgs...)
 		args = append(args, params.Limit, params.Offset)

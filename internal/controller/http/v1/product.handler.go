@@ -59,8 +59,8 @@ func (h *ProductHandler) ProductRoutes(r *gin.RouterGroup) {
 		product.PATCH("/is-marking", h.UpdateIsMarking)
 		product.GET("/:id/product-movement", h.ProductMovements)
 		product.GET("/:id/product-movement/export-excel", h.ExportProductMovementsExcel)
-		product.GET("/:id/product-movement-after-inventory", h.ProductMovementsAfterLastInventory)
-		product.GET("/:id/product-movement-after-inventory/export-excel", h.ExportProductMovementsAfterLastInventoryExcel)
+		product.GET("/movement-after-inventory", h.ProductMovementsAfterLastInventory)
+		product.GET("/movement-after-inventory-export", h.ExportProductMovementsAfterLastInventoryExcel)
 		product.GET("/export-arzon", h.ArzonProductExport)
 		product.GET("/list-arzon", h.ArzonProductList)
 		product.GET("/list-by-import", h.GetProductsByImport)
@@ -1473,25 +1473,27 @@ func (h *ProductHandler) ExportProductMovementsExcel(c *gin.Context) {
 }
 
 // ProductMovementsAfterLastInventory godoc
-// @Summary Get product movements after the last inventory
-// @Description Oxirgi inventarizatsiyadan (updated_at bo'yicha eng oxirgisi) keyingi harakatlar.
-// @Description Undan oldingi import/sotuv/transfer/vozvratlar hisobga olinmaydi, oxirgi
-// @Description inventarizatsiyaning scanned_count qiymati birinchi import (entry_type = 1) bo'lib qo'shiladi.
+// @Summary Get store movements after the last inventory
+// @Description Do'konning oxirgi inventarizatsiyasidan (updated_at bo'yicha eng oxirgisi) keyingi harakatlar.
+// @Description Undan oldingi import/sotuv/transfer/vozvratlar hisobga olinmaydi, oxirgi inventarizatsiyada
+// @Description har bir product_id uchun kiritilgan scanned_count birinchi import (entry_type = 1) bo'lib qo'shiladi.
+// @Description product_id berilsa - faqat shu mahsulot bo'yicha filtrlanadi.
 // @Tags products
 // @Security BearerAuth
 // @Accept  json
 // @Produce json
-// @Param 		id path string true "Product Id"
+// @Param 		store_id query string false "Store Id"
+// @Param 		company_id query string false "Company Id"
+// @Param 		product_id query string false "Product Id (ixtiyoriy)"
 // @Param 		limit query int false "Limit"
 // @Param 		offset query int false "Offset"
 // @Param 		start_date query string false "Start date"
 // @Param 		end_date query string false "End date"
-// @Param 		store_id query string false "Store Id"
 // @Param 		entry_type query int false "Entry type filter: 1=import, 2=inventory, 4=sale, 5=return, 6=transfer, 7=return_sale"
 // @Success 200 {object} v1.Response
 // @Failure 400 {object} v1.Response
 // @Failure 500 {object} v1.Response
-// @Router /product/{id}/product-movement-after-inventory [get]
+// @Router /product/movement-after-inventory [get]
 func (h *ProductHandler) ProductMovementsAfterLastInventory(c *gin.Context) {
 	user := h.service.GetSignedUser(c)
 	if user.UserId == "" {
@@ -1499,45 +1501,16 @@ func (h *ProductHandler) ProductMovementsAfterLastInventory(c *gin.Context) {
 		return
 	}
 
-	// get product id from the path param
-	var productId = c.Param("id")
-	// validate product id
-	if err := uuid.Validate(productId); err != nil {
-		handleResponse(c, BadRequest, domain.InvalidQueryError)
+	params, ok := bindMovementsAfterInventoryParams(c, user)
+	if !ok {
 		return
-	}
-
-	var params domain.ProductQueryParam
-	if err := c.ShouldBindQuery(&params); err != nil {
-		handleServiceResponse(c, nil, domain.InvalidQueryError)
-		return
-	}
-
-	// validate store id
-	if params.StoreId != "" {
-		if err := uuid.Validate(params.StoreId); err != nil {
-			handleServiceResponse(c, BadRequest, domain.InvalidQueryError)
-			return
-		}
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
 	defer cancel()
 
-	if !helper.IsAdmin(user) {
-		if user.StoreId != "" {
-			params.StoreId = user.StoreId
-		}
-		params.CompanyId = user.CompanyId
-	}
-
-	// get pagination with default
-	params.Limit, params.Offset = defaultLimitOffset(params.Limit, params.Offset)
-
-	params.ProductId = productId
-
-	// get product-movements data (oxirgi inventarizatsiyadan keyingi) from the product service
-	res, totalCount, err := h.service.GetProductMovementsAfterLastInventory(ctx, &params, user)
+	// get store-movements data (oxirgi inventarizatsiyadan keyingi) from the product service
+	res, totalCount, err := h.service.GetProductMovementsAfterLastInventory(ctx, params, user)
 	if err != nil {
 		handleServiceResponse(c, InternalError, err)
 		return
@@ -1549,20 +1522,65 @@ func (h *ProductHandler) ProductMovementsAfterLastInventory(c *gin.Context) {
 	handleResponse(c, OK, data)
 }
 
+// bindMovementsAfterInventoryParams movement-after-inventory endpointlari uchun umumiy
+// query bind + validatsiya + role bo'yicha scope. ok = false bo'lsa javob allaqachon yozilgan.
+func bindMovementsAfterInventoryParams(c *gin.Context, user *domain.EmployeeClaims) (*domain.ProductQueryParam, bool) {
+	var params domain.ProductQueryParam
+	if err := c.ShouldBindQuery(&params); err != nil {
+		handleServiceResponse(c, nil, domain.InvalidQueryError)
+		return nil, false
+	}
+
+	// validate store id
+	if params.StoreId != "" {
+		if err := uuid.Validate(params.StoreId); err != nil {
+			handleServiceResponse(c, BadRequest, domain.InvalidQueryError)
+			return nil, false
+		}
+	}
+
+	// product_id ixtiyoriy, lekin berilgan bo'lsa to'g'ri uuid bo'lishi kerak
+	if params.ProductId != "" {
+		if err := uuid.Validate(params.ProductId); err != nil {
+			handleServiceResponse(c, BadRequest, domain.InvalidQueryError)
+			return nil, false
+		}
+	}
+
+	if !helper.IsAdmin(user) {
+		if user.StoreId != "" {
+			params.StoreId = user.StoreId
+		}
+		params.CompanyId = user.CompanyId
+	}
+
+	// butun bazani skanerlab yubormaslik uchun kamida bitta scope shart
+	if params.StoreId == "" && params.CompanyId == "" && params.ProductId == "" {
+		handleServiceResponse(c, BadRequest, domain.InvalidQueryError)
+		return nil, false
+	}
+
+	// get pagination with default
+	params.Limit, params.Offset = defaultLimitOffset(params.Limit, params.Offset)
+
+	return &params, true
+}
+
 // ExportProductMovementsAfterLastInventoryExcel godoc
-// @Summary Export product movements after the last inventory to Excel
-// @Description Oxirgi inventarizatsiyadan keyingi harakatlarni excelga yuklab beradi
+// @Summary Export store movements after the last inventory to Excel
+// @Description Do'konning oxirgi inventarizatsiyasidan keyingi harakatlarni excelga yuklab beradi
 // @Tags products
 // @Security BearerAuth
 // @Produce  application/vnd.openxmlformats-officedocument.spreadsheetml.sheet
-// @Param id path string true "Product ID"
 // @Param store_id query string false "Store ID"
+// @Param company_id query string false "Company Id"
+// @Param product_id query string false "Product Id (ixtiyoriy)"
 // @Param limit query int false "Limit"
 // @Param offset query int false "Offset"
 // @Success 200 {object} v1.Response
 // @Failure 400 {object} v1.Response
 // @Failure 500 {object} v1.Response
-// @Router /product/{id}/product-movement-after-inventory/export-excel [get]
+// @Router /product/movement-after-inventory-export [get]
 func (h *ProductHandler) ExportProductMovementsAfterLastInventoryExcel(c *gin.Context) {
 	user := h.service.GetSignedUser(c)
 	if user.UserId == "" {
@@ -1570,45 +1588,16 @@ func (h *ProductHandler) ExportProductMovementsAfterLastInventoryExcel(c *gin.Co
 		return
 	}
 
-	// get product id from the path param
-	var productId = c.Param("id")
-	// validate product id
-	if err := uuid.Validate(productId); err != nil {
-		handleResponse(c, BadRequest, domain.InvalidQueryError)
+	params, ok := bindMovementsAfterInventoryParams(c, user)
+	if !ok {
 		return
-	}
-
-	var params domain.ProductQueryParam
-	if err := c.ShouldBindQuery(&params); err != nil {
-		handleServiceResponse(c, nil, domain.InvalidQueryError)
-		return
-	}
-
-	// validate store id
-	if params.StoreId != "" {
-		if err := uuid.Validate(params.StoreId); err != nil {
-			handleServiceResponse(c, BadRequest, domain.InvalidQueryError)
-			return
-		}
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
 	defer cancel()
 
-	if !utils.In(user.Role, constants.AllAdminRoles...) {
-		if user.StoreId != "" {
-			params.StoreId = user.StoreId
-		}
-		params.CompanyId = user.CompanyId
-	}
-
-	// get pagination with default
-	params.Limit, params.Offset = defaultLimitOffset(params.Limit, params.Offset)
-
-	params.ProductId = productId
-
-	// get product-movements data (oxirgi inventarizatsiyadan keyingi) from the product service
-	res, _, err := h.service.GetProductMovementsAfterLastInventory(ctx, &params, user)
+	// get store-movements data (oxirgi inventarizatsiyadan keyingi) from the product service
+	res, _, err := h.service.GetProductMovementsAfterLastInventory(ctx, params, user)
 	if err != nil {
 		handleServiceResponse(c, InternalError, err)
 		return
