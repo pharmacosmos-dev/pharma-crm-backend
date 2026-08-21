@@ -39,7 +39,7 @@ func (h *StoreHandler) StoreRoutes(r *gin.RouterGroup) {
 		store.PUT("/online-order", h.UpdateOnlineOrder)
 		store.DELETE("/:id", h.Delete)
 		store.GET("/all-store-map-info", h.GetAllStoreMapInfo)
-		// store.GET("/:id/map-info", h.GetStoreByIdMapInfo)
+		store.GET("/:id/map-info", h.GetStoreByIdMapInfo)
 	}
 }
 
@@ -470,7 +470,6 @@ func (h *StoreHandler) GetStoreWorkingHours(c *gin.Context) {
 	handleResponse(c, OK, utils.ListResponse(results, total, params.Limit, params.Offset))
 }
 
-
 // GetAllStoreMapInfo godoc
 // @Summary      Get all store map info
 // @Description  Get all store map info
@@ -512,39 +511,37 @@ func (h *StoreHandler) GetAllStoreMapInfo(c *gin.Context) {
 	handleResponse(c, OK, results)
 }
 
+// GetStoreByIdMapInfo godoc
+// @Summary      Get store map info by ID
+// @Description  Get store map info by ID
+// @Tags         stores
+// @Security     BearerAuth
+// @Accept       json
+// @Produce      json
+// @Param        id   path  string  true  "Store ID"
+// @Success      200 {object} v1.Response
+// @Failure      400 {object} v1.Response
+// @Failure      401 {object} v1.Response
+// @Failure      500 {object} v1.Response
+// @Router       /store/{id}/map-info [get]
+func (h *StoreHandler) GetStoreByIdMapInfo(c *gin.Context) {
+	user := h.service.GetSignedUser(c)
+	if user.UserId == "" {
+		handleServiceResponse(c, nil, domain.UnauthorizedError)
+		return
+	}
 
-// // GetStoreByIdMapInfo godoc
-// // @Summary      Get store map info by ID
-// // @Description  Get store map info by ID
-// // @Tags         stores
-// // @Security     BearerAuth
-// // @Accept       json
-// // @Produce      json
-// // @Param        id   path  string  true  "Store ID"	
-// // @Success      200 {object} v1.Response
-// // @Failure      400 {object} v1.Response
-// // @Failure      401 {object} v1.Response
-// // @Failure      500 {object} v1.Response
-// // @Router       /store/{id}/map-info [get]
-// func(h *StoreHandler) GetStoreByIdMapInfo(c *gin.Context) {
-// 	user := h.service.GetSignedUser(c)
-// 	if user.UserId == "" {
-// 		handleServiceResponse(c, nil, domain.UnauthorizedError)
-// 		return
-// 	}
+	var storeId = c.Param("id")
 
-// 	var storeId = c.Param("id")
+	ctx, cancel := context.WithTimeout(c.Request.Context(), constants.DefaultContextTimeout)
+	defer cancel()
 
-// 	ctx, cancel := context.WithTimeout(c.Request.Context(), constants.DefaultContextTimeout)
-// 	defer cancel()		
+	storeMapInfo, err := h.service.GetStoreByIdMapInfo(ctx, storeId)
+	if err != nil {
+		handleServiceResponse(c, nil, err)
+		return
+	}
 
-// 	storeMapInfo, err := h.service.GetStoreByIdMapInfo(ctx, storeId)
-// 	if err != nil {
-// 		handleServiceResponse(c, nil, err)
-// 		return
-// 	}
+	handleResponse(c, OK, storeMapInfo)
 
-// 	handleResponse(c, OK, storeMapInfo)
-
-// }
-
+}

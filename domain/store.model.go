@@ -114,33 +114,39 @@ type StoreMapInfoQueryParams struct {
 }
 
 type StoreMapInfo struct {
-	Id                 string                    `json:"id"`
-	Name               string                    `json:"name"`
+	Id            string `json:"id"`
+	Name          string `json:"name"`
+	WorkHours     string `json:"work_hours"`
+	Phone         string `json:"phone"`
+	IsOnlineOrder bool   `json:"is_online_order"`
+	IsOpen        bool   `json:"is_open"`
+	Address       string `json:"address"`
+	Inn           string `json:"inn"`
+	StoreCode     string `json:"store_code"`
+	CreatedAt     string `json:"created_at"`
+	UpdatedAt     string `json:"updated_at"`
+	Coordinates   Point  `json:"coordinates"`
+}
+
+type StoreMapInfoDetail struct {
+	StoreMapInfo
 	SalesAmount        float64                   `json:"sales_amount"`
 	SalesCount         int64                     `json:"sales_count"`
 	SalesAggregateSum  float64                   `json:"sales_aggregate_sum"`
 	AverageSalesAmount float64                   `json:"average_sales_amount"`
 	CashBoxCount       int64                     `json:"cash_box_count"`
-	WorkHours          string                    `json:"work_hours"`
-	Phone              string                    `json:"phone"`
 	EmployeeCount      int64                     `json:"employee_count"`
 	Employees          []StoreMapInfoEmployee    `json:"employees"`
 	PaymentTypes       []StoreMapInfoPaymentType `json:"payment_types"`
-	IsOnlineOrder      bool                      `json:"is_online_order"`
-	IsOpen             bool                      `json:"is_open"`
 	OpenedAt           *time.Time                `json:"opened_at,omitempty"`
 	ClosedAt           *time.Time                `json:"closed_at,omitempty"`
-	Address            string                    `json:"address"`
-	Inn                string                    `json:"inn"`
-	StoreCode          string                    `json:"store_code"`
-	CreatedAt          string                    `json:"created_at"`
-	UpdatedAt          string                    `json:"updated_at"`
-	Coordinates        Point                     `json:"coordinates"`
 }
 
 type StoreMapInfoEmployee struct {
-	Id       string `json:"id"`
-	FullName string `json:"full_name"`
+	Id         string     `json:"id"`
+	FullName   string     `json:"full_name"`
+	CheckInAt  *time.Time `json:"check_in_at,omitempty"`
+	CheckOutAt *time.Time `json:"check_out_at,omitempty"`
 }
 
 type StoreMapInfoPaymentType struct {

@@ -163,7 +163,99 @@ func (s *Services) UpdateAverateStoreTargetSales() error {
 }
 
 func (s *Services) GetAllStoreMapInfo(ctx context.Context, params *domain.StoreMapInfoQueryParams) ([]domain.StoreMapInfo, error) {
+	qb := s.db.WithContext(ctx).
+		Model(&domain.Store{}).
+		Select(`
+			stores.id,
+			stores.name,
+			stores.address,
+			stores.store_code,
+			stores.inn,
+			stores.work_hours,
+			stores.phone,
+			stores.is_online_order,
+			stores.created_at,
+			stores.updated_at,
 
+			ST_AsText(stores.coordinates) AS coordinates,
+
+			COALESCE(attendance.is_open, false) AS is_open
+		`).
+		Joins(`
+			LEFT JOIN (
+				SELECT
+					latest.store_id,
+					TRUE AS is_open
+				FROM (
+					SELECT DISTINCT ON (employee_id)
+						employee_id, store_id, event_type
+					FROM attendance_logs
+					WHERE store_id IS NOT NULL
+					  AND (event_at AT TIME ZONE 'Asia/Tashkent')::date =
+					      (CURRENT_TIMESTAMP AT TIME ZONE 'Asia/Tashkent')::date
+					ORDER BY employee_id, event_at DESC, id DESC
+				) latest
+					WHERE latest.event_type = 'check-in'
+					GROUP BY latest.store_id
+			) attendance
+				ON attendance.store_id = stores.id
+		`)
+
+	if params.Search != "" {
+		searchPattern := fmt.Sprintf("%%%s%%", params.Search)
+
+		qb = qb.Where(
+			"stores.name ILIKE ? OR stores.detailed_name ILIKE ?",
+			searchPattern,
+			searchPattern,
+		)
+	}
+
+	if params.IsFranchise != nil {
+		qb = qb.Where(`
+			stores.company_id IN (
+				SELECT id
+				FROM companies
+				WHERE is_franchise = ?
+			)
+		`, *params.IsFranchise)
+	}
+
+	if params.IsPharma != nil {
+		qb = qb.Where(`
+			stores.company_id IN (
+				SELECT id
+				FROM companies
+				WHERE is_pharma = ?
+			)
+		`, *params.IsPharma)
+	}
+
+	if params.IsOnline != nil {
+		qb = qb.Where(
+			"stores.is_online_order = ?",
+			*params.IsOnline,
+		)
+	}
+
+	var stores []domain.StoreMapInfo
+
+	err := qb.
+		Order("stores.created_at DESC").
+		Find(&stores).Error
+
+	if err != nil {
+		s.log.Errorf(
+			"could not get all store map info: %v",
+			err,
+		)
+		return nil, domain.InternalServerError
+	}
+
+	return stores, nil
+}
+
+func (s *Services) GetStoreByIdMapInfo(ctx context.Context, storeId string) (*domain.StoreMapInfoDetail, error) {
 	qb := s.db.WithContext(ctx).
 		Model(&domain.Store{}).
 		Select(`
@@ -269,94 +361,47 @@ func (s *Services) GetAllStoreMapInfo(ctx context.Context, params *domain.StoreM
 				) open_state ON open_state.store_id = timeline.store_id
 			) attendance
 				ON attendance.store_id = stores.id
-		`)
+		`).
+		Where("stores.id = ?", storeId)
 
-	if params.Search != "" {
-		searchPattern := fmt.Sprintf("%%%s%%", params.Search)
-
-		qb = qb.Where(
-			"stores.name ILIKE ? OR stores.detailed_name ILIKE ?",
-			searchPattern,
-			searchPattern,
-		)
-	}
-
-	if params.IsFranchise != nil {
-		qb = qb.Where(`
-			stores.company_id IN (
-				SELECT id
-				FROM companies
-				WHERE is_franchise = ?
-			)
-		`, *params.IsFranchise)
-	}
-
-	if params.IsPharma != nil {
-		qb = qb.Where(`
-			stores.company_id IN (
-				SELECT id
-				FROM companies
-				WHERE is_pharma = ?
-			)
-		`, *params.IsPharma)
-	}
-
-	if params.IsOnline != nil {
-		qb = qb.Where(
-			"stores.is_online_order = ?",
-			*params.IsOnline,
-		)
-	}
-
-	var stores []domain.StoreMapInfo
+	var storeMapInfo domain.StoreMapInfoDetail
 
 	err := qb.
 		Order("stores.created_at DESC").
-		Find(&stores).Error
+		Find(&storeMapInfo).Error
 
 	if err != nil {
 		s.log.Errorf(
-			"could not get all store map info: %v",
+			"could not get store map info by id: %v",
 			err,
 		)
 		return nil, domain.InternalServerError
 	}
 
-	for i := range stores {
-		stores[i].Employees = make([]domain.StoreMapInfoEmployee, 0)
-		stores[i].PaymentTypes = make([]domain.StoreMapInfoPaymentType, 0)
-	}
-
-	var employeeRows []struct {
-		StoreId  string `gorm:"column:store_id"`
-		Id       string `gorm:"column:id"`
-		FullName string `gorm:"column:full_name"`
-	}
-	if err := s.db.WithContext(ctx).
-		Table("employees").
-		Select("store_id, id, full_name").
-		Where("deleted_at IS NULL AND is_active = true AND store_id IS NOT NULL").
-		Order("full_name ASC").
-		Find(&employeeRows).Error; err != nil {
+	storeMapInfo.Employees = make([]domain.StoreMapInfoEmployee, 0)
+	if err := s.db.WithContext(ctx).Raw(`
+		SELECT
+			e.id,
+			e.full_name,
+			MIN(al.event_at) FILTER (WHERE al.event_type = 'check-in') AS check_in_at,
+			MAX(al.event_at) FILTER (WHERE al.event_type = 'check-out') AS check_out_at
+		FROM employees e
+		LEFT JOIN attendance_logs al ON al.employee_id = e.id
+			AND (al.event_at AT TIME ZONE 'Asia/Tashkent')::date =
+				(CURRENT_TIMESTAMP AT TIME ZONE 'Asia/Tashkent')::date
+		WHERE e.store_id = ?
+		  AND e.deleted_at IS NULL
+		  AND e.is_active = true
+		GROUP BY e.id, e.full_name
+		ORDER BY e.full_name ASC
+	`, storeId).Scan(&storeMapInfo.Employees).Error; err != nil {
 		s.log.Errorf("could not get store map employees: %v", err)
 		return nil, domain.InternalServerError
 	}
 
-	employeesByStore := make(map[string][]domain.StoreMapInfoEmployee)
-	for _, employee := range employeeRows {
-		employeesByStore[employee.StoreId] = append(employeesByStore[employee.StoreId], domain.StoreMapInfoEmployee{
-			Id:       employee.Id,
-			FullName: employee.FullName,
-		})
-	}
-
-	var paymentRows []struct {
-		StoreId string  `gorm:"column:store_id"`
-		Type    string  `gorm:"column:type"`
-		Amount  float64 `gorm:"column:amount"`
-	}
+	storeMapInfo.PaymentTypes = make([]domain.StoreMapInfoPaymentType, 0)
 	if err := s.db.WithContext(ctx).Raw(`
-		SELECT sales.store_id, payment.type, SUM(payment.amount) AS amount
+		SELECT payment.type, SUM(payment.amount) AS amount
 		FROM sales
 		CROSS JOIN LATERAL (
 			VALUES
@@ -370,94 +415,15 @@ func (s *Services) GetAllStoreMapInfo(ctx context.Context, params *domain.StoreM
 				('uzum_tez_kor', COALESCE(sales.uzum_tez_kor, 0)),
 				('loyalty_card', COALESCE(sales.loyalty_card, 0))
 		) AS payment(type, amount)
-		WHERE sales.created_at >= (CURRENT_TIMESTAMP AT TIME ZONE 'Asia/Tashkent')::date
+		WHERE sales.store_id = ?
+		  AND sales.created_at >= (CURRENT_TIMESTAMP AT TIME ZONE 'Asia/Tashkent')::date
 		  AND sales.created_at < (CURRENT_TIMESTAMP AT TIME ZONE 'Asia/Tashkent')::date + INTERVAL '1 day'
 		  AND sales.is_active = true
 		  AND payment.amount <> 0
-		GROUP BY sales.store_id, payment.type
-		ORDER BY sales.store_id, payment.type
-	`).Scan(&paymentRows).Error; err != nil {
+		GROUP BY payment.type
+		ORDER BY payment.type
+	`, storeId).Scan(&storeMapInfo.PaymentTypes).Error; err != nil {
 		s.log.Errorf("could not get store map payment types: %v", err)
-		return nil, domain.InternalServerError
-	}
-
-	paymentsByStore := make(map[string][]domain.StoreMapInfoPaymentType)
-	for _, payment := range paymentRows {
-		paymentsByStore[payment.StoreId] = append(paymentsByStore[payment.StoreId], domain.StoreMapInfoPaymentType{
-			Type:   payment.Type,
-			Amount: payment.Amount,
-		})
-	}
-
-	for i := range stores {
-		if employees, ok := employeesByStore[stores[i].Id]; ok {
-			stores[i].Employees = employees
-		}
-		if payments, ok := paymentsByStore[stores[i].Id]; ok {
-			stores[i].PaymentTypes = payments
-		}
-	}
-
-	return stores, nil
-}
-
-func (s *Services) GetStoreByIdMapInfo(ctx context.Context, storeId string) (*domain.StoreMapInfo, error) {
-	qb := s.db.WithContext(ctx).
-		Model(&domain.Store{}).
-		Select(`
-			stores.id,
-			stores.name,
-			stores.address,
-			stores.store_code,
-			stores.inn,
-			stores.work_hours,
-			stores.phone,
-			stores.is_online_order,
-			stores.created_at,
-			stores.updated_at,
-
-			ST_AsText(stores.coordinates) AS coordinates,
-
-			COALESCE(attendance.is_open, false) AS is_open
-		`).
-		Joins(`
-			LEFT JOIN (
-				SELECT
-					latest.store_id,
-					TRUE AS is_open
-				FROM (
-					SELECT DISTINCT ON (employee_id)
-						employee_id,
-						store_id,
-						event_type,
-						event_at
-					FROM attendance_logs
-					WHERE store_id IS NOT NULL
-					  AND (event_at AT TIME ZONE 'Asia/Tashkent')::date =
-					      (CURRENT_TIMESTAMP AT TIME ZONE 'Asia/Tashkent')::date
-					ORDER BY
-						employee_id,
-						event_at DESC,
-						id DESC
-				) latest
-				WHERE latest.event_type = 'check-in'
-				GROUP BY latest.store_id
-			) attendance
-				ON attendance.store_id = stores.id
-		`).
-		Where("stores.id = ?", storeId)
-
-	var storeMapInfo domain.StoreMapInfo
-
-	err := qb.
-		Order("stores.created_at DESC").
-		Find(&storeMapInfo).Error
-
-	if err != nil {
-		s.log.Errorf(
-			"could not get store map info by id: %v",
-			err,
-		)
 		return nil, domain.InternalServerError
 	}
 
