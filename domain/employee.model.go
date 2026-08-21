@@ -26,58 +26,64 @@ type EmployeeClaims struct {
 }
 
 type Employee struct {
-	Id             string           `gorm:"id" json:"id"`
-	CompanyId      string           `gorm:"company_id" json:"company_id"`
-	StoreId        string           `gorm:"store_id" json:"store_id"`
-	StoreIds       pq.StringArray   `gorm:"type:text[];column:store_ids" json:"store_ids"`
-	PublicId       int              `gorm:"public_id" json:"public_id"`
-	Position       string           `gorm:"position" json:"position"`
-	FirstName      string           `gorm:"first_name" json:"first_name"`
-	LastName       string           `gorm:"last_name" json:"last_name"`
-	FullName       string           `gorm:"full_name" json:"full_name"`
-	Email          string           `gorm:"email" json:"email"`
-	Phone          string           `gorm:"phone" json:"phone"`
-	Password       string           `gorm:"password" json:"password"`
-	Language       string           `gorm:"language" json:"language"`
-	Gender         string           `gorm:"gender" json:"gender"`
-	Status         string           `gorm:"status" json:"status"`
-	Birthdate      string           `gorm:"birthdate" json:"birthdate"`
-	Photo          string           `gorm:"photo" json:"photo"`
-	// StartDate/EndDate — smenaning kunlik boshlanish/tugash vaqti (TIME, "HH:MM" formatida),
-	// sana emas. employee_attendance_days.planned_start_at shundan hisoblanadi.
-	StartDate      *string          `gorm:"start_date" json:"start_date,omitempty"`
-	EndDate        *string          `gorm:"end_date" json:"end_date,omitempty"`
-	Salary         float64          `gorm:"salary" json:"salary"`
-	RoleType       string           `gorm:"role_type" json:"role_type,omitempty"`
-	CreatedAt      *time.Time       `gorm:"created_at" json:"created_at"`
-	UpdatedAt      *time.Time       `gorm:"updated_at" json:"updated_at"`
-	Store          *Store           `gorm:"foreignKey:StoreId" json:"store"`
-	Company        *Company         `gorm:"foreignKey:CompanyId" json:"company"`
-	Permission     []Permission     `gorm:"-" json:"permissions"`
-	Roles          []Role           `gorm:"many2many:employee_roles;" json:"roles"`
-	Cashbox        *EmployeeCashbox `gorm:"-" json:"cashbox"`
-	LastAttendance *AttendanceLog   `gorm:"-" json:"last_attendance,omitempty"`
-}
-
-type EmployeeRequest struct {
-	Id        string         `gorm:"id" json:"-"`
-	RoleIds   []string       `gorm:"-" json:"role_ids"`
+	Id        string         `gorm:"id" json:"id"`
 	CompanyId string         `gorm:"company_id" json:"company_id"`
-	StoreId   *string        `gorm:"store_id" json:"store_id"`
+	StoreId   string         `gorm:"store_id" json:"store_id"`
 	StoreIds  pq.StringArray `gorm:"type:text[];column:store_ids" json:"store_ids"`
+	PublicId  int            `gorm:"public_id" json:"public_id"`
 	Position  string         `gorm:"position" json:"position"`
 	FirstName string         `gorm:"first_name" json:"first_name"`
 	LastName  string         `gorm:"last_name" json:"last_name"`
 	FullName  string         `gorm:"full_name" json:"full_name"`
-	Phone     string         `gorm:"phone" json:"phone" validate:"required,e164"`
-	Gender    string         `gorm:"gender" json:"gender" validate:"required,oneof=male female"`
-	Status    string         `gorm:"status" json:"-"`
-	Password  *string        `gorm:"password" json:"password"`
-	Language  string         `gorm:"language" json:"language" validate:"required,oneof=uz en ru"`
+	Email     string         `gorm:"email" json:"email"`
+	Phone     string         `gorm:"phone" json:"phone"`
+	Password  string         `gorm:"password" json:"password"`
+	Language  string         `gorm:"language" json:"language"`
+	Gender    string         `gorm:"gender" json:"gender"`
+	Status    string         `gorm:"status" json:"status"`
 	Birthdate string         `gorm:"birthdate" json:"birthdate"`
-	StartDate *string        `gorm:"start_date" json:"start_date"`
-	EndDate   *string        `gorm:"end_date" json:"end_date"`
-	Salary    float64        `gorm:"salary" json:"salary"`
+	Photo     string         `gorm:"photo" json:"photo"`
+	// StartDate/EndDate — smenaning kunlik boshlanish/tugash vaqti (TIME, "HH:MM" formatida),
+	// sana emas. employee_attendance_days.planned_start_at shundan hisoblanadi.
+	StartDate       *string          `gorm:"start_date" json:"start_date,omitempty"`
+	EndDate         *string          `gorm:"end_date" json:"end_date,omitempty"`
+	Salary          float64          `gorm:"salary" json:"salary"`
+	AvgMonthlyHours float64          `gorm:"avg_monthly_hours" json:"avg_monthly_hours"`
+	KpiPercent      float64          `gorm:"kpi_percent" json:"kpi_percent"`
+	ExperienceYears float64          `gorm:"experience_years" json:"experience_years"`
+	RoleType        string           `gorm:"role_type" json:"role_type,omitempty"`
+	CreatedAt       *time.Time       `gorm:"created_at" json:"created_at"`
+	UpdatedAt       *time.Time       `gorm:"updated_at" json:"updated_at"`
+	Store           *Store           `gorm:"foreignKey:StoreId" json:"store"`
+	Company         *Company         `gorm:"foreignKey:CompanyId" json:"company"`
+	Permission      []Permission     `gorm:"-" json:"permissions"`
+	Roles           []Role           `gorm:"many2many:employee_roles;" json:"roles"`
+	Cashbox         *EmployeeCashbox `gorm:"-" json:"cashbox"`
+	LastAttendance  *AttendanceLog   `gorm:"-" json:"last_attendance,omitempty"`
+}
+
+type EmployeeRequest struct {
+	Id              string         `gorm:"id" json:"-"`
+	RoleIds         []string       `gorm:"-" json:"role_ids"`
+	CompanyId       string         `gorm:"company_id" json:"company_id"`
+	StoreId         *string        `gorm:"store_id" json:"store_id"`
+	StoreIds        pq.StringArray `gorm:"type:text[];column:store_ids" json:"store_ids"`
+	Position        string         `gorm:"position" json:"position"`
+	FirstName       string         `gorm:"first_name" json:"first_name"`
+	LastName        string         `gorm:"last_name" json:"last_name"`
+	FullName        string         `gorm:"full_name" json:"full_name"`
+	Phone           string         `gorm:"phone" json:"phone" validate:"required,e164"`
+	Gender          string         `gorm:"gender" json:"gender" validate:"required,oneof=male female"`
+	Status          string         `gorm:"status" json:"-"`
+	Password        *string        `gorm:"password" json:"password"`
+	Language        string         `gorm:"language" json:"language" validate:"required,oneof=uz en ru"`
+	Birthdate       string         `gorm:"birthdate" json:"birthdate"`
+	StartDate       *string        `gorm:"start_date" json:"start_date"`
+	EndDate         *string        `gorm:"end_date" json:"end_date"`
+	Salary          float64        `gorm:"salary" json:"salary"`
+	AvgMonthlyHours float64        `gorm:"avg_monthly_hours" json:"avg_monthly_hours"`
+	KpiPercent      float64        `gorm:"kpi_percent" json:"kpi_percent"`
+	ExperienceYears float64        `gorm:"experience_years" json:"experience_years"`
 }
 
 // Reset password request

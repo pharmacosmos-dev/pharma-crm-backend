@@ -58,7 +58,7 @@ func (h *EmployeeHandler) EmployeeRoutes(r *gin.RouterGroup) {
 	}
 }
 
-// @Summary      Create employee 
+// @Summary      Create employee
 // @Description  Create a new employee in the system
 // @Tags         employees
 // @Accept       json
@@ -368,18 +368,21 @@ func (h *EmployeeHandler) Update(c *gin.Context) {
 	}
 	// update employee information
 	updateData := map[string]any{
-		"full_name":  body.FullName,
-		"first_name": body.FirstName,
-		"last_name":  body.LastName,
-		"company_id": body.CompanyId,
-		"phone":      body.Phone,
-		"gender":     body.Gender,
-		"language":   body.Language,
-		"birthdate":  body.Birthdate,
-		"store_ids":  body.StoreIds,
-		"start_date": body.StartDate,
-		"end_date":   body.EndDate,
-		"salary":     body.Salary,
+		"full_name":         body.FullName,
+		"first_name":        body.FirstName,
+		"last_name":         body.LastName,
+		"company_id":        body.CompanyId,
+		"phone":             body.Phone,
+		"gender":            body.Gender,
+		"language":          body.Language,
+		"birthdate":         body.Birthdate,
+		"store_ids":         body.StoreIds,
+		"start_date":        body.StartDate,
+		"end_date":          body.EndDate,
+		"salary":            body.Salary,
+		"avg_monthly_hours": body.AvgMonthlyHours,
+		"kpi_percent":       body.KpiPercent,
+		"experience_years":  body.ExperienceYears,
 	}
 
 	if body.Password != nil {
