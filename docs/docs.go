@@ -17211,165 +17211,6 @@ const docTemplate = `{
                 }
             }
         },
-        "/product/movement-after-inventory": {
-            "get": {
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ],
-                "description": "Do'konning oxirgi inventarizatsiyasidan (updated_at bo'yicha eng oxirgisi) keyingi harakatlar.\nUndan oldingi import/sotuv/transfer/vozvratlar hisobga olinmaydi, oxirgi inventarizatsiyada\nhar bir product_id uchun kiritilgan scanned_count birinchi import (entry_type = 1) bo'lib qo'shiladi.\nproduct_id berilsa - faqat shu mahsulot bo'yicha filtrlanadi.",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "products"
-                ],
-                "summary": "Get store movements after the last inventory",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Store Id",
-                        "name": "store_id",
-                        "in": "query"
-                    },
-                    {
-                        "type": "string",
-                        "description": "Company Id",
-                        "name": "company_id",
-                        "in": "query"
-                    },
-                    {
-                        "type": "string",
-                        "description": "Product Id (ixtiyoriy)",
-                        "name": "product_id",
-                        "in": "query"
-                    },
-                    {
-                        "type": "integer",
-                        "description": "Limit",
-                        "name": "limit",
-                        "in": "query"
-                    },
-                    {
-                        "type": "integer",
-                        "description": "Offset",
-                        "name": "offset",
-                        "in": "query"
-                    },
-                    {
-                        "type": "string",
-                        "description": "Start date",
-                        "name": "start_date",
-                        "in": "query"
-                    },
-                    {
-                        "type": "string",
-                        "description": "End date",
-                        "name": "end_date",
-                        "in": "query"
-                    },
-                    {
-                        "type": "integer",
-                        "description": "Entry type filter: 1=import, 2=inventory, 4=sale, 5=return, 6=transfer, 7=return_sale",
-                        "name": "entry_type",
-                        "in": "query"
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/v1.Response"
-                        }
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "$ref": "#/definitions/v1.Response"
-                        }
-                    },
-                    "500": {
-                        "description": "Internal Server Error",
-                        "schema": {
-                            "$ref": "#/definitions/v1.Response"
-                        }
-                    }
-                }
-            }
-        },
-        "/product/movement-after-inventory-export": {
-            "get": {
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ],
-                "description": "Do'konning oxirgi inventarizatsiyasidan keyingi harakatlarni excelga yuklab beradi",
-                "produces": [
-                    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-                ],
-                "tags": [
-                    "products"
-                ],
-                "summary": "Export store movements after the last inventory to Excel",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Store ID",
-                        "name": "store_id",
-                        "in": "query"
-                    },
-                    {
-                        "type": "string",
-                        "description": "Company Id",
-                        "name": "company_id",
-                        "in": "query"
-                    },
-                    {
-                        "type": "string",
-                        "description": "Product Id (ixtiyoriy)",
-                        "name": "product_id",
-                        "in": "query"
-                    },
-                    {
-                        "type": "integer",
-                        "description": "Limit",
-                        "name": "limit",
-                        "in": "query"
-                    },
-                    {
-                        "type": "integer",
-                        "description": "Offset",
-                        "name": "offset",
-                        "in": "query"
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/v1.Response"
-                        }
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "$ref": "#/definitions/v1.Response"
-                        }
-                    },
-                    "500": {
-                        "description": "Internal Server Error",
-                        "schema": {
-                            "$ref": "#/definitions/v1.Response"
-                        }
-                    }
-                }
-            }
-        },
         "/product/movement-units": {
             "get": {
                 "security": [
@@ -17405,6 +17246,126 @@ const docTemplate = `{
                         "type": "string",
                         "description": "Search",
                         "name": "search",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "store_id",
+                        "name": "store_id",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/product/movement-units-after-last-inventory": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Do'konning oxirgi inventarizatsiyasidan keyingi harakatlar bo'yicha hisob-kitob.\nOxirgi inventarizatsiyada har bir product_id uchun kiritilgan scanned_count\nboshlang'ich import sifatida olinadi, undan oldingi harakatlar hisobga olinmaydi.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "products"
+                ],
+                "summary": "Get movement units after the last inventory",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Limit",
+                        "name": "limit",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Offset",
+                        "name": "offset",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "store_id",
+                        "name": "store_id",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/product/movement-units-after-last-inventory-export": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Do'konning oxirgi inventarizatsiyasidan keyingi hisob-kitobni excelga yuklab beradi",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "products"
+                ],
+                "summary": "Export movement units after the last inventory",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Limit",
+                        "name": "limit",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Offset",
+                        "name": "offset",
                         "in": "query"
                     },
                     {

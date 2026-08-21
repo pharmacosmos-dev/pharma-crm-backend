@@ -59,8 +59,6 @@ func (h *ProductHandler) ProductRoutes(r *gin.RouterGroup) {
 		product.PATCH("/is-marking", h.UpdateIsMarking)
 		product.GET("/:id/product-movement", h.ProductMovements)
 		product.GET("/:id/product-movement/export-excel", h.ExportProductMovementsExcel)
-		product.GET("/movement-after-inventory", h.ProductMovementsAfterLastInventory)
-		product.GET("/movement-after-inventory-export", h.ExportProductMovementsAfterLastInventoryExcel)
 		product.GET("/export-arzon", h.ArzonProductExport)
 		product.GET("/list-arzon", h.ArzonProductList)
 		product.GET("/list-by-import", h.GetProductsByImport)
@@ -94,6 +92,8 @@ func (h *ProductHandler) ProductRoutes(r *gin.RouterGroup) {
 		product.GET("/movement-units-by-product-export", h.ExportMovementUnitsByProductId)
 		product.GET("/movement-units-before-first-inventory", h.GetMovementUnitsBeforeFirstInventory)
 		product.GET("/movement-units-before-first-inventory-export", h.ExportMovementUnitsBeforeFirstInventory)
+		product.GET("/movement-units-after-last-inventory", h.GetMovementUnitsAfterLastInventory)
+		product.GET("/movement-units-after-last-inventory-export", h.ExportMovementUnitsAfterLastInventory)
 		product.PUT("/update-ostatok/:store_product_id", h.UpdateOstatok)
 		product.POST("/barcode/upsert", h.CreateOrUpdateBarcodes)
 		product.GET("/:id/barcodes", h.GetProductBarcodes)
@@ -1470,169 +1470,6 @@ func (h *ProductHandler) ExportProductMovementsExcel(c *gin.Context) {
 
 	// save
 	saveExcelToUploads(c, f, *h.log, "product_movements")
-}
-
-// ProductMovementsAfterLastInventory godoc
-// @Summary Get store movements after the last inventory
-// @Description Do'konning oxirgi inventarizatsiyasidan (updated_at bo'yicha eng oxirgisi) keyingi harakatlar.
-// @Description Undan oldingi import/sotuv/transfer/vozvratlar hisobga olinmaydi, oxirgi inventarizatsiyada
-// @Description har bir product_id uchun kiritilgan scanned_count birinchi import (entry_type = 1) bo'lib qo'shiladi.
-// @Description product_id berilsa - faqat shu mahsulot bo'yicha filtrlanadi.
-// @Tags products
-// @Security BearerAuth
-// @Accept  json
-// @Produce json
-// @Param 		store_id query string false "Store Id"
-// @Param 		company_id query string false "Company Id"
-// @Param 		product_id query string false "Product Id (ixtiyoriy)"
-// @Param 		limit query int false "Limit"
-// @Param 		offset query int false "Offset"
-// @Param 		start_date query string false "Start date"
-// @Param 		end_date query string false "End date"
-// @Param 		entry_type query int false "Entry type filter: 1=import, 2=inventory, 4=sale, 5=return, 6=transfer, 7=return_sale"
-// @Success 200 {object} v1.Response
-// @Failure 400 {object} v1.Response
-// @Failure 500 {object} v1.Response
-// @Router /product/movement-after-inventory [get]
-func (h *ProductHandler) ProductMovementsAfterLastInventory(c *gin.Context) {
-	user := h.service.GetSignedUser(c)
-	if user.UserId == "" {
-		handleServiceResponse(c, nil, domain.UnauthorizedError)
-		return
-	}
-
-	params, ok := bindMovementsAfterInventoryParams(c, user)
-	if !ok {
-		return
-	}
-
-	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
-	defer cancel()
-
-	// get store-movements data (oxirgi inventarizatsiyadan keyingi) from the product service
-	res, totalCount, err := h.service.GetProductMovementsAfterLastInventory(ctx, params, user)
-	if err != nil {
-		handleServiceResponse(c, InternalError, err)
-		return
-	}
-
-	// get pagintion data with _meta object
-	data := utils.ListResponse(res, totalCount, params.Limit, params.Offset)
-
-	handleResponse(c, OK, data)
-}
-
-// bindMovementsAfterInventoryParams movement-after-inventory endpointlari uchun umumiy
-// query bind + validatsiya + role bo'yicha scope. ok = false bo'lsa javob allaqachon yozilgan.
-func bindMovementsAfterInventoryParams(c *gin.Context, user *domain.EmployeeClaims) (*domain.ProductQueryParam, bool) {
-	var params domain.ProductQueryParam
-	if err := c.ShouldBindQuery(&params); err != nil {
-		handleServiceResponse(c, nil, domain.InvalidQueryError)
-		return nil, false
-	}
-
-	// validate store id
-	if params.StoreId != "" {
-		if err := uuid.Validate(params.StoreId); err != nil {
-			handleServiceResponse(c, BadRequest, domain.InvalidQueryError)
-			return nil, false
-		}
-	}
-
-	// product_id ixtiyoriy, lekin berilgan bo'lsa to'g'ri uuid bo'lishi kerak
-	if params.ProductId != "" {
-		if err := uuid.Validate(params.ProductId); err != nil {
-			handleServiceResponse(c, BadRequest, domain.InvalidQueryError)
-			return nil, false
-		}
-	}
-
-	if !helper.IsAdmin(user) {
-		if user.StoreId != "" {
-			params.StoreId = user.StoreId
-		}
-		params.CompanyId = user.CompanyId
-	}
-
-	// butun bazani skanerlab yubormaslik uchun kamida bitta scope shart
-	if params.StoreId == "" && params.CompanyId == "" && params.ProductId == "" {
-		handleServiceResponse(c, BadRequest, domain.InvalidQueryError)
-		return nil, false
-	}
-
-	// get pagination with default
-	params.Limit, params.Offset = defaultLimitOffset(params.Limit, params.Offset)
-
-	return &params, true
-}
-
-// ExportProductMovementsAfterLastInventoryExcel godoc
-// @Summary Export store movements after the last inventory to Excel
-// @Description Do'konning oxirgi inventarizatsiyasidan keyingi harakatlarni excelga yuklab beradi
-// @Tags products
-// @Security BearerAuth
-// @Produce  application/vnd.openxmlformats-officedocument.spreadsheetml.sheet
-// @Param store_id query string false "Store ID"
-// @Param company_id query string false "Company Id"
-// @Param product_id query string false "Product Id (ixtiyoriy)"
-// @Param limit query int false "Limit"
-// @Param offset query int false "Offset"
-// @Success 200 {object} v1.Response
-// @Failure 400 {object} v1.Response
-// @Failure 500 {object} v1.Response
-// @Router /product/movement-after-inventory-export [get]
-func (h *ProductHandler) ExportProductMovementsAfterLastInventoryExcel(c *gin.Context) {
-	user := h.service.GetSignedUser(c)
-	if user.UserId == "" {
-		handleServiceResponse(c, nil, domain.UnauthorizedError)
-		return
-	}
-
-	params, ok := bindMovementsAfterInventoryParams(c, user)
-	if !ok {
-		return
-	}
-
-	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
-	defer cancel()
-
-	// get store-movements data (oxirgi inventarizatsiyadan keyingi) from the product service
-	res, _, err := h.service.GetProductMovementsAfterLastInventory(ctx, params, user)
-	if err != nil {
-		handleServiceResponse(c, InternalError, err)
-		return
-	}
-
-	// create excel
-	f := excelize.NewFile()
-	sheetName := "Movements"
-	f.SetSheetName("Sheet1", sheetName)
-
-	// headers
-	headers := []string{"ID", "Номер", "Тип", "Колличество", "Сумма", "Название", "Аптека", "Дата создания"}
-	if err := setExcelHeaders(f, sheetName, headers); err != nil {
-		h.log.Error("Excel style error:", err)
-		handleResponse(c, InternalError, "Error on creating excel")
-		return
-	}
-
-	// fill rows
-	for i, item := range res {
-		row := strconv.Itoa(i + 2)
-		f.SetCellValue(sheetName, "A"+row, item.Id)
-		f.SetCellValue(sheetName, "B"+row, item.PublicId)
-		f.SetCellValue(sheetName, "C"+row, entryTypeToString(item.EntryType)) // helper func
-		f.SetCellValue(sheetName, "D"+row, item.Quantity)
-		f.SetCellValue(sheetName, "E"+row, item.Sum)
-		f.SetCellValue(sheetName, "F"+row, item.Name)
-		f.SetCellValue(sheetName, "G"+row, item.StoreName)
-		if item.CreatedAt != nil {
-			f.SetCellValue(sheetName, "H"+row, item.CreatedAt.Add(time.Hour*5).Format("2006-01-02 15:04:05"))
-		}
-	}
-
-	// save
-	saveExcelToUploads(c, f, *h.log, "product_movements_after_inventory")
 }
 
 // Update ismarking godoc
@@ -3777,6 +3614,164 @@ func (h *ProductHandler) ExportMovementUnitsBeforeFirstInventory(c *gin.Context)
 	}
 
 	saveExcelToUploads(c, f, *h.log, "movement-units-before-first-inventory")
+}
+
+// GetMovementUnitsAfterLastInventory godoc
+// @Summary Get movement units after the last inventory
+// @Description Do'konning oxirgi inventarizatsiyasidan keyingi harakatlar bo'yicha hisob-kitob.
+// @Description Oxirgi inventarizatsiyada har bir product_id uchun kiritilgan scanned_count
+// @Description boshlang'ich import sifatida olinadi, undan oldingi harakatlar hisobga olinmaydi.
+// @Tags products
+// @Security     BearerAuth
+// @Accept json
+// @Produce json
+// @Param limit  query int false "Limit"
+// @Param offset query int false "Offset"
+// @Param store_id query string false "store_id"
+// @Success 200 {object} v1.Response
+// @Failure 400 {object} v1.Response
+// @Failure 500 {object} v1.Response
+// @Router /product/movement-units-after-last-inventory [GET]
+func (h *ProductHandler) GetMovementUnitsAfterLastInventory(c *gin.Context) {
+	user := h.service.GetSignedUser(c)
+	if user.UserId == "" {
+		handleServiceResponse(c, nil, domain.UnauthorizedError)
+		return
+	}
+
+	var params domain.ProductQueryParam
+	if err := c.ShouldBindQuery(&params); err != nil {
+		handleServiceResponse(c, BadRequest, domain.InvalidQueryError)
+		return
+	}
+
+	if !helper.IsAdmin(user) {
+		if user.StoreId != "" {
+			params.StoreId = user.StoreId
+		}
+		params.CompanyId = user.CompanyId
+	}
+
+	// Pagination parameters
+	params.Limit, params.Offset = defaultLimitOffset(params.Limit, params.Offset)
+
+	ctx, cancel := context.WithTimeout(context.Background(), time.Minute*2)
+	defer cancel()
+
+	res, err := h.service.GetMovementUnitsAfterLastInventory(ctx, &params)
+	if err != nil {
+		handleServiceResponse(c, nil, err)
+		return
+	}
+
+	handleResponse(c, OK, res)
+}
+
+// ExportMovementUnitsAfterLastInventory godoc
+// @Summary Export movement units after the last inventory
+// @Description Do'konning oxirgi inventarizatsiyasidan keyingi hisob-kitobni excelga yuklab beradi
+// @Tags products
+// @Security     BearerAuth
+// @Accept json
+// @Produce json
+// @Param limit  query int false "Limit"
+// @Param offset query int false "Offset"
+// @Param store_id query string false "store_id"
+// @Success 200 {object} v1.Response
+// @Failure 400 {object} v1.Response
+// @Failure 500 {object} v1.Response
+// @Router /product/movement-units-after-last-inventory-export [GET]
+func (h *ProductHandler) ExportMovementUnitsAfterLastInventory(c *gin.Context) {
+	user := h.service.GetSignedUser(c)
+	if user.UserId == "" {
+		handleServiceResponse(c, nil, domain.UnauthorizedError)
+		return
+	}
+
+	var params domain.ProductQueryParam
+	if err := c.ShouldBindQuery(&params); err != nil {
+		handleServiceResponse(c, BadRequest, domain.InvalidQueryError)
+		return
+	}
+
+	if !helper.IsAdmin(user) {
+		if user.StoreId != "" {
+			params.StoreId = user.StoreId
+		}
+		params.CompanyId = user.CompanyId
+	}
+
+	// Pagination parameters
+	params.Limit, params.Offset = defaultLimitOffset(params.Limit, params.Offset)
+
+	ctx, cancel := context.WithTimeout(context.Background(), time.Minute*2)
+	defer cancel()
+
+	res, err := h.service.GetMovementUnitsAfterLastInventory(ctx, &params)
+	if err != nil {
+		handleServiceResponse(c, nil, err)
+		return
+	}
+
+	// Create excel file
+	f := excelize.NewFile()
+
+	sheetName := "List1"
+
+	f.SetSheetName("Sheet1", sheetName)
+
+	// Headerlar
+	headers := []string{
+		"Товары ID", "По-Импорт-ID", "Наименования", "№",
+		"Остаток", "Импорт Кол-во", "Продано Кол-во",
+		"Возврат От клиент Кол-во", "Возврат склад Кол-во",
+		"Трансфер-In", "Трансфер-Out",
+		"Инвентаризация +", "Инвентаризация -",
+		"Посл. инв. Тек. кол-во (упак)", "Посл. инв. Факт. кол-во (упак)",
+		"Фиксированное Кол-во", "Разница",
+		"Разница нет", "Инвер Спросил", "В аптеке есть", "В аптеке нет проблем",
+		"Разница прогр. и потерян.", "Кол-во из-за программы",
+		"Сумма", "Розн. Сумма", "Инв. разница сумма"}
+
+	err = setExcelHeaders(f, sheetName, headers)
+	if err != nil {
+		h.log.Errorf("Failed to create style: %v", err)
+		handleServiceResponse(c, nil, domain.InternalServerError)
+		return
+	}
+
+	// Ma'lumotlarni qo'shish
+	for i, product := range res {
+		row := strconv.Itoa(i + 2)
+		f.SetCellValue(sheetName, "A"+row, product.ProductId)
+		f.SetCellValue(sheetName, "B"+row, product.StoreProductId)
+		f.SetCellValue(sheetName, "C"+row, product.Name)
+		f.SetCellValue(sheetName, "D"+row, product.UnitPerPack)
+		f.SetCellValue(sheetName, "E"+row, product.UnitQuantity)
+		f.SetCellValue(sheetName, "F"+row, product.ImportQuantity)
+		f.SetCellValue(sheetName, "G"+row, product.SoldQuantity)
+		f.SetCellValue(sheetName, "H"+row, product.ReturnedQuantity)
+		f.SetCellValue(sheetName, "I"+row, product.VozvratQuantity)
+		f.SetCellValue(sheetName, "J"+row, product.TransferInQuantity)
+		f.SetCellValue(sheetName, "K"+row, product.TransferOutQuantity)
+		f.SetCellValue(sheetName, "L"+row, product.InventoryPlusCount)
+		f.SetCellValue(sheetName, "M"+row, product.InventoryMinusCount)
+		f.SetCellValue(sheetName, "N"+row, product.LastInvCurrentQuantity)
+		f.SetCellValue(sheetName, "O"+row, product.LastInvFactQuantity)
+		f.SetCellValue(sheetName, "P"+row, product.CorrectQuantity)
+		f.SetCellValue(sheetName, "Q"+row, product.Diff)
+		f.SetCellFormula(sheetName, "R"+row, "OR(P"+row+"=Q"+row+",Q"+row+"=0)")
+		f.SetCellFormula(sheetName, "S"+row, "N"+row+"*D"+row)
+		f.SetCellFormula(sheetName, "T"+row, "O"+row+"*D"+row)
+		f.SetCellFormula(sheetName, "U"+row, "OR(T"+row+"=S"+row+",T"+row+">S"+row+")")
+		f.SetCellFormula(sheetName, "V"+row, "S"+row+"-T"+row+"+Q"+row)
+		f.SetCellFormula(sheetName, "W"+row, "S"+row+"-T"+row+"-V"+row)
+		f.SetCellValue(sheetName, "X"+row, product.LastInvRetailPrice)
+		f.SetCellFormula(sheetName, "Y"+row, "W"+row+"*X"+row)
+		f.SetCellValue(sheetName, "Z"+row, product.LastInvDifferenceSum)
+	}
+
+	saveExcelToUploads(c, f, *h.log, "movement-units-after-last-inventory")
 }
 
 // UpdateOstatok godoc

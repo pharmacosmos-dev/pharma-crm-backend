@@ -13785,114 +13785,6 @@ paths:
       summary: Update min max product
       tags:
       - products
-  /product/movement-after-inventory:
-    get:
-      consumes:
-      - application/json
-      description: |-
-        Do'konning oxirgi inventarizatsiyasidan (updated_at bo'yicha eng oxirgisi) keyingi harakatlar.
-        Undan oldingi import/sotuv/transfer/vozvratlar hisobga olinmaydi, oxirgi inventarizatsiyada
-        har bir product_id uchun kiritilgan scanned_count birinchi import (entry_type = 1) bo'lib qo'shiladi.
-        product_id berilsa - faqat shu mahsulot bo'yicha filtrlanadi.
-      parameters:
-      - description: Store Id
-        in: query
-        name: store_id
-        type: string
-      - description: Company Id
-        in: query
-        name: company_id
-        type: string
-      - description: Product Id (ixtiyoriy)
-        in: query
-        name: product_id
-        type: string
-      - description: Limit
-        in: query
-        name: limit
-        type: integer
-      - description: Offset
-        in: query
-        name: offset
-        type: integer
-      - description: Start date
-        in: query
-        name: start_date
-        type: string
-      - description: End date
-        in: query
-        name: end_date
-        type: string
-      - description: 'Entry type filter: 1=import, 2=inventory, 4=sale, 5=return,
-          6=transfer, 7=return_sale'
-        in: query
-        name: entry_type
-        type: integer
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/v1.Response'
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/v1.Response'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/v1.Response'
-      security:
-      - BearerAuth: []
-      summary: Get store movements after the last inventory
-      tags:
-      - products
-  /product/movement-after-inventory-export:
-    get:
-      description: Do'konning oxirgi inventarizatsiyasidan keyingi harakatlarni excelga
-        yuklab beradi
-      parameters:
-      - description: Store ID
-        in: query
-        name: store_id
-        type: string
-      - description: Company Id
-        in: query
-        name: company_id
-        type: string
-      - description: Product Id (ixtiyoriy)
-        in: query
-        name: product_id
-        type: string
-      - description: Limit
-        in: query
-        name: limit
-        type: integer
-      - description: Offset
-        in: query
-        name: offset
-        type: integer
-      produces:
-      - application/vnd.openxmlformats-officedocument.spreadsheetml.sheet
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/v1.Response'
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/v1.Response'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/v1.Response'
-      security:
-      - BearerAuth: []
-      summary: Export store movements after the last inventory to Excel
-      tags:
-      - products
   /product/movement-units:
     get:
       consumes:
@@ -13933,6 +13825,86 @@ paths:
       security:
       - BearerAuth: []
       summary: Get a product
+      tags:
+      - products
+  /product/movement-units-after-last-inventory:
+    get:
+      consumes:
+      - application/json
+      description: |-
+        Do'konning oxirgi inventarizatsiyasidan keyingi harakatlar bo'yicha hisob-kitob.
+        Oxirgi inventarizatsiyada har bir product_id uchun kiritilgan scanned_count
+        boshlang'ich import sifatida olinadi, undan oldingi harakatlar hisobga olinmaydi.
+      parameters:
+      - description: Limit
+        in: query
+        name: limit
+        type: integer
+      - description: Offset
+        in: query
+        name: offset
+        type: integer
+      - description: store_id
+        in: query
+        name: store_id
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Get movement units after the last inventory
+      tags:
+      - products
+  /product/movement-units-after-last-inventory-export:
+    get:
+      consumes:
+      - application/json
+      description: Do'konning oxirgi inventarizatsiyasidan keyingi hisob-kitobni excelga
+        yuklab beradi
+      parameters:
+      - description: Limit
+        in: query
+        name: limit
+        type: integer
+      - description: Offset
+        in: query
+        name: offset
+        type: integer
+      - description: store_id
+        in: query
+        name: store_id
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Export movement units after the last inventory
       tags:
       - products
   /product/movement-units-before-first-inventory:
