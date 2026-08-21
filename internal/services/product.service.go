@@ -1886,6 +1886,577 @@ LIMIT ? OFFSET ?;
 	return res, totalCount, nil
 }
 
+// GetProductMovementsAfterLastInventory GetProductMovements bilan bir xil logikada ishlaydi.
+// Yagona farqi: har bir do'kon uchun shu mahsulot kirgan oxirgi inventarizatsiya
+// (imports.entry_type = 2, status = 'completed', updated_at bo'yicha eng oxirgisi) topiladi va
+// undan oldingi harakatlar (import, sotuv, vozvrat, transfer va h.k.) umuman hisobga olinmaydi.
+// Oxirgi inventarizatsiyaning shu product_id bo'yicha scanned_count qiymati esa ro'yxatga
+// birinchi "import" (entry_type = 1) sifatida qo'shiladi.
+// Agar do'konda shu mahsulot bo'yicha inventarizatsiya bo'lmagan bo'lsa - butun tarix qaytadi.
+//
+// Diqqat: kesish chegarasi sifatida inventarizatsiyaning created_at'i olinadi, updated_at emas.
+// Sababi - imports jadvalidagi trg_update_imports_totals trigger'i har qanday INSERT/UPDATE'da
+// updated_at ni NOW() ga o'zgartiradi, ya'ni eski inventarizatsiya qatori keyinroq bir marta
+// yangilansa, updated_at bugungi sanaga sakraydi va undan keyingi barcha harakatlar
+// noto'g'ri ravishda ro'yxatdan tushib qolgan bo'lardi. created_at esa o'zgarmaydi.
+func (s *Services) GetProductMovementsAfterLastInventory(ctx context.Context, params *domain.ProductQueryParam, user *domain.EmployeeClaims) ([]domain.ImportProductData, int64, error) {
+	var (
+		res        []domain.ImportProductData
+		totalCount int64
+		query      string
+		args       []any
+	)
+
+	baseQuery := `
+WITH var_data AS (
+SELECT
+	p.id AS product_id,
+	p.unit_per_pack
+FROM products p
+WHERE p.id = ?
+),
+last_inventory AS (
+    SELECT DISTINCT ON (im.store_id)
+        im.id,
+        im.public_id,
+        im.store_id,
+        im.name,
+        im.status,
+        im.created_at,
+        im.updated_at
+    FROM imports im
+    JOIN stores s ON im.store_id = s.id
+    JOIN import_details imd ON im.id = imd.import_id
+    JOIN var_data vd ON imd.product_id = vd.product_id
+    WHERE im.entry_type = 2 AND im.status = 'completed'
+    %s
+    ORDER BY im.store_id, im.updated_at DESC, im.created_at DESC
+),
+last_inventory_data AS (
+    SELECT
+        li.id,
+        li.public_id,
+        1 AS entry_type,
+        li.created_at,
+        s.name AS store_name,
+        ROUND(SUM(imd.scanned_count)::numeric) AS quantity,
+        ROUND(SUM(imd.retail_price_vat * (imd.scanned_count::numeric / vd.unit_per_pack)), 2) AS sum,
+        COALESCE(li.name, '') AS name,
+        li.status,
+        NULL::jsonb AS metadata,
+        vd.unit_per_pack
+    FROM last_inventory li
+    JOIN stores s ON s.id = li.store_id
+    JOIN import_details imd ON imd.import_id = li.id
+    JOIN var_data vd ON imd.product_id = vd.product_id
+    GROUP BY li.id, li.public_id, li.created_at, s.name, li.name, li.status, vd.unit_per_pack
+),
+import_data AS (
+    SELECT
+        im.id,
+		im.public_id,
+		im.entry_type,
+		im.created_at,
+        s.name AS store_name,
+        ROUND(SUM(imd.accepted_count * vd.unit_per_pack)) AS quantity,
+        SUM(imd.accepted_count * imd.retail_price_vat) AS sum,
+        COALESCE(im.name, '') AS name,
+        im.status,
+        NULL::jsonb AS metadata,
+        vd.unit_per_pack
+    FROM imports im
+    JOIN stores s ON im.store_id = s.id
+    JOIN import_details imd ON im.id = imd.import_id
+    JOIN var_data vd ON imd.product_id = vd.product_id
+    LEFT JOIN last_inventory li ON li.store_id = im.store_id
+    WHERE im.entry_type = 1 AND im.status = 'completed'
+      AND (li.created_at IS NULL OR im.created_at > li.created_at)
+    %s
+    GROUP BY im.id, s.id, vd.unit_per_pack
+),
+inventory_data AS (
+    SELECT
+        im.id, im.public_id, im.entry_type, im.created_at,
+        s.name AS store_name,
+        SUM(imd.scanned_count-imd.received_count) AS quantity,
+        ROUND(SUM(imd.retail_price_vat * ((imd.scanned_count - imd.received_count)/vd.unit_per_pack)), 2) AS sum,
+        im.name AS name,
+        im.status,
+        jsonb_build_object(
+            'current_quantity',    ROUND(SUM(imd.received_count::numeric / vd.unit_per_pack), 4),
+            'current_unit',        ROUND(MOD(SUM(imd.received_count)::numeric, vd.unit_per_pack), 4),
+            'fact_quantity',       ROUND(SUM(imd.scanned_count::numeric / vd.unit_per_pack), 4),
+            'fact_unit',           ROUND(MOD(SUM(imd.scanned_count)::numeric, vd.unit_per_pack), 4),
+            'difference_quantity', ROUND(SUM((imd.scanned_count - imd.received_count)::numeric / vd.unit_per_pack), 4),
+            'difference_unit',     ROUND(MOD(SUM(imd.scanned_count - imd.received_count)::numeric, vd.unit_per_pack), 4),
+            'current_sum',         ROUND(SUM(imd.retail_price_vat * (imd.received_count::numeric / vd.unit_per_pack)), 2),
+            'fact_sum',            ROUND(SUM(imd.retail_price_vat * (imd.scanned_count::numeric / vd.unit_per_pack)), 2),
+            'difference_sum',      ROUND(SUM(imd.retail_price_vat * ((imd.scanned_count - imd.received_count)::numeric / vd.unit_per_pack)), 2)
+        ) AS metadata,
+        vd.unit_per_pack
+    FROM imports im
+    JOIN stores s ON im.store_id = s.id
+    JOIN import_details imd ON im.id = imd.import_id
+    JOIN var_data vd ON imd.product_id = vd.product_id
+    LEFT JOIN last_inventory li ON li.store_id = im.store_id
+    WHERE im.entry_type = 2 AND im.status = 'completed'
+      AND (li.created_at IS NULL OR im.created_at > li.created_at)
+    %s
+    GROUP BY im.id, s.id, vd.unit_per_pack
+),
+sales_data AS (
+    SELECT
+        sa.id, sa.sale_number AS public_id,
+        CASE WHEN sa.sale_type = 'SALE' THEN 4 ELSE 7 END AS entry_type,
+        sa.completed_at AS created_at,
+        st.name AS store_name,
+        CASE WHEN sa.sale_type = 'SALE' THEN SUM(ci.unit_quantity) * (-1) ELSE SUM(ci.unit_quantity) END AS quantity,
+		CASE WHEN sa.sale_type = 'SALE' THEN sa.total_amount * (-1) ELSE sa.total_amount END as sum,
+        sa.sale_type AS name,
+        sa.status,
+        NULL::jsonb AS metadata,
+        vd.unit_per_pack
+    FROM sales sa
+    JOIN stores st ON st.id = sa.store_id
+    JOIN cart_items ci ON ci.sale_id = sa.id
+    JOIN store_products sp ON sp.id = ci.store_product_id
+    JOIN var_data vd ON sp.product_id = vd.product_id
+    LEFT JOIN import_details sale_imd ON sp.import_detail_id = sale_imd.id
+    LEFT JOIN imports sale_im ON sale_im.id = sale_imd.import_id
+    LEFT JOIN last_inventory li ON li.store_id = sa.store_id
+    WHERE sa.stage IN (9, 11)
+      AND (li.created_at IS NULL OR COALESCE(sa.completed_at, sa.created_at) > li.created_at)
+    %s
+    GROUP BY sa.id, st.id, vd.unit_per_pack
+),
+vozvrat_data AS (
+    SELECT
+        tr.id, tr.public_id::int, 5 AS entry_type, tr.created_at,
+        s.name AS store_name,
+        SUM(td.accepted_count) * vd.unit_per_pack * (-1) AS quantity,
+        SUM(td.accepted_count * td.retail_price) * (-1) AS sum,
+        tr.name as name,
+        tr.status,
+        NULL::jsonb AS metadata,
+        vd.unit_per_pack
+    FROM transfer_details td
+    JOIN transfers tr ON td.transfer_id = tr.id
+    JOIN var_data vd ON td.product_id = vd.product_id
+    JOIN stores s ON s.id = tr.from_store_id
+    LEFT JOIN last_inventory li ON li.store_id = tr.from_store_id
+    WHERE (tr.status = 'completed' OR tr.status = 'sent-to-1c') AND tr.entry_type = 2
+      AND (li.created_at IS NULL OR tr.created_at > li.created_at)
+    %s
+    GROUP BY tr.id, s.id, vd.unit_per_pack
+),
+transfer_in_data AS (
+    SELECT
+        tr.id, tr.public_id::int,
+        6 AS entry_type,
+        tr.created_at,
+        fs.name || ' -> ' || ts.name as store_name,
+        SUM(td.accepted_count) * vd.unit_per_pack AS quantity,
+        SUM(td.accepted_count * td.retail_price) AS sum,
+        tr.name as name,
+        tr.status,
+        NULL::jsonb AS metadata,
+        vd.unit_per_pack
+    FROM transfer_details td
+    JOIN transfers tr ON td.transfer_id = tr.id
+    JOIN var_data vd ON td.product_id = vd.product_id
+    JOIN stores fs ON fs.id = tr.from_store_id
+    JOIN stores ts ON ts.id = tr.to_store_id
+    LEFT JOIN last_inventory li ON li.store_id = tr.to_store_id
+    WHERE (tr.status = 'completed' OR tr.status = 'sent-to-1c') AND tr.entry_type = 1
+      AND (li.created_at IS NULL OR tr.created_at > li.created_at)
+    %s
+    GROUP BY tr.id, fs.id, ts.id, vd.unit_per_pack
+ ),
+ transfer_out_data AS (
+    SELECT
+        tr.id,
+		tr.public_id::int,
+        6 AS entry_type,
+        tr.created_at,
+        fs.name || ' -> ' || ts.name as store_name,
+        SUM(td.accepted_count) * vd.unit_per_pack * (-1) AS quantity,
+        SUM(td.accepted_count * td.retail_price * (-1)) AS sum,
+        tr.name as name,
+        tr.status,
+        NULL::jsonb AS metadata,
+        vd.unit_per_pack
+    FROM transfer_details td
+    JOIN transfers tr ON td.transfer_id = tr.id
+    JOIN var_data vd ON td.product_id = vd.product_id
+    JOIN stores fs ON fs.id = tr.from_store_id
+    JOIN stores ts ON ts.id = tr.to_store_id
+    LEFT JOIN last_inventory li ON li.store_id = tr.from_store_id
+    WHERE (tr.status = 'completed' OR tr.status = 'sent-to-1c') AND tr.entry_type = 1
+      AND (li.created_at IS NULL OR tr.created_at > li.created_at)
+    %s
+    GROUP BY tr.id, fs.id, ts.id, vd.unit_per_pack
+ ),
+vozvrat_pending_data AS (
+    SELECT
+        tr.id, tr.public_id::int, 5 AS entry_type, tr.created_at,
+        s.name AS store_name,
+        SUM(td.expected_count) * vd.unit_per_pack * (-1) AS quantity,
+        SUM(td.expected_count * td.retail_price) * (-1) AS sum,
+        tr.name as name,
+        tr.status,
+        NULL::jsonb AS metadata,
+        vd.unit_per_pack
+    FROM transfer_details td
+    JOIN transfers tr ON td.transfer_id = tr.id
+    JOIN var_data vd ON td.product_id = vd.product_id
+    JOIN stores s ON s.id = tr.from_store_id
+    LEFT JOIN last_inventory li ON li.store_id = tr.from_store_id
+    WHERE tr.status NOT IN ('new', 'completed', 'sent-to-1c', 'failed_sent_to_1c', 'canceled') AND tr.entry_type = 2
+      AND (li.created_at IS NULL OR tr.created_at > li.created_at)
+    %s
+    GROUP BY tr.id, s.id, vd.unit_per_pack
+),
+transfer_in_pending_data AS (
+    SELECT
+        tr.id, tr.public_id::int,
+        6 AS entry_type,
+        tr.created_at,
+        fs.name || ' -> ' || ts.name as store_name,
+        SUM(td.expected_count) * vd.unit_per_pack AS quantity,
+        SUM(td.expected_count * td.retail_price) AS sum,
+        tr.name as name,
+        tr.status,
+        NULL::jsonb AS metadata,
+        vd.unit_per_pack
+    FROM transfer_details td
+    JOIN transfers tr ON td.transfer_id = tr.id
+    JOIN var_data vd ON td.product_id = vd.product_id
+    JOIN stores fs ON fs.id = tr.from_store_id
+    JOIN stores ts ON ts.id = tr.to_store_id
+    LEFT JOIN last_inventory li ON li.store_id = tr.to_store_id
+    WHERE tr.status NOT IN ('new', 'completed', 'sent-to-1c', 'failed_sent_to_1c', 'canceled') AND tr.entry_type = 1
+      AND (li.created_at IS NULL OR tr.created_at > li.created_at)
+    %s
+    GROUP BY tr.id, fs.id, ts.id, vd.unit_per_pack
+),
+transfer_out_pending_data AS (
+    SELECT
+        tr.id,
+        tr.public_id::int,
+        6 AS entry_type,
+        tr.created_at,
+        fs.name || ' -> ' || ts.name as store_name,
+        SUM(td.expected_count) * vd.unit_per_pack * (-1) AS quantity,
+        SUM(td.expected_count * td.retail_price) * (-1) AS sum,
+        tr.name as name,
+        tr.status,
+        NULL::jsonb AS metadata,
+        vd.unit_per_pack
+    FROM transfer_details td
+    JOIN transfers tr ON td.transfer_id = tr.id
+    JOIN var_data vd ON td.product_id = vd.product_id
+    JOIN stores fs ON fs.id = tr.from_store_id
+    JOIN stores ts ON ts.id = tr.to_store_id
+    LEFT JOIN last_inventory li ON li.store_id = tr.from_store_id
+    WHERE tr.status NOT IN ('new', 'completed', 'sent-to-1c', 'failed_sent_to_1c', 'canceled') AND tr.entry_type = 1
+      AND (li.created_at IS NULL OR tr.created_at > li.created_at)
+    %s
+    GROUP BY tr.id, fs.id, ts.id, vd.unit_per_pack
+)
+SELECT *, COUNT(*) OVER() AS total_count
+FROM (
+    SELECT * FROM last_inventory_data
+    UNION ALL
+    SELECT * FROM import_data
+    UNION ALL
+    SELECT * FROM sales_data
+    UNION ALL
+    SELECT * FROM inventory_data
+    UNION ALL
+    SELECT * FROM vozvrat_data
+    UNION ALL
+    SELECT * FROM transfer_in_data
+	UNION ALL
+    SELECT * FROM transfer_out_data
+    UNION ALL
+    SELECT * FROM vozvrat_pending_data
+    UNION ALL
+    SELECT * FROM transfer_in_pending_data
+    UNION ALL
+    SELECT * FROM transfer_out_pending_data
+) all_data
+%s
+ORDER BY created_at DESC
+LIMIT ? OFFSET ?;
+	`
+
+	// build time filter for outer query
+	var timeFilter string
+	var timeArgs []any
+
+	if params.StartDate != nil && !params.StartDate.GetTime().IsZero() {
+		timeFilter += " AND created_at >= ?"
+		timeArgs = append(timeArgs, params.StartDate.UTC())
+	}
+
+	if params.EndDate != nil && !params.EndDate.GetTime().IsZero() {
+		timeFilter += " AND created_at <= ?"
+		timeArgs = append(timeArgs, params.EndDate.UTC())
+	}
+
+	var entryTypeFilter string
+	var entryTypeArgs []any
+	if params.EntryType != 0 {
+		entryTypeFilter = " AND entry_type = ?"
+		entryTypeArgs = append(entryTypeArgs, params.EntryType)
+	}
+
+	outerWhere := ""
+	if timeFilter != "" || entryTypeFilter != "" {
+		outerWhere = "WHERE 1=1" + timeFilter + entryTypeFilter
+	}
+
+	hasImportStoreDateFilter := params.StartDate != nil &&
+		!params.StartDate.GetTime().IsZero() &&
+		params.EndDate != nil &&
+		!params.EndDate.GetTime().IsZero()
+
+	var importedStoreIds []string
+
+	if hasImportStoreDateFilter {
+		var err error
+		importedStoreIds, err = s.getImportedStoreIds(ctx, params.ProductId, params.StartDate.UTC(), params.EndDate.UTC())
+		if err != nil {
+			s.log.Errorf("could not get imported store ids: %v", err)
+			return res, totalCount, err
+		}
+	}
+
+	// dynamic query conditions
+	if params.StoreId == "" && params.CompanyId == "" {
+		lastInventoryFilter := ""
+		importDataFilter := ""
+		inventoryDataFilter := ""
+		salesDataFilter := ""
+		vozvratDataFilter := ""
+		transferInDataFilter := ""
+		transferOutDataFilter := ""
+		vozvratPendingDataFilter := ""
+		transferInPendingDataFilter := ""
+		transferOutPendingDataFilter := ""
+
+		if hasImportStoreDateFilter {
+			lastInventoryFilter = "AND im.store_id IN (?)"
+			importDataFilter = "AND im.store_id IN (?)"
+			inventoryDataFilter = "AND im.store_id IN (?)"
+			salesDataFilter = "AND sale_im.entry_type = 1 AND sale_im.status = 'completed' AND sale_im.updated_at >= ? AND sale_im.updated_at <= ?"
+			vozvratDataFilter = "AND tr.from_store_id IN (?)"
+			transferInDataFilter = "AND tr.to_store_id IN (?)"
+			transferOutDataFilter = "AND tr.from_store_id IN (?)"
+			vozvratPendingDataFilter = "AND tr.from_store_id IN (?)"
+			transferInPendingDataFilter = "AND tr.to_store_id IN (?)"
+			transferOutPendingDataFilter = "AND tr.from_store_id IN (?)"
+		}
+
+		query = fmt.Sprintf(
+			baseQuery,
+			lastInventoryFilter,
+			importDataFilter,
+			inventoryDataFilter,
+			salesDataFilter,
+			vozvratDataFilter,
+			transferInDataFilter,
+			transferOutDataFilter,
+			vozvratPendingDataFilter,
+			transferInPendingDataFilter,
+			transferOutPendingDataFilter,
+			outerWhere,
+		)
+
+		args = []any{params.ProductId}
+
+		if hasImportStoreDateFilter {
+			args = append(args, importedStoreIds)                             // last_inventory
+			args = append(args, importedStoreIds)                             // import_data
+			args = append(args, importedStoreIds)                             // inventory_data
+			args = append(args, params.StartDate.UTC(), params.EndDate.UTC()) // sales_data (lot-level via import_detail_id)
+			args = append(args, importedStoreIds)                             // vozvrat_data
+			args = append(args, importedStoreIds)                             // transfer_in_data
+			args = append(args, importedStoreIds)                             // transfer_out_data
+			args = append(args, importedStoreIds)                             // vozvrat_pending_data
+			args = append(args, importedStoreIds)                             // transfer_in_pending_data
+			args = append(args, importedStoreIds)                             // transfer_out_pending_data
+		}
+
+		args = append(args, timeArgs...)
+		args = append(args, entryTypeArgs...)
+		args = append(args, params.Limit, params.Offset)
+
+	} else if params.StoreId != "" && params.CompanyId == "" {
+		if hasImportStoreDateFilter {
+			var exists bool
+
+			err := s.db.WithContext(ctx).Raw(`
+				SELECT EXISTS (
+					SELECT 1
+					FROM imports im
+					JOIN import_details imd ON im.id = imd.import_id
+					WHERE im.store_id = ?
+					  AND imd.product_id = ?
+					  AND im.entry_type = 1
+					  AND im.status = 'completed'
+					  AND im.updated_at >= ?
+					  AND im.updated_at <= ?
+				)
+			`,
+				params.StoreId,
+				params.ProductId,
+				params.StartDate.UTC(),
+				params.EndDate.UTC(),
+			).Scan(&exists).Error
+
+			if err != nil {
+				s.log.Errorf("could not check imported store: %v", err)
+				return res, totalCount, err
+			}
+
+			if !exists {
+				return res, totalCount, nil
+			}
+		}
+
+		query = fmt.Sprintf(
+			baseQuery,
+			"AND im.store_id = ?",
+			"AND im.store_id = ?",
+			"AND im.store_id = ?",
+			"AND sa.store_id = ?",
+			"AND tr.from_store_id = ?",
+			"AND tr.to_store_id = ?",
+			"AND tr.from_store_id = ?",
+			"AND tr.from_store_id = ?",
+			"AND tr.to_store_id = ?",
+			"AND tr.from_store_id = ?",
+			outerWhere,
+		)
+		args = []any{
+			params.ProductId,
+			params.StoreId, // last_inventory
+			params.StoreId, // import_data
+			params.StoreId, // inventory_data
+			params.StoreId, // sales_data
+			params.StoreId, // vozvrat_data
+			params.StoreId, // transfer_in_data
+			params.StoreId, // transfer_out_data
+			params.StoreId, // vozvrat_pending_data
+			params.StoreId, // transfer_in_pending_data
+			params.StoreId, // transfer_out_pending_data
+		}
+		args = append(args, timeArgs...)
+		args = append(args, entryTypeArgs...)
+		args = append(args, params.Limit, params.Offset)
+
+	} else if params.StoreId == "" && params.CompanyId != "" {
+		query = fmt.Sprintf(
+			baseQuery,
+			"AND s.company_id = ?",
+			"AND s.company_id = ?",
+			"AND s.company_id = ?",
+			"AND st.company_id = ?",
+			"AND s.company_id = ?",
+			"AND ts.company_id = ?",
+			"AND fs.company_id = ?",
+			"AND s.company_id = ?",
+			"AND ts.company_id = ?",
+			"AND fs.company_id = ?",
+			outerWhere,
+		)
+		args = []any{
+			params.ProductId,
+			params.CompanyId, // last_inventory
+			params.CompanyId, // import_data
+			params.CompanyId, // inventory_data
+			params.CompanyId, // sales_data
+			params.CompanyId, // vozvrat_data
+			params.CompanyId, // transfer_in_data
+			params.CompanyId, // transfer_out_data
+			params.CompanyId, // vozvrat_pending_data
+			params.CompanyId, // transfer_in_pending_data
+			params.CompanyId, // transfer_out_pending_data
+		}
+		args = append(args, timeArgs...)
+		args = append(args, entryTypeArgs...)
+		args = append(args, params.Limit, params.Offset)
+
+	} else { // both storeId and companyId
+		query = fmt.Sprintf(
+			baseQuery,
+			"AND im.store_id = ? AND s.company_id = ?",
+			"AND im.store_id = ? AND s.company_id = ?",
+			"AND im.store_id = ? AND s.company_id = ?",
+			"AND sa.store_id = ? AND st.company_id = ?",
+			"AND tr.from_store_id = ? AND s.company_id = ?",
+			"AND tr.to_store_id = ? AND ts.company_id = ?",
+			"AND tr.from_store_id = ? AND fs.company_id = ?",
+			"AND tr.from_store_id = ? AND s.company_id = ?",
+			"AND tr.to_store_id = ? AND ts.company_id = ?",
+			"AND tr.from_store_id = ? AND fs.company_id = ?",
+			outerWhere,
+		)
+		args = []any{
+			params.ProductId,
+			params.StoreId, params.CompanyId, // last_inventory
+			params.StoreId, params.CompanyId, // import_data
+			params.StoreId, params.CompanyId, // inventory_data
+			params.StoreId, params.CompanyId, // sales_data
+			params.StoreId, params.CompanyId, // vozvrat_data
+			params.StoreId, params.CompanyId, // transfer_in_data
+			params.StoreId, params.CompanyId, // transfer_out_data
+			params.StoreId, params.CompanyId, // vozvrat_pending_data
+			params.StoreId, params.CompanyId, // transfer_in_pending_data
+			params.StoreId, params.CompanyId, // transfer_out_pending_data
+		}
+		args = append(args, timeArgs...)
+		args = append(args, entryTypeArgs...)
+		args = append(args, params.Limit, params.Offset)
+	}
+
+	// Execute query
+	err := s.db.WithContext(ctx).Debug().Raw(query, args...).Scan(&res).Error
+	if err != nil {
+		s.log.Errorf("could not get product_movements after last inventory: %v", err)
+		return res, totalCount, err
+	}
+
+	// Get total count
+	if len(res) > 0 {
+		totalCount = res[0].TotalCount
+	}
+
+	for i := range res {
+		unit := res[i].UnitPerPack
+		if unit <= 0 {
+			res[i].Count = fmt.Sprintf("%d", int(res[i].Quantity))
+			continue
+		}
+
+		qty := int(res[i].Quantity)
+		sign := ""
+		if qty < 0 {
+			sign = "-"
+			qty = -qty
+		}
+
+		if qty%unit > 0 {
+			res[i].Count = fmt.Sprintf("%s%d (%d/%d)", sign, qty/unit, qty%unit, unit)
+		} else {
+			res[i].Count = fmt.Sprintf("%s%d", sign, qty/unit)
+		}
+	}
+
+	return res, totalCount, nil
+}
+
 func (s *Services) ProductListForArzon(ctx context.Context, storeId string) ([]domain.ProductArzon, error) {
 	var res []domain.ProductArzon
 	err := s.db.WithContext(ctx).

@@ -59,6 +59,8 @@ func (h *ProductHandler) ProductRoutes(r *gin.RouterGroup) {
 		product.PATCH("/is-marking", h.UpdateIsMarking)
 		product.GET("/:id/product-movement", h.ProductMovements)
 		product.GET("/:id/product-movement/export-excel", h.ExportProductMovementsExcel)
+		product.GET("/:id/product-movement-after-inventory", h.ProductMovementsAfterLastInventory)
+		product.GET("/:id/product-movement-after-inventory/export-excel", h.ExportProductMovementsAfterLastInventoryExcel)
 		product.GET("/export-arzon", h.ArzonProductExport)
 		product.GET("/list-arzon", h.ArzonProductList)
 		product.GET("/list-by-import", h.GetProductsByImport)
@@ -1468,6 +1470,180 @@ func (h *ProductHandler) ExportProductMovementsExcel(c *gin.Context) {
 
 	// save
 	saveExcelToUploads(c, f, *h.log, "product_movements")
+}
+
+// ProductMovementsAfterLastInventory godoc
+// @Summary Get product movements after the last inventory
+// @Description Oxirgi inventarizatsiyadan (updated_at bo'yicha eng oxirgisi) keyingi harakatlar.
+// @Description Undan oldingi import/sotuv/transfer/vozvratlar hisobga olinmaydi, oxirgi
+// @Description inventarizatsiyaning scanned_count qiymati birinchi import (entry_type = 1) bo'lib qo'shiladi.
+// @Tags products
+// @Security BearerAuth
+// @Accept  json
+// @Produce json
+// @Param 		id path string true "Product Id"
+// @Param 		limit query int false "Limit"
+// @Param 		offset query int false "Offset"
+// @Param 		start_date query string false "Start date"
+// @Param 		end_date query string false "End date"
+// @Param 		store_id query string false "Store Id"
+// @Param 		entry_type query int false "Entry type filter: 1=import, 2=inventory, 4=sale, 5=return, 6=transfer, 7=return_sale"
+// @Success 200 {object} v1.Response
+// @Failure 400 {object} v1.Response
+// @Failure 500 {object} v1.Response
+// @Router /product/{id}/product-movement-after-inventory [get]
+func (h *ProductHandler) ProductMovementsAfterLastInventory(c *gin.Context) {
+	user := h.service.GetSignedUser(c)
+	if user.UserId == "" {
+		handleServiceResponse(c, nil, domain.UnauthorizedError)
+		return
+	}
+
+	// get product id from the path param
+	var productId = c.Param("id")
+	// validate product id
+	if err := uuid.Validate(productId); err != nil {
+		handleResponse(c, BadRequest, domain.InvalidQueryError)
+		return
+	}
+
+	var params domain.ProductQueryParam
+	if err := c.ShouldBindQuery(&params); err != nil {
+		handleServiceResponse(c, nil, domain.InvalidQueryError)
+		return
+	}
+
+	// validate store id
+	if params.StoreId != "" {
+		if err := uuid.Validate(params.StoreId); err != nil {
+			handleServiceResponse(c, BadRequest, domain.InvalidQueryError)
+			return
+		}
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
+	defer cancel()
+
+	if !helper.IsAdmin(user) {
+		if user.StoreId != "" {
+			params.StoreId = user.StoreId
+		}
+		params.CompanyId = user.CompanyId
+	}
+
+	// get pagination with default
+	params.Limit, params.Offset = defaultLimitOffset(params.Limit, params.Offset)
+
+	params.ProductId = productId
+
+	// get product-movements data (oxirgi inventarizatsiyadan keyingi) from the product service
+	res, totalCount, err := h.service.GetProductMovementsAfterLastInventory(ctx, &params, user)
+	if err != nil {
+		handleServiceResponse(c, InternalError, err)
+		return
+	}
+
+	// get pagintion data with _meta object
+	data := utils.ListResponse(res, totalCount, params.Limit, params.Offset)
+
+	handleResponse(c, OK, data)
+}
+
+// ExportProductMovementsAfterLastInventoryExcel godoc
+// @Summary Export product movements after the last inventory to Excel
+// @Description Oxirgi inventarizatsiyadan keyingi harakatlarni excelga yuklab beradi
+// @Tags products
+// @Security BearerAuth
+// @Produce  application/vnd.openxmlformats-officedocument.spreadsheetml.sheet
+// @Param id path string true "Product ID"
+// @Param store_id query string false "Store ID"
+// @Param limit query int false "Limit"
+// @Param offset query int false "Offset"
+// @Success 200 {object} v1.Response
+// @Failure 400 {object} v1.Response
+// @Failure 500 {object} v1.Response
+// @Router /product/{id}/product-movement-after-inventory/export-excel [get]
+func (h *ProductHandler) ExportProductMovementsAfterLastInventoryExcel(c *gin.Context) {
+	user := h.service.GetSignedUser(c)
+	if user.UserId == "" {
+		handleServiceResponse(c, nil, domain.UnauthorizedError)
+		return
+	}
+
+	// get product id from the path param
+	var productId = c.Param("id")
+	// validate product id
+	if err := uuid.Validate(productId); err != nil {
+		handleResponse(c, BadRequest, domain.InvalidQueryError)
+		return
+	}
+
+	var params domain.ProductQueryParam
+	if err := c.ShouldBindQuery(&params); err != nil {
+		handleServiceResponse(c, nil, domain.InvalidQueryError)
+		return
+	}
+
+	// validate store id
+	if params.StoreId != "" {
+		if err := uuid.Validate(params.StoreId); err != nil {
+			handleServiceResponse(c, BadRequest, domain.InvalidQueryError)
+			return
+		}
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
+	defer cancel()
+
+	if !utils.In(user.Role, constants.AllAdminRoles...) {
+		if user.StoreId != "" {
+			params.StoreId = user.StoreId
+		}
+		params.CompanyId = user.CompanyId
+	}
+
+	// get pagination with default
+	params.Limit, params.Offset = defaultLimitOffset(params.Limit, params.Offset)
+
+	params.ProductId = productId
+
+	// get product-movements data (oxirgi inventarizatsiyadan keyingi) from the product service
+	res, _, err := h.service.GetProductMovementsAfterLastInventory(ctx, &params, user)
+	if err != nil {
+		handleServiceResponse(c, InternalError, err)
+		return
+	}
+
+	// create excel
+	f := excelize.NewFile()
+	sheetName := "Movements"
+	f.SetSheetName("Sheet1", sheetName)
+
+	// headers
+	headers := []string{"ID", "Номер", "Тип", "Колличество", "Сумма", "Название", "Аптека", "Дата создания"}
+	if err := setExcelHeaders(f, sheetName, headers); err != nil {
+		h.log.Error("Excel style error:", err)
+		handleResponse(c, InternalError, "Error on creating excel")
+		return
+	}
+
+	// fill rows
+	for i, item := range res {
+		row := strconv.Itoa(i + 2)
+		f.SetCellValue(sheetName, "A"+row, item.Id)
+		f.SetCellValue(sheetName, "B"+row, item.PublicId)
+		f.SetCellValue(sheetName, "C"+row, entryTypeToString(item.EntryType)) // helper func
+		f.SetCellValue(sheetName, "D"+row, item.Quantity)
+		f.SetCellValue(sheetName, "E"+row, item.Sum)
+		f.SetCellValue(sheetName, "F"+row, item.Name)
+		f.SetCellValue(sheetName, "G"+row, item.StoreName)
+		if item.CreatedAt != nil {
+			f.SetCellValue(sheetName, "H"+row, item.CreatedAt.Add(time.Hour*5).Format("2006-01-02 15:04:05"))
+		}
+	}
+
+	// save
+	saveExcelToUploads(c, f, *h.log, "product_movements_after_inventory")
 }
 
 // Update ismarking godoc
