@@ -56,6 +56,7 @@ func (h *EmployeeHandler) EmployeeRoutes(r *gin.RouterGroup) {
 		employee.DELETE("/:id/face-descriptor", h.DeleteEmployeeFaceDescriptor)
 		employee.GET("/list/face-descriptor", h.ListEmployeeFaceDescriptors)
 		employee.GET("/payroll/stores", h.StorePayrollList)
+		employee.GET("/payroll/employees", h.EmployeePayrollList)
 		employee.GET("/payroll/my", h.MyPayroll)
 	}
 }
@@ -1162,7 +1163,7 @@ func (h *EmployeeHandler) EmployeeAttendanceDayList(c *gin.Context) {
 
 // StorePayrollList godoc
 // @Summary      Payroll by stores
-// @Description  Do'konlar kesimida xodimlarning oylik ko'rsatkichlari (ishlagan soati, oylik, KPI, bonus, ushlab qolishlar). Pagination do'konlarga qo'yiladi — har bir do'kon ichida uning xodimlari keladi. Joriy oy so'ralsa ma'lumot jonli hisoblanadi (oy boshidan bugungi kungacha), o'tgan oy so'ralsa employee_payrolls jadvalidan olinadi. year/month berilmasa joriy oy.
+// @Description  Do'konlar kesimidagi oylik yig'indilar (ishlagan soati, oylik, KPI, bonus, ushlab qolishlar) — javobda faqat do'kon qatorlari keladi, xodimlar ro'yxati yo'q. Xodimlarni olish uchun /employee/payroll/employees?store_id=... ishlatiladi. Pagination do'konlarga qo'yiladi. Joriy oy so'ralsa ma'lumot jonli hisoblanadi (oy boshidan bugungi kungacha), o'tgan oy so'ralsa employee_payrolls jadvalidan olinadi. year/month berilmasa joriy oy.
 // @Tags         employees
 // @Security     BearerAuth
 // @Accept       json
@@ -1204,6 +1205,66 @@ func (h *EmployeeHandler) StorePayrollList(c *gin.Context) {
 	defer cancel()
 
 	res, totalCount, period, err := h.service.GetStorePayrolls(ctx, &params)
+	if err != nil {
+		handleServiceResponse(c, nil, err)
+		return
+	}
+
+	result := utils.ListResponse(res, totalCount, params.Limit, params.Offset)
+	result["period"] = period
+
+	handleResponse(c, OK, result)
+}
+
+// EmployeePayrollList godoc
+// @Summary      Payroll by employees
+// @Description  Bitta do'kon xodimlarining oylik ko'rsatkichlari (ishlagan soati, oylik, KPI, bonus, avans, ushlab qolishlar). store_id majburiy. Hisob-kitob /employee/payroll/stores bilan aynan bir xil: joriy oy so'ralsa jonli hisoblanadi (oy boshidan bugungi kungacha), o'tgan oy so'ralsa employee_payrolls jadvalidan olinadi. year/month berilmasa joriy oy. Pagination xodimlarga qo'yiladi.
+// @Tags         employees
+// @Security     BearerAuth
+// @Accept       json
+// @Produce      json
+// @Param        store_id  query  string  true   "Do'kon ID (majburiy)"
+// @Param        year      query  int     false  "Yil (default: joriy)"
+// @Param        month     query  int     false  "Oy 1-12 (default: joriy)"
+// @Param        limit     query  int     false  "Limit (xodimlar soni)"
+// @Param        offset    query  int     false  "Offset"
+// @Success      200  {object}  v1.Response
+// @Failure      400  {object}  v1.Response
+// @Failure      401  {object}  v1.Response
+// @Failure      500  {object}  v1.Response
+// @Router       /employee/payroll/employees [get]
+func (h *EmployeeHandler) EmployeePayrollList(c *gin.Context) {
+	user := h.service.GetSignedUser(c)
+	if user.UserId == "" {
+		handleServiceResponse(c, nil, domain.UnauthorizedError)
+		return
+	}
+
+	var params domain.EmployeePayrollQueryParams
+	if err := c.ShouldBindQuery(&params); err != nil {
+		handleResponse(c, BadRequest, err.Error())
+		return
+	}
+
+	// Admin bo'lmasa faqat o'z kompaniyasi va o'z do'konini ko'radi
+	if !helper.IsAdmin(user) {
+		params.CompanyId = user.CompanyId
+		if user.StoreId != "" {
+			params.StoreId = user.StoreId
+		}
+	}
+
+	if params.StoreId == "" {
+		handleResponse(c, BadRequest, "store_id is required")
+		return
+	}
+
+	params.Limit, params.Offset = defaultLimitOffset(params.Limit, params.Offset)
+
+	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
+	defer cancel()
+
+	res, totalCount, period, err := h.service.GetEmployeePayrolls(ctx, &params)
 	if err != nil {
 		handleServiceResponse(c, nil, err)
 		return

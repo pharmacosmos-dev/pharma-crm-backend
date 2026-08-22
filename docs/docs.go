@@ -6639,6 +6639,85 @@ const docTemplate = `{
                 }
             }
         },
+        "/employee/payroll/employees": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Bitta do'kon xodimlarining oylik ko'rsatkichlari (ishlagan soati, oylik, KPI, bonus, avans, ushlab qolishlar). store_id majburiy. Hisob-kitob /employee/payroll/stores bilan aynan bir xil: joriy oy so'ralsa jonli hisoblanadi (oy boshidan bugungi kungacha), o'tgan oy so'ralsa employee_payrolls jadvalidan olinadi. year/month berilmasa joriy oy. Pagination xodimlarga qo'yiladi.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "employees"
+                ],
+                "summary": "Payroll by employees",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Do'kon ID (majburiy)",
+                        "name": "store_id",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Yil (default: joriy)",
+                        "name": "year",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Oy 1-12 (default: joriy)",
+                        "name": "month",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Limit (xodimlar soni)",
+                        "name": "limit",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Offset",
+                        "name": "offset",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    }
+                }
+            }
+        },
         "/employee/payroll/my": {
             "get": {
                 "security": [
@@ -6712,7 +6791,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Do'konlar kesimida xodimlarning oylik ko'rsatkichlari (ishlagan soati, oylik, KPI, bonus, ushlab qolishlar). Pagination do'konlarga qo'yiladi — har bir do'kon ichida uning xodimlari keladi. Joriy oy so'ralsa ma'lumot jonli hisoblanadi (oy boshidan bugungi kungacha), o'tgan oy so'ralsa employee_payrolls jadvalidan olinadi. year/month berilmasa joriy oy.",
+                "description": "Do'konlar kesimidagi oylik yig'indilar (ishlagan soati, oylik, KPI, bonus, ushlab qolishlar) — javobda faqat do'kon qatorlari keladi, xodimlar ro'yxati yo'q. Xodimlarni olish uchun /employee/payroll/employees?store_id=... ishlatiladi. Pagination do'konlarga qo'yiladi. Joriy oy so'ralsa ma'lumot jonli hisoblanadi (oy boshidan bugungi kungacha), o'tgan oy so'ralsa employee_payrolls jadvalidan olinadi. year/month berilmasa joriy oy.",
                 "consumes": [
                     "application/json"
                 ],

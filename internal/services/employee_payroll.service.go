@@ -89,12 +89,13 @@ func scopeByEmployee(employeeId string) payrollScope {
 
 // region Get
 
-// GetStorePayrolls — do'konlar kesimidagi oylik hisobot.
+// GetStorePayrolls — do'konlar kesimidagi oylik hisobot: FAQAT do'kon yig'indilari,
+// xodimlar ro'yxatisiz. Bitta do'konning xodimlarini olish uchun alohida
+// GetEmployeePayrolls ishlatiladi (store_id bo'yicha).
 //
 // Pagination xodimlarga emas, DO'KONLARGA qo'yiladi: avval bir sahifa do'kon
 // tanlanadi, keyin faqat o'sha do'konlarning xodimlari bitta so'rov bilan
-// olinadi. Shu sababli har bir do'kon o'z xodimlari bilan to'liq qaytadi —
-// xodimlari sahifa chegarasida bo'linib qolmaydi.
+// olinadi va do'kon yig'indisiga qo'shiladi.
 func (s *Services) GetStorePayrolls(
 	ctx context.Context, params *domain.EmployeePayrollQueryParams,
 ) ([]domain.StorePayroll, int64, domain.PayrollPeriod, error) {
@@ -117,7 +118,64 @@ func (s *Services) GetStorePayrolls(
 		return nil, 0, period, err
 	}
 
-	return buildStorePayrolls(stores, rows), totalCount, period, nil
+	storePayrolls := buildStorePayrolls(stores, rows)
+
+	// Yig'indilar allaqachon hisoblangan — javobda faqat do'kon qatorlari qoladi.
+	// Xodimlar ro'yxati GetEmployeePayrolls orqali alohida so'raladi.
+	for i := range storePayrolls {
+		storePayrolls[i].Employees = nil
+	}
+
+	return storePayrolls, totalCount, period, nil
+}
+
+// GetEmployeePayrolls — bitta do'kon xodimlarining oylik hisoboti.
+//
+// Hisob-kitob GetStorePayrolls bilan AYNAN bir xil yo'ldan boradi: do'kon o'sha
+// paginateStores filtri bilan tekshiriladi, so'ng o'sha payrollRows chaqiriladi
+// (joriy oy → jonli hisob, o'tgan oy → employee_payrolls snapshot'i). Farqi
+// faqat javob shaklida: do'kon yig'indisi emas, xodim qatorlari qaytadi.
+//
+// params.StoreId to'ldirilgan bo'lishi shart. Do'kon topilmasa (o'chirilgan,
+// nofaol yoki boshqa kompaniyaniki) bo'sh ro'yxat qaytadi.
+//
+// Pagination xodimlarga qo'yiladi va xotirada bajariladi — hisob so'rovi
+// GetStorePayrolls bilan bitta bo'lib qolishi uchun unga LIMIT/OFFSET
+// qo'shilmaydi; bitta do'kon xodimlari esa oz sonli.
+func (s *Services) GetEmployeePayrolls(
+	ctx context.Context, params *domain.EmployeePayrollQueryParams,
+) ([]domain.EmployeePayrollRow, int64, domain.PayrollPeriod, error) {
+	period, err := resolvePayrollPeriod(params.Year, params.Month)
+	if err != nil {
+		s.log.Errorf("payroll: invalid period: %v", err)
+		return nil, 0, period, domain.BadRequestError
+	}
+
+	if params.StoreId == "" {
+		s.log.Errorf("payroll: store_id is required for employee payrolls")
+		return nil, 0, period, domain.BadRequestError
+	}
+
+	// Do'kon filtri do'konlar API'sidagi bilan bir xil bo'lishi uchun o'sha
+	// paginateStores ishlatiladi; bu yerda u faqat bitta do'konni tekshiradi,
+	// shuning uchun sahifa parametrlari almashtiriladi.
+	storeParams := *params
+	storeParams.Limit, storeParams.Offset = 1, 0
+
+	stores, _, err := s.paginateStores(ctx, &storeParams)
+	if err != nil {
+		return nil, 0, period, err
+	}
+	if len(stores) == 0 {
+		return []domain.EmployeePayrollRow{}, 0, period, nil
+	}
+
+	rows, err := s.payrollRows(ctx, period, scopeByStores(storeIdsOf(stores)))
+	if err != nil {
+		return nil, 0, period, err
+	}
+
+	return pagePayrollRows(rows, params.Limit, params.Offset), int64(len(rows)), period, nil
 }
 
 // GetMyPayroll — token egasining o'z oyligi.
@@ -347,6 +405,27 @@ func (s *Services) paginateStores(
 	}
 
 	return stores, totalCount, nil
+}
+
+// pagePayrollRows — tayyor xodim qatorlarini xotirada sahifalaydi.
+//
+// Tartib SQL'da qat'iy (ORDER BY store_name, full_name), shuning uchun sahifalar
+// barqaror bo'ladi.
+func pagePayrollRows(
+	rows []domain.EmployeePayrollRow, limit, offset int,
+) []domain.EmployeePayrollRow {
+	if offset < 0 {
+		offset = 0
+	}
+	if offset >= len(rows) {
+		return []domain.EmployeePayrollRow{}
+	}
+
+	rows = rows[offset:]
+	if limit > 0 && limit < len(rows) {
+		rows = rows[:limit]
+	}
+	return rows
 }
 
 // storeIdsOf — do'konlar ro'yxatidan id'larni ajratib oladi.

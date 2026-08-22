@@ -136,7 +136,10 @@ type StorePayroll struct {
 	GrossSalaryAmount     float64 `json:"gross_salary_amount"`
 	NetPayAmount          float64 `json:"net_pay_amount"`
 
-	Employees []EmployeePayrollRow `json:"employees"`
+	// Employees — do'kon yig'indilarini hisoblash uchun ichki maydon. Do'konlar
+	// ro'yxati API'sida u bo'shatiladi (xodimlar alohida /payroll/employees
+	// orqali store_id bo'yicha olinadi), shuning uchun omitempty.
+	Employees []EmployeePayrollRow `json:"employees,omitempty"`
 }
 
 // PayrollPeriod — so'ralgan davr haqidagi meta. is_live=true bo'lsa ma'lumot jonli
