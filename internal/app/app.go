@@ -139,7 +139,7 @@ func RegisterCronJobs(service *services.Services) (*cron.Cron, error) {
 	// vaqtiga qarab tuzatadi va employee_attendance_days'ni qayta hisoblaydi.
 	// TEST: vaqtincha har 5 daqiqada ishlaydi.
 	// !!! PRODGA CHIQARISHDAN OLDIN "00 20 * * *" ga QAYTARILSIN !!!
-	c.AddFunc("*/5 * * * *", func() {
+	c.AddFunc("00 20 * * *", func() {
 		log.Println("Update employee attendance days...")
 		service.UpdateEmployeeAttendanceDays()
 	})
