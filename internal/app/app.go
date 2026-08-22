@@ -137,8 +137,6 @@ func RegisterCronJobs(service *services.Services) (*cron.Cron, error) {
 
 	// 00 20 UTC = 01:00 Toshkent — kechagi auto-close'larni o'sha kungi oxirgi check-in
 	// vaqtiga qarab tuzatadi va employee_attendance_days'ni qayta hisoblaydi.
-	// TEST: vaqtincha har 5 daqiqada ishlaydi.
-	// !!! PRODGA CHIQARISHDAN OLDIN "00 20 * * *" ga QAYTARILSIN !!!
 	c.AddFunc("00 20 * * *", func() {
 		log.Println("Update employee attendance days...")
 		service.UpdateEmployeeAttendanceDays()

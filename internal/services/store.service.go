@@ -226,9 +226,9 @@ func (s *Services) GetAllStoreMapInfo(ctx context.Context, params *domain.StoreM
 			stores.company_id IN (
 				SELECT id
 				FROM companies
-				WHERE is_pharma = ?
+				WHERE is_franchise = ?
 			)
-		`, *params.IsPharma)
+		`, !*params.IsPharma)
 	}
 
 	if params.IsOnline != nil {
