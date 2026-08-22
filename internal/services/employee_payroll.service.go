@@ -78,6 +78,24 @@ func scopeByStores(storeIds []string) payrollScope {
 	}
 }
 
+// scopeByCompany — bitta kompaniyaning faol do'konlaridagi xodimlar.
+//
+// Do'kon filtri paginateStores'dagi bilan bir xil (o'chirilmagan va faol), shu
+// sababli do'konlar ro'yxati API'sida ko'rinmaydigan do'konning xodimi bu yerda
+// ham chiqmaydi.
+func scopeByCompany(companyId string) payrollScope {
+	const storesOfCompany = `IN (
+		SELECT id FROM stores
+		WHERE company_id = ? AND deleted_at IS NULL AND is_active = TRUE
+	)`
+
+	return payrollScope{
+		employeesWhere: "e.store_id " + storesOfCompany,
+		payrollsWhere:  "p.store_id " + storesOfCompany,
+		args:           []any{companyId},
+	}
+}
+
 // scopeByEmployee — bitta xodim.
 func scopeByEmployee(employeeId string) payrollScope {
 	return payrollScope{
@@ -136,12 +154,12 @@ func (s *Services) GetStorePayrolls(
 // (joriy oy → jonli hisob, o'tgan oy → employee_payrolls snapshot'i). Farqi
 // faqat javob shaklida: do'kon yig'indisi emas, xodim qatorlari qaytadi.
 //
-// params.StoreId to'ldirilgan bo'lishi shart. Do'kon topilmasa (o'chirilgan,
-// nofaol yoki boshqa kompaniyaniki) bo'sh ro'yxat qaytadi.
+// store_id ixtiyoriy: berilsa faqat o'sha do'kon xodimlari, berilmasa doira
+// employeePayrollScope orqali aniqlanadi (kompaniya yoki barcha xodimlar).
 //
 // Pagination xodimlarga qo'yiladi va xotirada bajariladi — hisob so'rovi
 // GetStorePayrolls bilan bitta bo'lib qolishi uchun unga LIMIT/OFFSET
-// qo'shilmaydi; bitta do'kon xodimlari esa oz sonli.
+// qo'shilmaydi.
 func (s *Services) GetEmployeePayrolls(
 	ctx context.Context, params *domain.EmployeePayrollQueryParams,
 ) ([]domain.EmployeePayrollRow, int64, domain.PayrollPeriod, error) {
@@ -151,26 +169,15 @@ func (s *Services) GetEmployeePayrolls(
 		return nil, 0, period, domain.BadRequestError
 	}
 
-	if params.StoreId == "" {
-		s.log.Errorf("payroll: store_id is required for employee payrolls")
-		return nil, 0, period, domain.BadRequestError
-	}
-
-	// Do'kon filtri do'konlar API'sidagi bilan bir xil bo'lishi uchun o'sha
-	// paginateStores ishlatiladi; bu yerda u faqat bitta do'konni tekshiradi,
-	// shuning uchun sahifa parametrlari almashtiriladi.
-	storeParams := *params
-	storeParams.Limit, storeParams.Offset = 1, 0
-
-	stores, _, err := s.paginateStores(ctx, &storeParams)
+	scope, found, err := s.employeePayrollScope(ctx, params)
 	if err != nil {
 		return nil, 0, period, err
 	}
-	if len(stores) == 0 {
+	if !found {
 		return []domain.EmployeePayrollRow{}, 0, period, nil
 	}
 
-	rows, err := s.payrollRows(ctx, period, scopeByStores(storeIdsOf(stores)))
+	rows, err := s.payrollRows(ctx, period, scope)
 	if err != nil {
 		return nil, 0, period, err
 	}
@@ -405,6 +412,43 @@ func (s *Services) paginateStores(
 	}
 
 	return stores, totalCount, nil
+}
+
+// employeePayrollScope — xodimlar hisobotining doirasini so'rov filtridan aniqlaydi.
+//
+// Ikkinchi qaytim qiymati false bo'lsa — so'ralgan do'kon topilmadi (o'chirilgan,
+// nofaol yoki foydalanuvchining kompaniyasiga tegishli emas), bunda hisob umuman
+// bajarilmaydi va bo'sh ro'yxat qaytadi.
+//
+//	store_id berilgan          → faqat o'sha do'kon (paginateStores bilan tekshiriladi)
+//	store_id yo'q + company_id → o'sha kompaniyaning faol do'konlaridagi xodimlar
+//	store_id yo'q + company_id yo'q (admin) → barcha faol xodimlar, shu jumladan
+//	do'konga biriktirilmaganlar ham
+func (s *Services) employeePayrollScope(
+	ctx context.Context, params *domain.EmployeePayrollQueryParams,
+) (payrollScope, bool, error) {
+	if params.StoreId == "" {
+		if params.CompanyId != "" {
+			return scopeByCompany(params.CompanyId), true, nil
+		}
+		return scopeAllEmployees(), true, nil
+	}
+
+	// Do'kon filtri do'konlar API'sidagi bilan bir xil bo'lishi uchun o'sha
+	// paginateStores ishlatiladi; bu yerda u faqat bitta do'konni tekshiradi,
+	// shuning uchun sahifa parametrlari almashtiriladi.
+	storeParams := *params
+	storeParams.Limit, storeParams.Offset = 1, 0
+
+	stores, _, err := s.paginateStores(ctx, &storeParams)
+	if err != nil {
+		return payrollScope{}, false, err
+	}
+	if len(stores) == 0 {
+		return payrollScope{}, false, nil
+	}
+
+	return scopeByStores(storeIdsOf(stores)), true, nil
 }
 
 // pagePayrollRows — tayyor xodim qatorlarini xotirada sahifalaydi.

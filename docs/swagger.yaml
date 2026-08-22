@@ -6874,26 +6874,22 @@ paths:
     get:
       consumes:
       - application/json
-      description: 'Bitta do''kon xodimlarining oylik ko''rsatkichlari (ishlagan soati,
-        oylik, KPI, bonus, avans, ushlab qolishlar). store_id majburiy. Hisob-kitob
-        /employee/payroll/stores bilan aynan bir xil: joriy oy so''ralsa jonli hisoblanadi
-        (oy boshidan bugungi kungacha), o''tgan oy so''ralsa employee_payrolls jadvalidan
-        olinadi. year/month berilmasa joriy oy. Pagination xodimlarga qo''yiladi.'
+      description: Xodimlarning oylik ko'rsatkichlari (ishlagan soati, oylik, KPI,
+        bonus, avans, ushlab qolishlar).
       parameters:
-      - description: Do'kon ID (majburiy)
+      - description: Store ID (berilmasa barcha xodimlar)
         in: query
         name: store_id
-        required: true
         type: string
-      - description: 'Yil (default: joriy)'
+      - description: Year
         in: query
         name: year
         type: integer
-      - description: 'Oy 1-12 (default: joriy)'
+      - description: Month
         in: query
         name: month
         type: integer
-      - description: Limit (xodimlar soni)
+      - description: Limit (employees)
         in: query
         name: limit
         type: integer
@@ -6922,7 +6918,7 @@ paths:
             $ref: '#/definitions/v1.Response'
       security:
       - BearerAuth: []
-      summary: Payroll by employees
+      summary: Payroll by employeesloyee_payrolls jadvalidan olinadi. year/
       tags:
       - employees
   /employee/payroll/my:

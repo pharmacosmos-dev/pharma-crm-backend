@@ -1217,16 +1217,16 @@ func (h *EmployeeHandler) StorePayrollList(c *gin.Context) {
 }
 
 // EmployeePayrollList godoc
-// @Summary      Payroll by employees
-// @Description  Bitta do'kon xodimlarining oylik ko'rsatkichlari (ishlagan soati, oylik, KPI, bonus, avans, ushlab qolishlar). store_id majburiy. Hisob-kitob /employee/payroll/stores bilan aynan bir xil: joriy oy so'ralsa jonli hisoblanadi (oy boshidan bugungi kungacha), o'tgan oy so'ralsa employee_payrolls jadvalidan olinadi. year/month berilmasa joriy oy. Pagination xodimlarga qo'yiladi.
+// @Summary      Payroll by employeesloyee_payrolls jadvalidan olinadi. year/
+// @Description  Xodimlarning oylik ko'rsatkichlari (ishlagan soati, oylik, KPI, bonus, avans, ushlab qolishlar).
 // @Tags         employees
 // @Security     BearerAuth
 // @Accept       json
 // @Produce      json
-// @Param        store_id  query  string  true   "Do'kon ID (majburiy)"
-// @Param        year      query  int     false  "Yil (default: joriy)"
-// @Param        month     query  int     false  "Oy 1-12 (default: joriy)"
-// @Param        limit     query  int     false  "Limit (xodimlar soni)"
+// @Param        store_id  query  string  false  "Store ID (berilmasa barcha xodimlar)"
+// @Param        year      query  int     false  "Year"
+// @Param        month     query  int     false  "Month"
+// @Param        limit     query  int     false  "Limit (employees)"
 // @Param        offset    query  int     false  "Offset"
 // @Success      200  {object}  v1.Response
 // @Failure      400  {object}  v1.Response
@@ -1252,11 +1252,6 @@ func (h *EmployeeHandler) EmployeePayrollList(c *gin.Context) {
 		if user.StoreId != "" {
 			params.StoreId = user.StoreId
 		}
-	}
-
-	if params.StoreId == "" {
-		handleResponse(c, BadRequest, "store_id is required")
-		return
 	}
 
 	params.Limit, params.Offset = defaultLimitOffset(params.Limit, params.Offset)

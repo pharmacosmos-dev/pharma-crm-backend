@@ -6646,7 +6646,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Bitta do'kon xodimlarining oylik ko'rsatkichlari (ishlagan soati, oylik, KPI, bonus, avans, ushlab qolishlar). store_id majburiy. Hisob-kitob /employee/payroll/stores bilan aynan bir xil: joriy oy so'ralsa jonli hisoblanadi (oy boshidan bugungi kungacha), o'tgan oy so'ralsa employee_payrolls jadvalidan olinadi. year/month berilmasa joriy oy. Pagination xodimlarga qo'yiladi.",
+                "description": "Xodimlarning oylik ko'rsatkichlari (ishlagan soati, oylik, KPI, bonus, avans, ushlab qolishlar).",
                 "consumes": [
                     "application/json"
                 ],
@@ -6656,30 +6656,29 @@ const docTemplate = `{
                 "tags": [
                     "employees"
                 ],
-                "summary": "Payroll by employees",
+                "summary": "Payroll by employeesloyee_payrolls jadvalidan olinadi. year/",
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "Do'kon ID (majburiy)",
+                        "description": "Store ID (berilmasa barcha xodimlar)",
                         "name": "store_id",
-                        "in": "query",
-                        "required": true
+                        "in": "query"
                     },
                     {
                         "type": "integer",
-                        "description": "Yil (default: joriy)",
+                        "description": "Year",
                         "name": "year",
                         "in": "query"
                     },
                     {
                         "type": "integer",
-                        "description": "Oy 1-12 (default: joriy)",
+                        "description": "Month",
                         "name": "month",
                         "in": "query"
                     },
                     {
                         "type": "integer",
-                        "description": "Limit (xodimlar soni)",
+                        "description": "Limit (employees)",
                         "name": "limit",
                         "in": "query"
                     },
