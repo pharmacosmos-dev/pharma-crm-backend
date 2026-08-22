@@ -147,6 +147,8 @@ type StoreMapInfoEmployee struct {
 	FullName   string     `json:"full_name"`
 	CheckInAt  *time.Time `json:"check_in_at,omitempty"`
 	CheckOutAt *time.Time `json:"check_out_at,omitempty"`
+	LastEventType string     `json:"last_event_type,omitempty"`
+	LastEventAt   *time.Time `json:"last_event_at,omitempty"`
 }
 
 type StoreMapInfoPaymentType struct {

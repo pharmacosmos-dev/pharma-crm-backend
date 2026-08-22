@@ -332,8 +332,16 @@ func (s *Services) GetStoreByIdMapInfo(ctx context.Context, storeId string) (*do
 				SELECT
 					timeline.store_id,
 					COALESCE(open_state.is_open, false) AS is_open,
+					-- opened_at — bugun birinchi kelgan xodimning check-in vaqti
 					timeline.opened_at,
-					timeline.closed_at
+					-- closed_at — eng oxirgi ketgan xodimning check-out vaqti, lekin
+					-- faqat do'kon haqiqatan yopilgan bo'lsa. Do'kon hali ochiq bo'lsa
+					-- (kimdir ishlayotgan bo'lsa) bu NULL: aks holda erta ketgan bitta
+					-- xodimning vaqti do'kon yopilgandek ko'rinardi.
+					CASE
+						WHEN COALESCE(open_state.is_open, false) THEN NULL
+						ELSE timeline.closed_at
+					END AS closed_at
 				FROM (
 					SELECT
 						store_id,
@@ -383,16 +391,36 @@ func (s *Services) GetStoreByIdMapInfo(ctx context.Context, storeId string) (*do
 		SELECT
 			e.id,
 			e.full_name,
-			MIN(al.event_at) FILTER (WHERE al.event_type = 'check-in') AS check_in_at,
-			MAX(al.event_at) FILTER (WHERE al.event_type = 'check-out') AS check_out_at
+			today.check_in_at,
+			today.check_out_at,
+			last_event.event_type AS last_event_type,
+			last_event.event_at   AS last_event_at
 		FROM employees e
-		LEFT JOIN attendance_logs al ON al.employee_id = e.id
-			AND (al.event_at AT TIME ZONE 'Asia/Tashkent')::date =
-				(CURRENT_TIMESTAMP AT TIME ZONE 'Asia/Tashkent')::date
+		-- bugungi eng erta kelish va eng kech ketish vaqti
+		LEFT JOIN LATERAL (
+			SELECT
+				MIN(al.event_at) FILTER (WHERE al.event_type = 'check-in')  AS check_in_at,
+				MAX(al.event_at) FILTER (WHERE al.event_type = 'check-out') AS check_out_at
+			FROM attendance_logs al
+			WHERE al.employee_id = e.id
+			  AND (al.event_at AT TIME ZONE 'Asia/Tashkent')::date =
+			      (CURRENT_TIMESTAMP AT TIME ZONE 'Asia/Tashkent')::date
+		) today ON TRUE
+		-- bugungi eng oxirgi voqea — xodim hozir ishdami yoki yo'qmi shundan bilinadi.
+		-- Tartib is_open hisoblanishidagi bilan bir xil (event_at DESC, id DESC),
+		-- shuning uchun xodim holati do'kon holatiga zid bo'lib qolmaydi.
+		LEFT JOIN LATERAL (
+			SELECT al.event_type, al.event_at
+			FROM attendance_logs al
+			WHERE al.employee_id = e.id
+			  AND (al.event_at AT TIME ZONE 'Asia/Tashkent')::date =
+			      (CURRENT_TIMESTAMP AT TIME ZONE 'Asia/Tashkent')::date
+			ORDER BY al.event_at DESC, al.id DESC
+			LIMIT 1
+		) last_event ON TRUE
 		WHERE e.store_id = ?
 		  AND e.deleted_at IS NULL
 		  AND e.is_active = true
-		GROUP BY e.id, e.full_name
 		ORDER BY e.full_name ASC
 	`, storeId).Scan(&storeMapInfo.Employees).Error; err != nil {
 		s.log.Errorf("could not get store map employees: %v", err)
