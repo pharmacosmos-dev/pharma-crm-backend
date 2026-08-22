@@ -488,18 +488,30 @@ func (s *Services) AutoCloseUnclosedAttendanceLogs() {
 // UpdateEmployeeAttendanceDays — har kuni Toshkent vaqti bilan 01:00 da ishlaydi.
 //
 // Vazifasi:
-// 1. Kecha 23:59:59 da avtomatik yopilgan attendance loglarni topadi.
-// 2. Agar employee bugungi kunda hali hech qanday attendance event yubormagan bo'lsa,
-//    kechagi auto-close vaqtini check-in vaqtiga + 4 soat qilib o'zgartiradi.
-// 3. Agar check-in + 4 soat yangi kunga o'tib ketsa, auto-close o'zgartirilmaydi.
-// 4. employee_attendance_days dagi kechagi last_check_out va worked_minutes
-//    qayta hisoblanadi.
-// 5. is_manual_override=true bo'lgan yozuvlarga tegilmaydi.
+//  1. Kecha 23:59:59 da avtomatik yopilgan (is_auto_closed=true) attendance loglarni topadi.
+//  2. Agar employee bugungi kunda hali hech qanday attendance event yubormagan bo'lsa,
+//     auto-close vaqtini o'sha kungi oxirgi check-in vaqtiga qarab tuzatadi:
+//     - check-in 20:00 dan oldin → check-in + 4 soat (check-out qilishni unutgan smena:
+//     masalan 1-smena 07:40 da kelsa 11:40, 2-smena 16:20 da kelsa 20:20 bo'ladi);
+//     - check-in 20:00–20:30 → kun oxiri, ya'ni 23:59:59 (4 soat qo'shilsa yangi kunga
+//     o'tib ketardi);
+//     - check-in 20:31 dan keyin → check-in vaqtining O'ZI, ya'ni 0 daqiqa. Bunday kech
+//     check-in odatda xato bo'ladi (masalan xodim 23:11 da check-out qilib ketayotib
+//     23:12 da yana check-in bosib qo'yadi) — unga ish vaqti yozilmaydi.
+//  3. employee_attendance_days dagi kechagi first_check_in, last_check_out va
+//     worked_minutes qayta hisoblanadi.
+//  4. is_manual_override=true bo'lgan yozuvlarga tegilmaydi.
 func (s *Services) UpdateEmployeeAttendanceDays() {
 	err := s.db.Transaction(func(tx *gorm.DB) error {
 
 		err := tx.Exec(`
-			WITH yesterday_auto_closed AS (
+			WITH bounds AS (
+				SELECT
+					(NOW() + interval '5 hours')::date - 1 AS work_date,
+					(NOW() + interval '5 hours')::date     AS today_date
+			),
+
+			yesterday_auto_closed AS (
 				SELECT
 					al.id AS auto_close_id,
 					al.employee_id,
@@ -511,18 +523,20 @@ func (s *Services) UpdateEmployeeAttendanceDays() {
 						WHERE al2.employee_id = al.employee_id
 						  AND al2.event_at < al.event_at
 						  AND al2.event_type = 'check-in'
-						  AND (al2.event_at + interval '5 hours')::date =
-						      (NOW() + interval '5 hours')::date - 1
+						  AND (al2.event_at + interval '5 hours')::date = b.work_date
 						ORDER BY al2.event_at DESC
 						LIMIT 1
 					) AS check_in_at
-				FROM attendance_logs al
+				FROM attendance_logs al, bounds b
 				WHERE al.is_auto_closed = TRUE
 				  AND al.event_type = 'check-out'
-				  AND (al.event_at + interval '5 hours')::date =
-				      (NOW() + interval '5 hours')::date - 1
-				  AND (al.event_at AT TIME ZONE 'Asia/Tashkent')::time =
-				      TIME '23:59:59'
+				  AND (al.event_at + interval '5 hours')::date = b.work_date
+
+				  -- Faqat hali tuzatilmagan yozuvlar: auto-close hali ham kun oxirida
+				  -- turibdi. Tuzatilganda vaqt doim oldinga suriladi, shuning uchun >=
+				  -- yetarli. (Aniq "::time = TIME '23:59:59'" tenglik mikrosekundli
+				  -- qiymatlarni o'tkazib yuborardi.)
+				  AND al.event_at >= ((b.work_date + INTERVAL '23:59:59') AT TIME ZONE 'Asia/Tashkent')
 			),
 
 			eligible AS (
@@ -530,8 +544,21 @@ func (s *Services) UpdateEmployeeAttendanceDays() {
 					y.auto_close_id,
 					y.employee_id,
 					y.check_in_at,
-					y.check_in_at + interval '4 hours' AS new_check_out_at
-				FROM yesterday_auto_closed y
+					CASE
+						-- Odatdagi smena: check-out qilishni unutgan, 4 soat qo'shiladi.
+						WHEN (y.check_in_at AT TIME ZONE 'Asia/Tashkent')::time < TIME '20:00:00'
+							THEN y.check_in_at + interval '4 hours'
+
+						-- 20:00–20:30: 4 soat qo'shilsa yangi kunga o'tib ketadi,
+						-- shuning uchun kun oxirida qoldiriladi.
+						WHEN (y.check_in_at AT TIME ZONE 'Asia/Tashkent')::time < TIME '20:31:00'
+							THEN ((b.work_date + INTERVAL '23:59:59') AT TIME ZONE 'Asia/Tashkent')
+
+						-- 20:31 dan keyingi check-in odatda xato bosilgan bo'ladi:
+						-- check-out check-in bilan bir xil qilinadi, ya'ni 0 daqiqa.
+						ELSE y.check_in_at
+					END AS new_check_out_at
+				FROM yesterday_auto_closed y, bounds b
 				WHERE y.check_in_at IS NOT NULL
 
 				  -- Bugungi kunda employee attendance qilmagan bo'lishi kerak.
@@ -539,16 +566,7 @@ func (s *Services) UpdateEmployeeAttendanceDays() {
 					  SELECT 1
 					  FROM attendance_logs today
 					  WHERE today.employee_id = y.employee_id
-					    AND (today.event_at + interval '5 hours')::date =
-					        (NOW() + interval '5 hours')::date
-				  )
-
-				  -- check-in + 4 soat yangi kunga o'tib ketmasligi kerak.
-				  AND (
-					  y.check_in_at + interval '4 hours'
-				  ) < (
-					  ((NOW() + interval '5 hours')::date)
-					  AT TIME ZONE 'Asia/Tashkent'
+					    AND (today.event_at + interval '5 hours')::date = b.today_date
 				  )
 			)
 
@@ -558,6 +576,7 @@ func (s *Services) UpdateEmployeeAttendanceDays() {
 				updated_at = NOW()
 			FROM eligible e
 			WHERE al.id = e.auto_close_id
+			  AND al.event_at IS DISTINCT FROM e.new_check_out_at
 		`).Error
 
 		if err != nil {
