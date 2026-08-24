@@ -6137,6 +6137,18 @@ const docTemplate = `{
                         "description": "Store ID (bitta do'kon bo'yicha)",
                         "name": "store_id",
                         "in": "query"
+                    },
+                    {
+                        "type": "boolean",
+                        "description": "true",
+                        "name": "is_pharma",
+                        "in": "query"
+                    },
+                    {
+                        "type": "boolean",
+                        "description": "true",
+                        "name": "is_franchise",
+                        "in": "query"
                     }
                 ],
                 "responses": {

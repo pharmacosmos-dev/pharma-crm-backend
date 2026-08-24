@@ -1164,8 +1164,8 @@ func (h *EmployeeHandler) AttendanceList(c *gin.Context) {
 // @Produce      json
 // @Param        date          query  string  false  "Sana (2006-01-02, default: bugun)"
 // @Param        store_id      query  string  false  "Store ID (bitta do'kon bo'yicha)"
-// @Param        is_pharma     query  bool    false  "true 
-// @Param        is_franchise  query  bool    false  "true
+// @Param        is_pharma     query  bool    false  "true"
+// @Param        is_franchise  query  bool    false  "true"
 // @Success      200 {object} v1.Response
 // @Failure      400 {object} v1.Response
 // @Failure      401 {object} v1.Response

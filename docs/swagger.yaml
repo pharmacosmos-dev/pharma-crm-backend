@@ -6548,6 +6548,14 @@ paths:
         in: query
         name: store_id
         type: string
+      - description: "true"
+        in: query
+        name: is_pharma
+        type: boolean
+      - description: "true"
+        in: query
+        name: is_franchise
+        type: boolean
       produces:
       - application/json
       responses:
