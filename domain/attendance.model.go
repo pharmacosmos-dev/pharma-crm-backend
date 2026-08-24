@@ -50,6 +50,8 @@ type AttendanceLogQueryParams struct {
 type AttendanceStatsQueryParams struct {
 	Date    string `form:"date"`
 	StoreId string `form:"store_id"`
+	IsFranchise *bool `form:"is_franchise"`
+	IsPharma    *bool `form:"is_pharma"`
 	CompanyId string `form:"-"`
 }
 

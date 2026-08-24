@@ -291,12 +291,21 @@ func (s *Services) GetAttendanceLogList(ctx context.Context, params *domain.Atte
 // ishlamayapti va nechta xodim ishda / kelib ketgan / umuman kelmagan.
 //
 // Har bir xodim uchun shu kundagi ENG OXIRGI voqea olinadi (DISTINCT ON) va
-// shunga qarab guruhlanadi — bu GetAllStoreMapInfo'dagi is_open qoidasi bilan
-// aynan bir xil, shuning uchun xarita va statistika bir-biriga zid bo'lmaydi.
+// shunga qarab guruhlanadi.
 //
-// Doira: o'chirilmagan va faol do'konlar hamda ularga biriktirilgan faol
-// xodimlar. Do'konga biriktirilmagan xodim (store_id IS NULL) hisobga olinmaydi —
-// u check-in qila olmaydi va hech qaysi do'konning holatiga ta'sir qilmaydi.
+// Doira GetAllStoreMapInfo'dagi is_open bilan AYNAN bir xil bo'lishi shart,
+// aks holda xarita va statistika turli raqam ko'rsatadi:
+//
+//	do'konlar — deleted_at IS NULL, is_active = TRUE, coordinates IS NOT NULL
+//	xodimlar  — deleted_at IS NULL, is_active = TRUE, status = 'active',
+//	            roli "Кассир" yoki "Заведующий" (employee_roles → roles.name) va
+//	            attendance_logs'da kamida bitta yozuvi bor (face-id'dan o'tgan)
+//	do'kon holati — attendance_logs.store_id bo'yicha (xodimning joriy
+//	            employees.store_id'si emas): check-in qaysi do'konda bosilgan
+//	            bo'lsa, o'sha do'kon ochiq hisoblanadi
+//
+// Rollar keyinchalik qayta nomlansa constants.RoleNameCashier/RoleNameZavStore
+// bilan birga AggregateEmployeeAttendanceDays'dagi ro'yxat ham yangilanadi.
 func (s *Services) GetAttendanceStats(
 	ctx context.Context, params *domain.AttendanceStatsQueryParams,
 ) (*domain.AttendanceStats, error) {
@@ -326,7 +335,30 @@ func (s *Services) GetAttendanceStats(
 		args = append(args, params.StoreId)
 	}
 
-	args = append(args, constants.GeneralStatusActive, date)
+	// is_pharma / is_franchise — guruh tanlash filtri, GetAllStoreMapInfo dagi bilan
+	// bir xil qoida: qaysi biri true bo'lsa o'sha guruh olinadi, ikkalasi ham
+	// tanlansa (yoki hech biri berilmasa) hammasi qaytadi.
+	franchiseGroups := map[bool]bool{}
+	if params.IsFranchise != nil {
+		franchiseGroups[*params.IsFranchise] = true
+	}
+	if params.IsPharma != nil {
+		franchiseGroups[!*params.IsPharma] = true
+	}
+
+	if len(franchiseGroups) == 1 {
+		for isFranchise := range franchiseGroups {
+			storeFilter += " AND company_id IN (SELECT id FROM companies WHERE is_franchise = ?)"
+			args = append(args, isFranchise)
+		}
+	}
+
+	args = append(args,
+		constants.GeneralStatusActive,
+		constants.RoleNameCashier,
+		constants.RoleNameZavStore,
+		date,
+	)
 
 	query := fmt.Sprintf(`
 		WITH scope_stores AS (
@@ -334,6 +366,8 @@ func (s *Services) GetAttendanceStats(
 		    FROM stores
 		    WHERE deleted_at IS NULL
 		      AND is_active = TRUE
+		      -- xaritada ko'rinadigan do'konlar: koordinatasizlari sanoqqa kirmaydi
+		      AND coordinates IS NOT NULL
 		      AND %s
 		),
 		scope_employees AS (
@@ -341,15 +375,33 @@ func (s *Services) GetAttendanceStats(
 		    FROM employees e
 		    JOIN scope_stores ss ON ss.id = e.store_id
 		    WHERE e.deleted_at IS NULL
+		      AND e.is_active = TRUE
 		      AND e.status = ?
+		      AND EXISTS (
+		          SELECT 1
+		          FROM employee_roles er
+		          JOIN roles r ON r.id = er.role_id
+		          WHERE er.employee_id = e.id
+		            AND r.name IN (?, ?)
+		      )
+		      -- Faqat face-id'dan kamida bir marta o'tgan xodimlar. Sana bo'yicha
+		      -- cheklov yo'q: total — "tizimdan foydalanadigan xodimlar", absent esa
+		      -- shulardan bugun kelmaganlari.
+		      AND EXISTS (
+		          SELECT 1
+		          FROM attendance_logs al
+		          WHERE al.employee_id = e.id
+		      )
 		),
 		latest AS (
 		    SELECT DISTINCT ON (al.employee_id)
 		        al.employee_id,
+		        al.store_id,
 		        al.event_type
 		    FROM attendance_logs al
 		    JOIN scope_employees se ON se.id = al.employee_id
-		    WHERE (al.event_at AT TIME ZONE 'Asia/Tashkent')::date = ?::date
+		    WHERE al.store_id IS NOT NULL
+		      AND (al.event_at AT TIME ZONE 'Asia/Tashkent')::date = ?::date
 		    ORDER BY al.employee_id, al.event_at DESC, al.id DESC
 		),
 		emp AS (
@@ -364,9 +416,9 @@ func (s *Services) GetAttendanceStats(
 		SELECT
 		    (SELECT COUNT(*) FROM scope_stores) AS store_total,
 		    (
-		        SELECT COUNT(DISTINCT se.store_id)
-		        FROM scope_employees se
-		        JOIN latest l ON l.employee_id = se.id
+		        SELECT COUNT(DISTINCT l.store_id)
+		        FROM latest l
+		        JOIN scope_stores ss ON ss.id = l.store_id
 		        WHERE l.event_type = 'check-in'
 		    ) AS store_open,
 		    emp.employee_total,

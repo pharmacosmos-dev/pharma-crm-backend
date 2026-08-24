@@ -6,6 +6,7 @@ import (
 	"fmt"
 
 	"github.com/pharma-crm-backend/domain"
+	"github.com/pharma-crm-backend/domain/constants"
 	"gorm.io/gorm"
 )
 
@@ -187,19 +188,33 @@ func (s *Services) GetAllStoreMapInfo(ctx context.Context, params *domain.StoreM
 					latest.store_id,
 					TRUE AS is_open
 				FROM (
-					SELECT DISTINCT ON (employee_id)
-						employee_id, store_id, event_type
-					FROM attendance_logs
-					WHERE store_id IS NOT NULL
-					  AND (event_at AT TIME ZONE 'Asia/Tashkent')::date =
+					SELECT DISTINCT ON (al.employee_id)
+						al.employee_id, al.store_id, al.event_type
+					FROM attendance_logs al
+					JOIN employees e ON e.id = al.employee_id
+						AND e.deleted_at IS NULL
+						AND e.is_active = TRUE
+						AND e.status = ?
+						AND EXISTS (
+							SELECT 1
+							FROM employee_roles er
+							JOIN roles r ON r.id = er.role_id
+							WHERE er.employee_id = e.id
+							  AND r.name IN (?, ?)
+						)
+					WHERE al.store_id IS NOT NULL
+					  AND (al.event_at AT TIME ZONE 'Asia/Tashkent')::date =
 					      (CURRENT_TIMESTAMP AT TIME ZONE 'Asia/Tashkent')::date
-					ORDER BY employee_id, event_at DESC, id DESC
+					ORDER BY al.employee_id, al.event_at DESC, al.id DESC
 				) latest
 					WHERE latest.event_type = 'check-in'
 					GROUP BY latest.store_id
 			) attendance
 				ON attendance.store_id = stores.id
-		`)
+		`, constants.GeneralStatusActive, constants.RoleNameCashier, constants.RoleNameZavStore).
+		Where("stores.deleted_at IS NULL").
+		Where("stores.is_active = TRUE").
+		Where("stores.coordinates IS NOT NULL")
 
 	if params.Search != "" {
 		searchPattern := fmt.Sprintf("%%%s%%", params.Search)
@@ -211,24 +226,34 @@ func (s *Services) GetAllStoreMapInfo(ctx context.Context, params *domain.StoreM
 		)
 	}
 
+	// is_pharma va is_franchise — guruh tanlash filtri, bir-birini inkor qilmaydi:
+	//
+	//	is_pharma=true                  → faqat franchise bo'lmagan aptekalar
+	//	is_franchise=true               → faqat franchise do'konlar
+	//	ikkalasi ham true               → ikkala guruh, ya'ni hammasi
+	//	hech biri berilmagan            → hammasi
+	//
+	// Shuning uchun ular AND bilan emas, tanlangan guruhlar to'plami sifatida
+	// birlashtiriladi: ikkala guruh tanlansa filtr umuman qo'yilmaydi (kompaniyasi
+	// biriktirilmagan do'konlar ham tushib qolmasligi uchun).
+	franchiseGroups := map[bool]bool{}
 	if params.IsFranchise != nil {
-		qb = qb.Where(`
-			stores.company_id IN (
-				SELECT id
-				FROM companies
-				WHERE is_franchise = ?
-			)
-		`, *params.IsFranchise)
+		franchiseGroups[*params.IsFranchise] = true
+	}
+	if params.IsPharma != nil {
+		franchiseGroups[!*params.IsPharma] = true
 	}
 
-	if params.IsPharma != nil {
-		qb = qb.Where(`
-			stores.company_id IN (
-				SELECT id
-				FROM companies
-				WHERE is_franchise = ?
-			)
-		`, !*params.IsPharma)
+	if len(franchiseGroups) == 1 {
+		for isFranchise := range franchiseGroups {
+			qb = qb.Where(`
+				stores.company_id IN (
+					SELECT id
+					FROM companies
+					WHERE is_franchise = ?
+				)
+			`, isFranchise)
+		}
 	}
 
 	if params.IsOnline != nil {
@@ -344,32 +369,57 @@ func (s *Services) GetStoreByIdMapInfo(ctx context.Context, storeId string) (*do
 					END AS closed_at
 				FROM (
 					SELECT
-						store_id,
-						MIN(event_at) FILTER (WHERE event_type = 'check-in') AS opened_at,
-						MAX(event_at) FILTER (WHERE event_type = 'check-out') AS closed_at
-					FROM attendance_logs
-					WHERE store_id IS NOT NULL
-					  AND (event_at AT TIME ZONE 'Asia/Tashkent')::date =
+						al.store_id,
+						MIN(al.event_at) FILTER (WHERE al.event_type = 'check-in') AS opened_at,
+						MAX(al.event_at) FILTER (WHERE al.event_type = 'check-out') AS closed_at
+					FROM attendance_logs al
+					JOIN employees e ON e.id = al.employee_id
+						AND e.deleted_at IS NULL
+						AND e.is_active = TRUE
+						AND e.status = ?
+						AND EXISTS (
+							SELECT 1
+							FROM employee_roles er
+							JOIN roles r ON r.id = er.role_id
+							WHERE er.employee_id = e.id
+							  AND r.name IN (?, ?)
+						)
+					WHERE al.store_id IS NOT NULL
+					  AND (al.event_at AT TIME ZONE 'Asia/Tashkent')::date =
 					      (CURRENT_TIMESTAMP AT TIME ZONE 'Asia/Tashkent')::date
-					GROUP BY store_id
+					GROUP BY al.store_id
 				) timeline
 				LEFT JOIN (
 					SELECT latest.store_id, TRUE AS is_open
 					FROM (
-						SELECT DISTINCT ON (employee_id)
-							employee_id, store_id, event_type
-						FROM attendance_logs
-						WHERE store_id IS NOT NULL
-						  AND (event_at AT TIME ZONE 'Asia/Tashkent')::date =
+						SELECT DISTINCT ON (al.employee_id)
+							al.employee_id, al.store_id, al.event_type
+						FROM attendance_logs al
+						JOIN employees e ON e.id = al.employee_id
+							AND e.deleted_at IS NULL
+							AND e.is_active = TRUE
+							AND e.status = ?
+							AND EXISTS (
+								SELECT 1
+								FROM employee_roles er
+								JOIN roles r ON r.id = er.role_id
+								WHERE er.employee_id = e.id
+								  AND r.name IN (?, ?)
+							)
+						WHERE al.store_id IS NOT NULL
+						  AND (al.event_at AT TIME ZONE 'Asia/Tashkent')::date =
 						      (CURRENT_TIMESTAMP AT TIME ZONE 'Asia/Tashkent')::date
-						ORDER BY employee_id, event_at DESC, id DESC
+						ORDER BY al.employee_id, al.event_at DESC, al.id DESC
 					) latest
 					WHERE latest.event_type = 'check-in'
 					GROUP BY latest.store_id
 				) open_state ON open_state.store_id = timeline.store_id
 			) attendance
 				ON attendance.store_id = stores.id
-		`).
+		`,
+			constants.GeneralStatusActive, constants.RoleNameCashier, constants.RoleNameZavStore,
+			constants.GeneralStatusActive, constants.RoleNameCashier, constants.RoleNameZavStore,
+		).
 		Where("stores.id = ?", storeId)
 
 	var storeMapInfo domain.StoreMapInfoDetail
