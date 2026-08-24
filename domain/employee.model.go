@@ -80,9 +80,9 @@ type EmployeeRequest struct {
 	Birthdate       string         `gorm:"birthdate" json:"birthdate"`
 	StartDate       *string        `gorm:"start_date" json:"start_date"`
 	EndDate         *string        `gorm:"end_date" json:"end_date"`
-	Salary          float64        `gorm:"salary" json:"salary"`
+	Salary          float64        `gorm:"salary" json:"salary" binding:"required,min=100000,max=20000000"`
 	AvgMonthlyHours float64        `gorm:"avg_monthly_hours" json:"avg_monthly_hours"`
-	KpiPercent      float64        `gorm:"kpi_percent" json:"kpi_percent"`
+	KpiPercent      *float64       `gorm:"kpi_percent" json:"kpi_percent" binding:"required,min=0,max=20"`
 	ExperienceYears float64        `gorm:"experience_years" json:"experience_years"`
 }
 

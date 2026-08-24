@@ -62,7 +62,7 @@ func (h *EmployeeHandler) EmployeeRoutes(r *gin.RouterGroup) {
 }
 
 // @Summary      Create employee
-// @Description  Create a new employee in the system
+// @Description  Create a new employee in the system.
 // @Tags         employees
 // @Accept       json
 // @Produce      json
@@ -301,7 +301,7 @@ func (h *EmployeeHandler) ExportEmployeeExcel(c *gin.Context) {
 }
 
 // @Summary      Update employee
-// @Description  Update an employee
+// @Description  Update an employee.
 // @Tags         employees
 // @Security     BearerAuth
 // @Accept       json
@@ -384,7 +384,7 @@ func (h *EmployeeHandler) Update(c *gin.Context) {
 		"end_date":          body.EndDate,
 		"salary":            body.Salary,
 		"avg_monthly_hours": body.AvgMonthlyHours,
-		"kpi_percent":       body.KpiPercent,
+		"kpi_percent":       *body.KpiPercent,
 		"experience_years":  body.ExperienceYears,
 	}
 
