@@ -49,6 +49,7 @@ func (h *EmployeeHandler) EmployeeRoutes(r *gin.RouterGroup) {
 		employee.DELETE("/attendance-face-id/:id", h.DeleteAttendanceFaceId)
 		employee.DELETE("/attendance-face-id/cleanup-old", h.CleanupOldAttendanceFaceIds)
 		employee.GET("/attendance/list", h.AttendanceList)
+		employee.GET("/attendance/stats", h.AttendanceStats)
 		employee.GET("/attendance-days/list", h.EmployeeAttendanceDayList)
 		employee.POST("/attendance-manual", h.CreateAttendanceLogManual)
 		employee.PATCH("/:id/face-descriptor", h.CreateOrUpdateFaceDescriptor)
@@ -1060,6 +1061,7 @@ func (h *EmployeeHandler) CleanupOldAttendanceFaceIds(c *gin.Context) {
 // @Param        store_id     query  string  false  "Store ID (faqat admin uchun filter sifatida ishlaydi)"
 // @Param        employee_id  query  string  false  "Employee ID"
 // @Param        event_type   query  string  false  "Event type (check-in yoki check-out)"
+// @Param        is_auto_closed query bool   false  "true — faqat cron avtomatik yopgan check-out'lar, false — faqat xodim o'zi bosganlar, berilmasa ikkalasi ham"
 // @Param        search       query  string  false  "Xodim ismi yoki telefoni bo'yicha qidiruv"
 // @Param        start_date   query  string  true   "Start Date (RFC3339, masalan 2026-08-03T00:00:00+05:00)"
 // @Param        end_date     query  string  false  "End Date (RFC3339)"
@@ -1105,6 +1107,53 @@ func (h *EmployeeHandler) AttendanceList(c *gin.Context) {
 	}
 
 	handleResponse(c, OK, utils.ListResponse(results, count, params.Limit, params.Offset))
+}
+
+// AttendanceStats godoc
+// @Summary      Attendance statistics
+// @Description  Bir kunlik davomat statistikasi. Do'konlar: jami / ochiq (kamida bitta xodimining oxirgi voqeasi check-in) / yopiq. Xodimlar: jami / working (hozir ishda) / left (kelib ketgan) / absent (umuman kelmagan) / came (working+left) / not_working (left+absent). Do'kon "ochiq" qoidasi xarita API'sidagi is_open bilan bir xil. date berilmasa bugungi kun (Toshkent) olinadi. Admin bo'lmagan foydalanuvchi faqat o'z kompaniyasi (va do'koni bo'lsa — o'z do'koni) bo'yicha ko'radi.
+// @Tags         employees
+// @Security     BearerAuth
+// @Accept       json
+// @Produce      json
+// @Param        date      query  string  false  "Sana (2006-01-02, default: bugun)"
+// @Param        store_id  query  string  false  "Store ID (bitta do'kon bo'yicha)"
+// @Success      200 {object} v1.Response
+// @Failure      400 {object} v1.Response
+// @Failure      401 {object} v1.Response
+// @Failure      500 {object} v1.Response
+// @Router       /employee/attendance/stats [get]
+func (h *EmployeeHandler) AttendanceStats(c *gin.Context) {
+	user := h.service.GetSignedUser(c)
+	if user.UserId == "" {
+		handleServiceResponse(c, nil, domain.UnauthorizedError)
+		return
+	}
+
+	var params domain.AttendanceStatsQueryParams
+	if err := c.ShouldBindQuery(&params); err != nil {
+		handleResponse(c, BadRequest, err.Error())
+		return
+	}
+
+	// Admin bo'lmasa faqat o'z kompaniyasi va o'z do'konini ko'radi
+	if !helper.IsAdmin(user) {
+		params.CompanyId = user.CompanyId
+		if user.StoreId != "" {
+			params.StoreId = user.StoreId
+		}
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
+	defer cancel()
+
+	res, err := h.service.GetAttendanceStats(ctx, &params)
+	if err != nil {
+		handleServiceResponse(c, nil, err)
+		return
+	}
+
+	handleResponse(c, OK, res)
 }
 
 // EmployeeAttendanceDayList godoc

@@ -45,14 +45,42 @@ type ManualCreateAttendanceLogRequest struct {
 // end_date berilmasa, start_date kuni yakunigacha (default 23:59) qamrab olinadi.
 // search — xodim ismi va telefoni bo'yicha bitta qidiruv (OR).
 type AttendanceLogQueryParams struct {
-	StoreId    string      `form:"store_id"`
-	EmployeeId string      `form:"employee_id"`
-	EventType  string      `form:"event_type"`
-	Search     string      `form:"search"`
-	StartDate  *CustomTime `form:"start_date"`
-	EndDate    *CustomTime `form:"end_date"`
-	Limit      int         `form:"limit"`
-	Offset     int         `form:"offset"`
+	StoreId      string      `form:"store_id"`
+	EmployeeId   string      `form:"employee_id"`
+	EventType    string      `form:"event_type"`
+	Search       string      `form:"search"`
+	StartDate    *CustomTime `form:"start_date"`
+	EndDate      *CustomTime `form:"end_date"`
+	IsAutoClosed *bool       `form:"is_auto_closed"`
+	Limit  int               `form:"limit"`
+	Offset int               `form:"offset"`
+}
+
+type AttendanceStatsQueryParams struct {
+	Date    string `form:"date"`
+	StoreId string `form:"store_id"`
+	CompanyId string `form:"-"`
+}
+
+type AttendanceStoreStats struct {
+	Total  int64 `json:"total"`
+	Open   int64 `json:"open"`
+	Closed int64 `json:"closed"`
+}
+
+type AttendanceEmployeeStats struct {
+	Total      int64 `json:"total"`
+	Working    int64 `json:"working"`
+	NotWorking int64 `json:"not_working"`
+	Came       int64 `json:"came"`
+	Left       int64 `json:"left"`
+	Absent     int64 `json:"absent"`
+}
+
+type AttendanceStats struct {
+	Date      string                  `json:"date"`
+	Stores    AttendanceStoreStats    `json:"stores"`
+	Employees AttendanceEmployeeStats `json:"employees"`
 }
 
 // AttendanceLogListItem — GET list javobi uchun, xodim va do'kon nomi bilan birga.

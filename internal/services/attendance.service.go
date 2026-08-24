@@ -231,6 +231,11 @@ func (s *Services) GetAttendanceLogList(ctx context.Context, params *domain.Atte
 		query = query.Where("al.event_type = ?", params.EventType)
 	}
 
+	if params.IsAutoClosed != nil {
+		countQuery = countQuery.Where("al.is_auto_closed = ?", *params.IsAutoClosed)
+		query = query.Where("al.is_auto_closed = ?", *params.IsAutoClosed)
+	}
+
 	if params.Search != "" {
 		countQuery = countQuery.Where("(e.full_name ILIKE ? OR e.phone ILIKE ?)", "%"+params.Search+"%", "%"+params.Search+"%")
 		query = query.Where("(e.full_name ILIKE ? OR e.phone ILIKE ?)", "%"+params.Search+"%", "%"+params.Search+"%")
@@ -280,6 +285,127 @@ func (s *Services) GetAttendanceLogList(ctx context.Context, params *domain.Atte
 	}
 
 	return results, total, nil
+}
+
+// GetAttendanceStats — bir kunlik davomat statistikasi: nechta do'kon ishlayapti /
+// ishlamayapti va nechta xodim ishda / kelib ketgan / umuman kelmagan.
+//
+// Har bir xodim uchun shu kundagi ENG OXIRGI voqea olinadi (DISTINCT ON) va
+// shunga qarab guruhlanadi — bu GetAllStoreMapInfo'dagi is_open qoidasi bilan
+// aynan bir xil, shuning uchun xarita va statistika bir-biriga zid bo'lmaydi.
+//
+// Doira: o'chirilmagan va faol do'konlar hamda ularga biriktirilgan faol
+// xodimlar. Do'konga biriktirilmagan xodim (store_id IS NULL) hisobga olinmaydi —
+// u check-in qila olmaydi va hech qaysi do'konning holatiga ta'sir qilmaydi.
+func (s *Services) GetAttendanceStats(
+	ctx context.Context, params *domain.AttendanceStatsQueryParams,
+) (*domain.AttendanceStats, error) {
+	date := params.Date
+	if date == "" {
+		date = time.Now().UTC().Add(domain.TashkentTimeDif).Format(constants.TimeOnlyDateFormat)
+	} else {
+		parsed, err := parseDateOnly(date)
+		if err != nil {
+			s.log.Errorf("attendance stats: invalid date: %v", err)
+			return nil, domain.InvalidTimeFormatError
+		}
+		date = parsed
+	}
+
+	// Do'kon filtri — matn qismi shu yerdagi doimiy satrlardan yig'iladi,
+	// foydalanuvchi kiritmasi faqat args orqali o'tadi.
+	storeFilter := "TRUE"
+	args := []any{}
+
+	if params.CompanyId != "" {
+		storeFilter += " AND company_id = ?"
+		args = append(args, params.CompanyId)
+	}
+	if params.StoreId != "" {
+		storeFilter += " AND id = ?"
+		args = append(args, params.StoreId)
+	}
+
+	args = append(args, constants.GeneralStatusActive, date)
+
+	query := fmt.Sprintf(`
+		WITH scope_stores AS (
+		    SELECT id
+		    FROM stores
+		    WHERE deleted_at IS NULL
+		      AND is_active = TRUE
+		      AND %s
+		),
+		scope_employees AS (
+		    SELECT e.id, e.store_id
+		    FROM employees e
+		    JOIN scope_stores ss ON ss.id = e.store_id
+		    WHERE e.deleted_at IS NULL
+		      AND e.status = ?
+		),
+		latest AS (
+		    SELECT DISTINCT ON (al.employee_id)
+		        al.employee_id,
+		        al.event_type
+		    FROM attendance_logs al
+		    JOIN scope_employees se ON se.id = al.employee_id
+		    WHERE (al.event_at AT TIME ZONE 'Asia/Tashkent')::date = ?::date
+		    ORDER BY al.employee_id, al.event_at DESC, al.id DESC
+		),
+		emp AS (
+		    SELECT
+		        COUNT(*)                                                       AS employee_total,
+		        COUNT(*) FILTER (WHERE l.event_type = 'check-in')              AS employee_working,
+		        COUNT(*) FILTER (WHERE l.event_type = 'check-out')             AS employee_left,
+		        COUNT(*) FILTER (WHERE l.employee_id IS NULL)                  AS employee_absent
+		    FROM scope_employees se
+		    LEFT JOIN latest l ON l.employee_id = se.id
+		)
+		SELECT
+		    (SELECT COUNT(*) FROM scope_stores) AS store_total,
+		    (
+		        SELECT COUNT(DISTINCT se.store_id)
+		        FROM scope_employees se
+		        JOIN latest l ON l.employee_id = se.id
+		        WHERE l.event_type = 'check-in'
+		    ) AS store_open,
+		    emp.employee_total,
+		    emp.employee_working,
+		    emp.employee_left,
+		    emp.employee_absent
+		FROM emp
+	`, storeFilter)
+
+	var row struct {
+		StoreTotal      int64 `gorm:"column:store_total"`
+		StoreOpen       int64 `gorm:"column:store_open"`
+		EmployeeTotal   int64 `gorm:"column:employee_total"`
+		EmployeeWorking int64 `gorm:"column:employee_working"`
+		EmployeeLeft    int64 `gorm:"column:employee_left"`
+		EmployeeAbsent  int64 `gorm:"column:employee_absent"`
+	}
+
+	if err := s.db.WithContext(ctx).Raw(query, args...).Scan(&row).Error; err != nil {
+		s.log.Errorf("could not get attendance stats: %v", err)
+		return nil, domain.InternalServerError
+	}
+
+	return &domain.AttendanceStats{
+		Date: date,
+		Stores: domain.AttendanceStoreStats{
+			Total:  row.StoreTotal,
+			Open:   row.StoreOpen,
+			Closed: row.StoreTotal - row.StoreOpen,
+		},
+		Employees: domain.AttendanceEmployeeStats{
+			Total:      row.EmployeeTotal,
+			Working:    row.EmployeeWorking,
+			NotWorking: row.EmployeeTotal - row.EmployeeWorking,
+			Came:       row.EmployeeWorking + row.EmployeeLeft,
+			Left:       row.EmployeeLeft,
+			Absent:     row.EmployeeAbsent,
+		},
+	}, nil
 }
 
 // AggregateEmployeeAttendanceDays — har kuni cron orqali chaqiriladi. Kechagi kun (Toshkent

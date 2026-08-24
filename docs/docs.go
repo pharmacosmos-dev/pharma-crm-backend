@@ -5611,7 +5611,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Create a new employee in the system",
+                "description": "Create a new employee in the system.",
                 "consumes": [
                     "application/json"
                 ],
@@ -6042,6 +6042,12 @@ const docTemplate = `{
                         "in": "query"
                     },
                     {
+                        "type": "boolean",
+                        "description": "true — faqat cron avtomatik yopgan check-out'lar, false — faqat xodim o'zi bosganlar, berilmasa ikkalasi ham",
+                        "name": "is_auto_closed",
+                        "in": "query"
+                    },
+                    {
                         "type": "string",
                         "description": "Xodim ismi yoki telefoni bo'yicha qidiruv",
                         "name": "search",
@@ -6070,6 +6076,66 @@ const docTemplate = `{
                         "type": "integer",
                         "description": "Offset",
                         "name": "offset",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/employee/attendance/stats": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Bir kunlik davomat statistikasi. Do'konlar: jami / ochiq (kamida bitta xodimining oxirgi voqeasi check-in) / yopiq. Xodimlar: jami / working (hozir ishda) / left (kelib ketgan) / absent (umuman kelmagan) / came (working+left) / not_working (left+absent). Do'kon \"ochiq\" qoidasi xarita API'sidagi is_open bilan bir xil. date berilmasa bugungi kun (Toshkent) olinadi. Admin bo'lmagan foydalanuvchi faqat o'z kompaniyasi (va do'koni bo'lsa — o'z do'koni) bo'yicha ko'radi.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "employees"
+                ],
+                "summary": "Attendance statistics",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Sana (2006-01-02, default: bugun)",
+                        "name": "date",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Store ID (bitta do'kon bo'yicha)",
+                        "name": "store_id",
                         "in": "query"
                     }
                 ],
@@ -7056,7 +7122,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Update an employee",
+                "description": "Update an employee.",
                 "consumes": [
                     "application/json"
                 ],
