@@ -80,11 +80,24 @@ type EmployeeRequest struct {
 	Birthdate       string         `gorm:"birthdate" json:"birthdate"`
 	StartDate       *string        `gorm:"start_date" json:"start_date"`
 	EndDate         *string        `gorm:"end_date" json:"end_date"`
-	Salary          float64        `gorm:"salary" json:"salary" binding:"required,min=100000,max=20000000"`
-	AvgMonthlyHours float64        `gorm:"avg_monthly_hours" json:"avg_monthly_hours"`
-	KpiPercent      *float64       `gorm:"kpi_percent" json:"kpi_percent" binding:"required,min=0,max=20"`
-	ExperienceYears float64        `gorm:"experience_years" json:"experience_years"`
+	// Bu to'rttasi pointer: 0 ham haqiqiy qiymat bo'lgani uchun "yuborilmagan"
+	// holatni faqat nil orqali ajratib bo'ladi. Create'da salary va kpi_percent
+	// majburiy, Update'da esa nil bo'lsa bazadagi qiymat o'zgarmay qoladi.
+	Salary          *float64 `gorm:"salary" json:"salary"`
+	AvgMonthlyHours *float64 `gorm:"avg_monthly_hours" json:"avg_monthly_hours"`
+	KpiPercent      *float64 `gorm:"kpi_percent" json:"kpi_percent"`
+	ExperienceYears *float64 `gorm:"experience_years" json:"experience_years"`
 }
+
+// Xodim yaratishda salary va kpi_percent uchun ruxsat etilgan chegaralar.
+// Update'da tekshirilmaydi — u yerda maydonlar ixtiyoriy.
+const (
+	EmployeeSalaryMin = 100_000.0
+	EmployeeSalaryMax = 20_000_000.0
+
+	EmployeeKpiPercentMin = 0.0
+	EmployeeKpiPercentMax = 20.0
+)
 
 // Reset password request
 type ResetPasswordRequest struct {

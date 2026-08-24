@@ -62,6 +62,15 @@ func (h *EmployeeHandler) EmployeeRoutes(r *gin.RouterGroup) {
 	}
 }
 
+// floatOrZero — nil bo'lsa 0 ko'rsatuvchi pointer qaytaradi (NOT NULL ustunlar uchun).
+func floatOrZero(v *float64) *float64 {
+	if v != nil {
+		return v
+	}
+	zero := 0.0
+	return &zero
+}
+
 // @Summary      Create employee
 // @Description  Create a new employee in the system.
 // @Tags         employees
@@ -90,6 +99,31 @@ func (h *EmployeeHandler) Create(c *gin.Context) {
 		handleResponse(c, BadRequest, "Invalid phone number, Format: 998901234567")
 		return
 	}
+
+	if body.Salary == nil ||
+		*body.Salary < domain.EmployeeSalaryMin ||
+		*body.Salary > domain.EmployeeSalaryMax {
+		handleResponse(c, BadRequest, fmt.Sprintf(
+			"salary is required and must be between %.0f and %.0f",
+			domain.EmployeeSalaryMin, domain.EmployeeSalaryMax,
+		))
+		return
+	}
+
+	if body.KpiPercent == nil ||
+		*body.KpiPercent < domain.EmployeeKpiPercentMin ||
+		*body.KpiPercent > domain.EmployeeKpiPercentMax {
+		handleResponse(c, BadRequest, fmt.Sprintf(
+			"kpi_percent is required and must be between %.0f and %.0f",
+			domain.EmployeeKpiPercentMin, domain.EmployeeKpiPercentMax,
+		))
+		return
+	}
+
+	// avg_monthly_hours va experience_years ixtiyoriy, ustunlar esa NOT NULL —
+	// yuborilmasa 0 bilan to'ldiriladi (aks holda GORM NULL yozmoqchi bo'ladi).
+	body.AvgMonthlyHours = floatOrZero(body.AvgMonthlyHours)
+	body.ExperienceYears = floatOrZero(body.ExperienceYears)
 
 	hashedPassword, err := etc.Encrypt(*body.Password, h.cfg.HashKey)
 	if err != nil {
@@ -383,10 +417,22 @@ func (h *EmployeeHandler) Update(c *gin.Context) {
 		"store_ids":         body.StoreIds,
 		"start_date":        body.StartDate,
 		"end_date":          body.EndDate,
-		"salary":            body.Salary,
-		"avg_monthly_hours": body.AvgMonthlyHours,
-		"kpi_percent":       *body.KpiPercent,
-		"experience_years":  body.ExperienceYears,
+	}
+
+	// salary, avg_monthly_hours, kpi_percent, experience_years — Update'da ixtiyoriy:
+	// so'rovda bo'lmasa (nil) bazadagi mavjud qiymat o'zgarmay qoladi. Ustunlar
+	// NOT NULL bo'lgani uchun ularga NULL yozib bo'lmaydi ham.
+	if body.Salary != nil {
+		updateData["salary"] = *body.Salary
+	}
+	if body.AvgMonthlyHours != nil {
+		updateData["avg_monthly_hours"] = *body.AvgMonthlyHours
+	}
+	if body.KpiPercent != nil {
+		updateData["kpi_percent"] = *body.KpiPercent
+	}
+	if body.ExperienceYears != nil {
+		updateData["experience_years"] = *body.ExperienceYears
 	}
 
 	if body.Password != nil {
