@@ -24,26 +24,17 @@ func (AttendanceLog) TableName() string {
 	return "attendance_logs"
 }
 
-// CreateAttendanceLogRequest — check-in/check-out yaratish so'rovi.
-// event_type qat'iy "check-in" yoki "check-out" bo'lishi kerak.
 type CreateAttendanceLogRequest struct {
 	EventType string `json:"event_type" binding:"required" example:"check-in"`
 	FaceIdUrl string `json:"face_id_url"`
 }
 
-// ManualCreateAttendanceLogRequest — admin tomonidan xodim uchun qo'lda check-in/check-out
-// yozuvi qo'shish so'rovi (face id orqali belgilash ishlamay qolgan hollar uchun).
-// event_type qat'iy "check-in" yoki "check-out" bo'lishi kerak.
 type ManualCreateAttendanceLogRequest struct {
 	EmployeeId string    `json:"employee_id" binding:"required" example:"cd378978-2454-4c55-b5a4-3c3267d1c4c4"`
 	EventType  string    `json:"event_type" binding:"required" example:"check-in"`
 	EventAt    time.Time `json:"event_at" binding:"required" example:"2026-08-03T15:34:27+05:00"`
 }
 
-// AttendanceLogQueryParams — check-in/check-out ro'yxati uchun filter parametrlari.
-// start_date va end_date DashboardQueryParam/SaleStatistic bilan bir xil ishlaydi:
-// end_date berilmasa, start_date kuni yakunigacha (default 23:59) qamrab olinadi.
-// search — xodim ismi va telefoni bo'yicha bitta qidiruv (OR).
 type AttendanceLogQueryParams struct {
 	StoreId      string      `form:"store_id"`
 	EmployeeId   string      `form:"employee_id"`
@@ -99,10 +90,6 @@ type AttendanceLogListItem struct {
 	UpdatedAt     *time.Time `json:"updated_at"`
 }
 
-// EmployeeAttendanceDayQueryParams — kunlik davomat (employee_attendance_days) ro'yxati
-// uchun filter parametrlari. start_date/end_date "2006-01-02" formatida yoki vaqt bilan
-// (RFC3339) yuborilishi mumkin, work_date bo'yicha oraliq filtri (ikkalasi ham ixtiyoriy,
-// mustaqil qo'llanadi). search — xodim ismi va telefoni bo'yicha bitta qidiruv (OR).
 type EmployeeAttendanceDayQueryParams struct {
 	StoreId    string `form:"store_id"`
 	EmployeeId string `form:"employee_id"`
@@ -135,11 +122,6 @@ type EmployeeAttendanceDayListItem struct {
 	UpdatedAt        *time.Time `json:"updated_at"`
 }
 
-// StoreWorkingHoursQueryParams — do'konning xodimlar check-in/check-out voqealari
-// asosida hisoblangan "ish vaqti" hisobotini olish uchun filter parametrlari.
-// start_date va end_date SaleStatistic bilan bir xil ishlaydi: end_date berilmasa,
-// start_date kuni yakunigacha (default 23:59) qamrab olinadi. search — do'kon nomi
-// bo'yicha qidiruv.
 type StoreWorkingHoursQueryParams struct {
 	StoreId   string      `form:"store_id"`
 	Search    string      `form:"search"`
@@ -149,12 +131,6 @@ type StoreWorkingHoursQueryParams struct {
 	Offset    int         `form:"offset"`
 }
 
-// StoreWorkingHoursListItem — bitta do'konning bitta kundagi (Toshkent vaqti bo'yicha)
-// ish vaqti natijasi. worked_minutes/worked_hours — o'sha kunda kamida bitta xodim
-// check-in qilgan vaqt oralig'i (bir nechta xodimning ustma-ust tushgan smenalari
-// ikki marta hisoblanmaydi — barcha oraliqlar birlashtirilgan holda hisoblanadi).
-// open_date/close_date — shu kunda xodimlar orasida eng birinchi kelgan (check-in)
-// va eng oxirgi ketgan (check-out) vaqti.
 type StoreWorkingHoursListItem struct {
 	StoreId       string     `json:"store_id"`
 	StoreName     string     `json:"store_name"`
