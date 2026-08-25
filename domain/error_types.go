@@ -81,6 +81,7 @@ var (
 	UnfinishedTransferOrReturnError      = NewError(http.StatusConflict, "unfinished.transfer.or.return")
 	ActiveInventoryError                 = NewError(http.StatusConflict, "active.inventory.exists")
 	AttendanceAlreadyCheckedInError      = NewError(http.StatusConflict, "attendance.already.checked_in")
+	MarkingAlreadySoldError              = NewError(http.StatusConflict, "marking.already.sold")
 
 	// 202 – Accepted (so’rov qabul qilindi, tolov noaniq)
 	PaymePendingError = NewError(http.StatusAccepted, "payme.payment.pending")

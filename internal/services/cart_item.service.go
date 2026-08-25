@@ -38,6 +38,12 @@ func (s *Services) CreateCartItem(ctx context.Context, req *domain.CartItemReque
 		return nil, domain.SaleIsClosedError
 	}
 
+	// check if marking was already sold in a finished sale
+	if err = s.checkMarkingNotSold(ctx, tx, req.Marking); err != nil {
+		_ = tx.Rollback()
+		return nil, err
+	}
+
 	storeProduct, err := s.GetStoreProductByIdAndStoreId(ctx, tx, req.StoreProductId, sale.StoreId, req.Barcode)
 	if err != nil {
 		_ = tx.Rollback()
@@ -772,6 +778,11 @@ func (s *Services) UpdateCartItemMarkings(ctx context.Context, id string, req *d
 		return domain.AlreadyExistsError
 	}
 
+	// check if marking was already sold in a finished sale
+	if err = s.checkMarkingNotSold(ctx, s.db, req.Marking); err != nil {
+		return err
+	}
+
 	// append new marking
 	err = s.db.Model(&cartItem).Update("markings", gorm.Expr("array_append(markings, ?)", req.Marking)).Error
 	if err != nil {
@@ -780,6 +791,39 @@ func (s *Services) UpdateCartItemMarkings(ctx context.Context, id string, req *d
 	}
 
 	return nil
+}
+
+
+func (s *Services) checkMarkingNotSold(ctx context.Context, tx *gorm.DB, marking string) error {
+	if marking == "" {
+		return nil
+	}
+
+	query := `
+	SELECT
+		s.sale_number
+	FROM cart_items AS ci
+	JOIN sales AS s ON s.id = ci.sale_id
+	JOIN products AS p ON p.id = ci.product_id
+	WHERE ci.markings @> ARRAY[?]::text[]
+		AND s.stage = ?
+		AND p.unit_per_pack = 1
+	LIMIT 1;`
+
+	var saleNumber int
+	result := tx.WithContext(ctx).Raw(query, marking, constants.SaleStageFinished).Scan(&saleNumber)
+	if result.Error != nil {
+		s.log.Errorf("could not check sold marking: %v", result.Error)
+		return domain.InternalServerError
+	}
+	if result.RowsAffected == 0 {
+		return nil
+	}
+
+	return domain.NewError(
+		domain.MarkingAlreadySoldError.Code,
+		fmt.Sprintf("%s:%d", domain.MarkingAlreadySoldError.Message, saleNumber),
+	)
 }
 
 func (s *Services) IncrementCartItemQuantity(ctx context.Context, tx *gorm.DB, id string, quantity int, totalPrice float64) (*domain.CartItem, error) {
