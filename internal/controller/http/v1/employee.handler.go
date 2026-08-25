@@ -100,28 +100,10 @@ func (h *EmployeeHandler) Create(c *gin.Context) {
 		return
 	}
 
-	if body.Salary == nil ||
-		*body.Salary < domain.EmployeeSalaryMin ||
-		*body.Salary > domain.EmployeeSalaryMax {
-		handleResponse(c, BadRequest, fmt.Sprintf(
-			"salary is required and must be between %.0f and %.0f",
-			domain.EmployeeSalaryMin, domain.EmployeeSalaryMax,
-		))
-		return
-	}
-
-	if body.KpiPercent == nil ||
-		*body.KpiPercent < domain.EmployeeKpiPercentMin ||
-		*body.KpiPercent > domain.EmployeeKpiPercentMax {
-		handleResponse(c, BadRequest, fmt.Sprintf(
-			"kpi_percent is required and must be between %.0f and %.0f",
-			domain.EmployeeKpiPercentMin, domain.EmployeeKpiPercentMax,
-		))
-		return
-	}
-
-	// avg_monthly_hours va experience_years ixtiyoriy, ustunlar esa NOT NULL —
+	// salary, kpi_percent, avg_monthly_hours, experience_years ixtiyoriy, ustunlar esa NOT NULL —
 	// yuborilmasa 0 bilan to'ldiriladi (aks holda GORM NULL yozmoqchi bo'ladi).
+	body.Salary = floatOrZero(body.Salary)
+	body.KpiPercent = floatOrZero(body.KpiPercent)
 	body.AvgMonthlyHours = floatOrZero(body.AvgMonthlyHours)
 	body.ExperienceYears = floatOrZero(body.ExperienceYears)
 
