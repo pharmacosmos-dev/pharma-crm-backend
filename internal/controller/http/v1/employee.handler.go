@@ -1296,8 +1296,10 @@ func (h *EmployeeHandler) StorePayrollList(c *gin.Context) {
 }
 
 // EmployeePayrollList godoc
-// @Summary      Payroll by employeesloyee_payrolls jadvalidan olinadi. year/
+// @Summary      Payroll by employees
 // @Description  Xodimlarning oylik ko'rsatkichlari (ishlagan soati, oylik, KPI, bonus, avans, ushlab qolishlar).
+// @Description  Ro'yxatga faqat faol xodimlar kiradi: is_active, status = "active" va roli "Кассир" yoki "Заведующий".
+// @Description  year/month berilmasa joriy oy olinadi; o'sha oy uchun employee_payrolls'da snapshot bo'lsa o'sha qaytadi, bo'lmasa jonli hisoblanadi.
 // @Tags         employees
 // @Security     BearerAuth
 // @Accept       json
@@ -1352,7 +1354,9 @@ func (h *EmployeeHandler) EmployeePayrollList(c *gin.Context) {
 
 // MyPayroll godoc
 // @Summary      My payroll
-// @Description  Token egasining o'z oylik ko'rsatkichlari: ism-familiyasi, do'koni va shu oy uchun umumiy ma'lumotlar (qancha ishladi, oylik, KPI, bonus, avans, ushlab qolishlar, qo'lga tegadigan summa). Joriy oy so'ralsa jonli hisoblanadi (oy boshidan bugungi kungacha), o'tgan oy so'ralsa employee_payrolls'dan olinadi.
+// @Description  Token egasining o'z oylik ko'rsatkichlari: ism-familiyasi, do'koni va shu oy uchun umumiy ma'lumotlar (qancha ishladi, oylik, KPI, bonus, avans, ushlab qolishlar, qo'lga tegadigan summa).
+// @Description  So'ralgan oy uchun employee_payrolls'da snapshot bo'lsa o'sha qaytadi (avans va ushlab qolishlar bilan), bo'lmasa jonli hisoblanadi (oy boshidan bugungi kungacha).
+// @Description  Xodim id token'dan olinadi — birovning oyligini so'rab bo'lmaydi. Xodim nofaol bo'lsa 404.
 // @Tags         employees
 // @Security     BearerAuth
 // @Accept       json

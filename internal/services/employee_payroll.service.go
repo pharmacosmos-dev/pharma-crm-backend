@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/lib/pq"
 	"github.com/pharma-crm-backend/domain"
 	"github.com/pharma-crm-backend/domain/constants"
 	"gorm.io/gorm"
@@ -14,17 +15,17 @@ import (
 
 // Xodimlarning oylik ish haqi hisoboti (payroll).
 //
-// Ma'lumot ikkita manbadan keladi, tanlov so'ralgan davrga bog'liq:
+// Ma'lumot ikkita manbadan keladi:
 //
-//	Joriy oy  → manba jadvallardan JONLI hisoblanadi (oy boshidan bugungi kungacha)
-//	O'tgan oy → employee_payrolls'dan O'QILADI (snapshot)
+//	Snapshot bor  → employee_payrolls'dan O'QILADI (muzlatilgan qiymat)
+//	Snapshot yo'q → manba jadvallardan JONLI hisoblanadi
 //
-// Snapshot'ni AutoCreateMonthlyPayrolls cron'i har oyning 1-kuni yozadi — xuddi
-// store_target'lardagi kabi. Ikkala yo'l ham bir xil domain.EmployeePayrollRow
-// qaytaradi, shuning uchun handler uchun farqi yo'q; javobdagi period.is_live
-// qaysi yo'l ishlaganini ko'rsatadi.
+// Snapshot'ni AutoCreateMonthlyPayrolls cron'i har oyning 1-kuni yozadi (xuddi
+// store_target'lardagi kabi), shuning uchun amalda joriy oy jonli, o'tgan oylar
+// snapshot'dan keladi. Ikkala yo'l ham bir xil domain.EmployeePayrollRow
+// qaytaradi, handler uchun farqi yo'q.
 //
-// Hisob-kitob formulalari (yagona manba — payrollCalcQuery, fayl oxirida):
+// Hisob-kitob formulalari:
 //
 //	worked_hours         = SUM(employee_attendance_days.worked_minutes) / 60
 //	individual_sales     = SUM(employee_attendance_days.sales_amount)
@@ -35,25 +36,18 @@ import (
 //	net_pay_amount       = gross - (avanslar + ushlab qolishlar)
 //
 // Avans va ushlab qolishlar qo'lda kiritiladi, manba jadvali yo'q. Shu sababli
-// jonli hisobda ular doim 0 (ya'ni net = gross), o'tgan oylarda esa
-// employee_payrolls'dagi saqlangan qiymat ishlatiladi.
+// jonli hisobda ular doim 0 (ya'ni net = gross), snapshot'da esa saqlangan
+// qiymat ishlatiladi.
+//
+// Butun fayl bitta SQL so'roviga tayanadi — employeePayrollsQuery. Undan
+// foydalanadigan to'rtta joy bor, farqi faqat payrollFilter'da:
+//
+//	GetEmployeePayrolls      — xodimlar ro'yxati (sahifalangan, rol filtri bilan)
+//	GetMyPayroll             — bitta xodim, rol filtrisiz
+//	GetStorePayrolls         — sahifadagi do'konlarning barcha xodimlari
+//	AutoCreateMonthlyPayrolls— barcha xodimlar (snapshot yozish uchun)
 
 // region Types
-
-// payrollScope — so'rovning WHERE qismi: hisobot qaysi xodimlarni qamraydi.
-//
-// Jonli hisob `employees e` jadvalidan, saqlangan hisob `employee_payrolls p`
-// jadvalidan filtrlanadi — ustun nomlari boshqacha, shuning uchun ikkita alohida
-// SQL bo'lagi kerak. Parametrlar ikkalasi uchun bir xil, shuning uchun bitta
-// joyda turadi va tartibi adashmaydi.
-//
-// Bu bo'laklar faqat shu fayldagi doimiy satrlar — foydalanuvchi kiritmasi hech
-// qachon SQL matniga qo'shilmaydi, u faqat args orqali o'tadi.
-type payrollScope struct {
-	employeesWhere string // `employees e` uchun
-	payrollsWhere  string // `employee_payrolls p` uchun
-	args           []any
-}
 
 // storeRef — sahifalangan do'kon ro'yxati uchun minimal ma'lumot.
 type storeRef struct {
@@ -61,48 +55,41 @@ type storeRef struct {
 	Name string `gorm:"column:name"`
 }
 
-// scopeAllEmployees — barcha faol xodimlar (cron uchun).
-func scopeAllEmployees() payrollScope {
-	return payrollScope{
-		employeesWhere: "TRUE",
-		payrollsWhere:  "TRUE",
-	}
+// employeePayrollPageRow — employeePayrollsQuery natijasining bitta qatori:
+// hisobot maydonlari + umumiy son. total_count har bir qatorda bir xil
+// (COUNT(*) OVER ()) va faqat pagination uchun kerak, shuning uchun javobga
+// chiqmaydi — domain.EmployeePayrollRow o'zgarishsiz qoladi.
+type employeePayrollPageRow struct {
+	domain.EmployeePayrollRow `gorm:"embedded"`
+
+	TotalCount int64 `gorm:"column:total_count"`
 }
 
-// scopeByStores — berilgan do'konlarning xodimlari.
-func scopeByStores(storeIds []string) payrollScope {
-	return payrollScope{
-		employeesWhere: "e.store_id IN ?",
-		payrollsWhere:  "p.store_id IN ?",
-		args:           []any{storeIds},
-	}
-}
-
-// scopeByCompany — bitta kompaniyaning faol do'konlaridagi xodimlar.
+// payrollFilter — employeePayrollsQuery'ning doirasi: kim, qanchasi.
 //
-// Do'kon filtri paginateStores'dagi bilan bir xil (o'chirilmagan va faol), shu
-// sababli do'konlar ro'yxati API'sida ko'rinmaydigan do'konning xodimi bu yerda
-// ham chiqmaydi.
-func scopeByCompany(companyId string) payrollScope {
-	const storesOfCompany = `IN (
-		SELECT id FROM stores
-		WHERE company_id = ? AND deleted_at IS NULL AND is_active = TRUE
-	)`
-
-	return payrollScope{
-		employeesWhere: "e.store_id " + storesOfCompany,
-		payrollsWhere:  "p.store_id " + storesOfCompany,
-		args:           []any{companyId},
-	}
+// Bo'sh maydon = "bu bo'yicha filtrlamaslik", shuning uchun har bir chaqiruv
+// faqat o'ziga keraklisini to'ldiradi.
+type payrollFilter struct {
+	EmployeeId string   // bitta xodim
+	StoreIds   []string // shu do'konlarning xodimlari
+	CompanyId  string   // bitta kompaniya
+	Roles      []string // xodimda shu rollardan biri bo'lishi shart
+	Limit      int      // 0 = cheklovsiz
+	Offset     int
 }
 
-// scopeByEmployee — bitta xodim.
-func scopeByEmployee(employeeId string) payrollScope {
-	return payrollScope{
-		employeesWhere: "e.id = ?",
-		payrollsWhere:  "p.employee_id = ?",
-		args:           []any{employeeId},
+// payrollSalesRoles — savdo nuqtasida ishlaydigan rollar. Xodimlar hisoboti
+// (GetEmployeePayrolls) faqat shularni ko'rsatadi; o'z oyligini ko'rishda
+// (GetMyPayroll) rol tekshirilmaydi, aks holda menejer o'z oyligini ko'ra olmasdi.
+var payrollSalesRoles = []string{constants.RoleNameCashier, constants.RoleNameZavStore}
+
+// nullIfEmpty — bo'sh satrni SQL NULL'ga aylantiradi: "filtr berilmagan" degani.
+// So'rovda `@x IS NULL OR ustun = @x` shaklida ishlatiladi.
+func nullIfEmpty(value string) *string {
+	if value == "" {
+		return nil
 	}
+	return &value
 }
 
 // region Get
@@ -114,6 +101,10 @@ func scopeByEmployee(employeeId string) payrollScope {
 // Pagination xodimlarga emas, DO'KONLARGA qo'yiladi: avval bir sahifa do'kon
 // tanlanadi, keyin faqat o'sha do'konlarning xodimlari bitta so'rov bilan
 // olinadi va do'kon yig'indisiga qo'shiladi.
+//
+// Bu yerda rol filtri YO'Q: do'kon yig'indisiga uning barcha faol xodimlari
+// kiradi, faqat kassir va zav emas. Shu sababli do'kon summasi
+// GetEmployeePayrolls qaytaradigan qatorlar yig'indisidan katta bo'lishi mumkin.
 func (s *Services) GetStorePayrolls(
 	ctx context.Context, params *domain.EmployeePayrollQueryParams,
 ) ([]domain.StorePayroll, int64, domain.PayrollPeriod, error) {
@@ -131,12 +122,14 @@ func (s *Services) GetStorePayrolls(
 		return []domain.StorePayroll{}, totalCount, period, nil
 	}
 
-	rows, err := s.payrollRows(ctx, period, scopeByStores(storeIdsOf(stores)))
+	// Limit yo'q: sahifadagi do'konlarning BARCHA xodimlari kerak, aks holda
+	// yig'indi to'liq chiqmaydi.
+	page, err := s.payrollPage(ctx, period, payrollFilter{StoreIds: storeIdsOf(stores)})
 	if err != nil {
 		return nil, 0, period, err
 	}
 
-	storePayrolls := buildStorePayrolls(stores, rows)
+	storePayrolls := buildStorePayrolls(stores, payrollRowsOf(page))
 
 	// Yig'indilar allaqachon hisoblangan — javobda faqat do'kon qatorlari qoladi.
 	// Xodimlar ro'yxati GetEmployeePayrolls orqali alohida so'raladi.
@@ -147,19 +140,23 @@ func (s *Services) GetStorePayrolls(
 	return storePayrolls, totalCount, period, nil
 }
 
-// GetEmployeePayrolls — bitta do'kon xodimlarining oylik hisoboti.
+// GetEmployeePayrolls — xodimlarning oylik hisoboti: BITTA SQL so'rov, sahifasi
+// va umumiy soni bilan birga.
 //
-// Hisob-kitob GetStorePayrolls bilan AYNAN bir xil yo'ldan boradi: do'kon o'sha
-// paginateStores filtri bilan tekshiriladi, so'ng o'sha payrollRows chaqiriladi
-// (joriy oy → jonli hisob, o'tgan oy → employee_payrolls snapshot'i). Farqi
-// faqat javob shaklida: do'kon yig'indisi emas, xodim qatorlari qaytadi.
+// So'rov bosqichma-bosqich o'qiladi (employeePayrollsQuery ham shu tartibda):
 //
-// store_id ixtiyoriy: berilsa faqat o'sha do'kon xodimlari, berilmasa doira
-// employeePayrollScope orqali aniqlanadi (kompaniya yoki barcha xodimlar).
+//	1) page   — kim hisobotga kiradi va SHU sahifada qaysi xodimlar bor
+//	2) totals — faqat sahifadagi xodimlar uchun davomat, bonus, do'kon plani
+//	3) calc   — formulalar (actual_salary, kpi_amount)
+//	4) SELECT — snapshot bo'lsa o'sha, bo'lmasa jonli hisob qaytadi
 //
-// Pagination xodimlarga qo'yiladi va xotirada bajariladi — hisob so'rovi
-// GetStorePayrolls bilan bitta bo'lib qolishi uchun unga LIMIT/OFFSET
-// qo'shilmaydi.
+// Filtrlar: store_id berilsa o'sha do'kon, company_id berilsa o'sha kompaniya,
+// ikkalasi ham bo'lmasa (admin) barcha xodimlar. Ro'yxatga faqat faol xodimlar
+// kiradi — is_active, status = 'active' va roli "Кассир" yoki "Заведующий".
+//
+// Yuk kam: yig'indilar butun jadval bo'ylab emas, sahifadagi ~20 xodim uchun
+// index orqali o'qiladi; umumiy son COUNT(*) OVER () bilan o'sha so'rovdan
+// keladi, alohida COUNT so'rovi yo'q.
 func (s *Services) GetEmployeePayrolls(
 	ctx context.Context, params *domain.EmployeePayrollQueryParams,
 ) ([]domain.EmployeePayrollRow, int64, domain.PayrollPeriod, error) {
@@ -169,23 +166,38 @@ func (s *Services) GetEmployeePayrolls(
 		return nil, 0, period, domain.BadRequestError
 	}
 
-	scope, found, err := s.employeePayrollScope(ctx, params)
+	filter := payrollFilter{
+		CompanyId: params.CompanyId,
+		Roles:     payrollSalesRoles,
+		Limit:     params.Limit,
+		Offset:    params.Offset,
+	}
+	if params.StoreId != "" {
+		filter.StoreIds = []string{params.StoreId}
+	}
+
+	page, err := s.payrollPage(ctx, period, filter)
 	if err != nil {
 		return nil, 0, period, err
 	}
-	if !found {
-		return []domain.EmployeePayrollRow{}, 0, period, nil
+
+	// Umumiy son har bir qatorda takrorlanadi (COUNT(*) OVER ()), shuning uchun
+	// birinchisidan olinadi. Sahifa bo'sh bo'lsa — 0.
+	var totalCount int64
+	if len(page) > 0 {
+		totalCount = page[0].TotalCount
 	}
 
-	rows, err := s.payrollRows(ctx, period, scope)
-	if err != nil {
-		return nil, 0, period, err
-	}
-
-	return pagePayrollRows(rows, params.Limit, params.Offset), int64(len(rows)), period, nil
+	return payrollRowsOf(page), totalCount, period, nil
 }
 
 // GetMyPayroll — token egasining o'z oyligi.
+//
+// GetEmployeePayrolls bilan bir xil so'rovdan oziqlanadi, farqi faqat doirada:
+// bitta xodim va rol filtri yo'q — xodim qaysi lavozimda bo'lishidan qat'i nazar
+// o'z oyligini ko'ra oladi.
+//
+// Xodim topilmasa 404: bunga u nofaol (is_active/status) bo'lgan holat ham kiradi.
 func (s *Services) GetMyPayroll(
 	ctx context.Context, employeeId string, year, month int,
 ) (*domain.MyPayrollResponse, error) {
@@ -195,15 +207,58 @@ func (s *Services) GetMyPayroll(
 		return nil, domain.BadRequestError
 	}
 
-	rows, err := s.payrollRows(ctx, period, scopeByEmployee(employeeId))
+	page, err := s.payrollPage(ctx, period, payrollFilter{EmployeeId: employeeId, Limit: 1})
 	if err != nil {
 		return nil, err
 	}
-	if len(rows) == 0 {
+	if len(page) == 0 {
 		return nil, domain.NotFoundError
 	}
 
-	return &domain.MyPayrollResponse{Period: period, Payroll: rows[0]}, nil
+	return &domain.MyPayrollResponse{Period: period, Payroll: page[0].EmployeePayrollRow}, nil
+}
+
+// payrollPage — employeePayrollsQuery'ni bajaradigan YAGONA joy.
+//
+// Nomlangan parametrlar ishlatiladi: tartib emas, nom bo'yicha mos keladi —
+// SQL o'zgarsa argumentlar adashmaydi. Bo'sh filtrlar NULL bo'lib ketadi va
+// so'rovda o'sha shart o'tkazib yuboriladi.
+func (s *Services) payrollPage(
+	ctx context.Context, period domain.PayrollPeriod, filter payrollFilter,
+) ([]employeePayrollPageRow, error) {
+	var page []employeePayrollPageRow
+
+	err := s.db.WithContext(ctx).Raw(employeePayrollsQuery, map[string]any{
+		"from":        period.From,
+		"to":          period.To,
+		"year":        period.Year,
+		"month":       period.Month,
+		"status":      constants.GeneralStatusActive,
+		"draft":       domain.EmployeePayrollStatusDraft,
+		"employee_id": nullIfEmpty(filter.EmployeeId),
+		"company_id":  nullIfEmpty(filter.CompanyId),
+		// Bo'sh massiv → NULL → o'sha shart tekshirilmaydi (pq.StringArray shunday ishlaydi).
+		"store_ids": pq.StringArray(filter.StoreIds),
+		"roles":     pq.StringArray(filter.Roles),
+		"limit":       filter.Limit,
+		"offset":      filter.Offset,
+	}).Scan(&page).Error
+	if err != nil {
+		s.log.Errorf("payroll: could not get employee payrolls: %v", err)
+		return nil, domain.InternalServerError
+	}
+
+	return page, nil
+}
+
+// payrollRowsOf — sahifa qatorlaridan javob qatorlarini ajratib oladi
+// (total_count faqat ichki ehtiyoj uchun, javobga chiqmaydi).
+func payrollRowsOf(page []employeePayrollPageRow) []domain.EmployeePayrollRow {
+	rows := make([]domain.EmployeePayrollRow, len(page))
+	for i := range page {
+		rows[i] = page[i].EmployeePayrollRow
+	}
+	return rows
 }
 
 // region Cron
@@ -217,6 +272,8 @@ func (s *Services) GetMyPayroll(
 //
 // Takror ishga tushirish xavfsiz: UNIQUE(employee_id, year, month) bo'yicha
 // konflikt bo'lsa yozuv jim o'tkazib yuboriladi, mavjud qiymat buzilmaydi.
+// Snapshot'i bor xodim uchun so'rov o'sha snapshot'ning o'zini qaytaradi, lekin
+// u baribir yozilmaydi — ya'ni mavjud qiymat qayta yozilib ketmaydi.
 func (s *Services) AutoCreateMonthlyPayrolls() {
 	const op = "cron AutoCreateMonthlyPayrolls"
 
@@ -229,17 +286,16 @@ func (s *Services) AutoCreateMonthlyPayrolls() {
 		return
 	}
 
-	// Ataylab payrollRows emas, to'g'ridan-to'g'ri calculatePayroll: maqsad —
-	// o'tgan oyni manba jadvallardan hisoblab, employee_payrolls'ga BIRINCHI
-	// marta yozish. payrollRows bo'lsa o'sha hali bo'sh jadvaldan o'qigan bo'lardi.
-	rows, err := s.calculatePayroll(ctx, period, scopeAllEmployees())
+	// Filtrsiz: barcha faol xodimlar, rolidan qat'i nazar. Limit ham yo'q —
+	// snapshot hammasi uchun yozilishi kerak.
+	page, err := s.payrollPage(ctx, period, payrollFilter{})
 	if err != nil {
 		s.log.Errorf("%s: could not calculate: %v", op, err)
 		return
 	}
 
 	created := 0
-	for _, row := range rows {
+	for _, row := range payrollRowsOf(page) {
 		record := newPayrollRecord(row, period.Year, period.Month)
 
 		err := s.db.WithContext(ctx).
@@ -302,74 +358,6 @@ func resolvePayrollPeriod(year, month int) (domain.PayrollPeriod, error) {
 	}, nil
 }
 
-// region Fetch
-
-// payrollRows — davrga qarab to'g'ri manbani tanlaydi.
-func (s *Services) payrollRows(
-	ctx context.Context, period domain.PayrollPeriod, scope payrollScope,
-) ([]domain.EmployeePayrollRow, error) {
-	if period.IsLive {
-		return s.calculatePayroll(ctx, period, scope)
-	}
-	return s.loadStoredPayroll(ctx, period, scope)
-}
-
-// calculatePayroll — manba jadvallardan (davomat, bonus, target) jonli hisoblaydi.
-func (s *Services) calculatePayroll(
-	ctx context.Context, period domain.PayrollPeriod, scope payrollScope,
-) ([]domain.EmployeePayrollRow, error) {
-	query := fmt.Sprintf(payrollCalcQuery, scope.employeesWhere)
-
-	// Tartib payrollCalcQuery'dagi `?` belgilariga qat'iy mos kelishi shart —
-	// SQL o'zgarsa shu ro'yxat ham o'zgaradi.
-	args := []any{
-		period.From, period.To, // att CTE — davomat davri
-		period.From, period.To, // bon CTE — bonus davri
-		period.Year, period.Month, // store_targets — shu oyning plani
-		constants.GeneralStatusActive, // employees.status
-	}
-	args = append(args, scope.args...)
-
-	rows, err := s.scanPayrollRows(ctx, query, args)
-	if err != nil {
-		return nil, err
-	}
-
-	// Bu uchta maydon hisoblangan qatorda SQL'dan kelmaydi — davrdan to'ldiramiz.
-	// Hali tasdiqlanmagan hisob, shuning uchun status doim "draft".
-	for i := range rows {
-		rows[i].Status = domain.EmployeePayrollStatusDraft
-		rows[i].Year = period.Year
-		rows[i].Month = period.Month
-	}
-	return rows, nil
-}
-
-// loadStoredPayroll — employee_payrolls'dagi tayyor snapshot'ni o'qiydi.
-// Cron o'sha oy uchun hali ishlamagan bo'lsa natija bo'sh bo'ladi.
-func (s *Services) loadStoredPayroll(
-	ctx context.Context, period domain.PayrollPeriod, scope payrollScope,
-) ([]domain.EmployeePayrollRow, error) {
-	query := fmt.Sprintf(payrollStoredQuery, scope.payrollsWhere)
-
-	args := []any{period.Year, period.Month}
-	args = append(args, scope.args...)
-
-	return s.scanPayrollRows(ctx, query, args)
-}
-
-// scanPayrollRows — tayyor so'rovni bajarib, natijani qatorlarga o'giradi.
-func (s *Services) scanPayrollRows(
-	ctx context.Context, query string, args []any,
-) ([]domain.EmployeePayrollRow, error) {
-	var rows []domain.EmployeePayrollRow
-	if err := s.db.WithContext(ctx).Raw(query, args...).Scan(&rows).Error; err != nil {
-		s.log.Errorf("payroll: could not read rows: %v", err)
-		return nil, domain.InternalServerError
-	}
-	return rows, nil
-}
-
 // region Helpers
 
 // paginateStores — filtrga mos do'konlarning bir sahifasini va umumiy sonini qaytaradi.
@@ -412,64 +400,6 @@ func (s *Services) paginateStores(
 	}
 
 	return stores, totalCount, nil
-}
-
-// employeePayrollScope — xodimlar hisobotining doirasini so'rov filtridan aniqlaydi.
-//
-// Ikkinchi qaytim qiymati false bo'lsa — so'ralgan do'kon topilmadi (o'chirilgan,
-// nofaol yoki foydalanuvchining kompaniyasiga tegishli emas), bunda hisob umuman
-// bajarilmaydi va bo'sh ro'yxat qaytadi.
-//
-//	store_id berilgan          → faqat o'sha do'kon (paginateStores bilan tekshiriladi)
-//	store_id yo'q + company_id → o'sha kompaniyaning faol do'konlaridagi xodimlar
-//	store_id yo'q + company_id yo'q (admin) → barcha faol xodimlar, shu jumladan
-//	do'konga biriktirilmaganlar ham
-func (s *Services) employeePayrollScope(
-	ctx context.Context, params *domain.EmployeePayrollQueryParams,
-) (payrollScope, bool, error) {
-	if params.StoreId == "" {
-		if params.CompanyId != "" {
-			return scopeByCompany(params.CompanyId), true, nil
-		}
-		return scopeAllEmployees(), true, nil
-	}
-
-	// Do'kon filtri do'konlar API'sidagi bilan bir xil bo'lishi uchun o'sha
-	// paginateStores ishlatiladi; bu yerda u faqat bitta do'konni tekshiradi,
-	// shuning uchun sahifa parametrlari almashtiriladi.
-	storeParams := *params
-	storeParams.Limit, storeParams.Offset = 1, 0
-
-	stores, _, err := s.paginateStores(ctx, &storeParams)
-	if err != nil {
-		return payrollScope{}, false, err
-	}
-	if len(stores) == 0 {
-		return payrollScope{}, false, nil
-	}
-
-	return scopeByStores(storeIdsOf(stores)), true, nil
-}
-
-// pagePayrollRows — tayyor xodim qatorlarini xotirada sahifalaydi.
-//
-// Tartib SQL'da qat'iy (ORDER BY store_name, full_name), shuning uchun sahifalar
-// barqaror bo'ladi.
-func pagePayrollRows(
-	rows []domain.EmployeePayrollRow, limit, offset int,
-) []domain.EmployeePayrollRow {
-	if offset < 0 {
-		offset = 0
-	}
-	if offset >= len(rows) {
-		return []domain.EmployeePayrollRow{}
-	}
-
-	rows = rows[offset:]
-	if limit > 0 && limit < len(rows) {
-		rows = rows[:limit]
-	}
-	return rows
 }
 
 // storeIdsOf — do'konlar ro'yxatidan id'larni ajratib oladi.
@@ -568,94 +498,143 @@ func newPayrollRecord(row domain.EmployeePayrollRow, year, month int) domain.Emp
 
 // region SQL
 
-// payrollCalcQuery — oylikni manba jadvallardan hisoblaydi.
+// employeePayrollsQuery — xodim oyligini o'qiydigan yagona so'rov.
+// Uni GetEmployeePayrolls ham, GetMyPayroll ham ishlatadi; farqi faqat
+// payrollFilter'da (qarang: payrollPage).
 //
-// %s — payrollScope.employeesWhere. Parametrlar tartibi calculatePayroll'da,
-// izohlar bilan ko'rsatilgan; SQL'dagi `?` lar o'zgarsa u ro'yxat ham o'zgaradi.
+// To'rt bosqich, har biri o'zidan oldingisining ustiga quriladi:
 //
-// interval '5 hours' — employee_bonus.created_at UTC'da saqlanadi, sana esa
-// Toshkent kuni bo'yicha kesiladi. employee_attendance_days.work_date allaqachon
-// Toshkent sanasi, shuning uchun unga tuzatish kerak emas.
-const payrollCalcQuery = `
-WITH att AS (
-    SELECT employee_id,
-           SUM(worked_minutes)::numeric / 60.0 AS worked_hours,
-           SUM(sales_amount)                   AS individual_sales_amount
-    FROM employee_attendance_days
-    WHERE work_date BETWEEN ? AND ?
-    GROUP BY employee_id
-),
-bon AS (
-    SELECT employee_id, SUM(bonus_amount) AS bonus_amount
-    FROM employee_bonus
-    WHERE deleted_at IS NULL
-      AND (created_at + interval '5 hours')::date BETWEEN ? AND ?
-    GROUP BY employee_id
-),
-base AS (
+//	page   — filtr + tartib + LIMIT/OFFSET. Sahifa SHU YERDA kesiladi, shuning
+//	         uchun keyingi bosqichlar butun jadval bilan emas, ~20 qator bilan
+//	         ishlaydi. COUNT(*) OVER () LIMIT'dan OLDIN hisoblanadi, ya'ni
+//	         umumiy son ham shu yerdan keladi.
+//	totals — sahifadagi har bir xodim uchun davr yig'indilari: davomat, bonus,
+//	         do'kon plani. LATERAL ishlatilgan, chunki bu jadvallarda
+//	         (employee_id, sana) bo'yicha index bor — har bir xodim uchun
+//	         to'g'ridan-to'g'ri index o'qish bo'ladi.
+//	calc   — formulalar: actual_salary va kpi_amount.
+//	SELECT — employee_payrolls'da shu oyning snapshot'i bo'lsa o'sha qiymatlar,
+//	         bo'lmasa jonli hisob qaytadi (COALESCE). Snapshot'ni har oyning
+//	         1-kuni AutoCreateMonthlyPayrolls yozadi; o'tgan oy shu sababli
+//	         "muzlatilgan" bo'ladi va avans/ushlab qolishlar ham faqat undan keladi.
+//
+// interval '5 hours' — employee_bonus.created_at UTC'da, sana esa Toshkent kuni
+// bo'yicha kesiladi. employee_attendance_days.work_date allaqachon Toshkent
+// sanasi, unga tuzatish kerak emas.
+const employeePayrollsQuery = `
+WITH page AS (
     SELECT
-        e.id                                   AS employee_id,
-        e.store_id                             AS store_id,
-        COALESCE(s.name, '')                   AS store_name,
-        e.first_name                           AS first_name,
-        e.last_name                            AS last_name,
-        e.full_name                            AS full_name,
-        COALESCE(e.position, '')               AS position_snapshot,
-        e.experience_years                     AS experience_years,
-        e.avg_monthly_hours                    AS avg_monthly_hours,
-        e.salary                               AS salary_rate_amount,
-        e.kpi_percent                          AS kpi_percent,
-        COALESCE(a.worked_hours, 0)            AS worked_hours,
-        COALESCE(a.individual_sales_amount, 0) AS individual_sales_amount,
-        COALESCE(b.bonus_amount, 0)            AS bonus_amount,
-        st.id                                  AS store_target_id,
-        COALESCE(st.amount, 0)                 AS store_plan_amount
+        e.id                     AS employee_id,
+        e.store_id               AS store_id,
+        COALESCE(s.name, '')     AS store_name,
+        e.first_name             AS first_name,
+        e.last_name              AS last_name,
+        e.full_name              AS full_name,
+        COALESCE(e.position, '') AS position_snapshot,
+        e.experience_years       AS experience_years,
+        e.avg_monthly_hours      AS avg_monthly_hours,
+        e.salary                 AS salary_rate_amount,
+        e.kpi_percent            AS kpi_percent,
+        COUNT(*) OVER ()         AS total_count
     FROM employees e
-    LEFT JOIN stores s         ON s.id = e.store_id
-    LEFT JOIN att a            ON a.employee_id = e.id
-    LEFT JOIN bon b            ON b.employee_id = e.id
-    LEFT JOIN store_targets st ON st.store_id = e.store_id AND st.year = ? AND st.month = ?
-    WHERE e.status = ?
-      AND e.deleted_at IS NULL
-      AND %s
+    LEFT JOIN stores s ON s.id = e.store_id
+    WHERE e.deleted_at IS NULL
+      AND e.is_active
+      AND e.status = @status
+      -- Filtrlar ixtiyoriy: NULL berilsa o'sha shart tekshirilmaydi.
+      AND (CAST(@employee_id AS uuid) IS NULL OR e.id = CAST(@employee_id AS uuid))
+      AND (CAST(@store_ids AS uuid[]) IS NULL OR e.store_id = ANY(CAST(@store_ids AS uuid[])))
+      AND (CAST(@company_id AS uuid) IS NULL OR e.company_id = CAST(@company_id AS uuid))
+      AND (CAST(@roles AS text[]) IS NULL OR EXISTS (
+          SELECT 1
+          FROM employee_roles er
+          JOIN roles r ON r.id = er.role_id
+          WHERE er.employee_id = e.id
+            AND r.name = ANY(CAST(@roles AS text[]))
+      ))
+    ORDER BY store_name, e.full_name
+    LIMIT NULLIF(@limit, 0) OFFSET @offset
+),
+totals AS (
+    SELECT
+        p.*,
+        COALESCE(att.worked_hours, 0)            AS worked_hours,
+        COALESCE(att.individual_sales_amount, 0) AS individual_sales_amount,
+        COALESCE(bon.bonus_amount, 0)            AS bonus_amount,
+        st.id                                    AS store_target_id,
+        COALESCE(st.amount, 0)                   AS store_plan_amount
+    FROM page p
+    LEFT JOIN LATERAL (
+        SELECT SUM(d.worked_minutes)::numeric / 60.0 AS worked_hours,
+               SUM(d.sales_amount)                   AS individual_sales_amount
+        FROM employee_attendance_days d
+        WHERE d.employee_id = p.employee_id
+          AND d.work_date BETWEEN @from AND @to
+    ) att ON TRUE
+    LEFT JOIN LATERAL (
+        SELECT SUM(b.bonus_amount) AS bonus_amount
+        FROM employee_bonus b
+        WHERE b.employee_id = p.employee_id
+          AND b.deleted_at IS NULL
+          AND (b.created_at + interval '5 hours')::date BETWEEN @from AND @to
+    ) bon ON TRUE
+    LEFT JOIN store_targets st
+           ON st.store_id = p.store_id
+          AND st.year = @year
+          AND st.month = @month
 ),
 calc AS (
-    SELECT base.*,
-           -- avg_monthly_hours = 0 bo'lsa nolga bo'lish o'rniga 0 qaytadi
-           COALESCE(ROUND(salary_rate_amount * (worked_hours / NULLIF(avg_monthly_hours, 0)), 2), 0) AS actual_salary_amount,
-           ROUND(individual_sales_amount * kpi_percent / 100.0, 2)                                   AS kpi_amount
-    FROM base
+    SELECT
+        t.*,
+        -- avg_monthly_hours = 0 bo'lsa nolga bo'lish o'rniga 0 qaytadi
+        COALESCE(ROUND(t.salary_rate_amount * (t.worked_hours / NULLIF(t.avg_monthly_hours, 0)), 2), 0) AS actual_salary_amount,
+        ROUND(t.individual_sales_amount * t.kpi_percent / 100.0, 2)                                   AS kpi_amount
+    FROM totals t
 )
-SELECT calc.*,
-       (actual_salary_amount + kpi_amount + bonus_amount) AS gross_salary_amount,
-       -- avans va ushlab qolishlarning manba jadvali yo'q: jonli hisobda doim 0
-       0::numeric                                         AS advance_card_amount,
-       0::numeric                                         AS advance_cash_amount,
-       0::numeric                                         AS deduction_term_amount,
-       0::numeric                                         AS deduction_recount_amount,
-       0::numeric                                         AS deduction_fine_amount,
-       (actual_salary_amount + kpi_amount + bonus_amount) AS net_pay_amount
-FROM calc
-ORDER BY store_name, full_name`
-
-// payrollStoredQuery — o'tgan oy uchun employee_payrolls'dagi snapshot'ni o'qiydi.
-// Ustunlar ro'yxati payrollCalcQuery natijasi bilan bir xil bo'lishi shart —
-// ikkalasi ham domain.EmployeePayrollRow'ga scan qilinadi.
-//
-// %s — payrollScope.payrollsWhere.
-const payrollStoredQuery = `
 SELECT
-    p.employee_id, p.store_id, COALESCE(s.name, '') AS store_name,
-    e.first_name, e.last_name, e.full_name,
-    p.position_snapshot, p.experience_years, p.worked_hours, p.avg_monthly_hours,
-    p.salary_rate_amount, p.actual_salary_amount, p.individual_sales_amount,
-    p.store_target_id, p.store_plan_amount, p.kpi_percent, p.kpi_amount,
-    p.bonus_amount, p.gross_salary_amount,
-    p.advance_card_amount, p.advance_cash_amount,
-    p.deduction_term_amount, p.deduction_recount_amount, p.deduction_fine_amount,
-    p.net_pay_amount, p.status, p.month, p.year, p.completed_at
-FROM employee_payrolls p
-JOIN employees e      ON e.id = p.employee_id
-LEFT JOIN stores s    ON s.id = p.store_id
-WHERE p.year = ? AND p.month = ? AND %s
-ORDER BY store_name, e.full_name`
+    c.employee_id,
+    c.store_id,
+    c.store_name,
+    c.first_name,
+    c.last_name,
+    c.full_name,
+    c.total_count,
+
+    -- Snapshot bor bo'lsa muzlatilgan qiymat, aks holda jonli hisob.
+    COALESCE(sn.position_snapshot, c.position_snapshot)             AS position_snapshot,
+    COALESCE(sn.experience_years, c.experience_years)               AS experience_years,
+    COALESCE(sn.worked_hours, c.worked_hours)                       AS worked_hours,
+    COALESCE(sn.avg_monthly_hours, c.avg_monthly_hours)             AS avg_monthly_hours,
+    COALESCE(sn.salary_rate_amount, c.salary_rate_amount)           AS salary_rate_amount,
+    COALESCE(sn.actual_salary_amount, c.actual_salary_amount)       AS actual_salary_amount,
+    COALESCE(sn.individual_sales_amount, c.individual_sales_amount) AS individual_sales_amount,
+    COALESCE(sn.store_target_id, c.store_target_id)                 AS store_target_id,
+    COALESCE(sn.store_plan_amount, c.store_plan_amount)             AS store_plan_amount,
+    COALESCE(sn.kpi_percent, c.kpi_percent)                         AS kpi_percent,
+    COALESCE(sn.kpi_amount, c.kpi_amount)                           AS kpi_amount,
+    COALESCE(sn.bonus_amount, c.bonus_amount)                       AS bonus_amount,
+    COALESCE(sn.gross_salary_amount,
+             c.actual_salary_amount + c.kpi_amount + c.bonus_amount) AS gross_salary_amount,
+
+    -- Avans va ushlab qolishlar qo'lda kiritiladi: manba jadvali yo'q, shuning
+    -- uchun ular faqat snapshot'da bo'ladi, jonli hisobda doim 0.
+    COALESCE(sn.advance_card_amount, 0)      AS advance_card_amount,
+    COALESCE(sn.advance_cash_amount, 0)      AS advance_cash_amount,
+    COALESCE(sn.deduction_term_amount, 0)    AS deduction_term_amount,
+    COALESCE(sn.deduction_recount_amount, 0) AS deduction_recount_amount,
+    COALESCE(sn.deduction_fine_amount, 0)    AS deduction_fine_amount,
+
+    COALESCE(sn.net_pay_amount,
+             c.actual_salary_amount + c.kpi_amount + c.bonus_amount) AS net_pay_amount,
+
+    COALESCE(sn.status, @draft) AS status,
+    sn.completed_at             AS completed_at,
+    CAST(@year AS int)          AS year,
+    CAST(@month AS int)         AS month
+FROM calc c
+LEFT JOIN employee_payrolls sn
+       ON sn.employee_id = c.employee_id
+      AND sn.year = @year
+      AND sn.month = @month
+ORDER BY c.store_name, c.full_name`
+
