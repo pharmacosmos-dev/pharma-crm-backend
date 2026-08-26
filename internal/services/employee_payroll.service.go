@@ -560,6 +560,19 @@ bonus_agg AS (
       AND b2.created_at <  w.to_ts
     GROUP BY b2.employee_id
 ),
+-- Xodimning oylik rejasi. employee_targets'ning unikal kaliti
+-- (employee_id, store_id, year, month) — ya'ni ichida store_id bor, va xodim oy
+-- davomida boshqa do'konga ko'chirilsa unda BIR NECHTA qator bo'ladi.
+-- To'g'ridan-to'g'ri JOIN qilinsa xodim bir necha marta chiqib, INSERT bitta
+-- (employee_id, year, month) ga ikki marta urinardi va Postgres
+-- "ON CONFLICT DO UPDATE cannot affect row a second time" bilan yiqilardi.
+-- Do'konlar bo'yicha yig'indi olinadi: xodimning oy uchun umumiy rejasi.
+targets_agg AS (
+    SELECT et.employee_id, SUM(et.amount) AS amount
+    FROM employee_targets et
+    WHERE et.year = @year AND et.month = @month
+    GROUP BY et.employee_id
+),
 roles_agg AS (
     SELECT er.employee_id,
            string_agg(r.name, ', ' ORDER BY r.name) AS role,
@@ -599,8 +612,7 @@ base AS (
     LEFT JOIN bonus_agg bon     ON bon.employee_id = e.id
     LEFT JOIN store_targets st
            ON st.store_id = e.store_id AND st.year = @year AND st.month = @month
-    LEFT JOIN employee_targets et
-           ON et.employee_id = e.id AND et.year = @year AND et.month = @month
+    LEFT JOIN targets_agg et ON et.employee_id = e.id
     WHERE e.is_active
       AND e.status = @status
       AND e.deleted_at IS NULL
