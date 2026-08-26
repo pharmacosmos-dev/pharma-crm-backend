@@ -136,8 +136,16 @@ type StorePayroll struct {
 	StoreId   string `json:"store_id"`
 	StoreName string `json:"store_name"`
 
-	EmployeeCount int     `json:"employee_count"`
-	WorkedHours   float64 `json:"worked_hours"`
+	// EmployeeCount — do'konga biriktirilgan faol xodimlar soni (employees
+	// jadvalidan). Cron ishlagan-ishlamaganidan qat'i nazar to'g'ri qiymat.
+	EmployeeCount int `json:"employee_count"`
+	// PayrollCount — shu oy uchun payroll qatori bor xodimlar soni. Quyidagi
+	// summalar aynan shu xodimlar bo'yicha yig'ilgan. EmployeeCount'dan kichik
+	// bo'lsa, demak ba'zi xodimlar hali hisobga tushmagan (masalan oy o'rtasida
+	// qo'shilgan va cron hali ishlamagan).
+	PayrollCount int `json:"payroll_count"`
+
+	WorkedHours float64 `json:"worked_hours"`
 
 	SalaryRateAmount      float64 `json:"salary_rate_amount"`
 	ActualSalaryAmount    float64 `json:"actual_salary_amount"`

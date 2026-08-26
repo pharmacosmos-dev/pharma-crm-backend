@@ -59,9 +59,12 @@ import (
 // region Types
 
 // storeRef — sahifalangan do'kon ro'yxati uchun minimal ma'lumot.
+// EmployeeCount employees jadvalidan olinadi, payroll qatorlaridan emas —
+// shuning uchun cron hali ishlamagan bo'lsa ham to'g'ri son ko'rsatiladi.
 type storeRef struct {
-	Id   string `gorm:"column:id"`
-	Name string `gorm:"column:name"`
+	Id            string `gorm:"column:id"`
+	Name          string `gorm:"column:name"`
+	EmployeeCount int    `gorm:"column:employee_count"`
 }
 
 // employeePayrollPageRow — hisobot qatori + umumiy son. total_count har bir
@@ -439,7 +442,16 @@ func (s *Services) paginateStores(
 
 	var stores []storeRef
 	err := newQuery().
-		Select("id, name").
+		Select(`
+			stores.id,
+			stores.name,
+			(SELECT COUNT(*)
+			   FROM employees e
+			  WHERE e.store_id = stores.id
+			    AND e.is_active = TRUE
+			    AND e.status = ?
+			    AND e.deleted_at IS NULL) AS employee_count`,
+			constants.GeneralStatusActive).
 		Order("name").
 		Limit(params.Limit).
 		Offset(params.Offset).
@@ -476,6 +488,9 @@ func mergeStoreTotals(stores []storeRef, totals []domain.StorePayroll) []domain.
 			total = domain.StorePayroll{StoreId: store.Id}
 		}
 		total.StoreName = store.Name
+		// Xodimlar soni employees jadvalidan keladi, payroll yig'indisidan emas:
+		// cron hali ishlamagan do'konda ham to'g'ri son ko'rinadi.
+		total.EmployeeCount = store.EmployeeCount
 		result = append(result, total)
 	}
 	return result
@@ -711,7 +726,10 @@ LIMIT NULLIF(@limit, 0) OFFSET @offset`
 const storePayrollTotalsQuery = `
 SELECT
     p.store_id                     AS store_id,
-    COUNT(*)::int                  AS employee_count,
+    -- payroll qatorlari soni; do'kondagi xodimlar soni employees jadvalidan
+    -- alohida olinadi (paginateStores), chunki cron hali qamramagan xodim
+    -- bu yerda uchramaydi
+    COUNT(*)::int                  AS payroll_count,
     SUM(p.worked_hours)            AS worked_hours,
     SUM(p.salary_rate_amount)      AS salary_rate_amount,
     SUM(p.actual_salary_amount)    AS actual_salary_amount,
