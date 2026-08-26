@@ -86,6 +86,7 @@ type EmployeePayrollRow struct {
 	LastName         string  `json:"last_name"`
 	FullName         string  `json:"full_name"`
 	PositionSnapshot string  `json:"position_snapshot"`
+	Role             string  `json:"role"`
 
 	ExperienceYears float64 `json:"experience_years"`
 	WorkedHours     float64 `json:"worked_hours"`

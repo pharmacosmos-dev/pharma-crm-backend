@@ -13,62 +13,15 @@ import (
 	"gorm.io/gorm/clause"
 )
 
-// Xodimlarning oylik ish haqi hisoboti (payroll).
-//
-// Ma'lumot ikkita manbadan keladi:
-//
-//	Snapshot bor  → employee_payrolls'dan O'QILADI (muzlatilgan qiymat)
-//	Snapshot yo'q → manba jadvallardan JONLI hisoblanadi
-//
-// Snapshot'ni AutoCreateMonthlyPayrolls cron'i har oyning 1-kuni yozadi (xuddi
-// store_target'lardagi kabi), shuning uchun amalda joriy oy jonli, o'tgan oylar
-// snapshot'dan keladi. Ikkala yo'l ham bir xil domain.EmployeePayrollRow
-// qaytaradi, handler uchun farqi yo'q.
-//
-// Hisob-kitob formulalari:
-//
-//	worked_hours         = SUM(employee_attendance_days.worked_minutes) / 60
-//	individual_sales     = SUM(employee_attendance_days.sales_amount)
-//	bonus_amount         = SUM(employee_bonus.bonus_amount)
-//	actual_salary_amount = salary_rate * (worked_hours / avg_monthly_hours)
-//	kpi_amount           = individual_sales * kpi_percent / 100
-//	gross_salary_amount  = actual_salary + kpi_amount + bonus_amount
-//	net_pay_amount       = gross - (avanslar + ushlab qolishlar)
-//
-// Avans va ushlab qolishlar qo'lda kiritiladi, manba jadvali yo'q. Shu sababli
-// jonli hisobda ular doim 0 (ya'ni net = gross), snapshot'da esa saqlangan
-// qiymat ishlatiladi.
-//
-// Butun fayl bitta SQL so'roviga tayanadi — employeePayrollsQuery. Undan
-// foydalanadigan to'rtta joy bor, farqi faqat payrollFilter'da:
-//
-//	GetEmployeePayrolls      — xodimlar ro'yxati (sahifalangan, rol filtri bilan)
-//	GetMyPayroll             — bitta xodim, rol filtrisiz
-//	GetStorePayrolls         — sahifadagi do'konlarning barcha xodimlari
-//	AutoCreateMonthlyPayrolls— barcha xodimlar (snapshot yozish uchun)
-
-// region Types
-
-// storeRef — sahifalangan do'kon ro'yxati uchun minimal ma'lumot.
 type storeRef struct {
 	Id   string `gorm:"column:id"`
 	Name string `gorm:"column:name"`
 }
-
-// employeePayrollPageRow — employeePayrollsQuery natijasining bitta qatori:
-// hisobot maydonlari + umumiy son. total_count har bir qatorda bir xil
-// (COUNT(*) OVER ()) va faqat pagination uchun kerak, shuning uchun javobga
-// chiqmaydi — domain.EmployeePayrollRow o'zgarishsiz qoladi.
 type employeePayrollPageRow struct {
 	domain.EmployeePayrollRow `gorm:"embedded"`
 
 	TotalCount int64 `gorm:"column:total_count"`
 }
-
-// payrollFilter — employeePayrollsQuery'ning doirasi: kim, qanchasi.
-//
-// Bo'sh maydon = "bu bo'yicha filtrlamaslik", shuning uchun har bir chaqiruv
-// faqat o'ziga keraklisini to'ldiradi.
 type payrollFilter struct {
 	EmployeeId string   // bitta xodim
 	StoreIds   []string // shu do'konlarning xodimlari
@@ -78,13 +31,9 @@ type payrollFilter struct {
 	Offset     int
 }
 
-// payrollSalesRoles — savdo nuqtasida ishlaydigan rollar. Xodimlar hisoboti
-// (GetEmployeePayrolls) faqat shularni ko'rsatadi; o'z oyligini ko'rishda
-// (GetMyPayroll) rol tekshirilmaydi, aks holda menejer o'z oyligini ko'ra olmasdi.
 var payrollSalesRoles = []string{constants.RoleNameCashier, constants.RoleNameZavStore}
 
-// nullIfEmpty — bo'sh satrni SQL NULL'ga aylantiradi: "filtr berilmagan" degani.
-// So'rovda `@x IS NULL OR ustun = @x` shaklida ishlatiladi.
+
 func nullIfEmpty(value string) *string {
 	if value == "" {
 		return nil
@@ -92,19 +41,7 @@ func nullIfEmpty(value string) *string {
 	return &value
 }
 
-// region Get
 
-// GetStorePayrolls — do'konlar kesimidagi oylik hisobot: FAQAT do'kon yig'indilari,
-// xodimlar ro'yxatisiz. Bitta do'konning xodimlarini olish uchun alohida
-// GetEmployeePayrolls ishlatiladi (store_id bo'yicha).
-//
-// Pagination xodimlarga emas, DO'KONLARGA qo'yiladi: avval bir sahifa do'kon
-// tanlanadi, keyin faqat o'sha do'konlarning xodimlari bitta so'rov bilan
-// olinadi va do'kon yig'indisiga qo'shiladi.
-//
-// Bu yerda rol filtri YO'Q: do'kon yig'indisiga uning barcha faol xodimlari
-// kiradi, faqat kassir va zav emas. Shu sababli do'kon summasi
-// GetEmployeePayrolls qaytaradigan qatorlar yig'indisidan katta bo'lishi mumkin.
 func (s *Services) GetStorePayrolls(
 	ctx context.Context, params *domain.EmployeePayrollQueryParams,
 ) ([]domain.StorePayroll, int64, domain.PayrollPeriod, error) {
@@ -140,23 +77,8 @@ func (s *Services) GetStorePayrolls(
 	return storePayrolls, totalCount, period, nil
 }
 
-// GetEmployeePayrolls — xodimlarning oylik hisoboti: BITTA SQL so'rov, sahifasi
-// va umumiy soni bilan birga.
-//
-// So'rov bosqichma-bosqich o'qiladi (employeePayrollsQuery ham shu tartibda):
-//
-//	1) page   — kim hisobotga kiradi va SHU sahifada qaysi xodimlar bor
-//	2) totals — faqat sahifadagi xodimlar uchun davomat, bonus, do'kon plani
-//	3) calc   — formulalar (actual_salary, kpi_amount)
-//	4) SELECT — snapshot bo'lsa o'sha, bo'lmasa jonli hisob qaytadi
-//
-// Filtrlar: store_id berilsa o'sha do'kon, company_id berilsa o'sha kompaniya,
-// ikkalasi ham bo'lmasa (admin) barcha xodimlar. Ro'yxatga faqat faol xodimlar
-// kiradi — is_active, status = 'active' va roli "Кассир" yoki "Заведующий".
-//
-// Yuk kam: yig'indilar butun jadval bo'ylab emas, sahifadagi ~20 xodim uchun
-// index orqali o'qiladi; umumiy son COUNT(*) OVER () bilan o'sha so'rovdan
-// keladi, alohida COUNT so'rovi yo'q.
+// region EmployeePayrolls
+
 func (s *Services) GetEmployeePayrolls(
 	ctx context.Context, params *domain.EmployeePayrollQueryParams,
 ) ([]domain.EmployeePayrollRow, int64, domain.PayrollPeriod, error) {
@@ -191,13 +113,8 @@ func (s *Services) GetEmployeePayrolls(
 	return payrollRowsOf(page), totalCount, period, nil
 }
 
-// GetMyPayroll — token egasining o'z oyligi.
-//
-// GetEmployeePayrolls bilan bir xil so'rovdan oziqlanadi, farqi faqat doirada:
-// bitta xodim va rol filtri yo'q — xodim qaysi lavozimda bo'lishidan qat'i nazar
-// o'z oyligini ko'ra oladi.
-//
-// Xodim topilmasa 404: bunga u nofaol (is_active/status) bo'lgan holat ham kiradi.
+// region MyPayroll
+
 func (s *Services) GetMyPayroll(
 	ctx context.Context, employeeId string, year, month int,
 ) (*domain.MyPayrollResponse, error) {
@@ -218,11 +135,7 @@ func (s *Services) GetMyPayroll(
 	return &domain.MyPayrollResponse{Period: period, Payroll: page[0].EmployeePayrollRow}, nil
 }
 
-// payrollPage — employeePayrollsQuery'ni bajaradigan YAGONA joy.
-//
-// Nomlangan parametrlar ishlatiladi: tartib emas, nom bo'yicha mos keladi —
-// SQL o'zgarsa argumentlar adashmaydi. Bo'sh filtrlar NULL bo'lib ketadi va
-// so'rovda o'sha shart o'tkazib yuboriladi.
+
 func (s *Services) payrollPage(
 	ctx context.Context, period domain.PayrollPeriod, filter payrollFilter,
 ) ([]employeePayrollPageRow, error) {
@@ -251,8 +164,7 @@ func (s *Services) payrollPage(
 	return page, nil
 }
 
-// payrollRowsOf — sahifa qatorlaridan javob qatorlarini ajratib oladi
-// (total_count faqat ichki ehtiyoj uchun, javobga chiqmaydi).
+
 func payrollRowsOf(page []employeePayrollPageRow) []domain.EmployeePayrollRow {
 	rows := make([]domain.EmployeePayrollRow, len(page))
 	for i := range page {
@@ -264,16 +176,6 @@ func payrollRowsOf(page []employeePayrollPageRow) []domain.EmployeePayrollRow {
 // region Cron
 
 // AutoCreateMonthlyPayrolls — har oyning 1-kuni cron tomonidan chaqiriladi.
-//
-// Endigina tugagan oyni manba jadvallardan to'liq hisoblab, employee_payrolls'ga
-// snapshot qilib yozadi. Shundan keyin o'sha oy uchun API saqlangan qiymatni
-// qaytaradi — davomat yoki bonus keyinchalik o'zgarsa ham oylik "muzlatilgan"
-// bo'lib qoladi.
-//
-// Takror ishga tushirish xavfsiz: UNIQUE(employee_id, year, month) bo'yicha
-// konflikt bo'lsa yozuv jim o'tkazib yuboriladi, mavjud qiymat buzilmaydi.
-// Snapshot'i bor xodim uchun so'rov o'sha snapshot'ning o'zini qaytaradi, lekin
-// u baribir yozilmaydi — ya'ni mavjud qiymat qayta yozilib ketmaydi.
 func (s *Services) AutoCreateMonthlyPayrolls() {
 	const op = "cron AutoCreateMonthlyPayrolls"
 
@@ -319,12 +221,7 @@ func tashkentNow() time.Time {
 	return time.Now().UTC().Add(domain.TashkentTimeDif)
 }
 
-// resolvePayrollPeriod — so'ralgan yil/oyni tekshirib, davr chegaralarini qaytaradi.
-// year yoki month 0 bo'lsa joriy yil/oy olinadi.
-//
-// Joriy oy uchun davr bugungi kunda tugaydi va IsLive=true bo'ladi (oy hali
-// tugamagan, hisob jonli). O'tgan oylar uchun davr oyning oxirgi kunida tugaydi
-// va IsLive=false — bunday oy uchun employee_payrolls'da tayyor snapshot bor.
+
 func resolvePayrollPeriod(year, month int) (domain.PayrollPeriod, error) {
 	now := tashkentNow()
 	if year == 0 {
@@ -413,10 +310,6 @@ func storeIdsOf(stores []storeRef) []string {
 
 // buildStorePayrolls — xodim qatorlarini do'konlar bo'yicha guruhlaydi va har bir
 // do'kon uchun yig'indilarni hisoblaydi.
-//
-// Do'kon ro'yxati tartibi saqlanadi va xodimi yo'q do'kon ham javobda qoladi
-// (bo'sh employees massivi bilan) — aks holda sahifadagi do'konlar soni
-// _meta.total_count bilan mos kelmay qolardi.
 func buildStorePayrolls(stores []storeRef, rows []domain.EmployeePayrollRow) []domain.StorePayroll {
 	rowsByStore := make(map[string][]domain.EmployeePayrollRow, len(stores))
 	for _, row := range rows {
@@ -466,11 +359,8 @@ func addEmployeeToStoreTotals(store *domain.StorePayroll, employee domain.Employ
 	store.NetPayAmount += employee.NetPayAmount
 }
 
+
 // newPayrollRecord — hisoblangan qatordan employee_payrolls yozuvini yasaydi (cron uchun).
-//
-// Avans va ushlab qolishlar bu yerda to'ldirilmaydi: ular qo'lda kiritiladi va
-// jadvalga DEFAULT 0 bilan tushadi. ApprovedBy/CompletedAt ham bo'sh qoladi —
-// ular tasdiqlash bosqichida to'ldiriladi.
 func newPayrollRecord(row domain.EmployeePayrollRow, year, month int) domain.EmployeePayroll {
 	return domain.EmployeePayroll{
 		Id:                    uuid.New().String(),
@@ -498,29 +388,7 @@ func newPayrollRecord(row domain.EmployeePayrollRow, year, month int) domain.Emp
 
 // region SQL
 
-// employeePayrollsQuery — xodim oyligini o'qiydigan yagona so'rov.
-// Uni GetEmployeePayrolls ham, GetMyPayroll ham ishlatadi; farqi faqat
-// payrollFilter'da (qarang: payrollPage).
-//
-// To'rt bosqich, har biri o'zidan oldingisining ustiga quriladi:
-//
-//	page   — filtr + tartib + LIMIT/OFFSET. Sahifa SHU YERDA kesiladi, shuning
-//	         uchun keyingi bosqichlar butun jadval bilan emas, ~20 qator bilan
-//	         ishlaydi. COUNT(*) OVER () LIMIT'dan OLDIN hisoblanadi, ya'ni
-//	         umumiy son ham shu yerdan keladi.
-//	totals — sahifadagi har bir xodim uchun davr yig'indilari: davomat, bonus,
-//	         do'kon plani. LATERAL ishlatilgan, chunki bu jadvallarda
-//	         (employee_id, sana) bo'yicha index bor — har bir xodim uchun
-//	         to'g'ridan-to'g'ri index o'qish bo'ladi.
-//	calc   — formulalar: actual_salary va kpi_amount.
-//	SELECT — employee_payrolls'da shu oyning snapshot'i bo'lsa o'sha qiymatlar,
-//	         bo'lmasa jonli hisob qaytadi (COALESCE). Snapshot'ni har oyning
-//	         1-kuni AutoCreateMonthlyPayrolls yozadi; o'tgan oy shu sababli
-//	         "muzlatilgan" bo'ladi va avans/ushlab qolishlar ham faqat undan keladi.
-//
-// interval '5 hours' — employee_bonus.created_at UTC'da, sana esa Toshkent kuni
-// bo'yicha kesiladi. employee_attendance_days.work_date allaqachon Toshkent
-// sanasi, unga tuzatish kerak emas.
+
 const employeePayrollsQuery = `
 WITH page AS (
     SELECT
@@ -535,11 +403,17 @@ WITH page AS (
         e.avg_monthly_hours      AS avg_monthly_hours,
         e.salary                 AS salary_rate_amount,
         e.kpi_percent            AS kpi_percent,
+        COALESCE(rl.role, '')    AS role,
         COUNT(*) OVER ()         AS total_count
     FROM employees e
     LEFT JOIN stores s ON s.id = e.store_id
-    WHERE e.deleted_at IS NULL
-      AND e.is_active
+    LEFT JOIN LATERAL (
+        SELECT string_agg(r.name, ', ' ORDER BY r.name) AS role
+        FROM employee_roles er
+        JOIN roles r ON r.id = er.role_id
+        WHERE er.employee_id = e.id
+    ) rl ON TRUE
+    WHERE e.is_active
       AND e.status = @status
       -- Filtrlar ixtiyoriy: NULL berilsa o'sha shart tekshirilmaydi.
       AND (CAST(@employee_id AS uuid) IS NULL OR e.id = CAST(@employee_id AS uuid))
@@ -598,6 +472,7 @@ SELECT
     c.first_name,
     c.last_name,
     c.full_name,
+    c.role,
     c.total_count,
 
     -- Snapshot bor bo'lsa muzlatilgan qiymat, aks holda jonli hisob.
