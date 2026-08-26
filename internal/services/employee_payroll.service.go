@@ -41,8 +41,14 @@ import (
 // Qolgan formulalar:
 //
 //	worked_hours         = SUM(employee_attendance_days.worked_minutes) / 60
-//	individual_sales     = SUM(sales.total_amount)  (stage = 9, is_returned = false)
+//	individual_sales     = SUM(employee_attendance_days.sales_amount)
 //	bonus_amount         = SUM(employee_bonus.bonus_amount)
+//
+// Savdo ataylab `sales` jadvalidan emas, employee_attendance_days'dan olinadi:
+// u yerda kunlik savdo AggregateEmployeeAttendanceDays (00:30 Toshkent) orqali
+// allaqachon yig'ilgan, jadval kichik va (employee_id, work_date) indeksi bor.
+// `sales`da employee_id bo'yicha indeks yo'q — undan o'qish har kecha to'liq
+// skanga olib kelardi.
 //	actual_salary_amount = salary_rate * (worked_hours / avg_monthly_hours)
 //	gross_salary_amount  = actual_salary + kpi_amount + bonus_amount
 //	net_pay_amount       = gross − (avanslar + ushlab qolishlar)
@@ -502,6 +508,12 @@ workdays AS (
     SELECT
         b.month_start,
         b.calc_date,
+        -- Toshkent kun chegaralarining UTC timestamp ko'rinishi. employee_bonus'da
+        -- created_at UTC'da saqlanadi; ustunning o'ziga funksiya qo'llash
+        -- ((created_at + interval '5 hours')::date) indeksdan foydalanishga yo'l
+        -- qo'ymaydi, shuning uchun chegara qiymatlari suriladi.
+        b.month_start::timestamp - INTERVAL '5 hours'     AS from_ts,
+        (b.calc_date + 1)::timestamp - INTERVAL '5 hours' AS to_ts,
         (SELECT COUNT(*)::int
            FROM generate_series(b.month_start, b.month_end, INTERVAL '1 day') d
           WHERE EXTRACT(DOW FROM d) <> 0
@@ -511,6 +523,35 @@ workdays AS (
           WHERE EXTRACT(DOW FROM d) <> 0
             AND NOT EXISTS (SELECT 1 FROM holidays h WHERE h.date = d::date)) AS elapsed_work_days
     FROM bounds b
+),
+-- Yig'indilar barcha xodimlar uchun BIR MARTA hisoblanadi.
+-- Ilgari bular LATERAL orqali har bir xodimga alohida bajarilardi — xodimlar
+-- soniga ko'paytirilgan skan bo'lib, so'rov daqiqalab cho'zilardi.
+attendance_agg AS (
+    SELECT d.employee_id,
+           SUM(d.worked_minutes)::numeric / 60.0 AS worked_hours,
+           SUM(d.sales_amount)                   AS individual_sales_amount
+    FROM employee_attendance_days d, workdays w
+    WHERE d.employee_id IS NOT NULL
+      AND d.work_date BETWEEN w.month_start AND w.calc_date
+    GROUP BY d.employee_id
+),
+bonus_agg AS (
+    SELECT b2.employee_id, SUM(b2.bonus_amount) AS bonus_amount
+    FROM employee_bonus b2, workdays w
+    WHERE b2.employee_id IS NOT NULL
+      AND b2.deleted_at IS NULL
+      AND b2.created_at >= w.from_ts
+      AND b2.created_at <  w.to_ts
+    GROUP BY b2.employee_id
+),
+roles_agg AS (
+    SELECT er.employee_id,
+           string_agg(r.name, ', ' ORDER BY r.name) AS role,
+           array_agg(r.name ORDER BY r.name)        AS role_names
+    FROM employee_roles er
+    JOIN roles r ON r.id = er.role_id
+    GROUP BY er.employee_id
 ),
 base AS (
     SELECT
@@ -527,9 +568,9 @@ base AS (
         e.experience_years                      AS experience_years,
         e.avg_monthly_hours                     AS avg_monthly_hours,
         e.salary                                AS salary_rate_amount,
-        COALESCE(att.worked_hours, 0)           AS worked_hours,
-        COALESCE(sl.individual_sales_amount, 0) AS individual_sales_amount,
-        COALESCE(bon.bonus_amount, 0)           AS bonus_amount,
+        COALESCE(att.worked_hours, 0)            AS worked_hours,
+        COALESCE(att.individual_sales_amount, 0) AS individual_sales_amount,
+        COALESCE(bon.bonus_amount, 0)            AS bonus_amount,
         st.id                                   AS store_target_id,
         COALESCE(st.amount, 0)                  AS store_plan_amount,
         COALESCE(et.amount, 0)                  AS employee_plan_amount,
@@ -537,35 +578,10 @@ base AS (
         w.elapsed_work_days
     FROM employees e
     CROSS JOIN workdays w
-    LEFT JOIN stores s ON s.id = e.store_id
-    LEFT JOIN LATERAL (
-        SELECT string_agg(r.name, ', ' ORDER BY r.name) AS role,
-               array_agg(r.name ORDER BY r.name)        AS role_names
-        FROM employee_roles er
-        JOIN roles r ON r.id = er.role_id
-        WHERE er.employee_id = e.id
-    ) rl ON TRUE
-    LEFT JOIN LATERAL (
-        SELECT SUM(d.worked_minutes)::numeric / 60.0 AS worked_hours
-        FROM employee_attendance_days d
-        WHERE d.employee_id = e.id
-          AND d.work_date BETWEEN w.month_start AND w.calc_date
-    ) att ON TRUE
-    LEFT JOIN LATERAL (
-        SELECT SUM(sa.total_amount) AS individual_sales_amount
-        FROM sales sa
-        WHERE sa.employee_id = e.id
-          AND sa.stage = 9
-          AND sa.is_returned = false
-          AND (sa.created_at + interval '5 hours')::date BETWEEN w.month_start AND w.calc_date
-    ) sl ON TRUE
-    LEFT JOIN LATERAL (
-        SELECT SUM(b2.bonus_amount) AS bonus_amount
-        FROM employee_bonus b2
-        WHERE b2.employee_id = e.id
-          AND b2.deleted_at IS NULL
-          AND (b2.created_at + interval '5 hours')::date BETWEEN w.month_start AND w.calc_date
-    ) bon ON TRUE
+    LEFT JOIN stores s          ON s.id = e.store_id
+    LEFT JOIN roles_agg rl      ON rl.employee_id = e.id
+    LEFT JOIN attendance_agg att ON att.employee_id = e.id
+    LEFT JOIN bonus_agg bon     ON bon.employee_id = e.id
     LEFT JOIN store_targets st
            ON st.store_id = e.store_id AND st.year = @year AND st.month = @month
     LEFT JOIN employee_targets et
