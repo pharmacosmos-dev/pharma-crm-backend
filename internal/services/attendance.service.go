@@ -539,6 +539,10 @@ func (s *Services) AggregateEmployeeAttendanceDays() {
 		    FROM sales
 		    WHERE sale_type = 'SALE'
 		      AND stage = 9
+		      -- qaytarilgan savdo hisobga olinmaydi: employee_targets.sales ham
+		      -- shu filtr bilan yig'iladi, aks holda payroll'dagi savdo rejadan
+		      -- boshqacha bazaga tayanib, KPI foizi yuqori chiqib ketardi
+		      AND is_returned = false
 		      AND (created_at + interval '5 hours')::date = (NOW() + interval '5 hours')::date - 1
 		    GROUP BY employee_id
 		) ds ON ds.employee_id = l.employee_id
@@ -590,6 +594,10 @@ func (s *Services) AggregateEmployeeAttendanceDays() {
 		    FROM sales
 		    WHERE sale_type = 'SALE'
 		      AND stage = 9
+		      -- qaytarilgan savdo hisobga olinmaydi: employee_targets.sales ham
+		      -- shu filtr bilan yig'iladi, aks holda payroll'dagi savdo rejadan
+		      -- boshqacha bazaga tayanib, KPI foizi yuqori chiqib ketardi
+		      AND is_returned = false
 		      AND (created_at + interval '5 hours')::date = (NOW() + interval '5 hours')::date - 1
 		    GROUP BY employee_id
 		) ds ON ds.employee_id = e.id
