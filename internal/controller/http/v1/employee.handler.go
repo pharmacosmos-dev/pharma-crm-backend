@@ -59,6 +59,7 @@ func (h *EmployeeHandler) EmployeeRoutes(r *gin.RouterGroup) {
 		employee.GET("/payroll/stores", h.StorePayrollList)
 		employee.GET("/payroll/employees", h.EmployeePayrollList)
 		employee.GET("/payroll/my", h.MyPayroll)
+		employee.POST("/payroll/recalculate", h.RecalculatePayroll)
 	}
 }
 
@@ -1293,6 +1294,61 @@ func (h *EmployeeHandler) StorePayrollList(c *gin.Context) {
 	result["period"] = period
 
 	handleResponse(c, OK, result)
+}
+
+// RecalculatePayroll godoc
+// @Summary      Recalculate payroll manually
+// @Description  Har kecha 02:00 da ishlaydigan payroll hisobini QO'LDA ishga tushiradi.
+// @Description  Cron tunda ishlamay qolganda (server o'chgan, xato bo'lgan) ertalab shu chaqiriladi.
+// @Description  Eski oyni qayta hisoblash uchun ham ishlatiladi — masalan davomat qo'lda tuzatilgandan keyin.
+// @Description  Xavfsiz: hisob har safar oy boshidan qayta quriladi, necha marta chaqirilsa ham natija bir xil.
+// @Description  Avans, ushlab qolish, status va approved_by o'zgarmaydi.
+// @Description  year/month berilmasa joriy oy; date berilmasa kechagi kun.
+// @Tags         employees
+// @Security     BearerAuth
+// @Accept       json
+// @Produce      json
+// @Param        year   query  int     false  "Yil (default: joriy)"
+// @Param        month  query  int     false  "Oy 1-12 (default: joriy)"
+// @Param        date   query  string  false  "Hisob shu kungacha olib boriladi, YYYY-MM-DD (default: kecha)"
+// @Success      200  {object}  v1.Response
+// @Failure      400  {object}  v1.Response
+// @Failure      401  {object}  v1.Response
+// @Failure      403  {object}  v1.Response
+// @Failure      500  {object}  v1.Response
+// @Router       /employee/payroll/recalculate [post]
+func (h *EmployeeHandler) RecalculatePayroll(c *gin.Context) {
+	user := h.service.GetSignedUser(c)
+	if user.UserId == "" {
+		handleServiceResponse(c, nil, domain.UnauthorizedError)
+		return
+	}
+	// Haqiqiy ma'lumotga yozadi va butun kompaniyani qamraydi — faqat admin.
+	if !helper.IsAdmin(user) {
+		handleServiceResponse(c, nil, domain.ForbiddinError)
+		return
+	}
+
+	var params struct {
+		Year  int    `form:"year"`
+		Month int    `form:"month"`
+		Date  string `form:"date"`
+	}
+	if err := c.ShouldBindQuery(&params); err != nil {
+		handleResponse(c, BadRequest, err.Error())
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
+	defer cancel()
+
+	res, err := h.service.RecalculatePayroll(ctx, params.Year, params.Month, params.Date)
+	if err != nil {
+		handleServiceResponse(c, nil, err)
+		return
+	}
+
+	handleResponse(c, OK, res)
 }
 
 // EmployeePayrollList godoc

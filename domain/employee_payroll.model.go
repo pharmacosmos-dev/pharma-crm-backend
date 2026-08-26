@@ -99,6 +99,15 @@ type EmployeePayrollRow struct {
 	StoreTargetId   *string `json:"store_target_id"`
 	StorePlanAmount float64 `json:"store_plan_amount"`
 
+	// KPI progressiv: reja o'tgan ish kunlariga proporsional kesiladi va shu
+	// kesilgan rejaga nisbatan foiz chiqariladi. Quyidagilar frontendga "bugun
+	// yana qancha savdo qilsam KPI ko'tariladi" degan savolga javob berish uchun.
+	EmployeePlanAmount     float64 `json:"employee_plan_amount"`     // to'liq oylik reja
+	ExpectedPlanAmount     float64 `json:"expected_plan_amount"`     // shu kungacha kutilgan reja
+	PlanAchievementPercent float64 `json:"plan_achievement_percent"` // bajarilish foizi
+	MonthWorkDays          int     `json:"month_work_days"`          // oydagi jami ish kuni
+	ElapsedWorkDays        int     `json:"elapsed_work_days"`        // o'tgan ish kuni
+
 	KpiPercent float64 `json:"kpi_percent"`
 	KpiAmount  float64 `json:"kpi_amount"`
 
@@ -118,6 +127,8 @@ type EmployeePayrollRow struct {
 	Month       int        `json:"month"`
 	Year        int        `json:"year"`
 	CompletedAt *time.Time `json:"completed_at"`
+	// CalculatedAt — cron oxirgi marta qachon qayta hisoblagani.
+	CalculatedAt *time.Time `json:"calculated_at"`
 }
 
 // StorePayroll — do'kon va uning ichidagi xodimlar oyligi. API 1 shu shaklda qaytadi.
@@ -156,4 +167,14 @@ type PayrollPeriod struct {
 type MyPayrollResponse struct {
 	Period  PayrollPeriod      `json:"period"`
 	Payroll EmployeePayrollRow `json:"payroll"`
+}
+
+// PayrollRecalcResult — qo'lda qayta hisoblash natijasi. Cron tunda ishlamay
+// qolganda ertalab nima qilinganini ko'rish uchun.
+type PayrollRecalcResult struct {
+	Year         int    `json:"year"`
+	Month        int    `json:"month"`
+	CalculatedTo string `json:"calculated_to"` // hisob shu kungacha olib borildi
+	RowsAffected int64  `json:"rows_affected"`
+	DurationMs   int64  `json:"duration_ms"`
 }
