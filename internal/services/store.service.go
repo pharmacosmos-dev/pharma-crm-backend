@@ -333,8 +333,7 @@ func (s *Services) GetStoreByIdMapInfo(ctx context.Context, storeId string) (*do
 					store_id,
 					COUNT(*) AS cash_box_count
 				FROM cash_boxes
-				WHERE deleted_at IS NULL
-				  AND is_active = true
+				WHERE is_active = true
 				GROUP BY store_id
 			) cash_boxes
 				ON cash_boxes.store_id = stores.id
