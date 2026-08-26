@@ -6724,7 +6724,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Xodimlarning oylik ko'rsatkichlari (ishlagan soati, oylik, KPI, bonus, avans, ushlab qolishlar).",
+                "description": "Xodimlarning oylik ko'rsatkichlari (ishlagan soati, oylik, KPI, bonus, avans, ushlab qolishlar).\nRo'yxatga faqat faol xodimlar kiradi: is_active, status = \"active\" va roli \"Кассир\" yoki \"Заведующий\".\nyear/month berilmasa joriy oy olinadi; o'sha oy uchun employee_payrolls'da snapshot bo'lsa o'sha qaytadi, bo'lmasa jonli hisoblanadi.",
                 "consumes": [
                     "application/json"
                 ],
@@ -6734,7 +6734,7 @@ const docTemplate = `{
                 "tags": [
                     "employees"
                 ],
-                "summary": "Payroll by employeesloyee_payrolls jadvalidan olinadi. year/",
+                "summary": "Payroll by employees",
                 "parameters": [
                     {
                         "type": "string",
@@ -6802,7 +6802,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Token egasining o'z oylik ko'rsatkichlari: ism-familiyasi, do'koni va shu oy uchun umumiy ma'lumotlar (qancha ishladi, oylik, KPI, bonus, avans, ushlab qolishlar, qo'lga tegadigan summa). Joriy oy so'ralsa jonli hisoblanadi (oy boshidan bugungi kungacha), o'tgan oy so'ralsa employee_payrolls'dan olinadi.",
+                "description": "Token egasining o'z oylik ko'rsatkichlari: ism-familiyasi, do'koni va shu oy uchun umumiy ma'lumotlar (qancha ishladi, oylik, KPI, bonus, avans, ushlab qolishlar, qo'lga tegadigan summa).\nSo'ralgan oy uchun employee_payrolls'da snapshot bo'lsa o'sha qaytadi (avans va ushlab qolishlar bilan), bo'lmasa jonli hisoblanadi (oy boshidan bugungi kungacha).\nXodim id token'dan olinadi — birovning oyligini so'rab bo'lmaydi. Xodim nofaol bo'lsa 404.",
                 "consumes": [
                     "application/json"
                 ],
@@ -6848,6 +6848,78 @@ const docTemplate = `{
                     },
                     "404": {
                         "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/employee/payroll/recalculate": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Har kecha 02:00 da ishlaydigan payroll hisobini QO'LDA ishga tushiradi.\nCron tunda ishlamay qolganda (server o'chgan, xato bo'lgan) ertalab shu chaqiriladi.\nEski oyni qayta hisoblash uchun ham ishlatiladi — masalan davomat qo'lda tuzatilgandan keyin.\nXavfsiz: hisob har safar oy boshidan qayta quriladi, necha marta chaqirilsa ham natija bir xil.\nAvans, ushlab qolish, status va approved_by o'zgarmaydi.\nyear/month berilmasa joriy oy; date berilmasa kechagi kun.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "employees"
+                ],
+                "summary": "Recalculate payroll manually",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Yil (default: joriy)",
+                        "name": "year",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Oy 1-12 (default: joriy)",
+                        "name": "month",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Hisob shu kungacha olib boriladi, YYYY-MM-DD (default: kecha)",
+                        "name": "date",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
                         "schema": {
                             "$ref": "#/definitions/v1.Response"
                         }
@@ -9917,6 +9989,300 @@ const docTemplate = `{
                     },
                     "400": {
                         "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/holiday": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Yangi bayram kuni qo'shadi. Hayit sanalari har yili o'zgargani uchun\nular shu endpoint orqali qo'lda kiritiladi.\nDIQQAT: qo'shilgan sana o'sha oyning ish kunlari sonini kamaytiradi va\nkeyingi payroll hisobida KPI foiziga ta'sir qiladi. Ta'sir yo'nalishi\nsanaga bog'liq: o'tgan kunga qo'yilsa kutilgan reja kamayadi (foiz oshadi),\nkelajakdagi kunga qo'yilsa kutilgan reja ortadi (foiz tushadi).",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "holidays"
+                ],
+                "summary": "Create holiday",
+                "parameters": [
+                    {
+                        "description": "Bayram sanasi (YYYY-MM-DD) va nomi",
+                        "name": "input",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/domain.HolidayRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/holiday/list": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Dam olish (bayram) kunlari ro'yxati. Payroll ish kunlarini shu jadvaldan hisoblaydi:\nish kuni = kalendar kun − yakshanba − shu ro'yxatdagi sanalar.\nYakshanba avtomatik hisoblanadi, bu yerda faqat bayramlar turadi.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "holidays"
+                ],
+                "summary": "List holidays",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Yil bo'yicha filtr",
+                        "name": "year",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Oy bo'yicha filtr (year bilan birga)",
+                        "name": "month",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Nom bo'yicha qidiruv",
+                        "name": "search",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Limit",
+                        "name": "limit",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Offset",
+                        "name": "offset",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/holiday/{id}": {
+            "put": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Bayram sanasi yoki nomini o'zgartiradi.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "holidays"
+                ],
+                "summary": "Update holiday",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Holiday id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Yangi sana va nom",
+                        "name": "input",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/domain.HolidayRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Bayram kunini o'chiradi. O'chirilgan sana yana oddiy ish kuniga aylanadi.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "holidays"
+                ],
+                "summary": "Delete holiday",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Holiday id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
                         "schema": {
                             "$ref": "#/definitions/v1.Response"
                         }
@@ -33210,6 +33576,9 @@ const docTemplate = `{
                 "discount_value": {
                     "type": "number"
                 },
+                "marking": {
+                    "type": "string"
+                },
                 "product_id": {
                     "type": "string"
                 },
@@ -34063,6 +34432,22 @@ const docTemplate = `{
             ],
             "properties": {
                 "password": {
+                    "type": "string"
+                }
+            }
+        },
+        "domain.HolidayRequest": {
+            "type": "object",
+            "required": [
+                "date",
+                "name"
+            ],
+            "properties": {
+                "date": {
+                    "description": "YYYY-MM-DD",
+                    "type": "string"
+                },
+                "name": {
                     "type": "string"
                 }
             }

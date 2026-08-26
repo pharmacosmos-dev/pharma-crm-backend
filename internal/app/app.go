@@ -116,19 +116,19 @@ func RegisterCronJobs(service *services.Services) (*cron.Cron, error) {
 	//
 	// !!! VAQTINCHA TEST REJIMI: har 7 daqiqada. Prodga chiqarishdan oldin
 	// pastdagi kunlik jadvalga qaytarish SHART.
-	c.AddFunc("*/7 * * * *", func() {
-		log.Println("Starting daily employee payroll recalculation...")
-		service.RecalculateDailyPayrolls()
-	})
+	// c.AddFunc("*/7 * * * *", func() {
+	// 	log.Println("Starting daily employee payroll recalculation...")
+	// 	service.RecalculateDailyPayrolls()
+	// })
 
 	// PROD jadvali: 00 21 UTC = 02:00 Toshkent (ertangi kun).
 	// Ataylab kech: kechagi kun employee_attendance_days'ga
 	// AggregateEmployeeAttendanceDays (30 19 UTC = 00:30 Toshkent) orqali tushadi,
 	// shuning uchun payroll undan keyin hisoblanishi shart.
-	// c.AddFunc("00 21 * * *", func() {
-	// 	log.Println("Starting daily employee payroll recalculation...")
-	// 	service.RecalculateDailyPayrolls()
-	// })
+	c.AddFunc("00 21 * * *", func() {
+		log.Println("Starting daily employee payroll recalculation...")
+		service.RecalculateDailyPayrolls()
+	})
 
 	// 58 18 UTC = 23:58 Tashkent — bugungi kun tugashidan oldin check-out qilinmagan
 	// check-in'larni avtomatik yopadi (event_at=bugun 23:59:59, is_auto_closed=true)
