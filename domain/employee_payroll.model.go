@@ -155,12 +155,14 @@ type StorePayroll struct {
 	BonusAmount           float64 `json:"bonus_amount"`
 	GrossSalaryAmount     float64 `json:"gross_salary_amount"`
 	NetPayAmount          float64 `json:"net_pay_amount"`
-
-	// Employees — do'kon yig'indilarini hisoblash uchun ichki maydon. Do'konlar
-	// ro'yxati API'sida u bo'shatiladi (xodimlar alohida /payroll/employees
-	// orqali store_id bo'yicha olinadi), shuning uchun omitempty.
-	Employees []EmployeePayrollRow `json:"employees,omitempty"`
 }
+
+// Eslatma: bu strukturada xodimlar ro'yxati YO'Q va bo'lmasligi kerak.
+// Do'kon qatorlari GORM'ning Scan'i orqali to'ldiriladi; ichida []struct maydon
+// bo'lsa GORM uni bog'lanish (relation) deb hisoblab, foreign key talab qiladi
+// va so'rov "invalid field found for struct ... define a valid foreign key"
+// xatosi bilan yiqiladi. Xodimlar alohida /employee/payroll/employees
+// endpointidan store_id bo'yicha olinadi.
 
 // PayrollPeriod — so'ralgan davr haqidagi meta. is_live=true bo'lsa ma'lumot jonli
 // hisoblangan (joriy oy, bugungi kungacha), false bo'lsa employee_payrolls'dan olingan.
