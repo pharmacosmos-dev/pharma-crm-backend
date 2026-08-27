@@ -24,19 +24,25 @@ import (
 // snapshot qilinadi: hisobot tez o'qiladi va xodim keyin boshqa do'konga
 // ko'chirilsa ham eski oy hisoboti o'sha paytdagi holatni ko'rsatadi.
 //
-// KPI PROGRESSIV — har kuni o'zgaradi:
+// KPI DO'KON BO'YICHA va progressiv — har kuni o'zgaradi:
 //
 //	ish kunlari   = kalendar kun − yakshanba − holidays jadvalidagi sanalar
-//	expected_plan = employee_targets.amount * (o'tgan ish kuni / oydagi ish kuni)
-//	achievement   = individual_sales / expected_plan * 100
+//	expected_plan = store_targets.amount * (o'tgan ish kuni / oydagi ish kuni)
+//	achievement   = store_sales / expected_plan * 100
 //	kpi_percent   = 0%    (achievement < 80)
 //	                0.8%  (80 <= achievement < 90)
 //	                1.0%  (90 <= achievement < 100)
 //	                1.4%  (achievement >= 100)
-//	kpi_amount    = individual_sales * kpi_percent / 100
+//	kpi_amount    = store_sales * kpi_percent / 100
 //
-// Xodim har kuni ertalab o'z foizini ko'radi va bugun qancha savdo qilsa KPI
-// qaysi pog'onaga chiqishini biladi.
+// Ya'ni KPI jamoaviy: reja ham, savdo ham DO'KONNIKI, shuning uchun bitta
+// do'konning barcha xodimlarida achievement, kpi_percent va kpi_amount bir xil
+// bo'ladi. Xodimning shaxsiy natijasi (employee_plan_amount,
+// individual_sales_amount) hisobga kirmaydi — u faqat ko'rsatish uchun saqlanadi.
+//
+// store_sales `sales` jadvalidan olinadi (stage = 9, sale_type = 'SALE',
+// qaytarilmagan), oy boshidan calc_date'gacha — ya'ni do'konning haqiqiy
+// aylanmasi, xodimlarga biriktirilgan-biriktirilmaganidan qat'i nazar.
 //
 // Qolgan formulalar:
 //
@@ -49,14 +55,23 @@ import (
 // allaqachon yig'ilgan, jadval kichik va (employee_id, work_date) indeksi bor.
 // `sales`da employee_id bo'yicha indeks yo'q — undan o'qish har kecha to'liq
 // skanga olib kelardi.
+//	avg_monthly_hours    = oydagi ish kuni * payrollWorkDayHours
 //	actual_salary_amount = salary_rate * (worked_hours / avg_monthly_hours)
 //	gross_salary_amount  = actual_salary + kpi_amount + bonus_amount
 //	net_pay_amount       = gross − (avanslar + ushlab qolishlar)
+//
+// Oylik norma soati employees.avg_monthly_hours'dan OLINMAYDI: u qo'lda kiritilgan
+// va oydan oyga o'zgarmaydi. Kalendardan hisoblanganda fevral va mart uchun norma
+// har xil bo'ladi va to'liq ishlagan xodim aynan o'z stavkasini oladi.
 //
 // Avans va ushlab qolishlar qo'lda kiritiladi — cron ularga TEGMAYDI, faqat
 // net_pay_amount'ni ular hisobga olingan holda qayta hisoblaydi.
 
 // region Types
+
+// payrollWorkDayHours — bir ish kunidagi smena uzunligi. Oylik norma soati shunga
+// ko'paytirib topiladi: avg_monthly_hours = oydagi ish kuni * payrollWorkDayHours.
+const payrollWorkDayHours = 8
 
 // storeRef — sahifalangan do'kon ro'yxati uchun minimal ma'lumot.
 // EmployeeCount employees jadvalidan olinadi, payroll qatorlaridan emas —
@@ -286,11 +301,12 @@ func (s *Services) recalculatePayrollMonth(
 	ctx context.Context, year, month int, calcDate time.Time,
 ) (int64, error) {
 	tx := s.db.WithContext(ctx).Exec(payrollUpsertQuery, map[string]any{
-		"year":      year,
-		"month":     month,
-		"calc_date": calcDate.Format(constants.TimeOnlyDateFormat),
-		"status":    constants.GeneralStatusActive,
-		"draft":     domain.EmployeePayrollStatusDraft,
+		"year":           year,
+		"month":          month,
+		"calc_date":      calcDate.Format(constants.TimeOnlyDateFormat),
+		"status":         constants.GeneralStatusActive,
+		"draft":          domain.EmployeePayrollStatusDraft,
+		"work_day_hours": payrollWorkDayHours,
 	})
 	if tx.Error != nil {
 		return 0, fmt.Errorf("upsert payrolls: %w", tx.Error)
@@ -504,9 +520,12 @@ func mergeStoreTotals(stores []storeRef, totals []domain.StorePayroll) []domain.
 // Bosqichlar:
 //
 //	workdays — oydagi va o'tgan ish kunlari (yakshanba va holidays chiqarilgan)
-//	base     — xodim ma'lumotlari + davomat, savdo, bonus, rejalar
-//	calc     — actual_salary va kesilgan reja (expected_plan)
-//	kpi      — bajarilish foizi, keyin undan KPI pog'onasi
+//	*_agg    — davomat, bonus, do'kon savdosi, rejalar, rollar — har biri bir marta
+//	base     — xodim ma'lumotlari + yuqoridagi yig'indilar
+//	calc     — actual_salary va kesilgan DO'KON rejasi (expected_plan)
+//	kpi      — do'kon bajarilish foizi
+//	kpi_tier — foizdan KPI pog'onasi (kpi_percent)
+//	final    — kpi_amount = do'kon savdosi * kpi_percent
 //	INSERT   — UPSERT: qator yo'q bo'lsa yaratadi, bor bo'lsa yangilaydi
 //
 // ON CONFLICT'da avans/ushlab qolish, status, approved_by va completed_at
@@ -560,6 +579,22 @@ bonus_agg AS (
       AND b2.created_at <  w.to_ts
     GROUP BY b2.employee_id
 ),
+-- Do'konning davr savdosi — KPI shundan hisoblanadi.
+-- Manba sales jadvali (employee_attendance_days emas): xodimga biriktirilmagan
+-- yoki davomat qatori yo'q sotuv ham do'kon aylanmasiga kirishi kerak.
+-- Filtr UpdateStoreTargetSales'dagi bilan bir xil: yakunlangan (stage = 9),
+-- qaytarilmagan, qaytarish operatsiyasi bo'lmagan sotuvlar.
+store_sales_agg AS (
+    SELECT sl.store_id, SUM(sl.total_amount) AS store_sales_amount
+    FROM sales sl, workdays w
+    WHERE sl.store_id IS NOT NULL
+      AND sl.stage = 9
+      AND sl.sale_type = 'SALE'
+      AND sl.is_returned IS NOT TRUE
+      AND sl.created_at >= w.from_ts
+      AND sl.created_at <  w.to_ts
+    GROUP BY sl.store_id
+),
 -- Xodimning oylik rejasi. employee_targets'ning unikal kaliti
 -- (employee_id, store_id, year, month) — ya'ni ichida store_id bor, va xodim oy
 -- davomida boshqa do'konga ko'chirilsa unda BIR NECHTA qator bo'ladi.
@@ -594,13 +629,17 @@ base AS (
         COALESCE(rl.role, '')                   AS role,
         COALESCE(rl.role_names, '{}')           AS role_names,
         e.experience_years                      AS experience_years,
-        e.avg_monthly_hours                     AS avg_monthly_hours,
+        -- Oylik norma soati xodim kartochkasidan emas, kalendardan olinadi:
+        -- oydagi ish kunlari × bir kunlik smena. Shunda fevral va mart uchun
+        -- norma har xil bo'ladi va actual_salary to'g'ri proporsiyada chiqadi.
+        w.month_work_days * CAST(@work_day_hours AS numeric) AS avg_monthly_hours,
         e.salary                                AS salary_rate_amount,
         COALESCE(att.worked_hours, 0)            AS worked_hours,
         COALESCE(att.individual_sales_amount, 0) AS individual_sales_amount,
         COALESCE(bon.bonus_amount, 0)            AS bonus_amount,
         st.id                                   AS store_target_id,
         COALESCE(st.amount, 0)                  AS store_plan_amount,
+        COALESCE(ss.store_sales_amount, 0)      AS store_sales_amount,
         COALESCE(et.amount, 0)                  AS employee_plan_amount,
         w.month_work_days,
         w.elapsed_work_days
@@ -610,6 +649,7 @@ base AS (
     LEFT JOIN roles_agg rl      ON rl.employee_id = e.id
     LEFT JOIN attendance_agg att ON att.employee_id = e.id
     LEFT JOIN bonus_agg bon     ON bon.employee_id = e.id
+    LEFT JOIN store_sales_agg ss ON ss.store_id = e.store_id
     LEFT JOIN store_targets st
            ON st.store_id = e.store_id AND st.year = @year AND st.month = @month
     LEFT JOIN targets_agg et ON et.employee_id = e.id
@@ -621,17 +661,18 @@ calc AS (
     SELECT b.*,
            -- avg_monthly_hours = 0 bo'lsa nolga bo'lish o'rniga 0 qaytadi
            COALESCE(ROUND(b.salary_rate_amount * (b.worked_hours / NULLIF(b.avg_monthly_hours, 0)), 2), 0) AS actual_salary_amount,
-           -- reja o'tgan ish kunlariga proporsional kesiladi
-           COALESCE(ROUND(b.employee_plan_amount * b.elapsed_work_days / NULLIF(b.month_work_days, 0), 2), 0) AS expected_plan_amount
+           -- DO'KON rejasi o'tgan ish kunlariga proporsional kesiladi
+           COALESCE(ROUND(b.store_plan_amount * b.elapsed_work_days / NULLIF(b.month_work_days, 0), 2), 0) AS expected_plan_amount
     FROM base b
 ),
 kpi AS (
     SELECT c.*,
-           -- reja 0 bo'lsa (oy boshi yoki target yo'q) foiz ham 0
-           COALESCE(ROUND(c.individual_sales_amount / NULLIF(c.expected_plan_amount, 0) * 100, 2), 0) AS plan_achievement_percent
+           -- Do'kon savdosi kesilgan do'kon rejasiga nisbatan o'lchanadi.
+           -- Reja 0 bo'lsa (oy boshi yoki target yo'q) foiz ham 0.
+           COALESCE(ROUND(c.store_sales_amount / NULLIF(c.expected_plan_amount, 0) * 100, 2), 0) AS plan_achievement_percent
     FROM calc c
 ),
-final AS (
+kpi_tier AS (
     SELECT k.*,
            CAST(CASE
                WHEN k.plan_achievement_percent >= 100 THEN 1.4
@@ -640,13 +681,19 @@ final AS (
                ELSE 0
            END AS numeric) AS kpi_percent
     FROM kpi k
+),
+final AS (
+    SELECT t.*,
+           -- Baza — do'kon savdosi, xodimning shaxsiy savdosi emas
+           ROUND(t.store_sales_amount * t.kpi_percent / 100.0, 2) AS kpi_amount
+    FROM kpi_tier t
 )
 INSERT INTO employee_payrolls (
     id, employee_id, company_id, store_id, store_name,
     first_name, last_name, full_name, position_snapshot, role, role_names,
     experience_years, worked_hours, avg_monthly_hours,
     salary_rate_amount, actual_salary_amount, individual_sales_amount,
-    store_target_id, store_plan_amount,
+    store_target_id, store_plan_amount, store_sales_amount,
     employee_plan_amount, expected_plan_amount, plan_achievement_percent,
     month_work_days, elapsed_work_days,
     kpi_percent, kpi_amount, bonus_amount,
@@ -658,14 +705,16 @@ SELECT
     f.first_name, f.last_name, f.full_name, f.position_snapshot, f.role, f.role_names,
     f.experience_years, f.worked_hours, f.avg_monthly_hours,
     f.salary_rate_amount, f.actual_salary_amount, f.individual_sales_amount,
-    f.store_target_id, f.store_plan_amount,
+    f.store_target_id, f.store_plan_amount, f.store_sales_amount,
     f.employee_plan_amount, f.expected_plan_amount, f.plan_achievement_percent,
     f.month_work_days, f.elapsed_work_days,
     f.kpi_percent,
-    ROUND(f.individual_sales_amount * f.kpi_percent / 100.0, 2),
+    -- KPI do'kon savdosidan: do'kon rejani bajarsa, undagi har bir xodim
+    -- do'kon aylanmasining shu foizini oladi
+    f.kpi_amount,
     f.bonus_amount,
-    f.actual_salary_amount + ROUND(f.individual_sales_amount * f.kpi_percent / 100.0, 2) + f.bonus_amount,
-    f.actual_salary_amount + ROUND(f.individual_sales_amount * f.kpi_percent / 100.0, 2) + f.bonus_amount,
+    f.actual_salary_amount + f.kpi_amount + f.bonus_amount,
+    f.actual_salary_amount + f.kpi_amount + f.bonus_amount,
     @draft, @year, @month, NOW()
 FROM final f
 ON CONFLICT (employee_id, year, month) DO UPDATE SET
@@ -686,6 +735,7 @@ ON CONFLICT (employee_id, year, month) DO UPDATE SET
     individual_sales_amount  = EXCLUDED.individual_sales_amount,
     store_target_id          = EXCLUDED.store_target_id,
     store_plan_amount        = EXCLUDED.store_plan_amount,
+    store_sales_amount       = EXCLUDED.store_sales_amount,
     employee_plan_amount     = EXCLUDED.employee_plan_amount,
     expected_plan_amount     = EXCLUDED.expected_plan_amount,
     plan_achievement_percent = EXCLUDED.plan_achievement_percent,
@@ -714,7 +764,7 @@ SELECT
     p.first_name, p.last_name, p.full_name, p.position_snapshot, p.role,
     p.experience_years, p.worked_hours, p.avg_monthly_hours,
     p.salary_rate_amount, p.actual_salary_amount, p.individual_sales_amount,
-    p.store_target_id, p.store_plan_amount,
+    p.store_target_id, p.store_plan_amount, p.store_sales_amount,
     p.employee_plan_amount, p.expected_plan_amount, p.plan_achievement_percent,
     p.month_work_days, p.elapsed_work_days,
     p.kpi_percent, p.kpi_amount, p.bonus_amount, p.gross_salary_amount,
@@ -747,6 +797,10 @@ SELECT
     SUM(p.actual_salary_amount)    AS actual_salary_amount,
     SUM(p.individual_sales_amount) AS individual_sales_amount,
     MAX(p.store_plan_amount)       AS store_plan_amount,
+    -- Do'kon savdosi ham har bir xodim qatorida takrorlanadi
+    MAX(p.store_sales_amount)      AS store_sales_amount,
+    -- KPI esa SUM: har bir xodim do'kon savdosidan alohida oladi, ya'ni bu
+    -- do'konning umumiy KPI xarajati
     SUM(p.kpi_amount)              AS kpi_amount,
     SUM(p.bonus_amount)            AS bonus_amount,
     SUM(p.gross_salary_amount)     AS gross_salary_amount,

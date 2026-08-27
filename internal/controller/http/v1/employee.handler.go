@@ -1402,7 +1402,8 @@ func (h *EmployeeHandler) RecalculatePayroll(c *gin.Context) {
 // @Summary      Payroll by employees
 // @Description  Xodimlarning oylik ko'rsatkichlari (ishlagan soati, oylik, KPI, bonus, avans, ushlab qolishlar).
 // @Description  Ro'yxatga faqat faol xodimlar kiradi: is_active, status = "active" va roli "Кассир" yoki "Заведующий".
-// @Description  year/month berilmasa joriy oy olinadi; o'sha oy uchun employee_payrolls'da snapshot bo'lsa o'sha qaytadi, bo'lmasa jonli hisoblanadi.
+// @Description  KPI DO'KON bo'yicha: expected_plan = store_plan × (o'tgan ish kuni / oydagi ish kuni), achievement = store_sales / expected_plan × 100, kpi_amount = store_sales × kpi_percent. Bitta do'kondagi xodimlarda bu qiymatlar bir xil bo'ladi.
+// @Description  year/month berilmasa joriy oy olinadi.
 // @Tags         employees
 // @Security     BearerAuth
 // @Accept       json

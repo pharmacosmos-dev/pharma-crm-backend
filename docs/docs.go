@@ -6788,7 +6788,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Xodimlarning oylik ko'rsatkichlari (ishlagan soati, oylik, KPI, bonus, avans, ushlab qolishlar).\nRo'yxatga faqat faol xodimlar kiradi: is_active, status = \"active\" va roli \"Кассир\" yoki \"Заведующий\".\nyear/month berilmasa joriy oy olinadi; o'sha oy uchun employee_payrolls'da snapshot bo'lsa o'sha qaytadi, bo'lmasa jonli hisoblanadi.",
+                "description": "Xodimlarning oylik ko'rsatkichlari (ishlagan soati, oylik, KPI, bonus, avans, ushlab qolishlar).\nRo'yxatga faqat faol xodimlar kiradi: is_active, status = \"active\" va roli \"Кассир\" yoki \"Заведующий\".\nKPI DO'KON bo'yicha: expected_plan = store_plan × (o'tgan ish kuni / oydagi ish kuni), achievement = store_sales / expected_plan × 100, kpi_amount = store_sales × kpi_percent. Bitta do'kondagi xodimlarda bu qiymatlar bir xil bo'ladi.\nyear/month berilmasa joriy oy olinadi.",
                 "consumes": [
                     "application/json"
                 ],
@@ -35220,6 +35220,9 @@ const docTemplate = `{
                 "description_uz": {
                     "type": "string"
                 },
+                "expire_date": {
+                    "type": "string"
+                },
                 "id": {
                     "type": "string"
                 },
@@ -35236,6 +35239,24 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "producer_name": {
+                    "type": "string"
+                },
+                "requires_prescription": {
+                    "type": "boolean"
+                },
+                "unit_code": {
+                    "type": "string"
+                },
+                "unit_label": {
+                    "type": "string"
+                },
+                "unit_name": {
+                    "type": "string"
+                },
+                "unit_per_pack": {
+                    "type": "integer"
+                },
+                "unit_type_id": {
                     "type": "string"
                 }
             }

@@ -450,13 +450,8 @@ type NoorProduct struct {
 	UnitLabel   string `gorm:"unit_label" json:"unit_label"`
 	UnitPerPack int    `gorm:"unit_per_pack" json:"unit_per_pack"`
 
-	// RequiresPrescription — GetNoorProducts filtri retseptli mahsulotlarni
-	// umuman chiqarmaydi, shuning uchun bu maydon doim false qaytadi.
-	RequiresPrescription bool `gorm:"requires_prescription" json:"requires_prescription"`
 
-	// ExpireDate — qoldig'i bor partiyalardan eng oxirgi kelib tushganining
-	// muddati, "YYYY-MM-DD" formatida. Hech qaysi do'konda qoldiq bo'lmasa
-	// null qaytadi.
+	RequiresPrescription bool `gorm:"requires_prescription" json:"requires_prescription"`
 	ExpireDate *string `gorm:"expire_date" json:"expire_date"`
 }
 
