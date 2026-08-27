@@ -1259,6 +1259,10 @@ func (s *Services) GetNoorProducts(params *domain.NoorQueryParam) ([]domain.Noor
 	// 	filter += " AND p.updated_at >= ? "
 	// 	args = append(args, params.UpdatedAt)
 	// }
+	// producer/country/category — LEFT JOIN bilan: products'dagi uchala FK ham
+	// nullable, INNER JOIN bo'lsa ular to'ldirilmagan mahsulotlar ro'yxatdan
+	// butunlay tushib qolardi. COALESCE kerak, chunki NULL qiymatni struct'dagi
+	// string maydonga scan qilib bo'lmaydi.
 	query := `
 	SELECT
 		p.id,
@@ -1268,9 +1272,20 @@ func (s *Services) GetNoorProducts(params *domain.NoorQueryParam) ([]domain.Noor
 		p.description_uz,
 		p.description_ru,
 		p.description_kr,
-		p.category_id
+		p.unit_per_pack,
+		p.requires_prescription AS retsept,
+
+		COALESCE(p.category_id::text, '') AS category_id,
+		COALESCE(cat.name, '')            AS category_name,
+		COALESCE(p.producer_id::text, '') AS producer_id,
+		COALESCE(prod.name, '')           AS producer_name,
+		COALESCE(p.country_id::text, '')  AS country_id,
+		COALESCE(cnt.name, '')            AS country_name
 	FROM
 		products p
+		LEFT JOIN categories cat ON cat.id = p.category_id
+		LEFT JOIN producers prod ON prod.id = p.producer_id
+		LEFT JOIN countries cnt  ON cnt.id = p.country_id
 	` + filter + `
 	ORDER BY p.created_at, p.id LIMIT ? OFFSET ?;`
 
@@ -1309,7 +1324,7 @@ func (s *Services) GetNoorStoreProducts(params *domain.NoorQueryParam) ([]domain
 		sp.store_id,
 		sp.product_id,
 		SUM(sp.unit_quantity/(p.unit_per_pack/p.blister_count)) AS quantity,
-		ROUND(opp.retail_price)::int AS price
+		ROUND(opp.retail_price)::int AS price,
 	FROM store_products sp
 	JOIN products p ON sp.product_id = p.id
 	JOIN LATERAL (

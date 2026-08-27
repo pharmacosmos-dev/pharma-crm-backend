@@ -438,6 +438,11 @@ type NoorProduct struct {
 	DescriptionUz string            `gorm:"description_uz" json:"description_uz"`
 	DescriptionKr string            `gorm:"description_kr" json:"description_kr"`
 	CategoryId    string            `gorm:"category_id" json:"category_id"`
+	CategoryName  string            `gorm:"category_name" json:"category_name"`
+	ProducerId    string            `gorm:"producer_id" json:"producer_id"`
+	ProducerName  string            `gorm:"producer_name" json:"producer_name"`
+	CountryId     string            `gorm:"country_id" json:"country_id"`
+	CountryName   string            `gorm:"country_name" json:"country_name"`
 }
 
 // Noor API store_products structure
