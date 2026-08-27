@@ -111,15 +111,6 @@ func RegisterCronJobs(service *services.Services) (*cron.Cron, error) {
 		service.AutoCreateMonthlyStoreTargets()
 	})
 
-	// Payroll hisobini qayta hisoblab employee_payrolls'ni UPSERT qiladi.
-	// Oyning 1-kunida o'tgan oyni yopib, yangi oy qatorlarini ochadi.
-	//
-	// !!! VAQTINCHA TEST REJIMI: har 7 daqiqada. Prodga chiqarishdan oldin
-	// pastdagi kunlik jadvalga qaytarish SHART.
-	// c.AddFunc("*/7 * * * *", func() {
-	// 	log.Println("Starting daily employee payroll recalculation...")
-	// 	service.RecalculateDailyPayrolls()
-	// })
 
 	// PROD jadvali: 00 21 UTC = 02:00 Toshkent (ertangi kun).
 	// Ataylab kech: kechagi kun employee_attendance_days'ga

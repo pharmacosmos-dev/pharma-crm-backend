@@ -52,6 +52,7 @@ func (h *EmployeeHandler) EmployeeRoutes(r *gin.RouterGroup) {
 		employee.GET("/attendance/stats", h.AttendanceStats)
 		employee.GET("/attendance-days/list", h.EmployeeAttendanceDayList)
 		employee.POST("/attendance-manual", h.CreateAttendanceLogManual)
+		employee.DELETE("/attendance-logs/:id", h.DeleteAttendanceLog)
 		employee.PATCH("/:id/face-descriptor", h.CreateOrUpdateFaceDescriptor)
 		employee.GET("/:id/face-descriptor", h.GetEmployeeFaceDescriptor)
 		employee.DELETE("/:id/face-descriptor", h.DeleteEmployeeFaceDescriptor)
@@ -1185,6 +1186,52 @@ func (h *EmployeeHandler) AttendanceStats(c *gin.Context) {
 	}
 
 	handleResponse(c, OK, res)
+}
+
+// DeleteAttendanceDay godoc
+// @Summary      Delete attendance log
+// @Description  attendance_logs jadvalidagi bitta check-in/check-out yozuvini id bo'yicha butunlay o'chiradi (soft delete emas). Faqat ADMIN va SUPERADMIN rollari uchun ochiq.
+// @Tags         employees
+// @Security     BearerAuth
+// @Produce      json
+// @Param        id  path  string  true  "Attendance log ID"
+// @Success      200 {object} v1.Response
+// @Failure      400 {object} v1.Response
+// @Failure      401 {object} v1.Response
+// @Failure      403 {object} v1.Response
+// @Failure      404 {object} v1.Response
+// @Failure      500 {object} v1.Response
+// @Router       /employee/attendance-logs/{id} [delete]
+func (h *EmployeeHandler) DeleteAttendanceLog(c *gin.Context) {
+	user := h.service.GetSignedUser(c)
+	if user.UserId == "" {
+		handleServiceResponse(c, nil, domain.UnauthorizedError)
+		return
+	}
+
+	// helper.IsAdmin bu yerda ataylab ishlatilmadi: u AllAdminRoles'ni tekshiradi
+	// va buxgalter, menejer, direktor kabi rollarni ham "admin" deb hisoblaydi.
+	// O'chirish faqat ADMIN va SUPERADMIN uchun ochiq.
+	if !utils.In(user.Role, constants.RoleAdmin, constants.RoleSuperAdmin) {
+		handleServiceResponse(c, nil, domain.ForbiddinError)
+		return
+	}
+
+	id := c.Param("id")
+	if err := uuid.Validate(id); err != nil {
+		handleResponse(c, BadRequest, "Invalid id")
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
+	defer cancel()
+
+	if err := h.service.DeleteAttendanceLog(ctx, id); err != nil {
+		handleServiceResponse(c, nil, err)
+		return
+	}
+
+	handleResponse(c, OK, "DELETED")
 }
 
 // EmployeeAttendanceDayList godoc

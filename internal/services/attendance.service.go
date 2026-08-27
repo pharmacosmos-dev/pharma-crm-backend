@@ -287,6 +287,24 @@ func (s *Services) GetAttendanceLogList(ctx context.Context, params *domain.Atte
 	return results, total, nil
 }
 
+
+func (s *Services) DeleteAttendanceLog(ctx context.Context, id string) error {
+	result := s.db.WithContext(ctx).
+		Where("id = ?", id).
+		Delete(&domain.AttendanceLog{})
+
+	if result.Error != nil {
+		s.log.Errorf("could not delete attendance log: %v", result.Error)
+		return domain.InternalServerError
+	}
+
+	if result.RowsAffected == 0 {
+		return domain.NotFoundError
+	}
+
+	return nil
+}
+
 // GetAttendanceStats — bir kunlik davomat statistikasi: nechta do'kon ishlayapti /
 // ishlamayapti va nechta xodim ishda / kelib ketgan / umuman kelmagan.
 //
