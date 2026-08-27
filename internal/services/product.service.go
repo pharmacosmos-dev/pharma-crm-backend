@@ -1284,13 +1284,26 @@ func (s *Services) GetNoorProducts(params *domain.NoorQueryParam) ([]domain.Noor
 		COALESCE(p.country_id::text, '')   AS country_id,
 		COALESCE(cnt.name, '')             AS country_name,
 		COALESCE(p.unit_type_id::text, '') AS unit_type_id,
-		COALESCE(ut.unit_name, '')         AS unit_name
+		COALESCE(ut.unit_name, '')         AS unit_name,
+
+		sp.expire_date
 	FROM
 		products p
 		LEFT JOIN categories cat ON cat.id = p.category_id
 		LEFT JOIN producers prod ON prod.id = p.producer_id
 		LEFT JOIN countries cnt  ON cnt.id = p.country_id
 		LEFT JOIN unit_types ut ON ut.id = p.unit_type_id
+
+		LEFT JOIN LATERAL (
+			-- TO_CHAR — Noor tomoni sof sana kutadi ("2027-03-15"), timestamp emas.
+			-- NULL bo'lsa TO_CHAR ham NULL qaytaradi, ya'ni javobda expire_date: null.
+			SELECT TO_CHAR(sp.expire_date, 'YYYY-MM-DD') AS expire_date
+			FROM store_products sp
+			WHERE sp.product_id = p.id
+			  AND sp.unit_quantity > 0
+			ORDER BY sp.created_at DESC
+			LIMIT 1
+		) sp ON TRUE
 	` + filter + `
 	ORDER BY p.created_at, p.id LIMIT ? OFFSET ?;`
 
