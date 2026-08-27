@@ -5935,6 +5935,70 @@ const docTemplate = `{
                 }
             }
         },
+        "/employee/attendance-logs/{id}": {
+            "delete": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "attendance_logs jadvalidagi bitta check-in/check-out yozuvini id bo'yicha butunlay o'chiradi (soft delete emas). Faqat ADMIN va SUPERADMIN rollari uchun ochiq.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "employees"
+                ],
+                "summary": "Delete attendance log",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Attendance log ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    }
+                }
+            }
+        },
         "/employee/attendance-manual": {
             "post": {
                 "security": [
@@ -35135,6 +35199,15 @@ const docTemplate = `{
                 "category_id": {
                     "type": "string"
                 },
+                "category_name": {
+                    "type": "string"
+                },
+                "country_id": {
+                    "type": "string"
+                },
+                "country_name": {
+                    "type": "string"
+                },
                 "description": {
                     "type": "string"
                 },
@@ -35158,6 +35231,12 @@ const docTemplate = `{
                     "items": {
                         "type": "string"
                     }
+                },
+                "producer_id": {
+                    "type": "string"
+                },
+                "producer_name": {
+                    "type": "string"
                 }
             }
         },

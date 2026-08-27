@@ -1174,6 +1174,12 @@ definitions:
     properties:
       category_id:
         type: string
+      category_name:
+        type: string
+      country_id:
+        type: string
+      country_name:
+        type: string
       description:
         type: string
       description_kr:
@@ -1190,6 +1196,10 @@ definitions:
         items:
           type: string
         type: array
+      producer_id:
+        type: string
+      producer_name:
+        type: string
     type: object
   domain.NoorStore:
     properties:
@@ -6419,6 +6429,49 @@ paths:
       security:
       - BearerAuth: []
       summary: Cleanup old attendance photos (admin)
+      tags:
+      - employees
+  /employee/attendance-logs/{id}:
+    delete:
+      description: attendance_logs jadvalidagi bitta check-in/check-out yozuvini id
+        bo'yicha butunlay o'chiradi (soft delete emas). Faqat ADMIN va SUPERADMIN
+        rollari uchun ochiq.
+      parameters:
+      - description: Attendance log ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Delete attendance log
       tags:
       - employees
   /employee/attendance-manual:
