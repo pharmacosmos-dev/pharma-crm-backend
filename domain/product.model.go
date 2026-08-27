@@ -443,6 +443,12 @@ type NoorProduct struct {
 	ProducerName  string            `gorm:"producer_name" json:"producer_name"`
 	CountryId     string            `gorm:"country_id" json:"country_id"`
 	CountryName   string            `gorm:"country_name" json:"country_name"`
+
+	UnitTypeId  string `gorm:"unit_type_id" json:"unit_type_id"`
+	UnitName    string `gorm:"unit_name" json:"unit_name"`
+	UnitCode    string `gorm:"unit_code" json:"unit_code"`
+	UnitLabel   string `gorm:"unit_label" json:"unit_label"`
+	UnitPerPack int    `gorm:"unit_per_pack" json:"unit_per_pack"`
 }
 
 // Noor API store_products structure

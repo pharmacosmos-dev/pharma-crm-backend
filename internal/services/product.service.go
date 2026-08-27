@@ -1268,24 +1268,29 @@ func (s *Services) GetNoorProducts(params *domain.NoorQueryParam) ([]domain.Noor
 		p.id,
 		p.name,
 		p.photos,
+		p.unit_code,
 		p.description,
 		p.description_uz,
 		p.description_ru,
 		p.description_kr,
 		p.unit_per_pack,
-		p.requires_prescription AS retsept,
+		p.requires_prescription,
+		p.unit_label,
 
-		COALESCE(p.category_id::text, '') AS category_id,
-		COALESCE(cat.name, '')            AS category_name,
-		COALESCE(p.producer_id::text, '') AS producer_id,
-		COALESCE(prod.name, '')           AS producer_name,
-		COALESCE(p.country_id::text, '')  AS country_id,
-		COALESCE(cnt.name, '')            AS country_name
+		COALESCE(p.category_id::text, '')  AS category_id,
+		COALESCE(cat.name, '')             AS category_name,
+		COALESCE(p.producer_id::text, '')  AS producer_id,
+		COALESCE(prod.name, '')            AS producer_name,
+		COALESCE(p.country_id::text, '')   AS country_id,
+		COALESCE(cnt.name, '')             AS country_name,
+		COALESCE(p.unit_type_id::text, '') AS unit_type_id,
+		COALESCE(ut.unit_name, '')         AS unit_name
 	FROM
 		products p
 		LEFT JOIN categories cat ON cat.id = p.category_id
 		LEFT JOIN producers prod ON prod.id = p.producer_id
 		LEFT JOIN countries cnt  ON cnt.id = p.country_id
+		LEFT JOIN unit_types ut ON ut.id = p.unit_type_id
 	` + filter + `
 	ORDER BY p.created_at, p.id LIMIT ? OFFSET ?;`
 
