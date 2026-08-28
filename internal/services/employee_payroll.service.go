@@ -108,9 +108,13 @@ type employeePayrollPageRow struct {
 // payrollReadFilter — o'qish so'rovining doirasi. Bo'sh maydon = filtrlamaslik.
 type payrollReadFilter struct {
 	EmployeeId string
-	StoreId    string
 	CompanyId  string
+	StoreId    string
 	Roles      []string
+	// OnlyWorked — faqat davomati bor xodimlar (worked_hours > 0). Cron barcha
+	// faol xodimlarga qator yozadi, shu jumladan oy davomida umuman ishlamaganlarga
+	// ham — ro'yxatda ular nol qatorlar bo'lib turmasligi uchun.
+	OnlyWorked bool
 	Limit      int // 0 = cheklovsiz
 	Offset     int
 }
@@ -133,6 +137,11 @@ func nullIfEmpty(value string) *string {
 // GetEmployeePayrolls — xodimlar hisoboti. employee_payrolls'dan to'g'ridan-to'g'ri
 // o'qiydi: JOIN ham, hisob-kitob ham yo'q — hammasi cron tomonidan oldindan yozilgan.
 //
+// Ro'yxatga faqat roli "Кассир"/"Заведующий" va davomati bor (worked_hours > 0)
+// xodimlar kiradi. Cron barcha faol xodimlarga qator yozadi, shu jumladan oy
+// davomida bironta smenaga chiqmaganlarga ham — ular hisobotni nol qatorlar
+// bilan to'ldirib yubormasligi uchun bu yerda chiqarib tashlanadi.
+//
 // So'ralgan oy uchun cron hali ishlamagan bo'lsa natija bo'sh bo'ladi.
 func (s *Services) GetEmployeePayrolls(
 	ctx context.Context, params *domain.EmployeePayrollQueryParams,
@@ -144,11 +153,12 @@ func (s *Services) GetEmployeePayrolls(
 	}
 
 	page, err := s.selectPayrolls(ctx, period, payrollReadFilter{
-		CompanyId: params.CompanyId,
-		StoreId:   params.StoreId,
-		Roles:     payrollSalesRoles,
-		Limit:     params.Limit,
-		Offset:    params.Offset,
+		CompanyId:  params.CompanyId,
+		StoreId:    params.StoreId,
+		Roles:      payrollSalesRoles,
+		OnlyWorked: true,
+		Limit:      params.Limit,
+		Offset:     params.Offset,
 	})
 	if err != nil {
 		return nil, 0, period, err
@@ -425,9 +435,10 @@ func (s *Services) selectPayrolls(
 		"store_id":    nullIfEmpty(filter.StoreId),
 		"company_id":  nullIfEmpty(filter.CompanyId),
 		// Bo'sh massiv NULL bo'lib ketadi → o'sha shart tekshirilmaydi.
-		"roles":  pq.StringArray(filter.Roles),
-		"limit":  filter.Limit,
-		"offset": filter.Offset,
+		"roles":       pq.StringArray(filter.Roles),
+		"only_worked": filter.OnlyWorked,
+		"limit":       filter.Limit,
+		"offset":      filter.Offset,
 	}).Scan(&page).Error
 	if err != nil {
 		s.log.Errorf("payroll: could not read payrolls: %v", err)
@@ -830,6 +841,7 @@ WHERE p.year = @year
   AND (CAST(@store_id AS uuid)    IS NULL OR p.store_id    = CAST(@store_id AS uuid))
   AND (CAST(@company_id AS uuid)  IS NULL OR p.company_id  = CAST(@company_id AS uuid))
   AND (CAST(@roles AS text[])     IS NULL OR p.role_names && CAST(@roles AS text[]))
+  AND (NOT CAST(@only_worked AS boolean) OR p.worked_hours > 0)
 ORDER BY p.store_name, p.full_name
 LIMIT NULLIF(@limit, 0) OFFSET @offset`
 
