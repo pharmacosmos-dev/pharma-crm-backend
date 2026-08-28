@@ -101,12 +101,13 @@ type EmployeePayrollRow struct {
 	StorePlanAmount  float64 `json:"store_plan_amount"`  // do'konning to'liq oylik rejasi
 	StoreSalesAmount float64 `json:"store_sales_amount"` // do'konning shu kungacha savdosi
 
-	// KPI DO'KON bo'yicha: do'kon rejasi o'tgan ish kunlariga proporsional
-	// kesiladi va do'kon savdosi shunga nisbatan o'lchanadi. Do'kondagi barcha
-	// xodimlarda bu qiymatlar bir xil bo'ladi.
+	// Reja bajarilishi DO'KON bo'yicha o'lchanadi: do'kon rejasi o'tgan ish
+	// kunlariga proporsional kesiladi va do'kon savdosi shunga solishtiriladi.
+	// Quyidagi uchtasi do'kondagi barcha xodimlarda BIR XIL bo'ladi — ular
+	// kpi_percent'ni belgilaydi. KPI SUMMASI esa har kimning o'z savdosidan
+	// hisoblanadi, ya'ni kpi_amount xodimdan xodimga farq qiladi.
 	//
-	// employee_plan_amount va individual_sales_amount hisobga kirmaydi, ular
-	// faqat ma'lumot uchun qoladi (xodimning shaxsiy natijasi ko'rinib tursin).
+	// employee_plan_amount hisobga kirmaydi, faqat ma'lumot uchun qoladi.
 	EmployeePlanAmount     float64 `json:"employee_plan_amount"`     // xodimning to'liq oylik rejasi (ma'lumot uchun)
 	ExpectedPlanAmount     float64 `json:"expected_plan_amount"`     // do'konning shu kungacha kutilgan rejasi
 	PlanAchievementPercent float64 `json:"plan_achievement_percent"` // store_sales / expected_plan * 100
@@ -159,8 +160,7 @@ type StorePayroll struct {
 	// StoreSalesAmount — do'konning savdosi. Xodim qatorlarida takrorlanadi,
 	// shuning uchun yig'indi emas, bittasidan olinadi (MAX).
 	StoreSalesAmount float64 `json:"store_sales_amount"`
-	// KpiAmount — xodimlar bo'yicha YIG'INDI. Har bir xodim do'kon savdosidan
-	// KPI olgani uchun bu do'konning umumiy KPI xarajati.
+	// KpiAmount — xodimlar KPI'sining yig'indisi, ya'ni do'konning umumiy KPI xarajati.
 	KpiAmount float64 `json:"kpi_amount"`
 	BonusAmount           float64 `json:"bonus_amount"`
 	GrossSalaryAmount     float64 `json:"gross_salary_amount"`

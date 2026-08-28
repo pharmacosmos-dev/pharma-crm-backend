@@ -33,12 +33,15 @@ import (
 //	                0.8%  (80 <= achievement < 90)
 //	                1.0%  (90 <= achievement < 100)
 //	                1.4%  (achievement >= 100)
-//	kpi_amount    = store_sales * kpi_percent / 100
+//	kpi_amount    = individual_sales * kpi_percent / 100
 //
-// Ya'ni KPI jamoaviy: reja ham, savdo ham DO'KONNIKI, shuning uchun bitta
-// do'konning barcha xodimlarida achievement, kpi_percent va kpi_amount bir xil
-// bo'ladi. Xodimning shaxsiy natijasi (employee_plan_amount,
-// individual_sales_amount) hisobga kirmaydi — u faqat ko'rsatish uchun saqlanadi.
+// Ya'ni pog'ona jamoaviy, pul shaxsiy: reja bajarilishi DO'KON bo'yicha
+// o'lchanadi (bitta do'konning barcha xodimlarida achievement va kpi_percent
+// bir xil), lekin KPI summasi har kimning O'Z savdosidan hisoblanadi. Do'kon
+// rejani bajarmasa kpi_percent = 0 bo'ladi va ko'p sotgan xodim ham KPI olmaydi.
+//
+// employee_plan_amount (employee_targets) hisobga kirmaydi — u faqat ko'rsatish
+// uchun saqlanadi.
 //
 // store_sales `sales` jadvalidan olinadi (stage = 9, sale_type = 'SALE',
 // qaytarilmagan), oy boshidan calc_date'gacha — ya'ni do'konning haqiqiy
@@ -47,14 +50,17 @@ import (
 // Qolgan formulalar:
 //
 //	worked_hours         = SUM(employee_attendance_days.worked_minutes) / 60
-//	individual_sales     = SUM(employee_attendance_days.sales_amount)
+//	individual_sales     = SUM(sales.total_amount) WHERE employee_id = xodim
 //	bonus_amount         = SUM(employee_bonus.bonus_amount)
 //
-// Savdo ataylab `sales` jadvalidan emas, employee_attendance_days'dan olinadi:
-// u yerda kunlik savdo AggregateEmployeeAttendanceDays (00:30 Toshkent) orqali
-// allaqachon yig'ilgan, jadval kichik va (employee_id, work_date) indeksi bor.
-// `sales`da employee_id bo'yicha indeks yo'q — undan o'qish har kecha to'liq
-// skanga olib kelardi.
+// Savdo — do'konniki ham, xodimniki ham — bitta manbadan, `sales` jadvalidan
+// olinadi. Ilgari xodim savdosi employee_attendance_days.sales_amount'dan
+// olinardi; u faqat davomat qatori bor kunlarni qamrardi va qaytarilgan
+// sotuvlarni chiqarib tashlamasdi. Endi ikkala summa ham bir xil filtrdan
+// o'tadi, shuning uchun ular bir-biriga mos keladi.
+//
+// `sales` jadvali so'rovda BIR MARTA o'qiladi: sales_agg uni (store_id,
+// employee_id) kesimida yig'adi, do'kon va xodim summalari o'shandan chiqadi.
 //	avg_monthly_hours    = oydagi ish kuni * payrollWorkDayHours
 //	actual_salary_amount = salary_rate * (worked_hours / avg_monthly_hours)
 //	gross_salary_amount  = actual_salary + kpi_amount + bonus_amount
@@ -525,7 +531,7 @@ func mergeStoreTotals(stores []storeRef, totals []domain.StorePayroll) []domain.
 //	calc     — actual_salary va kesilgan DO'KON rejasi (expected_plan)
 //	kpi      — do'kon bajarilish foizi
 //	kpi_tier — foizdan KPI pog'onasi (kpi_percent)
-//	final    — kpi_amount = do'kon savdosi * kpi_percent
+//	final    — kpi_amount = xodim savdosi * kpi_percent
 //	INSERT   — UPSERT: qator yo'q bo'lsa yaratadi, bor bo'lsa yangilaydi
 //
 // ON CONFLICT'da avans/ushlab qolish, status, approved_by va completed_at
@@ -563,8 +569,7 @@ workdays AS (
 -- soniga ko'paytirilgan skan bo'lib, so'rov daqiqalab cho'zilardi.
 attendance_agg AS (
     SELECT d.employee_id,
-           SUM(d.worked_minutes)::numeric / 60.0 AS worked_hours,
-           SUM(d.sales_amount)                   AS individual_sales_amount
+           SUM(d.worked_minutes)::numeric / 60.0 AS worked_hours
     FROM employee_attendance_days d, workdays w
     WHERE d.employee_id IS NOT NULL
       AND d.work_date BETWEEN w.month_start AND w.calc_date
@@ -579,21 +584,36 @@ bonus_agg AS (
       AND b2.created_at <  w.to_ts
     GROUP BY b2.employee_id
 ),
--- Do'konning davr savdosi — KPI shundan hisoblanadi.
--- Manba sales jadvali (employee_attendance_days emas): xodimga biriktirilmagan
--- yoki davomat qatori yo'q sotuv ham do'kon aylanmasiga kirishi kerak.
+-- Davr savdosi — yagona manba sales jadvali. U BIR MARTA o'qiladi, natija
+-- do'kon va xodim kesimida ikkiga bo'linadi: do'kon summasi KPI uchun, xodim
+-- summasi ko'rsatish uchun.
+--
 -- Filtr UpdateStoreTargetSales'dagi bilan bir xil: yakunlangan (stage = 9),
--- qaytarilmagan, qaytarish operatsiyasi bo'lmagan sotuvlar.
-store_sales_agg AS (
-    SELECT sl.store_id, SUM(sl.total_amount) AS store_sales_amount
+-- qaytarish operatsiyasi bo'lmagan (sale_type = 'SALE'), qaytarilmagan sotuvlar.
+sales_agg AS (
+    SELECT sl.store_id, sl.employee_id, SUM(sl.total_amount) AS amount
     FROM sales sl, workdays w
-    WHERE sl.store_id IS NOT NULL
-      AND sl.stage = 9
+    WHERE sl.stage = 9
       AND sl.sale_type = 'SALE'
       AND sl.is_returned IS NOT TRUE
       AND sl.created_at >= w.from_ts
       AND sl.created_at <  w.to_ts
-    GROUP BY sl.store_id
+    GROUP BY sl.store_id, sl.employee_id
+),
+-- Do'kon aylanmasi: xodimga biriktirilmagan sotuv ham kiradi.
+store_sales_agg AS (
+    SELECT sa.store_id, SUM(sa.amount) AS store_sales_amount
+    FROM sales_agg sa
+    WHERE sa.store_id IS NOT NULL
+    GROUP BY sa.store_id
+),
+-- Xodimning shaxsiy savdosi. Do'kon bo'yicha cheklanmaydi: xodim boshqa
+-- do'konda smenaga chiqib sotgan bo'lsa ham o'z hisobiga tushadi.
+employee_sales_agg AS (
+    SELECT sa.employee_id, SUM(sa.amount) AS individual_sales_amount
+    FROM sales_agg sa
+    WHERE sa.employee_id IS NOT NULL
+    GROUP BY sa.employee_id
 ),
 -- Xodimning oylik rejasi. employee_targets'ning unikal kaliti
 -- (employee_id, store_id, year, month) — ya'ni ichida store_id bor, va xodim oy
@@ -635,7 +655,7 @@ base AS (
         w.month_work_days * CAST(@work_day_hours AS numeric) AS avg_monthly_hours,
         e.salary                                AS salary_rate_amount,
         COALESCE(att.worked_hours, 0)            AS worked_hours,
-        COALESCE(att.individual_sales_amount, 0) AS individual_sales_amount,
+        COALESCE(es.individual_sales_amount, 0)  AS individual_sales_amount,
         COALESCE(bon.bonus_amount, 0)            AS bonus_amount,
         st.id                                   AS store_target_id,
         COALESCE(st.amount, 0)                  AS store_plan_amount,
@@ -648,6 +668,7 @@ base AS (
     LEFT JOIN stores s          ON s.id = e.store_id
     LEFT JOIN roles_agg rl      ON rl.employee_id = e.id
     LEFT JOIN attendance_agg att ON att.employee_id = e.id
+    LEFT JOIN employee_sales_agg es ON es.employee_id = e.id
     LEFT JOIN bonus_agg bon     ON bon.employee_id = e.id
     LEFT JOIN store_sales_agg ss ON ss.store_id = e.store_id
     LEFT JOIN store_targets st
@@ -684,8 +705,10 @@ kpi_tier AS (
 ),
 final AS (
     SELECT t.*,
-           -- Baza — do'kon savdosi, xodimning shaxsiy savdosi emas
-           ROUND(t.store_sales_amount * t.kpi_percent / 100.0, 2) AS kpi_amount
+           -- Pog'ona do'kondan, summa esa xodimning O'Z savdosidan: do'kon
+           -- rejani bajarsa hamma bir xil foizga chiqadi, pul miqdori esa
+           -- har kimning aylanmasiga qarab har xil bo'ladi.
+           ROUND(t.individual_sales_amount * t.kpi_percent / 100.0, 2) AS kpi_amount
     FROM kpi_tier t
 )
 INSERT INTO employee_payrolls (
@@ -709,8 +732,6 @@ SELECT
     f.employee_plan_amount, f.expected_plan_amount, f.plan_achievement_percent,
     f.month_work_days, f.elapsed_work_days,
     f.kpi_percent,
-    -- KPI do'kon savdosidan: do'kon rejani bajarsa, undagi har bir xodim
-    -- do'kon aylanmasining shu foizini oladi
     f.kpi_amount,
     f.bonus_amount,
     f.actual_salary_amount + f.kpi_amount + f.bonus_amount,
@@ -799,8 +820,6 @@ SELECT
     MAX(p.store_plan_amount)       AS store_plan_amount,
     -- Do'kon savdosi ham har bir xodim qatorida takrorlanadi
     MAX(p.store_sales_amount)      AS store_sales_amount,
-    -- KPI esa SUM: har bir xodim do'kon savdosidan alohida oladi, ya'ni bu
-    -- do'konning umumiy KPI xarajati
     SUM(p.kpi_amount)              AS kpi_amount,
     SUM(p.bonus_amount)            AS bonus_amount,
     SUM(p.gross_salary_amount)     AS gross_salary_amount,
