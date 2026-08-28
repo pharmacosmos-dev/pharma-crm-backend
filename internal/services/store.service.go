@@ -137,6 +137,83 @@ func (s *Services) GetStores(ctx context.Context, params *domain.StoreQueryParam
 	return stores, totalCount, ids, nil
 }
 
+// GetStoreEmployeeCounts returns the planned headcount (stores.employee_count)
+// of every store next to the number of employees actually assigned to it.
+//
+// The actual count uses the same predicate as GetAllStoreMapInfo: only
+// employees that are not deleted, still active and bound to a single store.
+func (s *Services) GetStoreEmployeeCounts(ctx context.Context, params *domain.StoreEmployeeCountQueryParams) ([]domain.StoreEmployeeCount, int64, error) {
+	qb := s.db.WithContext(ctx).
+		Model(&domain.Store{}).
+		Joins(`
+			LEFT JOIN (
+				SELECT
+					store_id,
+					COUNT(*) AS employee_count
+				FROM employees
+				WHERE deleted_at IS NULL
+				  AND is_active = TRUE
+				  AND store_id IS NOT NULL
+				GROUP BY store_id
+			) actual
+				ON actual.store_id = stores.id
+		`).
+		Select(`
+			stores.id,
+			stores.store_code,
+			stores.name,
+			stores.company_id,
+			COALESCE(stores.employee_count, 0) AS employee_count,
+			COALESCE(actual.employee_count, 0) AS actual_employee_count,
+			COALESCE(actual.employee_count, 0) - COALESCE(stores.employee_count, 0) AS difference
+		`).
+		Where("stores.deleted_at IS NULL").
+		Where("stores.is_active = TRUE")
+
+	if params.Search != "" {
+		searchPattern := fmt.Sprintf("%%%s%%", params.Search)
+		qb = qb.Where("stores.name ILIKE ? OR stores.detailed_name ILIKE ?", searchPattern, searchPattern)
+	}
+
+	if len(params.CompanyIds) > 0 {
+		qb = qb.Where("stores.company_id IN (?)", params.CompanyIds)
+	} else if params.CompanyId != "" {
+		qb = qb.Where("stores.company_id = ?", params.CompanyId)
+	}
+
+	if len(params.StoreIds) > 0 {
+		qb = qb.Where("stores.id IN (?)", params.StoreIds)
+	} else if params.StoreId != "" {
+		qb = qb.Where("stores.id = ?", params.StoreId)
+	}
+
+	if params.IsFranchise != nil {
+		qb = qb.Where("stores.company_id IN (SELECT id FROM companies WHERE is_franchise = ?)", *params.IsFranchise)
+	}
+
+	totalCount := int64(0)
+	if err := qb.Count(&totalCount).Error; err != nil {
+		s.log.Errorf("could not count store employee counts: %v", err)
+		return nil, 0, domain.InternalServerError
+	}
+
+	if params.Limit > 0 {
+		qb = qb.Limit(params.Limit)
+	}
+
+	if params.Offset > 0 {
+		qb = qb.Offset(params.Offset)
+	}
+
+	res := []domain.StoreEmployeeCount{}
+	if err := qb.Order("stores.store_code ASC").Find(&res).Error; err != nil {
+		s.log.Errorf("could not get store employee counts: %v", err)
+		return nil, 0, domain.InternalServerError
+	}
+
+	return res, totalCount, nil
+}
+
 func (s *Services) UpdateAverateStoreTargetSales() error {
 	err := s.db.Exec(`
 		UPDATE stores

@@ -1970,6 +1970,14 @@ definitions:
       to_employee_id:
         type: string
     type: object
+  domain.StoreEmployeeCountRequest:
+    properties:
+      employee_count:
+        minimum: 0
+        type: integer
+    required:
+    - employee_count
+    type: object
   domain.StoreProductBarcodeRequest:
     properties:
       discount_type:
@@ -21345,6 +21353,51 @@ paths:
       summary: Update a store
       tags:
       - stores
+  /store/{id}/employee-count:
+    put:
+      consumes:
+      - application/json
+      description: Update stores.employee_count for a single store
+      parameters:
+      - description: store ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Planned employee count
+        in: body
+        name: input
+        required: true
+        schema:
+          $ref: '#/definitions/domain.StoreEmployeeCountRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Update planned employee count of a store
+      tags:
+      - stores
   /store/{id}/map-info:
     get:
       consumes:
@@ -21424,6 +21477,57 @@ paths:
       security:
       - BearerAuth: []
       summary: Get all store map info
+      tags:
+      - stores
+  /store/employee-count:
+    get:
+      consumes:
+      - application/json
+      description: Planned headcount (stores.employee_count) next to the number of
+        employees actually assigned to the store
+      parameters:
+      - description: Limit
+        in: query
+        name: limit
+        type: integer
+      - description: Offset
+        in: query
+        name: offset
+        type: integer
+      - description: Search by store name
+        in: query
+        name: search
+        type: string
+      - description: Company ID
+        in: query
+        name: company_id
+        type: string
+      - description: is_franchise
+        in: query
+        name: is_franchise
+        type: boolean
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Get planned vs actual employee count per store
       tags:
       - stores
   /store/export-excel:

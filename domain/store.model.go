@@ -106,6 +106,35 @@ type StoreQueryParams struct {
 	Offset        int      `form:"offset"`
 }
 
+type StoreEmployeeCountQueryParams struct {
+	CompanyId   string   `form:"company_id"`
+	CompanyIds  []string `form:"-"`
+	StoreId     string   `form:"-"`
+	StoreIds    []string `form:"-"`
+	Search      string   `form:"search"`
+	IsFranchise *bool    `form:"is_franchise"`
+	Limit       int      `form:"limit"`
+	Offset      int      `form:"offset"`
+}
+
+// StoreEmployeeCount holds the planned headcount of a store next to the number
+// of employees actually assigned to it.
+type StoreEmployeeCount struct {
+	Id                  string `json:"id"`
+	StoreCode           int    `json:"store_code"`
+	Name                string `json:"name"`
+	CompanyId           string `json:"company_id"`
+	EmployeeCount       int    `json:"employee_count"`
+	ActualEmployeeCount int    `json:"actual_employee_count"`
+	Difference          int    `json:"difference"`
+}
+
+// StoreEmployeeCountRequest updates the planned headcount of a single store.
+// The pointer keeps an explicit 0 distinguishable from a missing field.
+type StoreEmployeeCountRequest struct {
+	EmployeeCount *int `json:"employee_count" binding:"required,min=0"`
+}
+
 type StoreMapInfoQueryParams struct {
 	Search      string `form:"search"`
 	IsFranchise *bool  `form:"is_franchise"`

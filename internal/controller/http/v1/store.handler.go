@@ -35,7 +35,9 @@ func (h *StoreHandler) StoreRoutes(r *gin.RouterGroup) {
 		store.GET("/list", h.FetchStores)
 		store.GET("/export-excel", h.ExportExcel)
 		store.GET("/working-hours", h.GetStoreWorkingHours)
+		store.GET("/employee-count", h.FetchStoreEmployeeCounts)
 		store.PUT("/:id", h.Update)
+		store.PUT("/:id/employee-count", h.UpdateStoreEmployeeCount)
 		store.PUT("/online-order", h.UpdateOnlineOrder)
 		store.DELETE("/:id", h.Delete)
 		store.GET("/all-store-map-info", h.GetAllStoreMapInfo)
@@ -345,6 +347,131 @@ func (h *StoreHandler) Update(c *gin.Context) {
 		handleServiceResponse(c, InternalError, domain.InternalServerError)
 		return
 	}
+	handleResponse(c, OK, body)
+}
+
+// FetchStoreEmployeeCounts godoc
+// @Summary Get planned vs actual employee count per store
+// @Description Planned headcount (stores.employee_count) next to the number of employees actually assigned to the store
+// @Tags stores
+// @Security     BearerAuth
+// @Accept json
+// @Produce json
+// @Param limit query int false "Limit"
+// @Param offset query int false "Offset"
+// @Param search query string false "Search by store name"
+// @Param company_id query string false "Company ID"
+// @Param is_franchise query bool false "is_franchise"
+// @Success 200 {object} v1.Response
+// @Failure 400 {object} v1.Response
+// @Failure 401 {object} v1.Response
+// @Failure 500 {object} v1.Response
+// @Router /store/employee-count [get]
+func (h *StoreHandler) FetchStoreEmployeeCounts(c *gin.Context) {
+	user := h.service.GetSignedUser(c)
+	if user.UserId == "" {
+		handleServiceResponse(c, nil, domain.UnauthorizedError)
+		return
+	}
+
+	var params domain.StoreEmployeeCountQueryParams
+	if err := c.ShouldBindQuery(&params); err != nil {
+		h.log.Errorf("could not bind query params for store employee count list: %v", err)
+		handleServiceResponse(c, BadRequest, domain.InvalidQueryError)
+		return
+	}
+
+	params.Limit, params.Offset = defaultLimitOffset(params.Limit, params.Offset)
+
+	ctx, cancel := context.WithTimeout(c.Request.Context(), constants.DefaultContextTimeout)
+	defer cancel()
+
+	if !helper.IsAdmin(user) {
+		switch user.Role {
+		case constants.RoleFranchise:
+			params.CompanyIds, _ = h.service.GetCompanyIds(ctx, true)
+			params.CompanyId = ""
+		case constants.RoleFranchiseAdmin:
+			params.CompanyId = user.CompanyId
+		default:
+			params.CompanyId = user.CompanyId
+			params.StoreId = user.StoreId
+		}
+	}
+
+	if len(user.StoreIds) > 0 {
+		params.StoreIds = user.StoreIds
+		params.CompanyId = ""
+		params.StoreId = ""
+	}
+
+	res, totalCount, err := h.service.GetStoreEmployeeCounts(ctx, &params)
+	if err != nil {
+		handleServiceResponse(c, InternalError, err)
+		return
+	}
+
+	handleResponse(c, OK, map[string]interface{}{
+		"_meta": utils.Meta{
+			TotalCount:  totalCount,
+			PerPage:     params.Limit,
+			CurrentPage: (params.Offset / params.Limit) + 1,
+			PageCount:   int((totalCount + int64(params.Limit) - 1) / int64(params.Limit)),
+		},
+		"data": res,
+	})
+}
+
+// UpdateStoreEmployeeCount godoc
+// @Summary Update planned employee count of a store
+// @Description Update stores.employee_count for a single store
+// @Tags stores
+// @Security     BearerAuth
+// @Accept json
+// @Produce json
+// @Param id path string true "store ID"
+// @Param input body domain.StoreEmployeeCountRequest true "Planned employee count"
+// @Success 200 {object} v1.Response
+// @Failure 400 {object} v1.Response
+// @Failure 401 {object} v1.Response
+// @Failure 404 {object} v1.Response
+// @Failure 500 {object} v1.Response
+// @Router /store/{id}/employee-count [put]
+func (h *StoreHandler) UpdateStoreEmployeeCount(c *gin.Context) {
+	user := h.service.GetSignedUser(c)
+	if user.UserId == "" {
+		handleServiceResponse(c, nil, domain.UnauthorizedError)
+		return
+	}
+
+	var (
+		body domain.StoreEmployeeCountRequest
+		id   = c.Param("id")
+	)
+	if err := c.ShouldBindJSON(&body); err != nil {
+		h.log.Errorf("could not bind store employee count request body: %v", err)
+		handleServiceResponse(c, BadRequest, domain.InvalidRequestBodyError)
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(c.Request.Context(), constants.DefaultContextTimeout)
+	defer cancel()
+
+	// updated_at is maintained by GORM through domain.Store.UpdatedAt
+	result := h.db.WithContext(ctx).
+		Model(&domain.Store{}).
+		Where("id = ?", id).
+		Update("employee_count", *body.EmployeeCount)
+	if result.Error != nil {
+		h.log.Errorf("could not update store employee_count: %v", result.Error)
+		handleServiceResponse(c, InternalError, domain.InternalServerError)
+		return
+	}
+	if result.RowsAffected == 0 {
+		handleServiceResponse(c, NotFound, domain.NotFoundError)
+		return
+	}
+
 	handleResponse(c, OK, body)
 }
 
