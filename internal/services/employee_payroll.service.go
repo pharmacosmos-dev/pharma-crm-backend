@@ -33,12 +33,20 @@ import (
 //	                0.8%  (80 <= achievement < 90)
 //	                1.0%  (90 <= achievement < 100)
 //	                1.4%  (achievement >= 100)
-//	kpi_amount    = individual_sales * kpi_percent / 100
+//	kpi_amount    = KPI bazasi * kpi_percent / 100
 //
-// Ya'ni pog'ona jamoaviy, pul shaxsiy: reja bajarilishi DO'KON bo'yicha
-// o'lchanadi (bitta do'konning barcha xodimlarida achievement va kpi_percent
-// bir xil), lekin KPI summasi har kimning O'Z savdosidan hisoblanadi. Do'kon
-// rejani bajarmasa kpi_percent = 0 bo'ladi va ko'p sotgan xodim ham KPI olmaydi.
+// Reja bajarilishi DO'KON bo'yicha o'lchanadi — bitta do'konning barcha
+// xodimlarida achievement bir xil. Foiz va baza esa xodimga qarab aniqlanadi:
+//
+//	FOIZ (kpi_percent):
+//	  employees.kpi_percent > 0 → o'sha ishlatiladi (qo'lda kelishilgan foiz;
+//	                              do'kon rejani bajarmasa ham amal qiladi)
+//	  employees.kpi_percent = 0 → yuqoridagi reja pog'onasi
+//
+//	BAZA:
+//	  roli "Заведующий"  → store_sales_amount (do'kon aylanmasi)
+//	  qolganlar          → individual_sales_amount (o'z savdosi)
+//	  ikkala rol ham bo'lsa — "Заведующий" ustun turadi
 //
 // employee_plan_amount (employee_targets) hisobga kirmaydi — u faqat ko'rsatish
 // uchun saqlanadi.
@@ -313,6 +321,7 @@ func (s *Services) recalculatePayrollMonth(
 		"status":         constants.GeneralStatusActive,
 		"draft":          domain.EmployeePayrollStatusDraft,
 		"work_day_hours": payrollWorkDayHours,
+		"zav_role":       constants.RoleNameZavStore,
 	})
 	if tx.Error != nil {
 		return 0, fmt.Errorf("upsert payrolls: %w", tx.Error)
@@ -530,8 +539,9 @@ func mergeStoreTotals(stores []storeRef, totals []domain.StorePayroll) []domain.
 //	base     — xodim ma'lumotlari + yuqoridagi yig'indilar
 //	calc     — actual_salary va kesilgan DO'KON rejasi (expected_plan)
 //	kpi      — do'kon bajarilish foizi
-//	kpi_tier — foizdan KPI pog'onasi (kpi_percent)
-//	final    — kpi_amount = xodim savdosi * kpi_percent
+//	kpi_tier — foizdan reja pog'onasi (plan_kpi_percent)
+//	kpi_rate — amaldagi kpi_percent: xodimniki bo'lsa o'sha, bo'lmasa pog'ona
+//	final    — kpi_amount = (zav bo'lsa do'kon, aks holda o'z savdosi) * kpi_percent
 //	INSERT   — UPSERT: qator yo'q bo'lsa yaratadi, bor bo'lsa yangilaydi
 //
 // ON CONFLICT'da avans/ushlab qolish, status, approved_by va completed_at
@@ -654,6 +664,9 @@ base AS (
         -- norma har xil bo'ladi va actual_salary to'g'ri proporsiyada chiqadi.
         w.month_work_days * CAST(@work_day_hours AS numeric) AS avg_monthly_hours,
         e.salary                                AS salary_rate_amount,
+        -- Xodim kartochkasidagi shaxsiy KPI foizi. 0 bo'lsa "kiritilmagan"
+        -- degani va reja pog'onasi ishlatiladi (qarang: kpi_rate).
+        COALESCE(e.kpi_percent, 0)              AS employee_kpi_percent,
         COALESCE(att.worked_hours, 0)            AS worked_hours,
         COALESCE(es.individual_sales_amount, 0)  AS individual_sales_amount,
         COALESCE(bon.bonus_amount, 0)            AS bonus_amount,
@@ -700,16 +713,30 @@ kpi_tier AS (
                WHEN k.plan_achievement_percent >= 90  THEN 1.0
                WHEN k.plan_achievement_percent >= 80  THEN 0.8
                ELSE 0
-           END AS numeric) AS kpi_percent
+           END AS numeric) AS plan_kpi_percent
     FROM kpi k
 ),
-final AS (
+kpi_rate AS (
     SELECT t.*,
-           -- Pog'ona do'kondan, summa esa xodimning O'Z savdosidan: do'kon
-           -- rejani bajarsa hamma bir xil foizga chiqadi, pul miqdori esa
-           -- har kimning aylanmasiga qarab har xil bo'ladi.
-           ROUND(t.individual_sales_amount * t.kpi_percent / 100.0, 2) AS kpi_amount
+           -- Xodim kartochkasida foiz kiritilgan bo'lsa (kpi_percent > 0) o'sha
+           -- ISHLATILADI va reja pog'onasi e'tiborga olinmaydi — ya'ni do'kon
+           -- rejani bajarmasa ham bu xodim KPI oladi. Kiritilmagan bo'lsa
+           -- (0) umumiy qoida: pog'ona do'kon rejasidan chiqadi.
+           CASE WHEN t.employee_kpi_percent > 0
+                THEN t.employee_kpi_percent
+                ELSE t.plan_kpi_percent
+           END AS kpi_percent
     FROM kpi_tier t
+),
+final AS (
+    SELECT r.*,
+           -- Baza rolga qarab: zav do'kon aylanmasidan, qolganlar o'z
+           -- savdosidan oladi. Xodimda ikkala rol ham bo'lsa zav ustun turadi.
+           ROUND(CASE WHEN @zav_role = ANY(r.role_names)
+                      THEN r.store_sales_amount
+                      ELSE r.individual_sales_amount
+                 END * r.kpi_percent / 100.0, 2) AS kpi_amount
+    FROM kpi_rate r
 )
 INSERT INTO employee_payrolls (
     id, employee_id, company_id, store_id, store_name,
@@ -719,7 +746,7 @@ INSERT INTO employee_payrolls (
     store_target_id, store_plan_amount, store_sales_amount,
     employee_plan_amount, expected_plan_amount, plan_achievement_percent,
     month_work_days, elapsed_work_days,
-    kpi_percent, kpi_amount, bonus_amount,
+    plan_kpi_percent, employee_kpi_percent, kpi_percent, kpi_amount, bonus_amount,
     gross_salary_amount, net_pay_amount,
     status, year, month, calculated_at
 )
@@ -731,7 +758,7 @@ SELECT
     f.store_target_id, f.store_plan_amount, f.store_sales_amount,
     f.employee_plan_amount, f.expected_plan_amount, f.plan_achievement_percent,
     f.month_work_days, f.elapsed_work_days,
-    f.kpi_percent,
+    f.plan_kpi_percent, f.employee_kpi_percent, f.kpi_percent,
     f.kpi_amount,
     f.bonus_amount,
     f.actual_salary_amount + f.kpi_amount + f.bonus_amount,
@@ -762,6 +789,8 @@ ON CONFLICT (employee_id, year, month) DO UPDATE SET
     plan_achievement_percent = EXCLUDED.plan_achievement_percent,
     month_work_days          = EXCLUDED.month_work_days,
     elapsed_work_days        = EXCLUDED.elapsed_work_days,
+    plan_kpi_percent         = EXCLUDED.plan_kpi_percent,
+    employee_kpi_percent     = EXCLUDED.employee_kpi_percent,
     kpi_percent              = EXCLUDED.kpi_percent,
     kpi_amount               = EXCLUDED.kpi_amount,
     bonus_amount             = EXCLUDED.bonus_amount,
@@ -788,7 +817,8 @@ SELECT
     p.store_target_id, p.store_plan_amount, p.store_sales_amount,
     p.employee_plan_amount, p.expected_plan_amount, p.plan_achievement_percent,
     p.month_work_days, p.elapsed_work_days,
-    p.kpi_percent, p.kpi_amount, p.bonus_amount, p.gross_salary_amount,
+    p.plan_kpi_percent, p.employee_kpi_percent, p.kpi_percent,
+    p.kpi_amount, p.bonus_amount, p.gross_salary_amount,
     p.advance_card_amount, p.advance_cash_amount,
     p.deduction_term_amount, p.deduction_recount_amount, p.deduction_fine_amount,
     p.net_pay_amount, p.status, p.year, p.month, p.completed_at, p.calculated_at,

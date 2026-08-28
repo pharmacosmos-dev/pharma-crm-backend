@@ -22,8 +22,10 @@ type EmployeePayroll struct {
 	StorePlanAmount  float64 `json:"store_plan_amount" gorm:"column:store_plan_amount"`
 	StoreSalesAmount float64 `json:"store_sales_amount" gorm:"column:store_sales_amount"`
 
-	KpiPercent float64 `json:"kpi_percent" gorm:"column:kpi_percent"`
-	KpiAmount  float64 `json:"kpi_amount" gorm:"column:kpi_amount"`
+	PlanKpiPercent     float64 `json:"plan_kpi_percent" gorm:"column:plan_kpi_percent"`
+	EmployeeKpiPercent float64 `json:"employee_kpi_percent" gorm:"column:employee_kpi_percent"`
+	KpiPercent         float64 `json:"kpi_percent" gorm:"column:kpi_percent"`
+	KpiAmount          float64 `json:"kpi_amount" gorm:"column:kpi_amount"`
 
 	BonusAmount       float64 `json:"bonus_amount" gorm:"column:bonus_amount"`
 	GrossSalaryAmount float64 `json:"gross_salary_amount" gorm:"column:gross_salary_amount"`
@@ -114,8 +116,14 @@ type EmployeePayrollRow struct {
 	MonthWorkDays          int     `json:"month_work_days"`          // oydagi jami ish kuni
 	ElapsedWorkDays        int     `json:"elapsed_work_days"`        // o'tgan ish kuni
 
-	KpiPercent float64 `json:"kpi_percent"`
-	KpiAmount  float64 `json:"kpi_amount"`
+	// KPI foizining ikkala manbai ham qaytadi — frontend qaysi biri ishlaganini
+	// employee_kpi_percent > 0 sharti bilan aniqlaydi va ikkalasini ko'rsata oladi.
+	// Foizlarni bir-biriga solishtirib aniqlab bo'lmaydi: qo'lda kiritilgan qiymat
+	// pog'ona qiymatiga teng bo'lib qolishi mumkin.
+	PlanKpiPercent     float64 `json:"plan_kpi_percent"`     // reja bajarilishidan chiqqan pog'ona
+	EmployeeKpiPercent float64 `json:"employee_kpi_percent"` // xodim kartochkasidagi foiz, 0 = kiritilmagan
+	KpiPercent         float64 `json:"kpi_percent"`          // AMALDAGI foiz — kpi_amount shundan hisoblangan
+	KpiAmount          float64 `json:"kpi_amount"`
 
 	BonusAmount       float64 `json:"bonus_amount"`
 	GrossSalaryAmount float64 `json:"gross_salary_amount"`
