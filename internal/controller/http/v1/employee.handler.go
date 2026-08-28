@@ -419,6 +419,10 @@ func (h *EmployeeHandler) Update(c *gin.Context) {
 		updateData["experience_years"] = *body.ExperienceYears
 	}
 
+	if body.Passport != nil {
+		updateData["passport"] = *body.Passport
+	}
+
 	if body.Password != nil {
 		updateData["password"] = *body.Password
 	}

@@ -43,6 +43,7 @@ type Employee struct {
 	Status    string         `gorm:"status" json:"status"`
 	Birthdate string         `gorm:"birthdate" json:"birthdate"`
 	Photo     string         `gorm:"photo" json:"photo"`
+	Passport  *string         `gorm:"passport" json:"passport"`
 	// StartDate/EndDate — smenaning kunlik boshlanish/tugash vaqti (TIME, "HH:MM" formatida),
 	// sana emas. employee_attendance_days.planned_start_at shundan hisoblanadi.
 	StartDate       *string          `gorm:"start_date" json:"start_date,omitempty"`
@@ -80,13 +81,12 @@ type EmployeeRequest struct {
 	Birthdate       string         `gorm:"birthdate" json:"birthdate"`
 	StartDate       *string        `gorm:"start_date" json:"start_date"`
 	EndDate         *string        `gorm:"end_date" json:"end_date"`
-	// Bu to'rttasi pointer: 0 ham haqiqiy qiymat bo'lgani uchun "yuborilmagan"
-	// holatni faqat nil orqali ajratib bo'ladi. Create'da salary va kpi_percent
-	// majburiy, Update'da esa nil bo'lsa bazadagi qiymat o'zgarmay qoladi.
-	Salary          *float64 `gorm:"salary" json:"salary"`
-	AvgMonthlyHours *float64 `gorm:"avg_monthly_hours" json:"avg_monthly_hours"`
-	KpiPercent      *float64 `gorm:"kpi_percent" json:"kpi_percent"`
-	ExperienceYears *float64 `gorm:"experience_years" json:"experience_years"`
+
+	Passport        *string        `gorm:"passport" json:"passport"`
+	Salary          *float64       `gorm:"salary" json:"salary"`
+	AvgMonthlyHours *float64       `gorm:"avg_monthly_hours" json:"avg_monthly_hours"`
+	KpiPercent      *float64       `gorm:"kpi_percent" json:"kpi_percent"`
+	ExperienceYears *float64       `gorm:"experience_years" json:"experience_years"`
 }
 
 // Xodim yaratishda salary va kpi_percent uchun ruxsat etilgan chegaralar.
