@@ -922,7 +922,10 @@ base AS (
         -- bo'ladi va actual_salary to'g'ri proporsiyada chiqadi.
         --
         -- Kunlik smena employees.daily_work_hours'dan olinadi (4/7/8). Kiritilmagan
-        -- bo'lsa (0) @work_day_hours default'iga tushadi — ya'ni eski xatti-harakat.
+        -- bo'lsa (0) payrollWorkDayHours default'iga tushadi (eski xatti-harakat).
+        -- DIQQAT: izohlarda parametr nomini yozmang. GORM ularni oddiy matn
+        -- almashtirish bilan topadi va izoh ichidagisini ham bog'laydi; keyin
+        -- Postgres "could not determine data type of parameter" bilan yiqiladi.
         w.month_work_days
             * COALESCE(NULLIF(e.daily_work_hours, 0), CAST(@work_day_hours AS numeric))
             AS avg_monthly_hours,
