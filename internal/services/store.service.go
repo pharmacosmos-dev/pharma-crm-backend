@@ -137,12 +137,10 @@ func (s *Services) GetStores(ctx context.Context, params *domain.StoreQueryParam
 	return stores, totalCount, ids, nil
 }
 
-// GetStoreEmployeeCounts returns the planned headcount (stores.employee_count)
-// of every store next to the number of employees actually assigned to it.
-//
-// The actual count uses the same predicate as GetAllStoreMapInfo: only
-// employees that are not deleted, still active and bound to a single store.
-func (s *Services) GetStoreEmployeeCounts(ctx context.Context, params *domain.StoreEmployeeCountQueryParams) ([]domain.StoreEmployeeCount, int64, error) {
+// storeEmployeeCountQuery builds the shared base query behind the employee
+// count list and its statistics, so both always cover the same set of stores.
+
+func (s *Services) storeEmployeeCountQuery(ctx context.Context, params *domain.StoreEmployeeCountQueryParams) *gorm.DB {
 	qb := s.db.WithContext(ctx).
 		Model(&domain.Store{}).
 		Joins(`
@@ -157,15 +155,6 @@ func (s *Services) GetStoreEmployeeCounts(ctx context.Context, params *domain.St
 				GROUP BY store_id
 			) actual
 				ON actual.store_id = stores.id
-		`).
-		Select(`
-			stores.id,
-			stores.store_code,
-			stores.name,
-			stores.company_id,
-			COALESCE(stores.employee_count, 0) AS employee_count,
-			COALESCE(actual.employee_count, 0) AS actual_employee_count,
-			COALESCE(actual.employee_count, 0) - COALESCE(stores.employee_count, 0) AS difference
 		`).
 		Where("stores.deleted_at IS NULL").
 		Where("stores.is_active = TRUE")
@@ -191,6 +180,24 @@ func (s *Services) GetStoreEmployeeCounts(ctx context.Context, params *domain.St
 		qb = qb.Where("stores.company_id IN (SELECT id FROM companies WHERE is_franchise = ?)", *params.IsFranchise)
 	}
 
+	return qb
+}
+
+// GetStoreEmployeeCounts returns the planned headcount (stores.employee_count)
+// of every store next to the number of employees actually assigned to it.
+func (s *Services) GetStoreEmployeeCounts(ctx context.Context, params *domain.StoreEmployeeCountQueryParams) ([]domain.StoreEmployeeCount, int64, error) {
+	qb := s.storeEmployeeCountQuery(ctx, params).
+		Select(`
+			stores.id,
+			stores.store_code,
+			stores.name,
+			stores.company_id,
+			COALESCE(stores.employee_count, 0) AS employee_count,
+			COALESCE(stores.cash_box_count, 0) AS cash_box_count,
+			COALESCE(actual.employee_count, 0) AS actual_employee_count,
+			COALESCE(actual.employee_count, 0) - COALESCE(stores.employee_count, 0) AS difference
+		`)
+
 	totalCount := int64(0)
 	if err := qb.Count(&totalCount).Error; err != nil {
 		s.log.Errorf("could not count store employee counts: %v", err)
@@ -212,6 +219,28 @@ func (s *Services) GetStoreEmployeeCounts(ctx context.Context, params *domain.St
 	}
 
 	return res, totalCount, nil
+}
+
+// GetStoreEmployeeCountStat aggregates the employee count list into a single
+// row. It reuses storeEmployeeCountQuery, so the totals always match the list
+// under the same filters — pagination aside.
+func (s *Services) GetStoreEmployeeCountStat(ctx context.Context, params *domain.StoreEmployeeCountQueryParams) (*domain.StoreEmployeeCountStat, error) {
+	var stat domain.StoreEmployeeCountStat
+
+	err := s.storeEmployeeCountQuery(ctx, params).
+		Select(`
+			COUNT(*) AS total_stores,
+			COALESCE(SUM(stores.employee_count), 0) AS total_plan_employees,
+			COALESCE(SUM(actual.employee_count), 0) AS actual_employee_count,
+			COALESCE(SUM(actual.employee_count), 0) - COALESCE(SUM(stores.employee_count), 0) AS total_diff
+		`).
+		Scan(&stat).Error
+	if err != nil {
+		s.log.Errorf("could not get store employee count stat: %v", err)
+		return nil, domain.InternalServerError
+	}
+
+	return &stat, nil
 }
 
 func (s *Services) UpdateAverateStoreTargetSales() error {

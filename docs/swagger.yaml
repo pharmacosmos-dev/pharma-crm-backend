@@ -7022,7 +7022,8 @@ paths:
       description: |-
         Xodimlarning oylik ko'rsatkichlari (ishlagan soati, oylik, KPI, bonus, avans, ushlab qolishlar).
         Ro'yxatga faqat faol xodimlar kiradi: is_active, status = "active" va roli "Кассир" yoki "Заведующий".
-        KPI DO'KON bo'yicha: expected_plan = store_plan × (o'tgan ish kuni / oydagi ish kuni), achievement = store_sales / expected_plan × 100, kpi_amount = store_sales × kpi_percent. Bitta do'kondagi xodimlarda bu qiymatlar bir xil bo'ladi.
+        KPI pog'onasi DO'KON bo'yicha: expected_plan = store_plan × (o'tgan ish kuni / oydagi ish kuni), achievement = store_sales / expected_plan × 100 — bu qiymatlar bitta do'kondagi hamma xodimda bir xil.
+        KPI summasi esa shaxsiy: kpi_amount = individual_sales × kpi_percent. Do'kon rejani bajarmasa kpi_percent = 0 va hech kim KPI olmaydi.
         year/month berilmasa joriy oy olinadi.
       parameters:
       - description: Store ID (berilmasa barcha xodimlar)
@@ -21652,6 +21653,49 @@ paths:
       security:
       - BearerAuth: []
       summary: Update online order status for multiple stores
+      tags:
+      - stores
+  /store/stat-employee-count:
+    get:
+      consumes:
+      - application/json
+      description: Totals of the planned vs actual employee count list under the same
+        filters
+      parameters:
+      - description: Search by store name
+        in: query
+        name: search
+        type: string
+      - description: Company ID
+        in: query
+        name: company_id
+        type: string
+      - description: is_franchise
+        in: query
+        name: is_franchise
+        type: boolean
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Employee count statistics across stores
       tags:
       - stores
   /store/working-hours:

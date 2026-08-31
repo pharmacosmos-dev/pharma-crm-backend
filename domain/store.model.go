@@ -125,8 +125,17 @@ type StoreEmployeeCount struct {
 	Name                string `json:"name"`
 	CompanyId           string `json:"company_id"`
 	EmployeeCount       int    `json:"employee_count"`
+	CashBoxCount        int    `json:"cash_box_count"`
 	ActualEmployeeCount int    `json:"actual_employee_count"`
 	Difference          int    `json:"difference"`
+}
+
+// StoreEmployeeCountStat is the StoreEmployeeCount list rolled up into totals.
+type StoreEmployeeCountStat struct {
+	TotalStores         int64 `json:"total_stores"`
+	TotalPlanEmployees  int64 `json:"total_plan_employees"`
+	ActualEmployeeCount int64 `json:"actual_employee_count"`
+	TotalDiff           int64 `json:"total_diff"`
 }
 
 // StoreEmployeeCountRequest updates the planned headcount of a single store.

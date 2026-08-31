@@ -6788,7 +6788,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Xodimlarning oylik ko'rsatkichlari (ishlagan soati, oylik, KPI, bonus, avans, ushlab qolishlar).\nRo'yxatga faqat faol xodimlar kiradi: is_active, status = \"active\" va roli \"Кассир\" yoki \"Заведующий\".\nKPI DO'KON bo'yicha: expected_plan = store_plan × (o'tgan ish kuni / oydagi ish kuni), achievement = store_sales / expected_plan × 100, kpi_amount = store_sales × kpi_percent. Bitta do'kondagi xodimlarda bu qiymatlar bir xil bo'ladi.\nyear/month berilmasa joriy oy olinadi.",
+                "description": "Xodimlarning oylik ko'rsatkichlari (ishlagan soati, oylik, KPI, bonus, avans, ushlab qolishlar).\nRo'yxatga faqat faol xodimlar kiradi: is_active, status = \"active\" va roli \"Кассир\" yoki \"Заведующий\".\nKPI pog'onasi DO'KON bo'yicha: expected_plan = store_plan × (o'tgan ish kuni / oydagi ish kuni), achievement = store_sales / expected_plan × 100 — bu qiymatlar bitta do'kondagi hamma xodimda bir xil.\nKPI summasi esa shaxsiy: kpi_amount = individual_sales × kpi_percent. Do'kon rejani bajarmasa kpi_percent = 0 va hech kim KPI olmaydi.\nyear/month berilmasa joriy oy olinadi.",
                 "consumes": [
                     "application/json"
                 ],
@@ -29638,6 +29638,72 @@ const docTemplate = `{
                     },
                     "400": {
                         "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/store/stat-employee-count": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Totals of the planned vs actual employee count list under the same filters",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "stores"
+                ],
+                "summary": "Employee count statistics across stores",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Search by store name",
+                        "name": "search",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Company ID",
+                        "name": "company_id",
+                        "in": "query"
+                    },
+                    {
+                        "type": "boolean",
+                        "description": "is_franchise",
+                        "name": "is_franchise",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
                         "schema": {
                             "$ref": "#/definitions/v1.Response"
                         }

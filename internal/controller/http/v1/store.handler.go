@@ -36,6 +36,7 @@ func (h *StoreHandler) StoreRoutes(r *gin.RouterGroup) {
 		store.GET("/export-excel", h.ExportExcel)
 		store.GET("/working-hours", h.GetStoreWorkingHours)
 		store.GET("/employee-count", h.FetchStoreEmployeeCounts)
+		store.GET("/stat-employee-count", h.GetStoreEmployeeCountStat)
 		store.PUT("/:id", h.Update)
 		store.PUT("/:id/employee-count", h.UpdateStoreEmployeeCount)
 		store.PUT("/online-order", h.UpdateOnlineOrder)
@@ -386,6 +387,28 @@ func (h *StoreHandler) FetchStoreEmployeeCounts(c *gin.Context) {
 	ctx, cancel := context.WithTimeout(c.Request.Context(), constants.DefaultContextTimeout)
 	defer cancel()
 
+	h.scopeEmployeeCountParams(ctx, user, &params)
+
+	res, totalCount, err := h.service.GetStoreEmployeeCounts(ctx, &params)
+	if err != nil {
+		handleServiceResponse(c, InternalError, err)
+		return
+	}
+
+	handleResponse(c, OK, map[string]interface{}{
+		"_meta": utils.Meta{
+			TotalCount:  totalCount,
+			PerPage:     params.Limit,
+			CurrentPage: (params.Offset / params.Limit) + 1,
+			PageCount:   int((totalCount + int64(params.Limit) - 1) / int64(params.Limit)),
+		},
+		"data": res,
+	})
+}
+
+// scopeEmployeeCountParams narrows the query params down to the stores the
+// signed user is allowed to see. Same rules as FetchStores.
+func (h *StoreHandler) scopeEmployeeCountParams(ctx context.Context, user *domain.EmployeeClaims, params *domain.StoreEmployeeCountQueryParams) {
 	if !helper.IsAdmin(user) {
 		switch user.Role {
 		case constants.RoleFranchise:
@@ -404,22 +427,49 @@ func (h *StoreHandler) FetchStoreEmployeeCounts(c *gin.Context) {
 		params.CompanyId = ""
 		params.StoreId = ""
 	}
+}
 
-	res, totalCount, err := h.service.GetStoreEmployeeCounts(ctx, &params)
+// GetStoreEmployeeCountStat godoc
+// @Summary Employee count statistics across stores
+// @Description Totals of the planned vs actual employee count list under the same filters
+// @Tags stores
+// @Security     BearerAuth
+// @Accept json
+// @Produce json
+// @Param search query string false "Search by store name"
+// @Param company_id query string false "Company ID"
+// @Param is_franchise query bool false "is_franchise"
+// @Success 200 {object} v1.Response
+// @Failure 400 {object} v1.Response
+// @Failure 401 {object} v1.Response
+// @Failure 500 {object} v1.Response
+// @Router /store/stat-employee-count [get]
+func (h *StoreHandler) GetStoreEmployeeCountStat(c *gin.Context) {
+	user := h.service.GetSignedUser(c)
+	if user.UserId == "" {
+		handleServiceResponse(c, nil, domain.UnauthorizedError)
+		return
+	}
+
+	var params domain.StoreEmployeeCountQueryParams
+	if err := c.ShouldBindQuery(&params); err != nil {
+		h.log.Errorf("could not bind query params for store employee count stat: %v", err)
+		handleServiceResponse(c, BadRequest, domain.InvalidQueryError)
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(c.Request.Context(), constants.DefaultContextTimeout)
+	defer cancel()
+
+	h.scopeEmployeeCountParams(ctx, user, &params)
+
+	res, err := h.service.GetStoreEmployeeCountStat(ctx, &params)
 	if err != nil {
 		handleServiceResponse(c, InternalError, err)
 		return
 	}
 
-	handleResponse(c, OK, map[string]interface{}{
-		"_meta": utils.Meta{
-			TotalCount:  totalCount,
-			PerPage:     params.Limit,
-			CurrentPage: (params.Offset / params.Limit) + 1,
-			PageCount:   int((totalCount + int64(params.Limit) - 1) / int64(params.Limit)),
-		},
-		"data": res,
-	})
+	handleResponse(c, OK, res)
 }
 
 // UpdateStoreEmployeeCount godoc
