@@ -69,22 +69,25 @@ import (
 //
 // `sales` jadvali so'rovda BIR MARTA o'qiladi: sales_agg uni (store_id,
 // employee_id) kesimida yig'adi, do'kon va xodim summalari o'shandan chiqadi.
-//	avg_monthly_hours    = oydagi ish kuni * payrollWorkDayHours
+//	avg_monthly_hours    = oydagi ish kuni * kunlik smena
 //	actual_salary_amount = salary_rate * (worked_hours / avg_monthly_hours)
 //	gross_salary_amount  = actual_salary + kpi_amount + bonus_amount
 //	net_pay_amount       = gross − (avanslar + ushlab qolishlar)
 //
-// Oylik norma soati employees.avg_monthly_hours'dan OLINMAYDI: u qo'lda kiritilgan
-// va oydan oyga o'zgarmaydi. Kalendardan hisoblanganda fevral va mart uchun norma
-// har xil bo'ladi va to'liq ishlagan xodim aynan o'z stavkasini oladi.
+// Kunlik smena employees.daily_work_hours'dan olinadi (4/7/8). Kiritilmagan bo'lsa
+// (0) payrollWorkDayHours default'i ishlaydi — shunda yarim stavkada ishlaydigan
+// xodimning normasi kichik bo'lib, to'liq ishlagani uchun butun stavkasini oladi.
+//
+// Ish kuni soni esa kalendardan olinadi, ya'ni fevral va mart uchun norma har xil.
 //
 // Avans va ushlab qolishlar qo'lda kiritiladi — cron ularga TEGMAYDI, faqat
 // net_pay_amount'ni ular hisobga olingan holda qayta hisoblaydi.
 
 // region Types
 
-// payrollWorkDayHours — bir ish kunidagi smena uzunligi. Oylik norma soati shunga
-// ko'paytirib topiladi: avg_monthly_hours = oydagi ish kuni * payrollWorkDayHours.
+// payrollWorkDayHours — kunlik smenaning DEFAULT uzunligi. Xodimning
+// employees.daily_work_hours'i 0 bo'lganda (kiritilmagan) shu ishlatiladi:
+// avg_monthly_hours = oydagi ish kuni * COALESCE(daily_work_hours, 8).
 const payrollWorkDayHours = 8
 
 // storeRef — sahifalangan do'kon ro'yxati uchun minimal ma'lumot.
@@ -375,6 +378,7 @@ func (s *Services) UpdateEmployeePayrollAdvance(
 		SET employee_kpi_percent = n.kpi_percent,
 			kpi_percent          = n.kpi_percent,
 			salary_rate_amount   = n.salary,
+			avg_monthly_hours    = n.avg_monthly_hours,
 			actual_salary_amount = n.actual_salary,
 			kpi_amount           = n.kpi_amount,
 			gross_salary_amount  = n.gross,
@@ -387,26 +391,37 @@ func (s *Services) UpdateEmployeePayrollAdvance(
 			updated_at           = NOW()
 		FROM (
 			SELECT
-				x.*,
-				x.actual_salary + x.kpi_amount + x.bonus_amount AS gross
+				y.*,
+				y.actual_salary + y.kpi_amount + y.bonus_amount AS gross
 			FROM (
 				SELECT
-					r.id,
-					r.bonus_amount,
-					COALESCE(CAST(@card AS numeric),   r.advance_card_amount) AS card,
-					COALESCE(CAST(@cash AS numeric),   r.advance_cash_amount) AS cash,
-					COALESCE(CAST(@kpi AS numeric),    r.kpi_percent)         AS kpi_percent,
-					COALESCE(CAST(@salary AS numeric), r.salary_rate_amount)  AS salary,
-					COALESCE(ROUND(
-						COALESCE(CAST(@salary AS numeric), r.salary_rate_amount)
-						* (r.worked_hours / NULLIF(r.avg_monthly_hours, 0)), 2), 0) AS actual_salary,
-					ROUND(CASE WHEN CAST(@zav_role AS text) = ANY(r.role_names)
-							THEN r.store_sales_amount
-							ELSE r.individual_sales_amount
-						END * COALESCE(CAST(@kpi AS numeric), r.kpi_percent) / 100.0, 2) AS kpi_amount
-				FROM employee_payrolls r
-				WHERE r.id = CAST(@id AS uuid)
-			) x
+					x.*,
+					-- actual_salary yangi normadan hisoblanadi
+					COALESCE(ROUND(x.salary * (x.worked_hours
+						/ NULLIF(x.avg_monthly_hours, 0)), 2), 0) AS actual_salary
+				FROM (
+					SELECT
+						r.id,
+						r.bonus_amount,
+						r.worked_hours,
+						COALESCE(CAST(@card AS numeric),   r.advance_card_amount) AS card,
+						COALESCE(CAST(@cash AS numeric),   r.advance_cash_amount) AS cash,
+						COALESCE(CAST(@kpi AS numeric),    r.kpi_percent)         AS kpi_percent,
+						COALESCE(CAST(@salary AS numeric), r.salary_rate_amount)  AS salary,
+						-- Kunlik soat berilgan bo'lsa oylik norma qaytadan chiqadi
+						-- (ish kuni soni qatorda saqlangan), aks holda o'zgarmaydi.
+						CASE WHEN CAST(@daily_hours AS numeric) IS NOT NULL
+							 THEN r.month_work_days * CAST(@daily_hours AS numeric)
+							 ELSE r.avg_monthly_hours
+						END AS avg_monthly_hours,
+						ROUND(CASE WHEN CAST(@zav_role AS text) = ANY(r.role_names)
+								THEN r.store_sales_amount
+								ELSE r.individual_sales_amount
+							END * COALESCE(CAST(@kpi AS numeric), r.kpi_percent) / 100.0, 2) AS kpi_amount
+					FROM employee_payrolls r
+					WHERE r.id = CAST(@id AS uuid)
+				) x
+			) y
 		) n
 		WHERE p.id = n.id
 		RETURNING p.*`
@@ -424,12 +439,13 @@ func (s *Services) UpdateEmployeePayrollAdvance(
 
 	err := s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		result := tx.Raw(payrollQuery, map[string]any{
-			"id":       id,
-			"card":     req.AdvanceCardAmount,
-			"cash":     req.AdvanceCashAmount,
-			"kpi":      req.KpiPercent,
-			"salary":   req.Salary,
-			"zav_role": constants.RoleNameZavStore,
+			"id":          id,
+			"card":        req.AdvanceCardAmount,
+			"cash":        req.AdvanceCashAmount,
+			"kpi":         req.KpiPercent,
+			"salary":      req.Salary,
+			"daily_hours": req.DailyWorkHours,
+			"zav_role":    constants.RoleNameZavStore,
 		}).Scan(&res)
 		if result.Error != nil {
 			s.log.Errorf("payroll: could not update payroll row: %v", result.Error)
@@ -877,10 +893,15 @@ base AS (
         COALESCE(rl.role, '')                   AS role,
         COALESCE(rl.role_names, '{}')           AS role_names,
         e.experience_years                      AS experience_years,
-        -- Oylik norma soati xodim kartochkasidan emas, kalendardan olinadi:
-        -- oydagi ish kunlari × bir kunlik smena. Shunda fevral va mart uchun
-        -- norma har xil bo'ladi va actual_salary to'g'ri proporsiyada chiqadi.
-        w.month_work_days * CAST(@work_day_hours AS numeric) AS avg_monthly_hours,
+        -- Oylik norma = oydagi ish kunlari × xodimning kunlik smenasi. Kun soni
+        -- kalendardan olinadi, shuning uchun fevral va mart uchun norma har xil
+        -- bo'ladi va actual_salary to'g'ri proporsiyada chiqadi.
+        --
+        -- Kunlik smena employees.daily_work_hours'dan olinadi (4/7/8). Kiritilmagan
+        -- bo'lsa (0) @work_day_hours default'iga tushadi — ya'ni eski xatti-harakat.
+        w.month_work_days
+            * COALESCE(NULLIF(e.daily_work_hours, 0), CAST(@work_day_hours AS numeric))
+            AS avg_monthly_hours,
         e.salary                                AS salary_rate_amount,
         -- Xodim kartochkasidagi shaxsiy KPI foizi. 0 bo'lsa "kiritilmagan"
         -- degani va reja pog'onasi ishlatiladi (qarang: kpi_rate).
