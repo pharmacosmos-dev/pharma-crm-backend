@@ -339,47 +339,205 @@ func (s *Services) recalculatePayrollMonth(
 	return tx.RowsAffected, nil
 }
 
-// UpdateEmployeePayrollAdvance — bitta payroll qatorining avans summalarini
-// qo'lda yangilaydi va net_pay_amount'ni darhol qayta hisoblaydi (aks holda u
-// keyingi cron yurgunicha eski qiymatda qolardi). Formula payrollUpsertQuery'dagi
-// bilan bir xil.
+// UpdateEmployeePayrollAdvance — payroll qatoridagi qo'lda kiritiladigan
+// maydonlarni yangilaydi: kpi_percent, salary va avanslar.
 //
-// NULL kelgan maydon o'zgarmaydi: COALESCE mavjud qiymatga tushadi. SET ichida
-// ustunga murojaat qatorning ESKI qiymatini beradi, shuning uchun COALESCE
-// ikkala joyda ham bir xil — yangi — natijani qaytaradi.
+// Ikkita jadval tegiladi, ikkalasi ham BITTA transaksiyada:
+//
+//	employee_payrolls — to'rt maydonning berilgani + qayta hisoblangan summalar
+//	employees         — faqat kpi_percent/salary berilgan bo'lsa (xodim
+//	                    kartochkasi, ya'ni keyingi oylarga ham ta'sir qiladi)
+//
+// Summalar cron formulasi bilan AYNAN bir xil zanjir bo'yicha qayta hisoblanadi
+// (qarang: payrollUpsertQuery'dagi calc / kpi_rate / final CTE'lari):
+//
+//	actual_salary = ROUND(salary * worked_hours / avg_monthly_hours, 2)
+//	kpi_base      = zav bo'lsa store_sales, aks holda individual_sales
+//	kpi_amount    = ROUND(kpi_base * kpi_percent / 100, 2)
+//	gross         = actual_salary + kpi_amount + bonus
+//	net           = gross − (avanslar + ushlab qolishlar)
+//
+// Kerakli hamma qiymat payroll qatorining o'zida snapshot qilingan, shuning
+// uchun boshqa jadvaldan o'qilmaydi.
+//
+// NULL kelgan maydon o'zgarmaydi: COALESCE mavjud qiymatga tushadi.
 func (s *Services) UpdateEmployeePayrollAdvance(
-	ctx context.Context, id string, req *domain.EmployeePayrollAdvanceRequest,
+	ctx context.Context, id, updatedBy string, req *domain.EmployeePayrollAdvanceRequest,
 ) (*domain.EmployeePayroll, error) {
-	const query = `
-		UPDATE employee_payrolls
-		SET advance_card_amount = COALESCE(CAST(@card AS numeric), advance_card_amount),
-			advance_cash_amount = COALESCE(CAST(@cash AS numeric), advance_cash_amount),
-			net_pay_amount      = gross_salary_amount
-								- (COALESCE(CAST(@card AS numeric), advance_card_amount)
-								+ COALESCE(CAST(@cash AS numeric), advance_cash_amount)
-								+ deduction_term_amount
-								+ deduction_recount_amount
-								+ deduction_fine_amount),
-			updated_at          = NOW()
-		WHERE id = CAST(@id AS uuid)
-		RETURNING *`
+	// Yangi qiymatlar ichki SELECT'da BIR MARTA hisoblanadi, keyin SET ularga
+	// murojaat qiladi — shunda uzun ifodalar takrorlanmaydi.
+	const payrollQuery = `
+		UPDATE employee_payrolls p
+		SET employee_kpi_percent = n.kpi_percent,
+			kpi_percent          = n.kpi_percent,
+			salary_rate_amount   = n.salary,
+			actual_salary_amount = n.actual_salary,
+			kpi_amount           = n.kpi_amount,
+			gross_salary_amount  = n.gross,
+			advance_card_amount  = n.card,
+			advance_cash_amount  = n.cash,
+			net_pay_amount       = n.gross - (n.card + n.cash
+									+ p.deduction_term_amount
+									+ p.deduction_recount_amount
+									+ p.deduction_fine_amount),
+			updated_at           = NOW()
+		FROM (
+			SELECT
+				x.*,
+				x.actual_salary + x.kpi_amount + x.bonus_amount AS gross
+			FROM (
+				SELECT
+					r.id,
+					r.bonus_amount,
+					COALESCE(CAST(@card AS numeric),   r.advance_card_amount) AS card,
+					COALESCE(CAST(@cash AS numeric),   r.advance_cash_amount) AS cash,
+					COALESCE(CAST(@kpi AS numeric),    r.kpi_percent)         AS kpi_percent,
+					COALESCE(CAST(@salary AS numeric), r.salary_rate_amount)  AS salary,
+					COALESCE(ROUND(
+						COALESCE(CAST(@salary AS numeric), r.salary_rate_amount)
+						* (r.worked_hours / NULLIF(r.avg_monthly_hours, 0)), 2), 0) AS actual_salary,
+					ROUND(CASE WHEN CAST(@zav_role AS text) = ANY(r.role_names)
+							THEN r.store_sales_amount
+							ELSE r.individual_sales_amount
+						END * COALESCE(CAST(@kpi AS numeric), r.kpi_percent) / 100.0, 2) AS kpi_amount
+				FROM employee_payrolls r
+				WHERE r.id = CAST(@id AS uuid)
+			) x
+		) n
+		WHERE p.id = n.id
+		RETURNING p.*`
+
+	const employeeQuery = `
+		UPDATE employees
+		SET kpi_percent = COALESCE(CAST(@kpi AS numeric), kpi_percent),
+			salary      = COALESCE(CAST(@salary AS numeric), salary),
+			updated_by  = CAST(@updated_by AS uuid),
+			updated_at  = NOW()
+		WHERE id = CAST(@employee_id AS uuid)`
 
 	var res domain.EmployeePayroll
 
-	tx := s.db.WithContext(ctx).Raw(query, map[string]any{
-		"id":   id,
-		"card": req.AdvanceCardAmount,
-		"cash": req.AdvanceCashAmount,
-	}).Scan(&res)
-	if tx.Error != nil {
-		s.log.Errorf("payroll: could not update advance amounts: %v", tx.Error)
-		return nil, domain.InternalServerError
-	}
-	if tx.RowsAffected == 0 {
-		return nil, domain.NotFoundError
+	err := s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		result := tx.Raw(payrollQuery, map[string]any{
+			"id":       id,
+			"card":     req.AdvanceCardAmount,
+			"cash":     req.AdvanceCashAmount,
+			"kpi":      req.KpiPercent,
+			"salary":   req.Salary,
+			"zav_role": constants.RoleNameZavStore,
+		}).Scan(&res)
+		if result.Error != nil {
+			s.log.Errorf("payroll: could not update payroll row: %v", result.Error)
+			return domain.InternalServerError
+		}
+		if result.RowsAffected == 0 {
+			return domain.NotFoundError
+		}
+
+		// Avanslar faqat shu oyga tegishli — xodim kartochkasiga tegmaymiz.
+		if !req.TouchesEmployee() {
+			return nil
+		}
+
+		if err := tx.Exec(employeeQuery, map[string]any{
+			"employee_id": res.EmployeeId,
+			"kpi":         req.KpiPercent,
+			"salary":      req.Salary,
+			"updated_by":  nullIfEmpty(updatedBy),
+		}).Error; err != nil {
+			s.log.Errorf("payroll: could not update employee card: %v", err)
+			return domain.InternalServerError
+		}
+
+		return nil
+	})
+	if err != nil {
+		return nil, err
 	}
 
 	return &res, nil
+}
+
+// GetEmployeePayrollAdvances — oylik tahrirlash ro'yxati: xodim kartochkasidagi
+// qiymatlar (salary, avg_monthly_hours, experience_years, phone, role_type) va
+// so'ralgan oyning payroll qatoridan kpi_percent bilan avanslar.
+//
+// employee_payrolls asosiy jadval, employees unga LEFT JOIN qilinadi: shu sababli
+// qaytgan har bir qatorda id bo'ladi va uni to'g'ridan-to'g'ri
+// UpdateEmployeePayrollAdvance'ga berish mumkin.
+func (s *Services) GetEmployeePayrollAdvances(
+	ctx context.Context, params *domain.EmployeePayrollAdvanceQueryParams,
+) ([]domain.EmployeePayrollAdvanceRow, int64, domain.PayrollPeriod, error) {
+	period, err := resolvePayrollPeriod(params.Year, params.Month)
+	if err != nil {
+		s.log.Errorf("payroll: invalid period: %v", err)
+		return nil, 0, period, domain.BadRequestError
+	}
+
+	const query = `
+		SELECT
+			p.id,
+			p.employee_id,
+			COALESCE(e.role_type, '')        AS role_type,
+			COALESCE(e.first_name, '')       AS first_name,
+			COALESCE(e.last_name, '')        AS last_name,
+			COALESCE(e.phone, '')            AS phone,
+			COALESCE(p.role_names, '{}')     AS roles,
+			p.kpi_percent,
+			COALESCE(e.salary, 0)            AS salary,
+			COALESCE(e.avg_monthly_hours, 0) AS avg_monthly_hours,
+			COALESCE(e.experience_years, 0)  AS experience_years,
+			p.advance_card_amount,
+			p.advance_cash_amount,
+			COUNT(*) OVER () AS total_count
+		FROM employee_payrolls p
+		LEFT JOIN employees e ON e.id = p.employee_id
+		WHERE p.year = @year
+		  AND p.month = @month
+		  AND (CAST(@store_id AS uuid)   IS NULL OR p.store_id   = CAST(@store_id AS uuid))
+		  AND (CAST(@company_id AS uuid) IS NULL OR p.company_id = CAST(@company_id AS uuid))
+		  AND (CAST(@search AS text)     IS NULL OR p.full_name ILIKE CAST(@search AS text)
+												 OR e.phone     ILIKE CAST(@search AS text))
+		ORDER BY p.store_name, p.full_name
+		LIMIT NULLIF(@limit, 0) OFFSET @offset`
+
+	var page []struct {
+		domain.EmployeePayrollAdvanceRow `gorm:"embedded"`
+
+		TotalCount int64 `gorm:"column:total_count"`
+	}
+
+	search := ""
+	if params.Search != "" {
+		search = fmt.Sprintf("%%%s%%", params.Search)
+	}
+
+	err = s.db.WithContext(ctx).Raw(query, map[string]any{
+		"year":       period.Year,
+		"month":      period.Month,
+		"store_id":   nullIfEmpty(params.StoreId),
+		"company_id": nullIfEmpty(params.CompanyId),
+		"search":     nullIfEmpty(search),
+		"limit":      params.Limit,
+		"offset":     params.Offset,
+	}).Scan(&page).Error
+	if err != nil {
+		s.log.Errorf("payroll: could not get advance list: %v", err)
+		return nil, 0, period, domain.InternalServerError
+	}
+
+	// Umumiy son har bir qatorda takrorlanadi (COUNT(*) OVER ()), birinchisidan olinadi.
+	var totalCount int64
+	if len(page) > 0 {
+		totalCount = page[0].TotalCount
+	}
+
+	rows := make([]domain.EmployeePayrollAdvanceRow, 0, len(page))
+	for _, r := range page {
+		rows = append(rows, r.EmployeePayrollAdvanceRow)
+	}
+
+	return rows, totalCount, period, nil
 }
 
 // resolveCalcDate — hisob qaysi kungacha olib borilishini aniqlaydi.

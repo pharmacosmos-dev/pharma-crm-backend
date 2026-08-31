@@ -507,6 +507,21 @@ definitions:
       type:
         type: string
     type: object
+  domain.EmployeePayrollAdvanceRequest:
+    properties:
+      advance_card_amount:
+        minimum: 0
+        type: number
+      advance_cash_amount:
+        minimum: 0
+        type: number
+      kpi_percent:
+        minimum: 0
+        type: number
+      salary:
+        minimum: 0
+        type: number
+    type: object
   domain.EmployeeRequest:
     type: object
   domain.EmployeeStatusUpdateRequest:
@@ -7070,6 +7085,112 @@ paths:
       security:
       - BearerAuth: []
       summary: List employee face descriptors
+      tags:
+      - employees
+  /employee/payroll/{id}/advance:
+    put:
+      consumes:
+      - application/json
+      description: |-
+        employee_payrolls qatorining kpi_percent, salary, advance_card_amount va advance_cash_amount maydonlarini id bo'yicha yangilaydi.
+        Hammasi ixtiyoriy — berilgani yoziladi, berilmagani eski qiymatida qoladi.
+        kpi_percent yoki salary berilsa employees jadvali ham yangilanadi (xodim kartochkasi), avanslar esa faqat shu oyning payroll qatoriga tegishli.
+        actual_salary_amount, kpi_amount, gross_salary_amount va net_pay_amount shu yerda qayta hisoblanadi — cron kutilmaydi.
+      parameters:
+      - description: Payroll ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Avans summalari
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/domain.EmployeePayrollAdvanceRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Update payroll salary, KPI and advance amounts
+      tags:
+      - employees
+  /employee/payroll/advances:
+    get:
+      consumes:
+      - application/json
+      description: |-
+        Xodim kartochkasidagi qiymatlar (role_type, ism, telefon, salary, avg_monthly_hours, experience_years) va so'ralgan oyning payroll qatoridan kpi_percent bilan avanslar.
+        Har bir qatordagi id — employee_payrolls qatorining id'si, uni to'g'ridan-to'g'ri PUT /employee/payroll/{id}/advance ga berish mumkin.
+        year/month berilmasa joriy oy olinadi. Kelajakdagi oy qabul qilinmaydi.
+      parameters:
+      - description: Store ID
+        in: query
+        name: store_id
+        type: string
+      - description: Ism yoki telefon bo'yicha qidiruv
+        in: query
+        name: search
+        type: string
+      - description: 'Year (default: joriy)'
+        in: query
+        name: year
+        type: integer
+      - description: 'Month 1-12 (default: joriy)'
+        in: query
+        name: month
+        type: integer
+      - description: Limit
+        in: query
+        name: limit
+        type: integer
+      - description: Offset
+        in: query
+        name: offset
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Payroll edit list (salary, KPI, advances)
       tags:
       - employees
   /employee/payroll/employees:

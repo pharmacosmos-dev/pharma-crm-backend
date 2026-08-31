@@ -6781,6 +6781,90 @@ const docTemplate = `{
                 }
             }
         },
+        "/employee/payroll/advances": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Xodim kartochkasidagi qiymatlar (role_type, ism, telefon, salary, avg_monthly_hours, experience_years) va so'ralgan oyning payroll qatoridan kpi_percent bilan avanslar.\nHar bir qatordagi id — employee_payrolls qatorining id'si, uni to'g'ridan-to'g'ri PUT /employee/payroll/{id}/advance ga berish mumkin.\nyear/month berilmasa joriy oy olinadi. Kelajakdagi oy qabul qilinmaydi.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "employees"
+                ],
+                "summary": "Payroll edit list (salary, KPI, advances)",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Store ID",
+                        "name": "store_id",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Ism yoki telefon bo'yicha qidiruv",
+                        "name": "search",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Year (default: joriy)",
+                        "name": "year",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Month 1-12 (default: joriy)",
+                        "name": "month",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Limit",
+                        "name": "limit",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Offset",
+                        "name": "offset",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    }
+                }
+            }
+        },
         "/employee/payroll/employees": {
             "get": {
                 "security": [
@@ -7062,6 +7146,76 @@ const docTemplate = `{
                     },
                     "401": {
                         "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/employee/payroll/{id}/advance": {
+            "put": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "employee_payrolls qatorining kpi_percent, salary, advance_card_amount va advance_cash_amount maydonlarini id bo'yicha yangilaydi.\nHammasi ixtiyoriy — berilgani yoziladi, berilmagani eski qiymatida qoladi.\nkpi_percent yoki salary berilsa employees jadvali ham yangilanadi (xodim kartochkasi), avanslar esa faqat shu oyning payroll qatoriga tegishli.\nactual_salary_amount, kpi_amount, gross_salary_amount va net_pay_amount shu yerda qayta hisoblanadi — cron kutilmaydi.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "employees"
+                ],
+                "summary": "Update payroll salary, KPI and advance amounts",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Payroll ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Avans summalari",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/domain.EmployeePayrollAdvanceRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
                         "schema": {
                             "$ref": "#/definitions/v1.Response"
                         }
@@ -34470,6 +34624,27 @@ const docTemplate = `{
                 },
                 "type": {
                     "type": "string"
+                }
+            }
+        },
+        "domain.EmployeePayrollAdvanceRequest": {
+            "type": "object",
+            "properties": {
+                "advance_card_amount": {
+                    "type": "number",
+                    "minimum": 0
+                },
+                "advance_cash_amount": {
+                    "type": "number",
+                    "minimum": 0
+                },
+                "kpi_percent": {
+                    "type": "number",
+                    "minimum": 0
+                },
+                "salary": {
+                    "type": "number",
+                    "minimum": 0
                 }
             }
         },

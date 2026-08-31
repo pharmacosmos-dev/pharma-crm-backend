@@ -62,6 +62,7 @@ func (h *EmployeeHandler) EmployeeRoutes(r *gin.RouterGroup) {
 		employee.GET("/payroll/employees", h.EmployeePayrollList)
 		employee.GET("/payroll/my", h.MyPayroll)
 		employee.POST("/payroll/recalculate", h.RecalculatePayroll)
+		employee.GET("/payroll/advances", h.EmployeePayrollAdvanceList)
 		employee.PUT("/payroll/:id/advance", h.UpdateEmployeePayrollAdvance)
 	}
 }
@@ -1523,11 +1524,70 @@ func (h *EmployeeHandler) EmployeePayrollList(c *gin.Context) {
 	handleResponse(c, OK, result)
 }
 
+// EmployeePayrollAdvanceList godoc
+// @Summary      Payroll edit list (salary, KPI, advances)
+// @Description  Xodim kartochkasidagi qiymatlar (role_type, ism, telefon, salary, avg_monthly_hours, experience_years) va so'ralgan oyning payroll qatoridan kpi_percent bilan avanslar.
+// @Description  Har bir qatordagi id — employee_payrolls qatorining id'si, uni to'g'ridan-to'g'ri PUT /employee/payroll/{id}/advance ga berish mumkin.
+// @Description  year/month berilmasa joriy oy olinadi. Kelajakdagi oy qabul qilinmaydi.
+// @Tags         employees
+// @Security     BearerAuth
+// @Accept       json
+// @Produce      json
+// @Param        store_id  query  string  false  "Store ID"
+// @Param        search    query  string  false  "Ism yoki telefon bo'yicha qidiruv"
+// @Param        year      query  int     false  "Year (default: joriy)"
+// @Param        month     query  int     false  "Month 1-12 (default: joriy)"
+// @Param        limit     query  int     false  "Limit"
+// @Param        offset    query  int     false  "Offset"
+// @Success      200  {object}  v1.Response
+// @Failure      400  {object}  v1.Response
+// @Failure      401  {object}  v1.Response
+// @Failure      500  {object}  v1.Response
+// @Router       /employee/payroll/advances [get]
+func (h *EmployeeHandler) EmployeePayrollAdvanceList(c *gin.Context) {
+	user := h.service.GetSignedUser(c)
+	if user.UserId == "" {
+		handleServiceResponse(c, nil, domain.UnauthorizedError)
+		return
+	}
+
+	var params domain.EmployeePayrollAdvanceQueryParams
+	if err := c.ShouldBindQuery(&params); err != nil {
+		handleResponse(c, BadRequest, err.Error())
+		return
+	}
+
+	// Admin bo'lmasa faqat o'z kompaniyasi va o'z do'konini ko'radi
+	if !helper.IsAdmin(user) {
+		params.CompanyId = user.CompanyId
+		if user.StoreId != "" {
+			params.StoreId = user.StoreId
+		}
+	}
+
+	params.Limit, params.Offset = defaultLimitOffset(params.Limit, params.Offset)
+
+	ctx, cancel := context.WithTimeout(c.Request.Context(), constants.DefaultContextTimeout)
+	defer cancel()
+
+	res, totalCount, period, err := h.service.GetEmployeePayrollAdvances(ctx, &params)
+	if err != nil {
+		handleServiceResponse(c, nil, err)
+		return
+	}
+
+	result := utils.ListResponse(res, totalCount, params.Limit, params.Offset)
+	result["period"] = period
+
+	handleResponse(c, OK, result)
+}
+
 // UpdateEmployeePayrollAdvance godoc
-// @Summary      Update payroll advance amounts
-// @Description  employee_payrolls qatoridagi advance_card_amount va advance_cash_amount'ni id bo'yicha yangilaydi.
-// @Description  Ikkala maydon ham ixtiyoriy — berilgani yoziladi, berilmagani eski qiymatida qoladi.
-// @Description  net_pay_amount shu yerda qayta hisoblanadi, cron kutilmaydi.
+// @Summary      Update payroll salary, KPI and advance amounts
+// @Description  employee_payrolls qatorining kpi_percent, salary, advance_card_amount va advance_cash_amount maydonlarini id bo'yicha yangilaydi.
+// @Description  Hammasi ixtiyoriy — berilgani yoziladi, berilmagani eski qiymatida qoladi.
+// @Description  kpi_percent yoki salary berilsa employees jadvali ham yangilanadi (xodim kartochkasi), avanslar esa faqat shu oyning payroll qatoriga tegishli.
+// @Description  actual_salary_amount, kpi_amount, gross_salary_amount va net_pay_amount shu yerda qayta hisoblanadi — cron kutilmaydi.
 // @Tags         employees
 // @Security     BearerAuth
 // @Accept       json
@@ -1564,7 +1624,7 @@ func (h *EmployeeHandler) UpdateEmployeePayrollAdvance(c *gin.Context) {
 	ctx, cancel := context.WithTimeout(c.Request.Context(), constants.DefaultContextTimeout)
 	defer cancel()
 
-	res, err := h.service.UpdateEmployeePayrollAdvance(ctx, id, &body)
+	res, err := h.service.UpdateEmployeePayrollAdvance(ctx, id, user.UserId, &body)
 	if err != nil {
 		handleServiceResponse(c, nil, err)
 		return

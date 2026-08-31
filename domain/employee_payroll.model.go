@@ -1,6 +1,10 @@
 package domain
 
-import "time"
+import (
+	"time"
+
+	"github.com/lib/pq"
+)
 
 // EmployeePayroll — xodimning oylik ish haqi vedomosti (bir xodimga oyiga bitta qator).
 // Summalar hisoblanganda: gross_salary_amount = actual_salary + kpi_amount + bonus_amount,
@@ -65,14 +69,66 @@ const (
 	EmployeePayrollStatusCompleted = "completed"
 )
 
+// EmployeePayrollAdvanceRequest — oylik kartochkasidagi qo'lda kiritiladigan
+// maydonlar. Hammasi ixtiyoriy: berilgani yoziladi, berilmagani eski qiymatida
+// qoladi. Hech biri bo'lmasa so'rov rad etiladi.
+//
+// KpiPercent va Salary IKKALA jadvalga yoziladi — employees (xodim kartochkasi,
+// keyingi oylarga ta'sir qiladi) va employee_payrolls (shu oyning qatori).
+// Avanslar esa faqat employee_payrolls'ga tegishli.
 type EmployeePayrollAdvanceRequest struct {
+	KpiPercent        *float64 `json:"kpi_percent" binding:"omitempty,min=0"`
+	Salary            *float64 `json:"salary" binding:"omitempty,min=0"`
 	AdvanceCardAmount *float64 `json:"advance_card_amount" binding:"omitempty,min=0"`
 	AdvanceCashAmount *float64 `json:"advance_cash_amount" binding:"omitempty,min=0"`
 }
 
 // IsEmpty — hech qanday maydon berilmaganini bildiradi.
 func (r EmployeePayrollAdvanceRequest) IsEmpty() bool {
-	return r.AdvanceCardAmount == nil && r.AdvanceCashAmount == nil
+	return r.KpiPercent == nil && r.Salary == nil &&
+		r.AdvanceCardAmount == nil && r.AdvanceCashAmount == nil
+}
+
+// TouchesEmployee — employees jadvali ham yangilanishi kerakligini bildiradi.
+func (r EmployeePayrollAdvanceRequest) TouchesEmployee() bool {
+	return r.KpiPercent != nil || r.Salary != nil
+}
+
+// EmployeePayrollAdvanceQueryParams — tahrirlash ro'yxatining filtrlari.
+// Year/Month berilmasa joriy oy olinadi; kelajakdagi oy qabul qilinmaydi.
+type EmployeePayrollAdvanceQueryParams struct {
+	StoreId string `form:"store_id"`
+	Search  string `form:"search"`
+	Year    int    `form:"year"`
+	Month   int    `form:"month"`
+	Limit   int    `form:"limit"`
+	Offset  int    `form:"offset"`
+
+	CompanyId string `form:"-"`
+}
+
+// EmployeePayrollAdvanceRow — tahrirlash ro'yxatining bitta qatori:
+// xodim kartochkasidagi qiymatlar + shu oyning payroll qatoridan olingan
+// kpi_percent va avanslar.
+type EmployeePayrollAdvanceRow struct {
+	// Id — employee_payrolls qatorining id'si, update shu bo'yicha ketadi.
+	Id         string         `json:"id"`
+	EmployeeId string         `json:"employee_id"`
+	RoleType   string         `json:"role_type"`
+	FirstName  string         `json:"first_name"`
+	LastName   string         `json:"last_name"`
+	Phone      string         `json:"phone"`
+	Roles      pq.StringArray `json:"roles" gorm:"type:text[]" swaggertype:"array,string"`
+
+	// KpiPercent employee_payrolls'dan olinadi — shu oyda AMALDA ishlatilgan foiz.
+	KpiPercent float64 `json:"kpi_percent"`
+
+	Salary          float64 `json:"salary"`
+	AvgMonthlyHours float64 `json:"avg_monthly_hours"`
+	ExperienceYears float64 `json:"experience_years"`
+
+	AdvanceCardAmount float64 `json:"advance_card_amount"`
+	AdvanceCashAmount float64 `json:"advance_cash_amount"`
 }
 
 // Query params
