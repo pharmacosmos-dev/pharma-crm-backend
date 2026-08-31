@@ -229,16 +229,12 @@ type StorePayroll struct {
 	StoreId   string `json:"store_id"`
 	StoreName string `json:"store_name"`
 
-	// EmployeeCount — do'konga biriktirilgan faol xodimlar soni (employees
-	// jadvalidan). Cron ishlagan-ishlamaganidan qat'i nazar to'g'ri qiymat.
 	EmployeeCount int `json:"employee_count"`
-	// PayrollCount — shu oy uchun payroll qatori bor xodimlar soni. Quyidagi
-	// summalar aynan shu xodimlar bo'yicha yig'ilgan. EmployeeCount'dan kichik
-	// bo'lsa, demak ba'zi xodimlar hali hisobga tushmagan (masalan oy o'rtasida
-	// qo'shilgan va cron hali ishlamagan).
+	ActiveStoreEmployeeCount int `json:"active_store_employee_count"`
 	PayrollCount int `json:"payroll_count"`
 
 	WorkedHours float64 `json:"worked_hours"`
+	AvgMonthlyHours float64 `json:"avg_monthly_hours"`
 
 	SalaryRateAmount      float64 `json:"salary_rate_amount"`
 	ActualSalaryAmount    float64 `json:"actual_salary_amount"`
@@ -249,9 +245,17 @@ type StorePayroll struct {
 	StoreSalesAmount float64 `json:"store_sales_amount"`
 	// KpiAmount — xodimlar KPI'sining yig'indisi, ya'ni do'konning umumiy KPI xarajati.
 	KpiAmount float64 `json:"kpi_amount"`
-	BonusAmount           float64 `json:"bonus_amount"`
-	GrossSalaryAmount     float64 `json:"gross_salary_amount"`
-	NetPayAmount          float64 `json:"net_pay_amount"`
+	BonusAmount       float64 `json:"bonus_amount"`
+	GrossSalaryAmount float64 `json:"gross_salary_amount"`
+	// SalaryPercent — gross_salary_amount / store_sales_amount * 100, ya'ni oylik
+	// xarajati do'kon aylanmasining necha foizini tashkil qiladi. Faqat javobda
+	// hisoblanadi, bazada bunday ustun yo'q. Savdo 0 bo'lsa 0 qaytadi.
+	SalaryPercent float64 `json:"salary_percent"`
+	AdvanceAmount float64 `json:"advance_amount"`
+	// TotalDeduction — uchala ushlab qolishning yig'indisi: deduction_term +
+	// deduction_recount + deduction_fine.
+	TotalDeduction float64 `json:"total_deduction"`
+	NetPayAmount   float64 `json:"net_pay_amount"`
 }
 
 // Eslatma: bu strukturada xodimlar ro'yxati YO'Q va bo'lmasligi kerak.

@@ -95,12 +95,14 @@ import (
 const payrollWorkDayHours = 8
 
 // storeRef — sahifalangan do'kon ro'yxati uchun minimal ma'lumot.
-// EmployeeCount employees jadvalidan olinadi, payroll qatorlaridan emas —
-// shuning uchun cron hali ishlamagan bo'lsa ham to'g'ri son ko'rsatiladi.
+//
+// Ikkala son ham employees/stores jadvallaridan keladi, payroll yig'indisidan
+// emas — shuning uchun cron hali ishlamagan do'konda ham to'g'ri ko'rinadi.
 type storeRef struct {
-	Id            string `gorm:"column:id"`
-	Name          string `gorm:"column:name"`
-	EmployeeCount int    `gorm:"column:employee_count"`
+	Id   string `gorm:"column:id"`
+	Name string `gorm:"column:name"`
+	EmployeeCount int `gorm:"column:store_employee_count"`
+	ActiveStoreEmployeeCount int `gorm:"column:active_store_employee_count"`
 }
 
 // employeePayrollPageRow — hisobot qatori + umumiy son. total_count har bir
@@ -207,9 +209,14 @@ func (s *Services) GetMyPayroll(
 
 // GetStorePayrolls — do'konlar kesimidagi yig'indilar, xodimlar ro'yxatisiz.
 //
-// Pagination do'konlarga qo'yiladi. Yig'indiga do'konning BARCHA xodimlari
-// kiradi (rol filtri yo'q), shuning uchun do'kon summasi GetEmployeePayrolls
-// qaytaradigan qatorlar yig'indisidan katta bo'lishi mumkin.
+// Pagination do'konlarga qo'yiladi. Yig'indi GetEmployeePayrolls bilan bir xil
+// doiradan chiqadi — faqat roli "Кассир"/"Заведующий" va worked_hours > 0
+// bo'lgan qatorlar — shuning uchun do'kon summasi o'sha do'konning xodimlar
+// ro'yxatini qo'lda qo'shib chiqqandagi natijaga teng bo'ladi.
+//
+// Xodimlar soni esa bundan mustasno: employee_count va
+// active_store_employee_count stores/employees jadvallaridan olinadi, ya'ni
+// cron hali qamramagan xodimlarni ham sanaydi.
 func (s *Services) GetStorePayrolls(
 	ctx context.Context, params *domain.EmployeePayrollQueryParams,
 ) ([]domain.StorePayroll, int64, domain.PayrollPeriod, error) {
@@ -232,6 +239,7 @@ func (s *Services) GetStorePayrolls(
 		"year":      period.Year,
 		"month":     period.Month,
 		"store_ids": pq.StringArray(storeIdsOf(stores)),
+		"roles":     pq.StringArray(payrollSalesRoles),
 	}).Scan(&totals).Error
 	if err != nil {
 		s.log.Errorf("payroll: could not get store totals: %v", err)
@@ -724,12 +732,13 @@ func (s *Services) paginateStores(
 		Select(`
 			stores.id,
 			stores.name,
+			COALESCE(stores.employee_count, 0) AS store_employee_count,
 			(SELECT COUNT(*)
 			   FROM employees e
 			  WHERE e.store_id = stores.id
 			    AND e.is_active = TRUE
 			    AND e.status = ?
-			    AND e.deleted_at IS NULL) AS employee_count`,
+			    AND e.deleted_at IS NULL) AS active_store_employee_count`,
 			constants.GeneralStatusActive).
 		Order("name").
 		Limit(params.Limit).
@@ -767,9 +776,8 @@ func mergeStoreTotals(stores []storeRef, totals []domain.StorePayroll) []domain.
 			total = domain.StorePayroll{StoreId: store.Id}
 		}
 		total.StoreName = store.Name
-		// Xodimlar soni employees jadvalidan keladi, payroll yig'indisidan emas:
-		// cron hali ishlamagan do'konda ham to'g'ri son ko'rinadi.
 		total.EmployeeCount = store.EmployeeCount
+		total.ActiveStoreEmployeeCount = store.ActiveStoreEmployeeCount
 		result = append(result, total)
 	}
 	return result
@@ -1104,6 +1112,10 @@ SELECT
     -- bu yerda uchramaydi
     COUNT(*)::int                  AS payroll_count,
     SUM(p.worked_hours)            AS worked_hours,
+    -- Do'konning umumiy norma soati: har bir xodimning oylik normasi qo'shiladi.
+    -- worked_hours bilan yonma-yon turadi, shuning uchun ikkalasi ham AYNAN bir
+    -- xil qatorlar bo'yicha yig'iladi — aks holda ularni solishtirib bo'lmasdi.
+    SUM(p.avg_monthly_hours)       AS avg_monthly_hours,
     SUM(p.salary_rate_amount)      AS salary_rate_amount,
     SUM(p.actual_salary_amount)    AS actual_salary_amount,
     SUM(p.individual_sales_amount) AS individual_sales_amount,
@@ -1113,9 +1125,26 @@ SELECT
     SUM(p.kpi_amount)              AS kpi_amount,
     SUM(p.bonus_amount)            AS bonus_amount,
     SUM(p.gross_salary_amount)     AS gross_salary_amount,
+    -- Oylik xarajati do'kon aylanmasining necha foizini yeyapti.
+    -- store_sales_amount har bir xodim qatorida takrorlanadi, shuning uchun
+    -- maxrajda SUM emas, MAX. Savdo 0 bo'lsa foiz ham 0 (bo'lishdan himoya).
+    COALESCE(ROUND(
+        SUM(p.gross_salary_amount) / NULLIF(MAX(p.store_sales_amount), 0) * 100
+    , 2), 0)                       AS salary_percent,
+    -- Karta va naqd avans bitta songa qo'shiladi: do'kon bo'yicha jami avans
+    SUM(p.advance_card_amount + p.advance_cash_amount) AS advance_amount,
+    -- Uchala ushlab qolish turi ham bitta songa: muddat, qayta hisob va jarima
+    SUM(p.deduction_term_amount
+      + p.deduction_recount_amount
+      + p.deduction_fine_amount)   AS total_deduction,
     SUM(p.net_pay_amount)          AS net_pay_amount
 FROM employee_payrolls p
 WHERE p.year = @year
   AND p.month = @month
   AND p.store_id = ANY(CAST(@store_ids AS uuid[]))
+  -- GetEmployeePayrolls bilan bir xil doira: do'kon yig'indisi aynan xodimlar
+  -- ro'yxatida ko'rinadigan qatorlardan chiqadi, shuning uchun ro'yxatni qo'lda
+  -- qo'shib chiqqanda do'kon summasi bilan mos keladi.
+  AND p.role_names && CAST(@roles AS text[])
+  AND p.worked_hours > 0
 GROUP BY p.store_id`
