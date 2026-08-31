@@ -1110,9 +1110,13 @@ LIMIT NULLIF(@limit, 0) OFFSET @offset`
 const storePayrollTotalsQuery = `
 SELECT
     p.store_id                     AS store_id,
-    -- payroll qatorlari soni; do'kondagi xodimlar soni employees jadvalidan
-    -- alohida olinadi (paginateStores), chunki cron hali qamramagan xodim
-    -- bu yerda uchramaydi
+    -- Yig'indilarga kirgan xodimlar soni. employee_payrolls'da bir xodimga oyiga
+    -- bitta qator (UNIQUE employee_id, year, month), shuning uchun qator soni =
+    -- xodim soni. Quyidagi WHERE'dan o'tganlar sanaladi, ya'ni rol mos kelmagan
+    -- va smenaga chiqmagan xodimlar bu songa kirmaydi.
+    --
+    -- Do'kondagi umumiy xodimlar soni esa paginateStores'da employees/stores
+    -- jadvallaridan olinadi — cron hali qamramaganlar ham o'sha yerda sanaladi.
     COUNT(*)::int                  AS payroll_count,
     SUM(p.worked_hours)            AS worked_hours,
     -- Do'konning umumiy norma soati: har bir xodimning oylik normasi qo'shiladi.
