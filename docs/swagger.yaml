@@ -509,6 +509,17 @@ definitions:
     type: object
   domain.EmployeeRequest:
     type: object
+  domain.EmployeeStatusUpdateRequest:
+    properties:
+      status:
+        enum:
+        - active
+        - dismissed
+        example: dismissed
+        type: string
+    required:
+    - status
+    type: object
   domain.EmployeeTargetUpdateRequest:
     properties:
       amount:
@@ -6268,6 +6279,52 @@ paths:
       security:
       - BearerAuth: []
       summary: Create or update employee face descriptor
+      tags:
+      - employees
+  /employee/{id}/status:
+    put:
+      consumes:
+      - application/json
+      description: Switch an employee between "active" (Активный) and "dismissed"
+        (Уволен). A dismissed employee can no longer log in.
+      parameters:
+      - description: Employee ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: New status
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/domain.EmployeeStatusUpdateRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Update employee status
       tags:
       - employees
   /employee/attendance-days/list:

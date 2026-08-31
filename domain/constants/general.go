@@ -196,6 +196,7 @@ const (
 	GeneralStatusDeleted    = "deleted"
 	GeneralStatusActive     = "active"
 	GeneralStatusInactive   = "inactive"
+	GeneralStatusDismissed = "dismissed"
 	GeneralStatusConfirmed  = "confirmed"
 	GeneralStatusSent       = "sent"
 	GeneralStatusChecking   = "checking"

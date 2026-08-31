@@ -42,6 +42,7 @@ func (h *EmployeeHandler) EmployeeRoutes(r *gin.RouterGroup) {
 		employee.GET("/info", h.GetInfo)
 		employee.PUT("/reset-password", h.ResetPassword)
 		employee.PUT("/info", h.UpdateEmployeeinfo)
+		employee.PUT("/:id/status", h.UpdateEmployeeStatus)
 		employee.PUT("/block", h.BlockEmployee)
 		employee.PUT("/unblock", h.UnBlockEmployee)
 		employee.GET("/bonus", h.SmenaBonus)
@@ -782,6 +783,66 @@ func (h *EmployeeHandler) UpdateEmployeeinfo(c *gin.Context) {
 		handleResponse(c, InternalError, err.Error())
 		return
 	}
+	handleResponse(c, OK, body)
+}
+
+// @Summary      Update employee status
+// @Description  Switch an employee between "active" (Активный) and "dismissed" (Уволен). A dismissed employee can no longer log in.
+// @Tags         employees
+// @Security     BearerAuth
+// @Accept       json
+// @Produce      json
+// @Param        id    path     string                             true  "Employee ID"
+// @Param        body  body     domain.EmployeeStatusUpdateRequest true  "New status"
+// @Success      200  {object}  v1.Response
+// @Failure      400  {object}  v1.Response
+// @Failure      401  {object}  v1.Response
+// @Failure      404  {object}  v1.Response
+// @Failure      500  {object}  v1.Response
+// @Router       /employee/{id}/status [put]
+func (h *EmployeeHandler) UpdateEmployeeStatus(c *gin.Context) {
+	user := h.service.GetSignedUser(c)
+	if user.UserId == "" {
+		handleServiceResponse(c, nil, domain.UnauthorizedError)
+		return
+	}
+
+	var (
+		body domain.EmployeeStatusUpdateRequest
+		id   = c.Param("id")
+	)
+	if err := c.ShouldBindJSON(&body); err != nil {
+		h.log.Errorf("could not bind employee status request body: %v", err)
+		handleServiceResponse(c, BadRequest, domain.InvalidRequestBodyError)
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(c.Request.Context(), constants.DefaultContextTimeout)
+	defer cancel()
+
+	updates := map[string]any{
+		"status":     body.Status,
+		"updated_by": user.UserId,
+	}
+	// Reactivating undoes a block as well, mirroring UnBlockEmployee.
+	if body.Status == constants.GeneralStatusActive {
+		updates["is_active"] = true
+	}
+
+	result := h.db.WithContext(ctx).
+		Model(&domain.Employee{}).
+		Where("id = ? AND status != ?", id, constants.GeneralStatusDeleted).
+		Updates(updates)
+	if result.Error != nil {
+		h.log.Errorf("could not update employee status: %v", result.Error)
+		handleServiceResponse(c, InternalError, domain.InternalServerError)
+		return
+	}
+	if result.RowsAffected == 0 {
+		handleServiceResponse(c, NotFound, domain.NotFoundError)
+		return
+	}
+
 	handleResponse(c, OK, body)
 }
 

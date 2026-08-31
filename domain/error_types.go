@@ -59,6 +59,9 @@ var (
 	CardNotFoundError     = NewError(http.StatusNotFound, "card.not.found")
 	PrescriptionNotFound  = NewError(http.StatusNotFound, "prescription.not.found")
 
+	// 403 – Forbidden (kirish taqiqlangan)
+	EmployeeDismissedError = NewError(http.StatusForbidden, "employee.dismissed")
+
 	// 408 - Timeout (vaqt yetmadi)
 	OTPExpiredError          = NewError(http.StatusRequestTimeout, "otp.expired")
 	PrescriptionExpiredError = NewError(http.StatusRequestTimeout, "prescription.expired")

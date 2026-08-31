@@ -74,6 +74,12 @@ func (h *AuthHandler) Login(c *gin.Context) {
 		handleResponse(c, CONFLICT, "Wrong password")
 		return
 	}
+	// dismissed employees keep their account but can no longer sign in.
+	// Checked after the password so it does not leak who is dismissed.
+	if employee.Status == constants.GeneralStatusDismissed {
+		handleServiceResponse(c, nil, domain.EmployeeDismissedError)
+		return
+	}
 
 	userClaims := map[string]any{
 		"user_id":    employee.Id,
