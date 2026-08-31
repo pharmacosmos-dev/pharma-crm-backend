@@ -344,9 +344,13 @@ func (s *Services) recalculatePayrollMonth(
 //
 // Ikkita jadval tegiladi, ikkalasi ham BITTA transaksiyada:
 //
-//	employee_payrolls — to'rt maydonning berilgani + qayta hisoblangan summalar
-//	employees         — faqat kpi_percent/salary berilgan bo'lsa (xodim
-//	                    kartochkasi, ya'ni keyingi oylarga ham ta'sir qiladi)
+//	employee_payrolls — kpi_percent, salary va avanslardan berilgani, ustiga
+//	                    qayta hisoblangan summalar
+//	employees         — kpi_percent / salary / daily_work_hours berilgan bo'lsa
+//	                    (xodim kartochkasi, keyingi oylarga ham ta'sir qiladi)
+//
+// daily_work_hours FAQAT employees'ga yoziladi: payroll qatorida bunday ustun
+// yo'q va oylik hisobiga ham kirmaydi.
 //
 // Summalar cron formulasi bilan AYNAN bir xil zanjir bo'yicha qayta hisoblanadi
 // (qarang: payrollUpsertQuery'dagi calc / kpi_rate / final CTE'lari):
@@ -409,10 +413,11 @@ func (s *Services) UpdateEmployeePayrollAdvance(
 
 	const employeeQuery = `
 		UPDATE employees
-		SET kpi_percent = COALESCE(CAST(@kpi AS numeric), kpi_percent),
-			salary      = COALESCE(CAST(@salary AS numeric), salary),
-			updated_by  = CAST(@updated_by AS uuid),
-			updated_at  = NOW()
+		SET kpi_percent      = COALESCE(CAST(@kpi AS numeric), kpi_percent),
+			salary           = COALESCE(CAST(@salary AS numeric), salary),
+			daily_work_hours = COALESCE(CAST(@daily_hours AS numeric), daily_work_hours),
+			updated_by       = CAST(@updated_by AS uuid),
+			updated_at       = NOW()
 		WHERE id = CAST(@employee_id AS uuid)`
 
 	var res domain.EmployeePayroll
@@ -443,6 +448,7 @@ func (s *Services) UpdateEmployeePayrollAdvance(
 			"employee_id": res.EmployeeId,
 			"kpi":         req.KpiPercent,
 			"salary":      req.Salary,
+			"daily_hours": req.DailyWorkHours,
 			"updated_by":  nullIfEmpty(updatedBy),
 		}).Error; err != nil {
 			s.log.Errorf("payroll: could not update employee card: %v", err)
@@ -485,7 +491,7 @@ func (s *Services) GetEmployeePayrollAdvances(
 			COALESCE(p.role_names, '{}')     AS roles,
 			p.kpi_percent,
 			COALESCE(e.salary, 0)            AS salary,
-			COALESCE(e.avg_monthly_hours, 0) AS avg_monthly_hours,
+			COALESCE(e.daily_work_hours, 0)  AS daily_work_hours,
 			COALESCE(e.experience_years, 0)  AS experience_years,
 			p.advance_card_amount,
 			p.advance_cash_amount,

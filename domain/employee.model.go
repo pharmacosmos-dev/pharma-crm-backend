@@ -47,7 +47,8 @@ type Employee struct {
 	StartDate       *string          `gorm:"start_date" json:"start_date,omitempty"`
 	EndDate         *string          `gorm:"end_date" json:"end_date,omitempty"`
 	Salary          float64          `gorm:"salary" json:"salary"`
-	AvgMonthlyHours float64          `gorm:"avg_monthly_hours" json:"avg_monthly_hours"`
+
+	DailyWorkHours  float64          `gorm:"daily_work_hours" json:"daily_work_hours"`
 	KpiPercent      float64          `gorm:"kpi_percent" json:"kpi_percent"`
 	ExperienceYears float64          `gorm:"experience_years" json:"experience_years"`
 	RoleType        string           `gorm:"role_type" json:"role_type"`
@@ -88,10 +89,10 @@ type EmployeeRequest struct {
 	EndDate         *string        `gorm:"end_date" json:"end_date"`
 
 	Passport        *string        `gorm:"passport" json:"passport"`
-	Salary          *float64       `gorm:"salary" json:"salary"`
-	AvgMonthlyHours *float64       `gorm:"avg_monthly_hours" json:"avg_monthly_hours"`
-	KpiPercent      *float64       `gorm:"kpi_percent" json:"kpi_percent"`
-	ExperienceYears *float64       `gorm:"experience_years" json:"experience_years"`
+	// Salary          *float64       `gorm:"salary" json:"salary"`
+	// DailyWorkHours  *float64       `gorm:"daily_work_hours" json:"daily_work_hours"`
+	// KpiPercent      *float64       `gorm:"kpi_percent" json:"kpi_percent"`
+	// ExperienceYears *float64       `gorm:"experience_years" json:"experience_years"`
 }
 
 // Xodim yaratishda salary va kpi_percent uchun ruxsat etilgan chegaralar.

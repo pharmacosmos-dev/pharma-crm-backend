@@ -62,8 +62,8 @@ func (h *EmployeeHandler) EmployeeRoutes(r *gin.RouterGroup) {
 		employee.GET("/payroll/employees", h.EmployeePayrollList)
 		employee.GET("/payroll/my", h.MyPayroll)
 		employee.POST("/payroll/recalculate", h.RecalculatePayroll)
-		employee.GET("/payroll/advances", h.EmployeePayrollAdvanceList)
-		employee.PUT("/payroll/:id/advance", h.UpdateEmployeePayrollAdvance)
+		employee.GET("/payroll/management", h.EmployeePayrollManagementList)
+		employee.PUT("/payroll/:id/management", h.UpdateEmployeePayrollManagement)
 	}
 }
 
@@ -105,12 +105,6 @@ func (h *EmployeeHandler) Create(c *gin.Context) {
 		return
 	}
 
-	// salary, kpi_percent, avg_monthly_hours, experience_years ixtiyoriy, ustunlar esa NOT NULL —
-	// yuborilmasa 0 bilan to'ldiriladi (aks holda GORM NULL yozmoqchi bo'ladi).
-	body.Salary = floatOrZero(body.Salary)
-	body.KpiPercent = floatOrZero(body.KpiPercent)
-	body.AvgMonthlyHours = floatOrZero(body.AvgMonthlyHours)
-	body.ExperienceYears = floatOrZero(body.ExperienceYears)
 
 	hashedPassword, err := etc.Encrypt(*body.Password, h.cfg.HashKey)
 	if err != nil {
@@ -404,22 +398,6 @@ func (h *EmployeeHandler) Update(c *gin.Context) {
 		"store_ids":         body.StoreIds,
 		"start_date":        body.StartDate,
 		"end_date":          body.EndDate,
-	}
-
-	// salary, avg_monthly_hours, kpi_percent, experience_years — Update'da ixtiyoriy:
-	// so'rovda bo'lmasa (nil) bazadagi mavjud qiymat o'zgarmay qoladi. Ustunlar
-	// NOT NULL bo'lgani uchun ularga NULL yozib bo'lmaydi ham.
-	if body.Salary != nil {
-		updateData["salary"] = *body.Salary
-	}
-	if body.AvgMonthlyHours != nil {
-		updateData["avg_monthly_hours"] = *body.AvgMonthlyHours
-	}
-	if body.KpiPercent != nil {
-		updateData["kpi_percent"] = *body.KpiPercent
-	}
-	if body.ExperienceYears != nil {
-		updateData["experience_years"] = *body.ExperienceYears
 	}
 
 	if body.Passport != nil {
@@ -1524,9 +1502,9 @@ func (h *EmployeeHandler) EmployeePayrollList(c *gin.Context) {
 	handleResponse(c, OK, result)
 }
 
-// EmployeePayrollAdvanceList godoc
+// EmployeePayrollmanagementList godoc
 // @Summary      Payroll edit list (salary, KPI, advances)
-// @Description  Xodim kartochkasidagi qiymatlar (role_type, ism, telefon, salary, avg_monthly_hours, experience_years) va so'ralgan oyning payroll qatoridan kpi_percent bilan avanslar.
+// @Description  Xodim kartochkasidagi qiymatlar (role_type, ism, telefon, salary, daily_work_hours, experience_years) va so'ralgan oyning payroll qatoridan kpi_percent bilan avanslar.
 // @Description  Har bir qatordagi id — employee_payrolls qatorining id'si, uni to'g'ridan-to'g'ri PUT /employee/payroll/{id}/advance ga berish mumkin.
 // @Description  year/month berilmasa joriy oy olinadi. Kelajakdagi oy qabul qilinmaydi.
 // @Tags         employees
@@ -1543,8 +1521,8 @@ func (h *EmployeeHandler) EmployeePayrollList(c *gin.Context) {
 // @Failure      400  {object}  v1.Response
 // @Failure      401  {object}  v1.Response
 // @Failure      500  {object}  v1.Response
-// @Router       /employee/payroll/advances [get]
-func (h *EmployeeHandler) EmployeePayrollAdvanceList(c *gin.Context) {
+// @Router       /employee/payroll/management [get]
+func (h *EmployeeHandler) EmployeePayrollManagementList(c *gin.Context) {
 	user := h.service.GetSignedUser(c)
 	if user.UserId == "" {
 		handleServiceResponse(c, nil, domain.UnauthorizedError)
@@ -1582,11 +1560,11 @@ func (h *EmployeeHandler) EmployeePayrollAdvanceList(c *gin.Context) {
 	handleResponse(c, OK, result)
 }
 
-// UpdateEmployeePayrollAdvance godoc
+// UpdateEmployeePayrollManagement godoc
 // @Summary      Update payroll salary, KPI and advance amounts
-// @Description  employee_payrolls qatorining kpi_percent, salary, advance_card_amount va advance_cash_amount maydonlarini id bo'yicha yangilaydi.
+// @Description  kpi_percent, salary, daily_work_hours, advance_card_amount va advance_cash_amount maydonlarini payroll id bo'yicha yangilaydi.
 // @Description  Hammasi ixtiyoriy — berilgani yoziladi, berilmagani eski qiymatida qoladi.
-// @Description  kpi_percent yoki salary berilsa employees jadvali ham yangilanadi (xodim kartochkasi), avanslar esa faqat shu oyning payroll qatoriga tegishli.
+// @Description  kpi_percent/salary ikkala jadvalga, daily_work_hours faqat employees'ga (ruxsat etilgan qiymatlar: 4, 7, 8), avanslar esa faqat shu oyning payroll qatoriga yoziladi.
 // @Description  actual_salary_amount, kpi_amount, gross_salary_amount va net_pay_amount shu yerda qayta hisoblanadi — cron kutilmaydi.
 // @Tags         employees
 // @Security     BearerAuth
@@ -1599,8 +1577,8 @@ func (h *EmployeeHandler) EmployeePayrollAdvanceList(c *gin.Context) {
 // @Failure      401  {object}  v1.Response
 // @Failure      404  {object}  v1.Response
 // @Failure      500  {object}  v1.Response
-// @Router       /employee/payroll/{id}/advance [put]
-func (h *EmployeeHandler) UpdateEmployeePayrollAdvance(c *gin.Context) {
+// @Router       /employee/payroll/{id}/management [put]
+func (h *EmployeeHandler) UpdateEmployeePayrollManagement(c *gin.Context) {
 	user := h.service.GetSignedUser(c)
 	if user.UserId == "" {
 		handleServiceResponse(c, nil, domain.UnauthorizedError)
