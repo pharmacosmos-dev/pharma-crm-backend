@@ -486,13 +486,16 @@ func (s *Services) UpdateEmployeePayrollAdvance(
 	return &res, nil
 }
 
-// GetEmployeePayrollAdvances — oylik tahrirlash ro'yxati: xodim kartochkasidagi
-// qiymatlar (salary, avg_monthly_hours, experience_years, phone, role_type) va
-// so'ralgan oyning payroll qatoridan kpi_percent bilan avanslar.
+// GetEmployeePayrollManagement — oylik tahrirlash ro'yxati: xodim kartochkasidagi
+// qiymatlar (salary, daily_work_hours, shift_type, experience_years, phone,
+// role_type) va so'ralgan oyning payroll qatoridan kpi_percent bilan avanslar.
 //
 // employee_payrolls asosiy jadval, employees unga LEFT JOIN qilinadi: shu sababli
 // qaytgan har bir qatorda id bo'ladi va uni to'g'ridan-to'g'ri
-// UpdateEmployeePayrollAdvance'ga berish mumkin.
+// UpdateEmployeePayrollManagement'ga berish mumkin.
+//
+// Doira GetEmployeePayrolls bilan bir xil: faqat roli "Кассир"/"Заведующий" va
+// worked_hours > 0 bo'lgan xodimlar. Ikkala ro'yxat bir xil odamlarni ko'rsatadi.
 func (s *Services) GetEmployeePayrollManagement(
 	ctx context.Context, params *domain.EmployeePayrollAdvanceQueryParams,
 ) ([]domain.EmployeePayrollAdvanceRow, int64, domain.PayrollPeriod, error) {
@@ -528,6 +531,8 @@ func (s *Services) GetEmployeePayrollManagement(
 		  AND (CAST(@company_id AS uuid) IS NULL OR p.company_id = CAST(@company_id AS uuid))
 		  AND (CAST(@search AS text)     IS NULL OR p.full_name ILIKE CAST(@search AS text)
 												 OR e.phone     ILIKE CAST(@search AS text))
+		  AND p.role_names && CAST(@roles AS text[])
+		  AND p.worked_hours > 0
 		ORDER BY p.store_name, p.full_name
 		LIMIT NULLIF(@limit, 0) OFFSET @offset`
 
@@ -548,6 +553,7 @@ func (s *Services) GetEmployeePayrollManagement(
 		"store_id":   nullIfEmpty(params.StoreId),
 		"company_id": nullIfEmpty(params.CompanyId),
 		"search":     nullIfEmpty(search),
+		"roles":      pq.StringArray(payrollSalesRoles),
 		"limit":      params.Limit,
 		"offset":     params.Offset,
 	}).Scan(&page).Error

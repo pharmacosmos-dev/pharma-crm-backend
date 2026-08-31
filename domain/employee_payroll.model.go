@@ -119,11 +119,8 @@ type EmployeePayrollAdvanceQueryParams struct {
 	CompanyId string `form:"-"`
 }
 
-// EmployeePayrollAdvanceRow — tahrirlash ro'yxatining bitta qatori:
-// xodim kartochkasidagi qiymatlar + shu oyning payroll qatoridan olingan
-// kpi_percent va avanslar.
+
 type EmployeePayrollAdvanceRow struct {
-	// Id — employee_payrolls qatorining id'si, update shu bo'yicha ketadi.
 	Id         string         `json:"id"`
 	EmployeeId string         `json:"employee_id"`
 	RoleType   string         `json:"role_type"`
