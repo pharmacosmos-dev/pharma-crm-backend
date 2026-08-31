@@ -206,9 +206,8 @@ func (s *Services) GetStoreEmployeeCounts(ctx context.Context, params *domain.St
 			stores.name,
 			stores.company_id,
 			COALESCE(stores.employee_count, 0) AS employee_count,
-			COALESCE(stores.cash_box_count, 0) AS cash_box_count,
+			COALESCE(cash_box.cash_box_count, 0) AS cash_box_count,
 			COALESCE(actual.employee_count, 0) AS actual_employee_count,
-			COALESCE(cash_box.cash_box_count, 0) AS actual_cash_box_count,
 			COALESCE(actual.employee_count, 0) - COALESCE(stores.employee_count, 0) AS difference
 		`)
 
