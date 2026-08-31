@@ -339,6 +339,49 @@ func (s *Services) recalculatePayrollMonth(
 	return tx.RowsAffected, nil
 }
 
+// UpdateEmployeePayrollAdvance — bitta payroll qatorining avans summalarini
+// qo'lda yangilaydi va net_pay_amount'ni darhol qayta hisoblaydi (aks holda u
+// keyingi cron yurgunicha eski qiymatda qolardi). Formula payrollUpsertQuery'dagi
+// bilan bir xil.
+//
+// NULL kelgan maydon o'zgarmaydi: COALESCE mavjud qiymatga tushadi. SET ichida
+// ustunga murojaat qatorning ESKI qiymatini beradi, shuning uchun COALESCE
+// ikkala joyda ham bir xil — yangi — natijani qaytaradi.
+func (s *Services) UpdateEmployeePayrollAdvance(
+	ctx context.Context, id string, req *domain.EmployeePayrollAdvanceRequest,
+) (*domain.EmployeePayroll, error) {
+	const query = `
+		UPDATE employee_payrolls
+		SET advance_card_amount = COALESCE(CAST(@card AS numeric), advance_card_amount),
+			advance_cash_amount = COALESCE(CAST(@cash AS numeric), advance_cash_amount),
+			net_pay_amount      = gross_salary_amount
+								- (COALESCE(CAST(@card AS numeric), advance_card_amount)
+								+ COALESCE(CAST(@cash AS numeric), advance_cash_amount)
+								+ deduction_term_amount
+								+ deduction_recount_amount
+								+ deduction_fine_amount),
+			updated_at          = NOW()
+		WHERE id = CAST(@id AS uuid)
+		RETURNING *`
+
+	var res domain.EmployeePayroll
+
+	tx := s.db.WithContext(ctx).Raw(query, map[string]any{
+		"id":   id,
+		"card": req.AdvanceCardAmount,
+		"cash": req.AdvanceCashAmount,
+	}).Scan(&res)
+	if tx.Error != nil {
+		s.log.Errorf("payroll: could not update advance amounts: %v", tx.Error)
+		return nil, domain.InternalServerError
+	}
+	if tx.RowsAffected == 0 {
+		return nil, domain.NotFoundError
+	}
+
+	return &res, nil
+}
+
 // resolveCalcDate — hisob qaysi kungacha olib borilishini aniqlaydi.
 //
 // dateStr berilgan bo'lsa u tekshiriladi (shu oy ichida va kelajakda emas),
@@ -821,7 +864,7 @@ ON CONFLICT (employee_id, year, month) DO UPDATE SET
 // Filtrlar ixtiyoriy — NULL berilsa o'sha shart tekshirilmaydi.
 const employeePayrollsSelectQuery = `
 SELECT
-    p.employee_id, p.store_id, p.store_name,
+    p.id, p.employee_id, p.store_id, p.store_name,
     p.first_name, p.last_name, p.full_name, p.position_snapshot, p.role,
     p.experience_years, p.worked_hours, p.avg_monthly_hours,
     p.salary_rate_amount, p.actual_salary_amount, p.individual_sales_amount,

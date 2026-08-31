@@ -62,6 +62,7 @@ func (h *EmployeeHandler) EmployeeRoutes(r *gin.RouterGroup) {
 		employee.GET("/payroll/employees", h.EmployeePayrollList)
 		employee.GET("/payroll/my", h.MyPayroll)
 		employee.POST("/payroll/recalculate", h.RecalculatePayroll)
+		employee.PUT("/payroll/:id/advance", h.UpdateEmployeePayrollAdvance)
 	}
 }
 
@@ -1520,6 +1521,56 @@ func (h *EmployeeHandler) EmployeePayrollList(c *gin.Context) {
 	result["period"] = period
 
 	handleResponse(c, OK, result)
+}
+
+// UpdateEmployeePayrollAdvance godoc
+// @Summary      Update payroll advance amounts
+// @Description  employee_payrolls qatoridagi advance_card_amount va advance_cash_amount'ni id bo'yicha yangilaydi.
+// @Description  Ikkala maydon ham ixtiyoriy — berilgani yoziladi, berilmagani eski qiymatida qoladi.
+// @Description  net_pay_amount shu yerda qayta hisoblanadi, cron kutilmaydi.
+// @Tags         employees
+// @Security     BearerAuth
+// @Accept       json
+// @Produce      json
+// @Param        id    path     string                                true  "Payroll ID"
+// @Param        body  body     domain.EmployeePayrollAdvanceRequest  true  "Avans summalari"
+// @Success      200  {object}  v1.Response
+// @Failure      400  {object}  v1.Response
+// @Failure      401  {object}  v1.Response
+// @Failure      404  {object}  v1.Response
+// @Failure      500  {object}  v1.Response
+// @Router       /employee/payroll/{id}/advance [put]
+func (h *EmployeeHandler) UpdateEmployeePayrollAdvance(c *gin.Context) {
+	user := h.service.GetSignedUser(c)
+	if user.UserId == "" {
+		handleServiceResponse(c, nil, domain.UnauthorizedError)
+		return
+	}
+
+	var (
+		body domain.EmployeePayrollAdvanceRequest
+		id   = c.Param("id")
+	)
+	if err := c.ShouldBindJSON(&body); err != nil {
+		h.log.Errorf("could not bind payroll advance request body: %v", err)
+		handleServiceResponse(c, BadRequest, domain.InvalidRequestBodyError)
+		return
+	}
+	if body.IsEmpty() {
+		handleServiceResponse(c, BadRequest, domain.InvalidRequestBodyError)
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(c.Request.Context(), constants.DefaultContextTimeout)
+	defer cancel()
+
+	res, err := h.service.UpdateEmployeePayrollAdvance(ctx, id, &body)
+	if err != nil {
+		handleServiceResponse(c, nil, err)
+		return
+	}
+
+	handleResponse(c, OK, res)
 }
 
 // MyPayroll godoc

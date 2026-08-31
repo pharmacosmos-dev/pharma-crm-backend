@@ -156,6 +156,19 @@ func (s *Services) storeEmployeeCountQuery(ctx context.Context, params *domain.S
 			) actual
 				ON actual.store_id = stores.id
 		`).
+		Joins(`
+			LEFT JOIN (
+				SELECT
+					store_id,
+					COUNT(*) AS cash_box_count
+				FROM cash_boxes
+				WHERE deleted_at IS NULL
+				  AND is_active = TRUE
+				  AND store_id IS NOT NULL
+				GROUP BY store_id
+			) cash_box
+				ON cash_box.store_id = stores.id
+		`).
 		Where("stores.deleted_at IS NULL").
 		Where("stores.is_active = TRUE")
 
@@ -195,6 +208,7 @@ func (s *Services) GetStoreEmployeeCounts(ctx context.Context, params *domain.St
 			COALESCE(stores.employee_count, 0) AS employee_count,
 			COALESCE(stores.cash_box_count, 0) AS cash_box_count,
 			COALESCE(actual.employee_count, 0) AS actual_employee_count,
+			COALESCE(cash_box.cash_box_count, 0) AS actual_cash_box_count,
 			COALESCE(actual.employee_count, 0) - COALESCE(stores.employee_count, 0) AS difference
 		`)
 

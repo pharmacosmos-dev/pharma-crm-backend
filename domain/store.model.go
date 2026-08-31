@@ -127,7 +127,10 @@ type StoreEmployeeCount struct {
 	EmployeeCount       int    `json:"employee_count"`
 	CashBoxCount        int    `json:"cash_box_count"`
 	ActualEmployeeCount int    `json:"actual_employee_count"`
-	Difference          int    `json:"difference"`
+	// ActualCashBoxCount — cash_boxes jadvalidagi haqiqiy kassalar soni
+	// (is_active = TRUE, o'chirilmagan). CashBoxCount esa stores ustunidagi reja.
+	ActualCashBoxCount int `json:"actual_cash_box_count"`
+	Difference         int `json:"difference"`
 }
 
 // StoreEmployeeCountStat is the StoreEmployeeCount list rolled up into totals.

@@ -65,6 +65,16 @@ const (
 	EmployeePayrollStatusCompleted = "completed"
 )
 
+type EmployeePayrollAdvanceRequest struct {
+	AdvanceCardAmount *float64 `json:"advance_card_amount" binding:"omitempty,min=0"`
+	AdvanceCashAmount *float64 `json:"advance_cash_amount" binding:"omitempty,min=0"`
+}
+
+// IsEmpty — hech qanday maydon berilmaganini bildiradi.
+func (r EmployeePayrollAdvanceRequest) IsEmpty() bool {
+	return r.AdvanceCardAmount == nil && r.AdvanceCashAmount == nil
+}
+
 // Query params
 type EmployeePayrollQueryParams struct {
 	EmployeeId string `form:"employee_id"`
@@ -82,6 +92,9 @@ type EmployeePayrollQueryParams struct {
 // hisoblanadi (attendance/bonus/target jadvallaridan), o'tgan oylar uchun
 // employee_payrolls'dan o'qiladi — ikkalasi ham shu strukturaga tushadi.
 type EmployeePayrollRow struct {
+	// Id — employee_payrolls qatorining id'si. Avansni yangilash uchun kerak:
+	// PUT /employee/payroll/{id}/advance.
+	Id               string  `json:"id"`
 	EmployeeId       string  `json:"employee_id"`
 	StoreId          *string `json:"store_id"`
 	StoreName        string  `json:"store_name"`
