@@ -398,6 +398,7 @@ func (h *EmployeeHandler) Update(c *gin.Context) {
 		"store_ids":         body.StoreIds,
 		"start_date":        body.StartDate,
 		"end_date":          body.EndDate,
+		"role_type":         body.RoleType,
 	}
 
 	if body.Passport != nil {

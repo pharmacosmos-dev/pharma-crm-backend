@@ -77,6 +77,7 @@ type EmployeeRequest struct {
 	StoreId         *string        `gorm:"store_id" json:"store_id"`
 	StoreIds        pq.StringArray `gorm:"type:text[];column:store_ids" json:"store_ids"`
 	Position        string         `gorm:"position" json:"position"`
+	RoleType        string         `gorm:"role_type" json:"role_type" binding:"required" example:"CASHIER"`
 	FirstName       string         `gorm:"first_name" json:"first_name"`
 	LastName        string         `gorm:"last_name" json:"last_name"`
 	FullName        string         `gorm:"full_name" json:"full_name"`
