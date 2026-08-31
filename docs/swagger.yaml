@@ -531,6 +531,13 @@ definitions:
       salary:
         minimum: 0
         type: number
+      shift_type:
+        description: 'ShiftType — smena turi: "day" (День) yoki "night" (Ночь).'
+        enum:
+        - day
+        - night
+        example: night
+        type: string
     type: object
   domain.EmployeeRequest:
     type: object

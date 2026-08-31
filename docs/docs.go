@@ -34655,6 +34655,15 @@ const docTemplate = `{
                 "salary": {
                     "type": "number",
                     "minimum": 0
+                },
+                "shift_type": {
+                    "description": "ShiftType — smena turi: \"day\" (День) yoki \"night\" (Ночь).",
+                    "type": "string",
+                    "enum": [
+                        "day",
+                        "night"
+                    ],
+                    "example": "night"
                 }
             }
         },

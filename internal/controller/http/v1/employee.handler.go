@@ -1548,7 +1548,7 @@ func (h *EmployeeHandler) EmployeePayrollManagementList(c *gin.Context) {
 	ctx, cancel := context.WithTimeout(c.Request.Context(), constants.DefaultContextTimeout)
 	defer cancel()
 
-	res, totalCount, period, err := h.service.GetEmployeePayrollAdvances(ctx, &params)
+	res, totalCount, period, err := h.service.GetEmployeePayrollManagement(ctx, &params)
 	if err != nil {
 		handleServiceResponse(c, nil, err)
 		return

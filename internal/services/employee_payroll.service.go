@@ -431,6 +431,7 @@ func (s *Services) UpdateEmployeePayrollAdvance(
 		SET kpi_percent      = COALESCE(CAST(@kpi AS numeric), kpi_percent),
 			salary           = COALESCE(CAST(@salary AS numeric), salary),
 			daily_work_hours = COALESCE(CAST(@daily_hours AS numeric), daily_work_hours),
+			shift_type       = COALESCE(CAST(@shift_type AS varchar), shift_type),
 			updated_by       = CAST(@updated_by AS uuid),
 			updated_at       = NOW()
 		WHERE id = CAST(@employee_id AS uuid)`
@@ -465,6 +466,7 @@ func (s *Services) UpdateEmployeePayrollAdvance(
 			"kpi":         req.KpiPercent,
 			"salary":      req.Salary,
 			"daily_hours": req.DailyWorkHours,
+			"shift_type":  req.ShiftType,
 			"updated_by":  nullIfEmpty(updatedBy),
 		}).Error; err != nil {
 			s.log.Errorf("payroll: could not update employee card: %v", err)
@@ -487,7 +489,7 @@ func (s *Services) UpdateEmployeePayrollAdvance(
 // employee_payrolls asosiy jadval, employees unga LEFT JOIN qilinadi: shu sababli
 // qaytgan har bir qatorda id bo'ladi va uni to'g'ridan-to'g'ri
 // UpdateEmployeePayrollAdvance'ga berish mumkin.
-func (s *Services) GetEmployeePayrollAdvances(
+func (s *Services) GetEmployeePayrollManagement(
 	ctx context.Context, params *domain.EmployeePayrollAdvanceQueryParams,
 ) ([]domain.EmployeePayrollAdvanceRow, int64, domain.PayrollPeriod, error) {
 	period, err := resolvePayrollPeriod(params.Year, params.Month)
@@ -505,9 +507,11 @@ func (s *Services) GetEmployeePayrollAdvances(
 			COALESCE(e.last_name, '')        AS last_name,
 			COALESCE(e.phone, '')            AS phone,
 			COALESCE(p.role_names, '{}')     AS roles,
+			p.store_name,
 			p.kpi_percent,
 			COALESCE(e.salary, 0)            AS salary,
 			COALESCE(e.daily_work_hours, 0)  AS daily_work_hours,
+			e.shift_type,
 			COALESCE(e.experience_years, 0)  AS experience_years,
 			p.advance_card_amount,
 			p.advance_cash_amount,

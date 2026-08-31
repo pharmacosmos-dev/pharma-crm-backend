@@ -49,6 +49,7 @@ type Employee struct {
 	Salary          float64          `gorm:"salary" json:"salary"`
 
 	DailyWorkHours  float64          `gorm:"daily_work_hours" json:"daily_work_hours"`
+	ShiftType       *string          `gorm:"column:shift_type" json:"shift_type"`
 	KpiPercent      float64          `gorm:"kpi_percent" json:"kpi_percent"`
 	ExperienceYears float64          `gorm:"experience_years" json:"experience_years"`
 	RoleType        string           `gorm:"role_type" json:"role_type"`

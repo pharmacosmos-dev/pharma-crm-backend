@@ -77,16 +77,19 @@ const (
 //
 //	KpiPercent, Salary — IKKALASI ham: employees (xodim kartochkasi, keyingi
 //	                     oylarga ta'sir qiladi) va employee_payrolls (shu oy).
-//	DailyWorkHours     — FAQAT employees. employee_payrolls'da bunday ustun yo'q
-//	                     va oylik hisobiga ham kirmaydi (kunlik smena
-//	                     payrollWorkDayHours konstantasidan olinadi).
+//	DailyWorkHours     — FAQAT employees. employee_payrolls'da bunday ustun yo'q,
+//	                     lekin oylik normasiga ta'sir qiladi: berilsa payroll
+//	                     qatoridagi avg_monthly_hours qayta hisoblanadi.
+//	ShiftType          — FAQAT employees. Hisob-kitobga umuman kirmaydi.
 //	Avanslar           — faqat employee_payrolls, ular shu oyga tegishli.
 type EmployeePayrollAdvanceRequest struct {
 	KpiPercent *float64 `json:"kpi_percent" binding:"omitempty,min=0"`
 	Salary     *float64 `json:"salary" binding:"omitempty,min=0"`
 	// DailyWorkHours — faqat 4, 7 yoki 8 soat. Tip ataylab int: validator'ning
 	// `oneof` qoidasi float maydonda panic beradi (Bad field type float64).
-	DailyWorkHours    *int     `json:"daily_work_hours" binding:"omitempty,oneof=4 7 8" example:"8"`
+	DailyWorkHours *int `json:"daily_work_hours" binding:"omitempty,oneof=4 7 8" example:"8"`
+	// ShiftType — smena turi: "day" (День) yoki "night" (Ночь).
+	ShiftType         *string  `json:"shift_type" binding:"omitempty,oneof=day night" example:"night"`
 	AdvanceCardAmount *float64 `json:"advance_card_amount" binding:"omitempty,min=0"`
 	AdvanceCashAmount *float64 `json:"advance_cash_amount" binding:"omitempty,min=0"`
 }
@@ -94,12 +97,13 @@ type EmployeePayrollAdvanceRequest struct {
 // IsEmpty — hech qanday maydon berilmaganini bildiradi.
 func (r EmployeePayrollAdvanceRequest) IsEmpty() bool {
 	return r.KpiPercent == nil && r.Salary == nil && r.DailyWorkHours == nil &&
-		r.AdvanceCardAmount == nil && r.AdvanceCashAmount == nil
+		r.ShiftType == nil && r.AdvanceCardAmount == nil && r.AdvanceCashAmount == nil
 }
 
 // TouchesEmployee — employees jadvali ham yangilanishi kerakligini bildiradi.
 func (r EmployeePayrollAdvanceRequest) TouchesEmployee() bool {
-	return r.KpiPercent != nil || r.Salary != nil || r.DailyWorkHours != nil
+	return r.KpiPercent != nil || r.Salary != nil ||
+		r.DailyWorkHours != nil || r.ShiftType != nil
 }
 
 // EmployeePayrollAdvanceQueryParams — tahrirlash ro'yxatining filtrlari.
@@ -126,12 +130,14 @@ type EmployeePayrollAdvanceRow struct {
 	FirstName  string         `json:"first_name"`
 	LastName   string         `json:"last_name"`
 	Phone      string         `json:"phone"`
+	StoreName  *string        `json:"store_name"`
 	Roles      pq.StringArray `json:"roles" gorm:"type:text[]" swaggertype:"array,string"`
 
 	// KpiPercent employee_payrolls'dan olinadi — shu oyda AMALDA ishlatilgan foiz.
-	KpiPercent float64 `json:"kpi_percent"`
-	Salary float64 `json:"salary"`
+	KpiPercent      float64 `json:"kpi_percent"`
+	Salary          float64 `json:"salary"`
 	DailyWorkHours  float64 `json:"daily_work_hours"`
+	ShiftType       *string `json:"shift_type"`
 	ExperienceYears float64 `json:"experience_years"`
 
 	AdvanceCardAmount float64 `json:"advance_card_amount"`
