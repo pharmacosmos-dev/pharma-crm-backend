@@ -26,14 +26,18 @@ import (
 //
 // KPI DO'KON BO'YICHA va progressiv — har kuni o'zgaradi:
 //
-//	ish kunlari   = kalendar kun − yakshanba − holidays jadvalidagi sanalar
-//	expected_plan = store_targets.amount * (o'tgan ish kuni / oydagi ish kuni)
+//	expected_plan = store_targets.amount * (o'tgan kun / oydagi kun)
 //	achievement   = store_sales / expected_plan * 100
 //	kpi_percent   = 0%    (achievement < 80)
 //	                0.8%  (80 <= achievement < 90)
 //	                1.0%  (90 <= achievement < 100)
 //	                1.4%  (achievement >= 100)
 //	kpi_amount    = KPI bazasi * kpi_percent / 100
+//
+// expected_plan KALENDAR kunlari bo'yicha kesiladi (oy 31 kun, kecha 30-sana →
+// reja * 30/31): yakshanba va bayramlar chegirilmaydi, chunki do'kon o'sha
+// kunlari ham savdo qiladi. Ish kunlari sanog'i (month_work_days) faqat
+// avg_monthly_hours, ya'ni oylik norma soati uchun ishlatiladi.
 //
 // Reja bajarilishi DO'KON bo'yicha o'lchanadi — bitta do'konning barcha
 // xodimlarida achievement bir xil. Foiz va baza esa xodimga qarab aniqlanadi:
@@ -809,7 +813,9 @@ workdays AS (
         (SELECT COUNT(*)::int
            FROM generate_series(b.month_start, b.calc_date, INTERVAL '1 day') d
           WHERE EXTRACT(DOW FROM d) <> 0
-            AND NOT EXISTS (SELECT 1 FROM holidays h WHERE h.date = d::date)) AS elapsed_work_days
+            AND NOT EXISTS (SELECT 1 FROM holidays h WHERE h.date = d::date)) AS elapsed_work_days,
+        EXTRACT(DAY FROM b.month_end)::int  AS month_days,
+        EXTRACT(DAY FROM b.calc_date)::int  AS elapsed_days
     FROM bounds b
 ),
 -- Yig'indilar barcha xodimlar uchun BIR MARTA hisoblanadi.
@@ -918,7 +924,9 @@ base AS (
         COALESCE(ss.store_sales_amount, 0)      AS store_sales_amount,
         COALESCE(et.amount, 0)                  AS employee_plan_amount,
         w.month_work_days,
-        w.elapsed_work_days
+        w.elapsed_work_days,
+        w.month_days,
+        w.elapsed_days
     FROM employees e
     CROSS JOIN workdays w
     LEFT JOIN stores s          ON s.id = e.store_id
@@ -938,8 +946,10 @@ calc AS (
     SELECT b.*,
            -- avg_monthly_hours = 0 bo'lsa nolga bo'lish o'rniga 0 qaytadi
            COALESCE(ROUND(b.salary_rate_amount * (b.worked_hours / NULLIF(b.avg_monthly_hours, 0)), 2), 0) AS actual_salary_amount,
-           -- DO'KON rejasi o'tgan ish kunlariga proporsional kesiladi
-           COALESCE(ROUND(b.store_plan_amount * b.elapsed_work_days / NULLIF(b.month_work_days, 0), 2), 0) AS expected_plan_amount
+           -- DO'KON rejasi o'tgan KALENDAR kunlariga proporsional kesiladi:
+           -- oy 31 kun, kecha 30-sana bo'lsa → reja * 30 / 31.
+           -- Ish kuni emas, ketma-ket kun — buxgalteriya shu tartibda hisoblaydi.
+           COALESCE(ROUND(b.store_plan_amount * b.elapsed_days / NULLIF(b.month_days, 0), 2), 0) AS expected_plan_amount
     FROM base b
 ),
 kpi AS (
