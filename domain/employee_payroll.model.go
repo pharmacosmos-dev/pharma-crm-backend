@@ -82,10 +82,17 @@ const (
 //	                     lekin oylik normasiga ta'sir qiladi: berilsa payroll
 //	                     qatoridagi avg_monthly_hours qayta hisoblanadi.
 //	ShiftType          — FAQAT employees. Hisob-kitobga umuman kirmaydi.
+//	RoleType           — FAQAT employees. employee_payrolls'da bunday ustun yo'q
+//	                     (u yerdagi role/role_names roles jadvalidan keladi va
+//	                     boshqa tushuncha). Hisob-kitobga ta'sir qilmaydi.
 //	Avanslar           — faqat employee_payrolls, ular shu oyga tegishli.
 type EmployeePayrollAdvanceRequest struct {
 	KpiPercent *float64 `json:"kpi_percent" binding:"omitempty,min=0"`
 	Salary     *float64 `json:"salary" binding:"omitempty,min=0"`
+	// RoleType — xodimning tizimdagi roli (employees.role_type), masalan
+	// "CASHIER", "HEADOFCASHIER", "MANAGER". Berilsa xodim kartochkasida
+	// yangilanadi va keyingi oylarga ham amal qiladi.
+	RoleType *string `json:"role_type" binding:"omitempty,max=55" example:"CASHIER"`
 	// DailyWorkHours — faqat 4, 7 yoki 8 soat. Tip ataylab int: validator'ning
 	// `oneof` qoidasi float maydonda panic beradi (Bad field type float64).
 	DailyWorkHours *int `json:"daily_work_hours" binding:"omitempty,oneof=4 7 8" example:"8"`
@@ -98,13 +105,14 @@ type EmployeePayrollAdvanceRequest struct {
 // IsEmpty — hech qanday maydon berilmaganini bildiradi.
 func (r EmployeePayrollAdvanceRequest) IsEmpty() bool {
 	return r.KpiPercent == nil && r.Salary == nil && r.DailyWorkHours == nil &&
-		r.ShiftType == nil && r.AdvanceCardAmount == nil && r.AdvanceCashAmount == nil
+		r.ShiftType == nil && r.RoleType == nil &&
+		r.AdvanceCardAmount == nil && r.AdvanceCashAmount == nil
 }
 
 // TouchesEmployee — employees jadvali ham yangilanishi kerakligini bildiradi.
 func (r EmployeePayrollAdvanceRequest) TouchesEmployee() bool {
 	return r.KpiPercent != nil || r.Salary != nil ||
-		r.DailyWorkHours != nil || r.ShiftType != nil
+		r.DailyWorkHours != nil || r.ShiftType != nil || r.RoleType != nil
 }
 
 // EmployeePayrollAdvanceQueryParams — tahrirlash ro'yxatining filtrlari.

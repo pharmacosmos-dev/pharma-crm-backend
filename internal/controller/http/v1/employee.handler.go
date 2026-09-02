@@ -1629,9 +1629,10 @@ func (h *EmployeeHandler) EmployeePayrollManagementList(c *gin.Context) {
 
 // UpdateEmployeePayrollManagement godoc
 // @Summary      Update payroll salary, KPI and advance amounts
-// @Description  kpi_percent, salary, daily_work_hours, advance_card_amount va advance_cash_amount maydonlarini payroll id bo'yicha yangilaydi.
+// @Description  kpi_percent, salary, daily_work_hours, shift_type, role_type, advance_card_amount va advance_cash_amount maydonlarini payroll id bo'yicha yangilaydi.
 // @Description  Hammasi ixtiyoriy — berilgani yoziladi, berilmagani eski qiymatida qoladi.
-// @Description  kpi_percent/salary ikkala jadvalga, daily_work_hours faqat employees'ga (ruxsat etilgan qiymatlar: 4, 7, 8), avanslar esa faqat shu oyning payroll qatoriga yoziladi.
+// @Description  kpi_percent/salary ikkala jadvalga; daily_work_hours (4, 7, 8), shift_type va role_type faqat employees'ga; avanslar esa faqat shu oyning payroll qatoriga yoziladi.
+// @Description  role_type xodim kartochkasida saqlanadi va keyingi oylarga ham amal qiladi — payroll hisob-kitobiga ta'sir qilmaydi.
 // @Description  actual_salary_amount, kpi_amount, gross_salary_amount va net_pay_amount shu yerda qayta hisoblanadi — cron kutilmaydi.
 // @Tags         employees
 // @Security     BearerAuth

@@ -444,6 +444,7 @@ func (s *Services) UpdateEmployeePayrollAdvance(
 			salary           = COALESCE(CAST(@salary AS numeric), salary),
 			daily_work_hours = COALESCE(CAST(@daily_hours AS numeric), daily_work_hours),
 			shift_type       = COALESCE(CAST(@shift_type AS varchar), shift_type),
+			role_type        = COALESCE(CAST(@role_type AS varchar), role_type),
 			updated_by       = CAST(@updated_by AS uuid),
 			updated_at       = NOW()
 		WHERE id = CAST(@employee_id AS uuid)`
@@ -479,6 +480,7 @@ func (s *Services) UpdateEmployeePayrollAdvance(
 			"salary":      req.Salary,
 			"daily_hours": req.DailyWorkHours,
 			"shift_type":  req.ShiftType,
+			"role_type":   req.RoleType,
 			"updated_by":  nullIfEmpty(updatedBy),
 		}).Error; err != nil {
 			s.log.Errorf("payroll: could not update employee card: %v", err)
