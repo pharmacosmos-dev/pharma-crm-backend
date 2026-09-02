@@ -6866,7 +6866,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Xodim kartochkasidagi qiymatlar (role_type, ism, telefon, salary, daily_work_hours, experience_years) va so'ralgan oyning payroll qatoridan kpi_percent bilan avanslar.\nHar bir qatordagi id — employee_payrolls qatorining id'si, uni to'g'ridan-to'g'ri PUT /employee/payroll/{id}/advance ga berish mumkin.\nyear/month berilmasa joriy oy olinadi. Kelajakdagi oy qabul qilinmaydi.",
+                "description": "Xodim kartochkasidagi qiymatlar (role_type, ism, telefon, salary, daily_work_hours, shift_type, experience_years) va so'ralgan oyning payroll qatoridan kpi_percent bilan avanslar.\nHar bir qatordagi id — employee_payrolls qatorining id'si, uni to'g'ridan-to'g'ri PUT /employee/payroll/{id}/management ga berish mumkin.\nRo'yxatga faqat roli \"Кассир\"/\"Заведующий\" va davomati bor (worked_hours \u003e 0) xodimlar kiradi — /employee/payroll/employees bilan bir xil doira.\nyear/month berilmasa joriy oy olinadi. Kelajakdagi oy qabul qilinmaydi.",
                 "consumes": [
                     "application/json"
                 ],
@@ -6912,6 +6912,84 @@ const docTemplate = `{
                         "type": "integer",
                         "description": "Offset",
                         "name": "offset",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/employee/payroll/management/statistics": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "/employee/payroll/management ro'yxatining yig'ma ko'rsatkichlari: nechta do'kon,\nnechta xodim, oylik fond stavkasi (employees.salary yig'indisi) va avanslar jami\n(karta + naqd birga).\nFiltrlar ro'yxat bilan AYNAN bir xil, shuning uchun raqamlar ekrandagi ro'yxatga mos keladi.\nSahifalanmaydi: limit/offset ta'sir qilmaydi, filtrga tushgan hamma xodim hisobga olinadi.\ndate berilsa yil/oy shundan olinadi; berilmasa year/month, ular ham bo'lmasa joriy oy.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "employees"
+                ],
+                "summary": "Payroll management statistics",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Store ID",
+                        "name": "store_id",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Ism yoki telefon bo'yicha qidiruv",
+                        "name": "search",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Sana YYYY-MM-DD (year/month o'rniga)",
+                        "name": "date",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Year (default: joriy)",
+                        "name": "year",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Month 1-12 (default: joriy)",
+                        "name": "month",
                         "in": "query"
                     }
                 ],

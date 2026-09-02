@@ -7213,8 +7213,9 @@ paths:
       consumes:
       - application/json
       description: |-
-        Xodim kartochkasidagi qiymatlar (role_type, ism, telefon, salary, daily_work_hours, experience_years) va so'ralgan oyning payroll qatoridan kpi_percent bilan avanslar.
-        Har bir qatordagi id — employee_payrolls qatorining id'si, uni to'g'ridan-to'g'ri PUT /employee/payroll/{id}/advance ga berish mumkin.
+        Xodim kartochkasidagi qiymatlar (role_type, ism, telefon, salary, daily_work_hours, shift_type, experience_years) va so'ralgan oyning payroll qatoridan kpi_percent bilan avanslar.
+        Har bir qatordagi id — employee_payrolls qatorining id'si, uni to'g'ridan-to'g'ri PUT /employee/payroll/{id}/management ga berish mumkin.
+        Ro'yxatga faqat roli "Кассир"/"Заведующий" va davomati bor (worked_hours > 0) xodimlar kiradi — /employee/payroll/employees bilan bir xil doira.
         year/month berilmasa joriy oy olinadi. Kelajakdagi oy qabul qilinmaydi.
       parameters:
       - description: Store ID
@@ -7263,6 +7264,62 @@ paths:
       security:
       - BearerAuth: []
       summary: Payroll edit list (salary, KPI, advances)
+      tags:
+      - employees
+  /employee/payroll/management/statistics:
+    get:
+      consumes:
+      - application/json
+      description: |-
+        /employee/payroll/management ro'yxatining yig'ma ko'rsatkichlari: nechta do'kon,
+        nechta xodim, oylik fond stavkasi (employees.salary yig'indisi) va avanslar jami
+        (karta + naqd birga).
+        Filtrlar ro'yxat bilan AYNAN bir xil, shuning uchun raqamlar ekrandagi ro'yxatga mos keladi.
+        Sahifalanmaydi: limit/offset ta'sir qilmaydi, filtrga tushgan hamma xodim hisobga olinadi.
+        date berilsa yil/oy shundan olinadi; berilmasa year/month, ular ham bo'lmasa joriy oy.
+      parameters:
+      - description: Store ID
+        in: query
+        name: store_id
+        type: string
+      - description: Ism yoki telefon bo'yicha qidiruv
+        in: query
+        name: search
+        type: string
+      - description: Sana YYYY-MM-DD (year/month o'rniga)
+        in: query
+        name: date
+        type: string
+      - description: 'Year (default: joriy)'
+        in: query
+        name: year
+        type: integer
+      - description: 'Month 1-12 (default: joriy)'
+        in: query
+        name: month
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Payroll management statistics
       tags:
       - employees
   /employee/payroll/my:
