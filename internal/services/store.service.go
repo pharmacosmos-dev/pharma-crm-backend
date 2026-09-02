@@ -189,9 +189,13 @@ func (s *Services) storeEmployeeCountQuery(ctx context.Context, params *domain.S
 		qb = qb.Where("stores.id = ?", params.StoreId)
 	}
 
-	if params.IsFranchise != nil {
-		qb = qb.Where("stores.company_id IN (SELECT id FROM companies WHERE is_franchise = ?)", *params.IsFranchise)
-	}
+	// Franshiza do'konlari bu hisobotga UMUMAN kirmaydi — shart ixtiyoriy emas.
+	// Kompaniyasi biriktirilmagan do'kon ham chiqmaydi: uning franshiza ekanini
+	// aniqlab bo'lmaydi (NULL IN (...) hech qachon rost bo'lmaydi).
+	//
+	// DIQQAT: shu sababli ?is_franchise=true parametri endi doim bo'sh natija
+	// beradi — u bu ikki endpointda ma'nosini yo'qotdi.
+	qb = qb.Where("stores.company_id IN (SELECT id FROM companies WHERE is_franchise = false)")
 
 	return qb
 }

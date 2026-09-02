@@ -362,7 +362,7 @@ func (h *StoreHandler) Update(c *gin.Context) {
 // @Param offset query int false "Offset"
 // @Param search query string false "Search by store name"
 // @Param company_id query string false "Company ID"
-// @Param is_franchise query bool false "is_franchise"
+// @Param is_franchise query bool false "E'TIBORGA OLINMAYDI: ro'yxatga faqat franshiza bo'lmagan kompaniyalar do'konlari kiradi"
 // @Success 200 {object} v1.Response
 // @Failure 400 {object} v1.Response
 // @Failure 401 {object} v1.Response
@@ -438,7 +438,7 @@ func (h *StoreHandler) scopeEmployeeCountParams(ctx context.Context, user *domai
 // @Produce json
 // @Param search query string false "Search by store name"
 // @Param company_id query string false "Company ID"
-// @Param is_franchise query bool false "is_franchise"
+// @Param is_franchise query bool false "E'TIBORGA OLINMAYDI: ro'yxatga faqat franshiza bo'lmagan kompaniyalar do'konlari kiradi"
 // @Success 200 {object} v1.Response
 // @Failure 400 {object} v1.Response
 // @Failure 401 {object} v1.Response
