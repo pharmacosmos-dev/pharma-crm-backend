@@ -505,8 +505,7 @@ const payrollManagementFilterSQL = `
 	  AND (CAST(@company_id AS uuid) IS NULL OR p.company_id = CAST(@company_id AS uuid))
 	  AND (CAST(@search AS text)     IS NULL OR p.full_name ILIKE CAST(@search AS text)
 											 OR e.phone     ILIKE CAST(@search AS text))
-	  AND p.role_names && CAST(@roles AS text[])
-	  AND p.worked_hours > 0`
+	  AND p.role_names && CAST(@roles AS text[])`
 
 // payrollManagementArgs — ro'yxat va statistika uchun umumiy parametrlar.
 // Limit/offset bu yerda yo'q: ular faqat ro'yxatga tegishli.
@@ -571,8 +570,10 @@ func (s *Services) GetPayrollManagementStatistics(
 // qaytgan har bir qatorda id bo'ladi va uni to'g'ridan-to'g'ri
 // UpdateEmployeePayrollManagement'ga berish mumkin.
 //
-// Doira GetEmployeePayrolls bilan bir xil: faqat roli "Кассир"/"Заведующий" va
-// worked_hours > 0 bo'lgan xodimlar. Ikkala ro'yxat bir xil odamlarni ko'rsatadi.
+// Doirasi hisobotdan (GetEmployeePayrolls) KENGROQ: rol filtri bir xil
+// ("Кассир"/"Заведующий"), lekin davomat sharti yo'q — oy davomida hali
+// ishlamagan xodim ham ro'yxatda turadi, chunki unga avans yozish kerak bo'lishi
+// mumkin. Shu sababli bu ro'yxat hisobotdagidan ko'proq qator qaytarishi normal.
 func (s *Services) GetEmployeePayrollManagement(
 	ctx context.Context, params *domain.EmployeePayrollAdvanceQueryParams,
 ) ([]domain.EmployeePayrollAdvanceRow, int64, domain.PayrollPeriod, error) {

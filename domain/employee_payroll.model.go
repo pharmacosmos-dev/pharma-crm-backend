@@ -141,7 +141,7 @@ func (p *EmployeePayrollAdvanceQueryParams) ApplyDate() error {
 
 // PayrollManagementStatistics — oylik tahrirlash ro'yxatining yig'ma ko'rsatkichlari.
 // Ro'yxat bilan BIR XIL filtrlardan o'tadi (store_id, search, davr, kompaniya va
-// "Кассир"/"Заведующий" + worked_hours > 0 doirasi), shuning uchun raqamlar
+// "Кассир"/"Заведующий" doirasi), shuning uchun raqamlar
 // ekrandagi ro'yxatga mos keladi — sahifalashdan qat'i nazar hammasi bo'yicha.
 type PayrollManagementStatistics struct {
 	TotalStores    int64 `json:"total_stores"`

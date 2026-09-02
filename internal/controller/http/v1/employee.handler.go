@@ -1566,7 +1566,8 @@ func (h *EmployeeHandler) PayrollManagementStatistics(c *gin.Context) {
 // @Summary      Payroll edit list (salary, KPI, advances)
 // @Description  Xodim kartochkasidagi qiymatlar (role_type, ism, telefon, salary, daily_work_hours, shift_type, experience_years) va so'ralgan oyning payroll qatoridan kpi_percent bilan avanslar.
 // @Description  Har bir qatordagi id — employee_payrolls qatorining id'si, uni to'g'ridan-to'g'ri PUT /employee/payroll/{id}/management ga berish mumkin.
-// @Description  Ro'yxatga faqat roli "Кассир"/"Заведующий" va davomati bor (worked_hours > 0) xodimlar kiradi — /employee/payroll/employees bilan bir xil doira.
+// @Description  Ro'yxatga roli "Кассир"/"Заведующий" bo'lgan barcha xodimlar kiradi, shu jumladan oy davomida hali ishlamaganlar ham (ularga ham avans yozish mumkin bo'lishi kerak).
+// @Description  Shu sababli bu ro'yxat /employee/payroll/employees hisobotidan ko'proq qator qaytarishi mumkin — hisobotda davomati borlar (worked_hours > 0) ko'rsatiladi.
 // @Description  year/month berilmasa joriy oy olinadi. Kelajakdagi oy qabul qilinmaydi.
 // @Tags         employees
 // @Security     BearerAuth
