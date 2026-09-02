@@ -372,22 +372,34 @@ func (s *Services) GetStoreTargetList(ctx context.Context, params *domain.StoreT
 	// ==================== COUNT QUERY =========================
 	// ==========================================================
 
-	countQuery := s.db.WithContext(ctx).
-		Table("store_targets st").
-		Joins("LEFT JOIN stores ON stores.id = st.store_id").
-		Where("st.year = ? AND st.month = ?", year, month)
+	// So'rov stores'dan boshlanadi, store_targets esa LEFT JOIN: shu oyga target
+	// qo'yilmagan do'kon ham ro'yxatda ko'rinadi (amount = 0). Ilgari aksincha edi
+	// va target yaratilmagan do'kon umuman chiqmasdi — ya'ni aynan target qo'yish
+	// kerak bo'lgan do'konlarni ro'yxatdan topib bo'lmasdi.
+	//
+	// companies bilan INNER JOIN: franshiza kompaniyalarining do'konlari
+	// ro'yxatga umuman kirmaydi.
+	baseQuery := func() *gorm.DB {
+		q := s.db.WithContext(ctx).
+			Table("stores s").
+			Joins("JOIN companies c ON c.id = s.company_id AND c.is_franchise = false AND c.deleted_at IS NULL").
+			Joins("LEFT JOIN store_targets st ON st.store_id = s.id AND st.year = ? AND st.month = ?", year, month).
+			Where("s.deleted_at IS NULL").
+			Where("s.is_active = TRUE")
 
-	if len(params.CompanyIds) > 0 {
-		countQuery = countQuery.Where("st.company_id IN ?", params.CompanyIds)
+		if len(params.CompanyIds) > 0 {
+			q = q.Where("s.company_id IN ?", params.CompanyIds)
+		}
+		if params.StoreId != "" {
+			q = q.Where("s.id = ?", params.StoreId)
+		}
+		if params.SearchField != "" {
+			q = q.Where("s.name ILIKE ?", "%"+params.SearchField+"%")
+		}
+		return q
 	}
 
-	if params.StoreId != "" {
-		countQuery = countQuery.Where("st.store_id = ?", params.StoreId)
-	}
-
-	if params.SearchField != "" {
-		countQuery = countQuery.Where("stores.name ILIKE ?", "%"+params.SearchField+"%")
-	}
+	countQuery := baseQuery()
 
 	var totalCount int64
 	if err := countQuery.Count(&totalCount).Error; err != nil {
@@ -403,53 +415,43 @@ func (s *Services) GetStoreTargetList(ctx context.Context, params *domain.StoreT
 	// ==================== MAIN QUERY ==========================
 	// ==========================================================
 
-	query := s.db.WithContext(ctx).
-		Table("store_targets st").
+	// Target yo'q do'konda st.* NULL bo'ladi, shuning uchun hammasi COALESCE
+	// qilinadi: id bo'sh satr ("target hali yaratilmagan" belgisi), summalar 0.
+	// year/month esa target'dan emas, so'ralgan davrdan olinadi.
+	query := baseQuery().
 		Select(`
-			st.id,
-			st.store_id,
-			st.company_id,
-			st.amount,
-			st.year,
-			st.month,
-			stores.name AS store_name,
-			COALESCE(st.sales, 0) AS sales
-		`).
-		Joins("LEFT JOIN stores ON stores.id = st.store_id").
-		Where("st.year = ? AND st.month = ?", year, month)
-
-	if len(params.CompanyIds) > 0 {
-		query = query.Where("st.company_id IN ?", params.CompanyIds)
-	}
-
-	if params.StoreId != "" {
-		query = query.Where("st.store_id = ?", params.StoreId)
-	}
-
-	if params.SearchField != "" {
-		query = query.Where("stores.name ILIKE ?", "%"+params.SearchField+"%")
-	}
+			COALESCE(st.id::text, '') AS id,
+			s.id                      AS store_id,
+			s.company_id              AS company_id,
+			s.name                    AS store_name,
+			COALESCE(st.amount, 0)    AS amount,
+			COALESCE(st.sales, 0)     AS sales,
+			?                         AS year,
+			?                         AS month
+		`, year, month)
 
 	// ==========================================================
 	// ====================== ORDER LOGIC =======================
 	// ==========================================================
 
 
+	// Target yo'q do'konlarda st.* NULL — tartiblashda ular oxirida turishi uchun
+	// summalar COALESCE qilinadi, updated_at esa NULLS LAST bilan.
 	switch params.Order {
 	case "+store_name":
-		query = query.Order("stores.name ASC")
+		query = query.Order("s.name ASC")
 	case "-store_name":
-		query = query.Order("stores.name DESC")
+		query = query.Order("s.name DESC")
 	case "+target":
-		query = query.Order("st.amount ASC")
+		query = query.Order("COALESCE(st.amount,0) ASC")
 	case "-target":
-		query = query.Order("st.amount DESC")
+		query = query.Order("COALESCE(st.amount,0) DESC")
 	case "+sales":
 		query = query.Order("COALESCE(st.sales,0) ASC")
 	case "-sales":
 		query = query.Order("COALESCE(st.sales,0) DESC")
 	default:
-		query = query.Order("st.updated_at DESC")
+		query = query.Order("st.updated_at DESC NULLS LAST").Order("s.name ASC")
 	}
 
 
