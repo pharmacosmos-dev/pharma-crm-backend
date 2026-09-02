@@ -730,7 +730,23 @@ func (s *Services) selectPayrolls(
 ) ([]employeePayrollPageRow, error) {
 	var page []employeePayrollPageRow
 
-	err := s.db.WithContext(ctx).Raw(employeePayrollsSelectQuery, map[string]any{
+	args := payrollSelectArgs(period, filter)
+	args["limit"] = filter.Limit
+	args["offset"] = filter.Offset
+
+	err := s.db.WithContext(ctx).Raw(employeePayrollsSelectQuery, args).Scan(&page).Error
+	if err != nil {
+		s.log.Errorf("payroll: could not read payrolls: %v", err)
+		return nil, domain.InternalServerError
+	}
+
+	return page, nil
+}
+
+// payrollSelectArgs — ro'yxat va statistika uchun umumiy parametrlar.
+// Limit/offset bu yerda yo'q: ular faqat ro'yxatga tegishli.
+func payrollSelectArgs(period domain.PayrollPeriod, filter payrollReadFilter) map[string]any {
+	return map[string]any{
 		"year":        period.Year,
 		"month":       period.Month,
 		"employee_id": nullIfEmpty(filter.EmployeeId),
@@ -739,15 +755,40 @@ func (s *Services) selectPayrolls(
 		// Bo'sh massiv NULL bo'lib ketadi → o'sha shart tekshirilmaydi.
 		"roles":       pq.StringArray(filter.Roles),
 		"only_worked": filter.OnlyWorked,
-		"limit":       filter.Limit,
-		"offset":      filter.Offset,
-	}).Scan(&page).Error
+	}
+}
+
+// GetPayrollStatistics — GetEmployeePayrolls ro'yxatining yig'ma ko'rsatkichlari.
+//
+// Ro'yxat bilan bir xil filtrlardan o'tadi (davr, do'kon, kompaniya, rol va
+// "faqat ishlaganlar" doirasi), lekin sahifalanmaydi: limit/offset o'zgarganda
+// raqamlar o'zgarmaydi, hamma mos xodim hisobga olinadi.
+func (s *Services) GetPayrollStatistics(
+	ctx context.Context, params *domain.EmployeePayrollQueryParams,
+) (*domain.PayrollStatistics, domain.PayrollPeriod, error) {
+	period, err := resolvePayrollPeriod(params.Year, params.Month)
 	if err != nil {
-		s.log.Errorf("payroll: could not read payrolls: %v", err)
-		return nil, domain.InternalServerError
+		s.log.Errorf("payroll: invalid period: %v", err)
+		return nil, period, domain.BadRequestError
 	}
 
-	return page, nil
+	filter := payrollReadFilter{
+		CompanyId:  params.CompanyId,
+		StoreId:    params.StoreId,
+		Roles:      payrollSalesRoles,
+		OnlyWorked: true,
+	}
+
+	var stats domain.PayrollStatistics
+	err = s.db.WithContext(ctx).
+		Raw(payrollStatisticsQuery, payrollSelectArgs(period, filter)).
+		Scan(&stats).Error
+	if err != nil {
+		s.log.Errorf("payroll: could not get statistics: %v", err)
+		return nil, period, domain.InternalServerError
+	}
+
+	return &stats, period, nil
 }
 
 func payrollRowsOf(page []employeePayrollPageRow) []domain.EmployeePayrollRow {
@@ -1159,16 +1200,69 @@ SELECT
     p.net_pay_amount, p.status, p.year, p.month, p.completed_at, p.calculated_at,
     COUNT(*) OVER () AS total_count
 FROM employee_payrolls p
-LEFT JOIN employees e ON e.id = p.employee_id
+LEFT JOIN employees e ON e.id = p.employee_id` + payrollSelectFilterSQL + `
+ORDER BY p.store_name, p.full_name
+LIMIT NULLIF(@limit, 0) OFFSET @offset`
+
+// payrollSelectFilterSQL — hisobotning WHERE bo'lagi. Ro'yxat ham, statistika
+// ham AYNAN shu shartdan foydalanadi: aks holda ekrandagi qatorlar bilan
+// yuqoridagi yig'ma raqamlar bir-biriga mos kelmay qolardi.
+const payrollSelectFilterSQL = `
 WHERE p.year = @year
   AND p.month = @month
   AND (CAST(@employee_id AS uuid) IS NULL OR p.employee_id = CAST(@employee_id AS uuid))
   AND (CAST(@store_id AS uuid)    IS NULL OR p.store_id    = CAST(@store_id AS uuid))
   AND (CAST(@company_id AS uuid)  IS NULL OR p.company_id  = CAST(@company_id AS uuid))
   AND (CAST(@roles AS text[])     IS NULL OR p.role_names && CAST(@roles AS text[]))
-  AND (NOT CAST(@only_worked AS boolean) OR p.worked_hours > 0)
-ORDER BY p.store_name, p.full_name
-LIMIT NULLIF(@limit, 0) OFFSET @offset`
+  AND (NOT CAST(@only_worked AS boolean) OR p.worked_hours > 0)`
+
+// payrollStatisticsQuery — hisobotning yig'ma ko'rsatkichlari.
+//
+// store_plan, store_sales va expected_plan do'kon darajasidagi qiymatlar bo'lib,
+// do'konning har bir xodim qatorida takrorlanadi. Ularni filtered ustidan SUM
+// qilsa, do'kondagi xodimlar soniga ko'payib ketardi — shuning uchun avval
+// per_store'da do'kon bo'yicha bittaga tushiriladi, keyin qo'shiladi.
+const payrollStatisticsQuery = `
+WITH filtered AS (
+    SELECT p.*
+    FROM employee_payrolls p
+    LEFT JOIN employees e ON e.id = p.employee_id` + payrollSelectFilterSQL + `
+),
+per_store AS (
+    SELECT store_id,
+           MAX(store_plan_amount)    AS store_plan_amount,
+           MAX(store_sales_amount)   AS store_sales_amount,
+           MAX(expected_plan_amount) AS expected_plan_amount
+    FROM filtered
+    GROUP BY store_id
+)
+SELECT
+    COUNT(*)::bigint                   AS total_employees_count,
+    COUNT(DISTINCT f.store_id)::bigint AS total_stores_count,
+
+    COALESCE(SUM(f.worked_hours), 0)      AS total_worked_hours,
+    COALESCE(SUM(f.avg_monthly_hours), 0) AS total_avg_monthly_hours,
+
+    COALESCE(SUM(f.salary_rate_amount), 0)   AS total_salary_rate_amount,
+    COALESCE(SUM(f.actual_salary_amount), 0) AS total_actual_salary_amount,
+
+    COALESCE((SELECT SUM(store_plan_amount)    FROM per_store), 0) AS total_store_plan_amount,
+    COALESCE((SELECT SUM(store_sales_amount)   FROM per_store), 0) AS total_store_sales_amount,
+    COALESCE((SELECT SUM(expected_plan_amount) FROM per_store), 0) AS total_expected_plan_amount,
+
+    COALESCE(SUM(f.kpi_amount), 0)          AS total_kpi_amount,
+    COALESCE(SUM(f.bonus_amount), 0)        AS total_bonus_amount,
+    COALESCE(SUM(f.gross_salary_amount), 0) AS total_gross_salary_amount,
+
+    COALESCE(SUM(f.advance_card_amount), 0) AS total_advance_card_amount,
+    COALESCE(SUM(f.advance_cash_amount), 0) AS total_advance_cash_amount,
+
+    COALESCE(SUM(f.deduction_term_amount), 0)    AS total_deduction_term_amount,
+    COALESCE(SUM(f.deduction_recount_amount), 0) AS total_deduction_recount_amount,
+    COALESCE(SUM(f.deduction_fine_amount), 0)    AS total_deduction_fine_amount,
+
+    COALESCE(SUM(f.net_pay_amount), 0) AS total_net_pay_amount
+FROM filtered f`
 
 // storePayrollTotalsQuery — do'kon kesimidagi yig'indilar. store_plan_amount
 // har bir xodim qatorida takrorlanadi (bitta store_target'dan keladi), shuning

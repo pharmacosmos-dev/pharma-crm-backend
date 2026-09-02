@@ -135,16 +135,26 @@ type EmployeePayrollAdvanceQueryParams struct {
 // ApplyDate — Date berilgan bo'lsa undan Year/Month'ni ajratib oladi.
 // Bo'sh bo'lsa hech narsa qilmaydi (year/month o'z holicha qoladi).
 func (p *EmployeePayrollAdvanceQueryParams) ApplyDate() error {
-	if p.Date == "" {
-		return nil
+	year, month, err := yearMonthFromDate(p.Date)
+	if err != nil || year == 0 {
+		return err
+	}
+	p.Year, p.Month = year, month
+	return nil
+}
+
+// yearMonthFromDate — "YYYY-MM-DD", "YYYY-MM" yoki RFC3339 satridan yil va oyni
+// ajratadi. Bo'sh satrda (0, 0, nil) qaytadi — "sana berilmagan" degani.
+func yearMonthFromDate(date string) (int, int, error) {
+	if date == "" {
+		return 0, 0, nil
 	}
 	for _, layout := range []string{"2006-01-02", time.RFC3339, "2006-01"} {
-		if t, err := time.Parse(layout, p.Date); err == nil {
-			p.Year, p.Month = t.Year(), int(t.Month())
-			return nil
+		if t, err := time.Parse(layout, date); err == nil {
+			return t.Year(), int(t.Month()), nil
 		}
 	}
-	return fmt.Errorf("date must be YYYY-MM-DD: %s", p.Date)
+	return 0, 0, fmt.Errorf("date must be YYYY-MM-DD: %s", date)
 }
 
 // PayrollManagementStatistics — oylik tahrirlash ro'yxatining yig'ma ko'rsatkichlari.
@@ -189,10 +199,61 @@ type EmployeePayrollQueryParams struct {
 	Status     string `form:"status"`
 	Year       int    `form:"year"`
 	Month      int    `form:"month"`
-	Limit      int    `form:"limit"`
-	Offset     int    `form:"offset"`
+	// Date — "YYYY-MM-DD" (yoki YYYY-MM / RFC3339). Berilsa Year/Month shundan
+	// olinadi. Payroll qatorlari oylik, shuning uchun kun qismi faqat oyni
+	// aniqlash uchun ishlatiladi.
+	Date   string `form:"date"`
+	Limit  int    `form:"limit"`
+	Offset int    `form:"offset"`
 
 	CompanyId string `form:"-"`
+}
+
+// ApplyDate — Date berilgan bo'lsa undan Year/Month'ni ajratib oladi.
+func (p *EmployeePayrollQueryParams) ApplyDate() error {
+	year, month, err := yearMonthFromDate(p.Date)
+	if err != nil || year == 0 {
+		return err
+	}
+	p.Year, p.Month = year, month
+	return nil
+}
+
+// PayrollStatistics — xodimlar hisoboti (/employee/payroll/employees) bo'yicha
+// yig'ma ko'rsatkichlar. Ro'yxat bilan BIR XIL filtrlardan o'tadi, lekin
+// sahifalanmaydi — limit/offset ta'sir qilmaydi.
+//
+// DIQQAT: store_plan, store_sales va expected_plan do'kon darajasidagi
+// qiymatlar bo'lib, do'konning HAR BIR xodim qatorida takrorlanadi. Ularni
+// oddiy SUM qilib bo'lmaydi — do'kondagi xodimlar soniga ko'payib ketardi.
+// Shuning uchun ular avval do'kon bo'yicha yig'ilib, keyin qo'shiladi.
+type PayrollStatistics struct {
+	TotalEmployeesCount int64 `json:"total_employees_count"`
+	TotalStoresCount    int64 `json:"total_stores_count"`
+
+	TotalWorkedHours     float64 `json:"total_worked_hours"`
+	TotalAvgMonthlyHours float64 `json:"total_avg_monthly_hours"`
+
+	TotalSalaryRateAmount   float64 `json:"total_salary_rate_amount"`
+	TotalActualSalaryAmount float64 `json:"total_actual_salary_amount"`
+
+	// Do'kon bo'yicha bir marta sanaladi (xodimlar soniga ko'paymaydi)
+	TotalStorePlanAmount    float64 `json:"total_store_plan_amount"`
+	TotalStoreSalesAmount   float64 `json:"total_store_sales_amount"`
+	TotalExpectedPlanAmount float64 `json:"total_expected_plan_amount"`
+
+	TotalKpiAmount         float64 `json:"total_kpi_amount"`
+	TotalBonusAmount       float64 `json:"total_bonus_amount"`
+	TotalGrossSalaryAmount float64 `json:"total_gross_salary_amount"`
+
+	TotalAdvanceCardAmount float64 `json:"total_advance_card_amount"`
+	TotalAdvanceCashAmount float64 `json:"total_advance_cash_amount"`
+
+	TotalDeductionTermAmount    float64 `json:"total_deduction_term_amount"`
+	TotalDeductionRecountAmount float64 `json:"total_deduction_recount_amount"`
+	TotalDeductionFineAmount    float64 `json:"total_deduction_fine_amount"`
+
+	TotalNetPayAmount float64 `json:"total_net_pay_amount"`
 }
 
 // EmployeePayrollRow — bitta xodimning oylik ko'rsatkichlari. Joriy oy uchun jonli
