@@ -1822,11 +1822,14 @@ func (h *EmployeeHandler) PayrollStatistics(c *gin.Context) {
 // @Security     BearerAuth
 // @Accept       json
 // @Produce      json
-// @Param        store_id  query  string  false  "Store ID"
-// @Param        search    query  string  false  "Ism yoki telefon bo'yicha qidiruv"
-// @Param        date      query  string  false  "Sana YYYY-MM-DD (year/month o'rniga)"
-// @Param        year      query  int     false  "Year (default: joriy)"
-// @Param        month     query  int     false  "Month 1-12 (default: joriy)"
+// @Param        store_id     query  string  false  "Store ID"
+// @Param        employee_id  query  string  false  "Employee ID"
+// @Param        role_type    query  string  false  "employees.role_type (CASHIER, HEADOFCASHIER, ...)"
+// @Param        shift_type   query  string  false  "employees.shift_type (day yoki night)"
+// @Param        search       query  string  false  "Ism yoki telefon bo'yicha qidiruv"
+// @Param        date         query  string  false  "Sana YYYY-MM-DD (year/month o'rniga)"
+// @Param        year         query  int     false  "Year (default: joriy)"
+// @Param        month        query  int     false  "Month 1-12 (default: joriy)"
 // @Success      200  {object}  v1.Response
 // @Failure      400  {object}  v1.Response
 // @Failure      401  {object}  v1.Response
@@ -1880,12 +1883,16 @@ func (h *EmployeeHandler) PayrollManagementStatistics(c *gin.Context) {
 // @Security     BearerAuth
 // @Accept       json
 // @Produce      json
-// @Param        store_id  query  string  false  "Store ID"
-// @Param        search    query  string  false  "Ism yoki telefon bo'yicha qidiruv"
-// @Param        year      query  int     false  "Year (default: joriy)"
-// @Param        month     query  int     false  "Month 1-12 (default: joriy)"
-// @Param        limit     query  int     false  "Limit"
-// @Param        offset    query  int     false  "Offset"
+// @Param        store_id     query  string  false  "Store ID"
+// @Param        employee_id  query  string  false  "Employee ID"
+// @Param        role_type    query  string  false  "employees.role_type (CASHIER, HEADOFCASHIER, ...)"
+// @Param        shift_type   query  string  false  "employees.shift_type (day yoki night)"
+// @Param        search       query  string  false  "Ism yoki telefon bo'yicha qidiruv"
+// @Param        date         query  string  false  "Sana YYYY-MM-DD (year/month o'rniga)"
+// @Param        year         query  int     false  "Year (default: joriy)"
+// @Param        month        query  int     false  "Month 1-12 (default: joriy)"
+// @Param        limit        query  int     false  "Limit"
+// @Param        offset       query  int     false  "Offset"
 // @Success      200  {object}  v1.Response
 // @Failure      400  {object}  v1.Response
 // @Failure      401  {object}  v1.Response

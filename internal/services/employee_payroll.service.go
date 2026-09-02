@@ -513,10 +513,15 @@ func (s *Services) UpdateEmployeePayrollAdvance(
 const payrollManagementFilterSQL = `
 	WHERE p.year = @year
 	  AND p.month = @month
-	  AND (CAST(@store_id AS uuid)   IS NULL OR p.store_id   = CAST(@store_id AS uuid))
-	  AND (CAST(@company_id AS uuid) IS NULL OR p.company_id = CAST(@company_id AS uuid))
-	  AND (CAST(@search AS text)     IS NULL OR p.full_name ILIKE CAST(@search AS text)
-											 OR e.phone     ILIKE CAST(@search AS text))
+	  AND (CAST(@store_id AS uuid)    IS NULL OR p.store_id    = CAST(@store_id AS uuid))
+	  AND (CAST(@employee_id AS uuid) IS NULL OR p.employee_id = CAST(@employee_id AS uuid))
+	  AND (CAST(@company_id AS uuid)  IS NULL OR p.company_id  = CAST(@company_id AS uuid))
+	  -- role_type va shift_type payroll qatorida saqlanmaydi, xodim kartochkasidan
+	  -- olinadi: ular tahrirlanganda filtr darhol yangi qiymatga qaraydi.
+	  AND (CAST(@role_type AS text)   IS NULL OR e.role_type   = CAST(@role_type AS text))
+	  AND (CAST(@shift_type AS text)  IS NULL OR e.shift_type  = CAST(@shift_type AS text))
+	  AND (CAST(@search AS text)      IS NULL OR p.full_name ILIKE CAST(@search AS text)
+											  OR e.phone     ILIKE CAST(@search AS text))
 	  AND p.role_names && CAST(@roles AS text[])
 	  AND COALESCE(e.status, '') <> CAST(@dismissed AS text)`
 
@@ -530,13 +535,16 @@ func payrollManagementArgs(
 		search = fmt.Sprintf("%%%s%%", params.Search)
 	}
 	return map[string]any{
-		"year":       period.Year,
-		"month":      period.Month,
-		"store_id":   nullIfEmpty(params.StoreId),
-		"company_id": nullIfEmpty(params.CompanyId),
-		"search":     nullIfEmpty(search),
-		"roles":      pq.StringArray(payrollSalesRoles),
-		"dismissed":  constants.GeneralStatusDismissed,
+		"year":        period.Year,
+		"month":       period.Month,
+		"store_id":    nullIfEmpty(params.StoreId),
+		"employee_id": nullIfEmpty(params.EmployeeId),
+		"company_id":  nullIfEmpty(params.CompanyId),
+		"role_type":   nullIfEmpty(params.RoleType),
+		"shift_type":  nullIfEmpty(params.ShiftType),
+		"search":      nullIfEmpty(search),
+		"roles":       pq.StringArray(payrollSalesRoles),
+		"dismissed":   constants.GeneralStatusDismissed,
 	}
 }
 

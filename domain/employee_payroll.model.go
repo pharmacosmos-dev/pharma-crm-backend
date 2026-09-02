@@ -119,9 +119,15 @@ func (r EmployeePayrollAdvanceRequest) TouchesEmployee() bool {
 // Year/Month berilmasa joriy oy olinadi; kelajakdagi oy qabul qilinmaydi.
 type EmployeePayrollAdvanceQueryParams struct {
 	StoreId string `form:"store_id"`
-	Search  string `form:"search"`
-	Year    int    `form:"year"`
-	Month   int    `form:"month"`
+	// EmployeeId — bitta xodim bo'yicha.
+	EmployeeId string `form:"employee_id"`
+	// RoleType — employees.role_type bo'yicha ("CASHIER", "HEADOFCASHIER", ...).
+	RoleType string `form:"role_type"`
+	// ShiftType — employees.shift_type bo'yicha ("day" yoki "night").
+	ShiftType string `form:"shift_type"`
+	Search    string `form:"search"`
+	Year      int    `form:"year"`
+	Month     int    `form:"month"`
 	// Date — "YYYY-MM-DD" (yoki RFC3339). Berilsa Year/Month shundan olinadi va
 	// alohida berilgan year/month e'tiborga olinmaydi. Payroll qatorlari oylik
 	// bo'lgani uchun kun qismi faqat oyni aniqlash uchun ishlatiladi.
