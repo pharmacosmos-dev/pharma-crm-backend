@@ -169,6 +169,18 @@ type PayrollManagementStatistics struct {
 	TotalSalary float64 `json:"total_salary"`
 	// TotalAdvanceAmount — karta va naqd avanslar birga.
 	TotalAdvanceAmount float64 `json:"total_advance_amount"`
+
+	// RoleTypeCounts — employees.role_type bo'yicha xodimlar soni. Kalitlar
+	// bazadagi haqiqiy qiymatlar ("CASHIER", "HEADOFCASHIER", "ROP_APTEKA",
+	// "INTERN", ...), shuning uchun yangi rol qo'shilsa kod o'zgarmaydi va
+	// hech kim sanoqdan tushib qolmaydi.
+	//
+	// role_type to'ldirilmagan xodimlar bo'sh kalit ("") ostida turadi — shu
+	// sababli qiymatlar yig'indisi doim TotalEmployees'ga teng.
+	//
+	// gorm:"-" shart: asosiy so'rov bitta qator qaytaradi, map esa alohida
+	// GROUP BY so'rovdan to'ldiriladi.
+	RoleTypeCounts map[string]int64 `json:"role_type_counts" gorm:"-"`
 }
 
 type EmployeePayrollAdvanceRow struct {

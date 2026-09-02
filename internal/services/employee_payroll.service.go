@@ -555,13 +555,37 @@ func (s *Services) GetPayrollManagementStatistics(
 		FROM employee_payrolls p
 		LEFT JOIN employees e ON e.id = p.employee_id` + payrollManagementFilterSQL
 
+	// role_type bo'yicha sanoq alohida so'rov: asosiy so'rov bitta qator
+	// qaytaradi, bu esa har bir rol uchun qator. Filtri aynan bir xil, shuning
+	// uchun map qiymatlarining yig'indisi total_employees'ga teng bo'ladi.
+	const roleTypeQuery = `
+		SELECT COALESCE(e.role_type, '') AS role_type,
+		       COUNT(*)::bigint          AS count
+		FROM employee_payrolls p
+		LEFT JOIN employees e ON e.id = p.employee_id` + payrollManagementFilterSQL + `
+		GROUP BY COALESCE(e.role_type, '')`
+
+	args := payrollManagementArgs(period, params)
+
 	var stats domain.PayrollManagementStatistics
-	err = s.db.WithContext(ctx).
-		Raw(query, payrollManagementArgs(period, params)).
-		Scan(&stats).Error
-	if err != nil {
+	if err := s.db.WithContext(ctx).Raw(query, args).Scan(&stats).Error; err != nil {
 		s.log.Errorf("payroll: could not get management statistics: %v", err)
 		return nil, period, domain.InternalServerError
+	}
+
+	var roleRows []struct {
+		RoleType string `gorm:"column:role_type"`
+		Count    int64  `gorm:"column:count"`
+	}
+	if err := s.db.WithContext(ctx).Raw(roleTypeQuery, args).Scan(&roleRows).Error; err != nil {
+		s.log.Errorf("payroll: could not get role type counts: %v", err)
+		return nil, period, domain.InternalServerError
+	}
+
+	// Bo'sh bo'lsa ham map yaratiladi: JSON'da null emas, {} chiqsin.
+	stats.RoleTypeCounts = make(map[string]int64, len(roleRows))
+	for _, r := range roleRows {
+		stats.RoleTypeCounts[r.RoleType] = r.Count
 	}
 
 	return &stats, period, nil

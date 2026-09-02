@@ -1636,6 +1636,10 @@ func (h *EmployeeHandler) PayrollStatistics(c *gin.Context) {
 // @Description  /employee/payroll/management ro'yxatining yig'ma ko'rsatkichlari: nechta do'kon,
 // @Description  nechta xodim, oylik fond stavkasi (employees.salary yig'indisi) va avanslar jami
 // @Description  (karta + naqd birga).
+// @Description  role_type_counts — employees.role_type bo'yicha xodimlar soni. Kalitlar bazadagi haqiqiy
+// @Description  qiymatlar ("CASHIER", "HEADOFCASHIER", "ROP_APTEKA", "INTERN", ...), yangi rol qo'shilsa
+// @Description  o'zi paydo bo'ladi. role_type to'ldirilmaganlar bo'sh kalit ("") ostida — shu sababli
+// @Description  qiymatlar yig'indisi doim total_employees'ga teng.
 // @Description  Filtrlar ro'yxat bilan AYNAN bir xil, shuning uchun raqamlar ekrandagi ro'yxatga mos keladi.
 // @Description  Sahifalanmaydi: limit/offset ta'sir qilmaydi, filtrga tushgan hamma xodim hisobga olinadi.
 // @Description  date berilsa yil/oy shundan olinadi; berilmasa year/month, ular ham bo'lmasa joriy oy.

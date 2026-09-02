@@ -262,6 +262,7 @@ const (
 	RoleFranchise      = "FRANCHISE"
 	RoleFranchiseAdmin = "FRANCHISE_ADMIN"
 	RoleRopApteka      = "ROP_APTEKA"
+	RoleIntern         = "INTERN"
 )
 
 // role names assigned via employee_roles (roles.name) — distinct from the
