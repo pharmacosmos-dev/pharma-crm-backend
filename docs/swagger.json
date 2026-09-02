@@ -6657,6 +6657,12 @@
                         "description": "Status (deleted || blocked || active)",
                         "name": "status",
                         "in": "query"
+                    },
+                    {
+                        "type": "boolean",
+                        "description": "false — ishdan bo'shatilganlarni (Уволен) chiqarib tashlaydi; true — faqat o'shalarni; berilmasa hammasi",
+                        "name": "is_dismissed",
+                        "in": "query"
                     }
                 ],
                 "responses": {
@@ -6852,6 +6858,78 @@
                 }
             }
         },
+        "/employee/payroll/employees/statistics": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "/employee/payroll/employees ro'yxatining yig'ma ko'rsatkichlari.\nRo'yxat bilan AYNAN bir xil filtrlardan o'tadi (davr, do'kon, kompaniya, rol va davomat doirasi),\nshuning uchun raqamlar ekrandagi ro'yxatga mos keladi. Sahifalanmaydi: limit/offset ta'sir qilmaydi.\nDIQQAT: total_store_plan_amount, total_store_sales_amount va total_expected_plan_amount do'kon\ndarajasidagi qiymatlar — har bir do'kon bo'yicha BIR MARTA sanaladi, xodimlar soniga ko'paymaydi.\ndate berilsa yil/oy shundan olinadi; berilmasa year/month, ular ham bo'lmasa joriy oy.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "employees"
+                ],
+                "summary": "Payroll report statistics",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Store ID",
+                        "name": "store_id",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Sana YYYY-MM-DD (year/month o'rniga)",
+                        "name": "date",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Year (default: joriy)",
+                        "name": "year",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Month 1-12 (default: joriy)",
+                        "name": "month",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    }
+                }
+            }
+        },
         "/employee/payroll/management": {
             "get": {
                 "security": [
@@ -6859,7 +6937,7 @@
                         "BearerAuth": []
                     }
                 ],
-                "description": "Xodim kartochkasidagi qiymatlar (role_type, ism, telefon, salary, daily_work_hours, shift_type, experience_years) va so'ralgan oyning payroll qatoridan kpi_percent bilan avanslar.\nHar bir qatordagi id — employee_payrolls qatorining id'si, uni to'g'ridan-to'g'ri PUT /employee/payroll/{id}/management ga berish mumkin.\nRo'yxatga faqat roli \"Кассир\"/\"Заведующий\" va davomati bor (worked_hours \u003e 0) xodimlar kiradi — /employee/payroll/employees bilan bir xil doira.\nyear/month berilmasa joriy oy olinadi. Kelajakdagi oy qabul qilinmaydi.",
+                "description": "Xodim kartochkasidagi qiymatlar (role_type, ism, telefon, salary, daily_work_hours, shift_type, experience_years) va so'ralgan oyning payroll qatoridan kpi_percent bilan avanslar.\nHar bir qatordagi id — employee_payrolls qatorining id'si, uni to'g'ridan-to'g'ri PUT /employee/payroll/{id}/management ga berish mumkin.\nRo'yxatga roli \"Кассир\"/\"Заведующий\" bo'lgan barcha xodimlar kiradi, shu jumladan oy davomida hali ishlamaganlar ham (ularga ham avans yozish mumkin bo'lishi kerak).\nShu sababli bu ro'yxat /employee/payroll/employees hisobotidan ko'proq qator qaytarishi mumkin — hisobotda davomati borlar (worked_hours \u003e 0) ko'rsatiladi.\nyear/month berilmasa joriy oy olinadi. Kelajakdagi oy qabul qilinmaydi.",
                 "consumes": [
                     "application/json"
                 ],
@@ -7237,7 +7315,7 @@
                         "BearerAuth": []
                     }
                 ],
-                "description": "kpi_percent, salary, daily_work_hours, advance_card_amount va advance_cash_amount maydonlarini payroll id bo'yicha yangilaydi.\nHammasi ixtiyoriy — berilgani yoziladi, berilmagani eski qiymatida qoladi.\nkpi_percent/salary ikkala jadvalga, daily_work_hours faqat employees'ga (ruxsat etilgan qiymatlar: 4, 7, 8), avanslar esa faqat shu oyning payroll qatoriga yoziladi.\nactual_salary_amount, kpi_amount, gross_salary_amount va net_pay_amount shu yerda qayta hisoblanadi — cron kutilmaydi.",
+                "description": "kpi_percent, salary, daily_work_hours, shift_type, role_type, advance_card_amount va advance_cash_amount maydonlarini payroll id bo'yicha yangilaydi.\nHammasi ixtiyoriy — berilgani yoziladi, berilmagani eski qiymatida qoladi.\nkpi_percent/salary ikkala jadvalga; daily_work_hours (4, 7, 8), shift_type va role_type faqat employees'ga; avanslar esa faqat shu oyning payroll qatoriga yoziladi.\nrole_type xodim kartochkasida saqlanadi va keyingi oylarga ham amal qiladi — payroll hisob-kitobiga ta'sir qilmaydi.\nactual_salary_amount, kpi_amount, gross_salary_amount va net_pay_amount shu yerda qayta hisoblanadi — cron kutilmaydi.",
                 "consumes": [
                     "application/json"
                 ],
@@ -34723,6 +34801,12 @@
                     "type": "number",
                     "minimum": 0
                 },
+                "role_type": {
+                    "description": "RoleType — xodimning tizimdagi roli (employees.role_type), masalan\n\"CASHIER\", \"HEADOFCASHIER\", \"MANAGER\". Berilsa xodim kartochkasida\nyangilanadi va keyingi oylarga ham amal qiladi.",
+                    "type": "string",
+                    "maxLength": 55,
+                    "example": "CASHIER"
+                },
                 "salary": {
                     "type": "number",
                     "minimum": 0
@@ -37071,6 +37155,10 @@
             "type": "object",
             "properties": {
                 "month": {
+                    "type": "integer"
+                },
+                "total_stores": {
+                    "description": "TotalStores — filtrga mos do'konlar soni. Target qo'yilmaganlari ham\nkiradi, shuning uchun bu son GetStoreTargetList'ning _meta.total_count'i\nbilan bir xil bo'ladi.",
                     "type": "integer"
                 },
                 "total_target_amount": {
