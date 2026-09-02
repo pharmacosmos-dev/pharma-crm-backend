@@ -99,10 +99,10 @@ const payrollWorkDayHours = 8
 // Ikkala son ham employees/stores jadvallaridan keladi, payroll yig'indisidan
 // emas — shuning uchun cron hali ishlamagan do'konda ham to'g'ri ko'rinadi.
 type storeRef struct {
-	Id   string `gorm:"column:id"`
-	Name string `gorm:"column:name"`
-	EmployeeCount int `gorm:"column:store_employee_count"`
-	ActiveStoreEmployeeCount int `gorm:"column:active_store_employee_count"`
+	Id                       string `gorm:"column:id"`
+	Name                     string `gorm:"column:name"`
+	EmployeeCount            int    `gorm:"column:store_employee_count"`
+	ActiveStoreEmployeeCount int    `gorm:"column:active_store_employee_count"`
 }
 
 // employeePayrollPageRow — hisobot qatori + umumiy son. total_count har bir
@@ -494,6 +494,75 @@ func (s *Services) UpdateEmployeePayrollAdvance(
 	return &res, nil
 }
 
+// payrollManagementFilterSQL — tahrirlash ro'yxatining WHERE bo'lagi.
+//
+// Ro'yxat ham, statistika ham AYNAN shu shartdan foydalanadi: aks holda ekrandagi
+// qatorlar bilan yuqoridagi yig'ma raqamlar bir-biriga mos kelmay qolardi.
+const payrollManagementFilterSQL = `
+	WHERE p.year = @year
+	  AND p.month = @month
+	  AND (CAST(@store_id AS uuid)   IS NULL OR p.store_id   = CAST(@store_id AS uuid))
+	  AND (CAST(@company_id AS uuid) IS NULL OR p.company_id = CAST(@company_id AS uuid))
+	  AND (CAST(@search AS text)     IS NULL OR p.full_name ILIKE CAST(@search AS text)
+											 OR e.phone     ILIKE CAST(@search AS text))
+	  AND p.role_names && CAST(@roles AS text[])
+	  AND p.worked_hours > 0`
+
+// payrollManagementArgs — ro'yxat va statistika uchun umumiy parametrlar.
+// Limit/offset bu yerda yo'q: ular faqat ro'yxatga tegishli.
+func payrollManagementArgs(
+	period domain.PayrollPeriod, params *domain.EmployeePayrollAdvanceQueryParams,
+) map[string]any {
+	search := ""
+	if params.Search != "" {
+		search = fmt.Sprintf("%%%s%%", params.Search)
+	}
+	return map[string]any{
+		"year":       period.Year,
+		"month":      period.Month,
+		"store_id":   nullIfEmpty(params.StoreId),
+		"company_id": nullIfEmpty(params.CompanyId),
+		"search":     nullIfEmpty(search),
+		"roles":      pq.StringArray(payrollSalesRoles),
+	}
+}
+
+// GetPayrollManagementStatistics — tahrirlash ro'yxatining yig'ma ko'rsatkichlari.
+//
+// Sahifalanmaydi: filtrga tushgan BARCHA xodimlar bo'yicha hisoblanadi, shuning
+// uchun limit/offset o'zgarganda raqamlar o'zgarmaydi.
+func (s *Services) GetPayrollManagementStatistics(
+	ctx context.Context, params *domain.EmployeePayrollAdvanceQueryParams,
+) (*domain.PayrollManagementStatistics, domain.PayrollPeriod, error) {
+	period, err := resolvePayrollPeriod(params.Year, params.Month)
+	if err != nil {
+		s.log.Errorf("payroll: invalid period: %v", err)
+		return nil, period, domain.BadRequestError
+	}
+
+	const query = `
+		SELECT
+			COUNT(DISTINCT p.store_id)::bigint AS total_stores,
+			COUNT(*)::bigint                   AS total_employees,
+			-- oylik fond stavkasi: xodim kartochkasidagi oklad, ishlagan soatdan mustaqil
+			COALESCE(SUM(e.salary), 0)         AS total_salary,
+			-- karta va naqd avanslar birga
+			COALESCE(SUM(p.advance_card_amount + p.advance_cash_amount), 0) AS total_advance_amount
+		FROM employee_payrolls p
+		LEFT JOIN employees e ON e.id = p.employee_id` + payrollManagementFilterSQL
+
+	var stats domain.PayrollManagementStatistics
+	err = s.db.WithContext(ctx).
+		Raw(query, payrollManagementArgs(period, params)).
+		Scan(&stats).Error
+	if err != nil {
+		s.log.Errorf("payroll: could not get management statistics: %v", err)
+		return nil, period, domain.InternalServerError
+	}
+
+	return &stats, period, nil
+}
+
 // GetEmployeePayrollManagement — oylik tahrirlash ro'yxati: xodim kartochkasidagi
 // qiymatlar (salary, daily_work_hours, shift_type, experience_years, phone,
 // role_type) va so'ralgan oyning payroll qatoridan kpi_percent bilan avanslar.
@@ -522,8 +591,9 @@ func (s *Services) GetEmployeePayrollManagement(
 			COALESCE(e.last_name, '')        AS last_name,
 			COALESCE(e.phone, '')            AS phone,
 			COALESCE(p.role_names, '{}')     AS roles,
+			e.role_type,
 			p.store_name,
-			p.kpi_percent,
+			e.kpi_percent,
 			COALESCE(e.salary, 0)            AS salary,
 			COALESCE(e.daily_work_hours, 0)  AS daily_work_hours,
 			e.shift_type,
@@ -532,15 +602,7 @@ func (s *Services) GetEmployeePayrollManagement(
 			p.advance_cash_amount,
 			COUNT(*) OVER () AS total_count
 		FROM employee_payrolls p
-		LEFT JOIN employees e ON e.id = p.employee_id
-		WHERE p.year = @year
-		  AND p.month = @month
-		  AND (CAST(@store_id AS uuid)   IS NULL OR p.store_id   = CAST(@store_id AS uuid))
-		  AND (CAST(@company_id AS uuid) IS NULL OR p.company_id = CAST(@company_id AS uuid))
-		  AND (CAST(@search AS text)     IS NULL OR p.full_name ILIKE CAST(@search AS text)
-												 OR e.phone     ILIKE CAST(@search AS text))
-		  AND p.role_names && CAST(@roles AS text[])
-		  AND p.worked_hours > 0
+		LEFT JOIN employees e ON e.id = p.employee_id` + payrollManagementFilterSQL + `
 		ORDER BY p.store_name, p.full_name
 		LIMIT NULLIF(@limit, 0) OFFSET @offset`
 
@@ -550,21 +612,11 @@ func (s *Services) GetEmployeePayrollManagement(
 		TotalCount int64 `gorm:"column:total_count"`
 	}
 
-	search := ""
-	if params.Search != "" {
-		search = fmt.Sprintf("%%%s%%", params.Search)
-	}
+	args := payrollManagementArgs(period, params)
+	args["limit"] = params.Limit
+	args["offset"] = params.Offset
 
-	err = s.db.WithContext(ctx).Raw(query, map[string]any{
-		"year":       period.Year,
-		"month":      period.Month,
-		"store_id":   nullIfEmpty(params.StoreId),
-		"company_id": nullIfEmpty(params.CompanyId),
-		"search":     nullIfEmpty(search),
-		"roles":      pq.StringArray(payrollSalesRoles),
-		"limit":      params.Limit,
-		"offset":     params.Offset,
-	}).Scan(&page).Error
+	err = s.db.WithContext(ctx).Raw(query, args).Scan(&page).Error
 	if err != nil {
 		s.log.Errorf("payroll: could not get advance list: %v", err)
 		return nil, 0, period, domain.InternalServerError

@@ -1,6 +1,7 @@
 package domain
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/lib/pq"
@@ -113,12 +114,44 @@ type EmployeePayrollAdvanceQueryParams struct {
 	Search  string `form:"search"`
 	Year    int    `form:"year"`
 	Month   int    `form:"month"`
-	Limit   int    `form:"limit"`
-	Offset  int    `form:"offset"`
+	// Date — "YYYY-MM-DD" (yoki RFC3339). Berilsa Year/Month shundan olinadi va
+	// alohida berilgan year/month e'tiborga olinmaydi. Payroll qatorlari oylik
+	// bo'lgani uchun kun qismi faqat oyni aniqlash uchun ishlatiladi.
+	Date   string `form:"date"`
+	Limit  int    `form:"limit"`
+	Offset int    `form:"offset"`
 
 	CompanyId string `form:"-"`
 }
 
+// ApplyDate — Date berilgan bo'lsa undan Year/Month'ni ajratib oladi.
+// Bo'sh bo'lsa hech narsa qilmaydi (year/month o'z holicha qoladi).
+func (p *EmployeePayrollAdvanceQueryParams) ApplyDate() error {
+	if p.Date == "" {
+		return nil
+	}
+	for _, layout := range []string{"2006-01-02", time.RFC3339, "2006-01"} {
+		if t, err := time.Parse(layout, p.Date); err == nil {
+			p.Year, p.Month = t.Year(), int(t.Month())
+			return nil
+		}
+	}
+	return fmt.Errorf("date must be YYYY-MM-DD: %s", p.Date)
+}
+
+// PayrollManagementStatistics — oylik tahrirlash ro'yxatining yig'ma ko'rsatkichlari.
+// Ro'yxat bilan BIR XIL filtrlardan o'tadi (store_id, search, davr, kompaniya va
+// "Кассир"/"Заведующий" + worked_hours > 0 doirasi), shuning uchun raqamlar
+// ekrandagi ro'yxatga mos keladi — sahifalashdan qat'i nazar hammasi bo'yicha.
+type PayrollManagementStatistics struct {
+	TotalStores    int64 `json:"total_stores"`
+	TotalEmployees int64 `json:"total_employees"`
+	// TotalSalary — employees.salary yig'indisi, ya'ni oylik fond stavkasi.
+	// Ishlagan soatga bog'liq emas (actual_salary_amount'dan farqli).
+	TotalSalary float64 `json:"total_salary"`
+	// TotalAdvanceAmount — karta va naqd avanslar birga.
+	TotalAdvanceAmount float64 `json:"total_advance_amount"`
+}
 
 type EmployeePayrollAdvanceRow struct {
 	Id         string         `json:"id"`
@@ -229,11 +262,11 @@ type StorePayroll struct {
 	StoreId   string `json:"store_id"`
 	StoreName string `json:"store_name"`
 
-	EmployeeCount int `json:"employee_count"`
+	EmployeeCount            int `json:"employee_count"`
 	ActiveStoreEmployeeCount int `json:"active_store_employee_count"`
-	PayrollCount int `json:"payroll_count"`
+	PayrollCount             int `json:"payroll_count"`
 
-	WorkedHours float64 `json:"worked_hours"`
+	WorkedHours     float64 `json:"worked_hours"`
 	AvgMonthlyHours float64 `json:"avg_monthly_hours"`
 
 	SalaryRateAmount      float64 `json:"salary_rate_amount"`
@@ -244,7 +277,7 @@ type StorePayroll struct {
 	// shuning uchun yig'indi emas, bittasidan olinadi (MAX).
 	StoreSalesAmount float64 `json:"store_sales_amount"`
 	// KpiAmount — xodimlar KPI'sining yig'indisi, ya'ni do'konning umumiy KPI xarajati.
-	KpiAmount float64 `json:"kpi_amount"`
+	KpiAmount         float64 `json:"kpi_amount"`
 	BonusAmount       float64 `json:"bonus_amount"`
 	GrossSalaryAmount float64 `json:"gross_salary_amount"`
 	// SalaryPercent — gross_salary_amount / store_sales_amount * 100, ya'ni oylik

@@ -63,6 +63,7 @@ func (h *EmployeeHandler) EmployeeRoutes(r *gin.RouterGroup) {
 		employee.GET("/payroll/my", h.MyPayroll)
 		employee.POST("/payroll/recalculate", h.RecalculatePayroll)
 		employee.GET("/payroll/management", h.EmployeePayrollManagementList)
+		employee.GET("/payroll/management/statistics", h.PayrollManagementStatistics)
 		employee.PUT("/payroll/:id/management", h.UpdateEmployeePayrollManagement)
 	}
 }
@@ -104,7 +105,6 @@ func (h *EmployeeHandler) Create(c *gin.Context) {
 		handleResponse(c, BadRequest, "Invalid phone number, Format: 998901234567")
 		return
 	}
-
 
 	hashedPassword, err := etc.Encrypt(*body.Password, h.cfg.HashKey)
 	if err != nil {
@@ -387,18 +387,18 @@ func (h *EmployeeHandler) Update(c *gin.Context) {
 	}
 	// update employee information
 	updateData := map[string]any{
-		"full_name":         body.FullName,
-		"first_name":        body.FirstName,
-		"last_name":         body.LastName,
-		"company_id":        body.CompanyId,
-		"phone":             body.Phone,
-		"gender":            body.Gender,
-		"language":          body.Language,
-		"birthdate":         body.Birthdate,
-		"store_ids":         body.StoreIds,
-		"start_date":        body.StartDate,
-		"end_date":          body.EndDate,
-		"role_type":         body.RoleType,
+		"full_name":  body.FullName,
+		"first_name": body.FirstName,
+		"last_name":  body.LastName,
+		"company_id": body.CompanyId,
+		"phone":      body.Phone,
+		"gender":     body.Gender,
+		"language":   body.Language,
+		"birthdate":  body.Birthdate,
+		"store_ids":  body.StoreIds,
+		"start_date": body.StartDate,
+		"end_date":   body.EndDate,
+		"role_type":  body.RoleType,
 	}
 
 	if body.Passport != nil {
@@ -1503,6 +1503,65 @@ func (h *EmployeeHandler) EmployeePayrollList(c *gin.Context) {
 	handleResponse(c, OK, result)
 }
 
+// PayrollManagementStatistics godoc
+// @Summary      Payroll management statistics
+// @Description  /employee/payroll/management ro'yxatining yig'ma ko'rsatkichlari: nechta do'kon,
+// @Description  nechta xodim, oylik fond stavkasi (employees.salary yig'indisi) va avanslar jami
+// @Description  (karta + naqd birga).
+// @Description  Filtrlar ro'yxat bilan AYNAN bir xil, shuning uchun raqamlar ekrandagi ro'yxatga mos keladi.
+// @Description  Sahifalanmaydi: limit/offset ta'sir qilmaydi, filtrga tushgan hamma xodim hisobga olinadi.
+// @Description  date berilsa yil/oy shundan olinadi; berilmasa year/month, ular ham bo'lmasa joriy oy.
+// @Tags         employees
+// @Security     BearerAuth
+// @Accept       json
+// @Produce      json
+// @Param        store_id  query  string  false  "Store ID"
+// @Param        search    query  string  false  "Ism yoki telefon bo'yicha qidiruv"
+// @Param        date      query  string  false  "Sana YYYY-MM-DD (year/month o'rniga)"
+// @Param        year      query  int     false  "Year (default: joriy)"
+// @Param        month     query  int     false  "Month 1-12 (default: joriy)"
+// @Success      200  {object}  v1.Response
+// @Failure      400  {object}  v1.Response
+// @Failure      401  {object}  v1.Response
+// @Failure      500  {object}  v1.Response
+// @Router       /employee/payroll/management/statistics [get]
+func (h *EmployeeHandler) PayrollManagementStatistics(c *gin.Context) {
+	user := h.service.GetSignedUser(c)
+	if user.UserId == "" {
+		handleServiceResponse(c, nil, domain.UnauthorizedError)
+		return
+	}
+
+	var params domain.EmployeePayrollAdvanceQueryParams
+	if err := c.ShouldBindQuery(&params); err != nil {
+		handleResponse(c, BadRequest, err.Error())
+		return
+	}
+	if err := params.ApplyDate(); err != nil {
+		handleResponse(c, BadRequest, err.Error())
+		return
+	}
+
+	// Admin bo'lmasa faqat o'z kompaniyasi va o'z do'koni bo'yicha
+	if !helper.IsAdmin(user) {
+		params.CompanyId = user.CompanyId
+		if user.StoreId != "" {
+			params.StoreId = user.StoreId
+		}
+	}
+
+	ctx, cancel := context.WithTimeout(c.Request.Context(), constants.DefaultContextTimeout)
+	defer cancel()
+
+	stats, period, err := h.service.GetPayrollManagementStatistics(ctx, &params)
+	if err != nil {
+		handleServiceResponse(c, nil, err)
+		return
+	}
+
+	handleResponse(c, OK, gin.H{"statistics": stats, "period": period})
+}
+
 // EmployeePayrollmanagementList godoc
 // @Summary      Payroll edit list (salary, KPI, advances)
 // @Description  Xodim kartochkasidagi qiymatlar (role_type, ism, telefon, salary, daily_work_hours, shift_type, experience_years) va so'ralgan oyning payroll qatoridan kpi_percent bilan avanslar.
@@ -1533,6 +1592,10 @@ func (h *EmployeeHandler) EmployeePayrollManagementList(c *gin.Context) {
 
 	var params domain.EmployeePayrollAdvanceQueryParams
 	if err := c.ShouldBindQuery(&params); err != nil {
+		handleResponse(c, BadRequest, err.Error())
+		return
+	}
+	if err := params.ApplyDate(); err != nil {
 		handleResponse(c, BadRequest, err.Error())
 		return
 	}
