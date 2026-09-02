@@ -103,6 +103,7 @@ type storeRef struct {
 	Name                     string `gorm:"column:name"`
 	EmployeeCount            int    `gorm:"column:store_employee_count"`
 	ActiveStoreEmployeeCount int    `gorm:"column:active_store_employee_count"`
+	IsFranchise              bool   `gorm:"column:is_franchise"`
 }
 
 // employeePayrollPageRow — hisobot qatori + umumiy son. total_count har bir
@@ -803,18 +804,17 @@ func payrollRowsOf(page []employeePayrollPageRow) []domain.EmployeePayrollRow {
 func (s *Services) paginateStores(
 	ctx context.Context, params *domain.EmployeePayrollQueryParams,
 ) ([]storeRef, int64, error) {
-	// Count va Find uchun so'rov qaytadan quriladi: GORM'da finisher (Count)
-	// chaqirilgandan keyin o'sha *gorm.DB'ni qayta ishlatish statement'ni ifloslantiradi.
 	newQuery := func() *gorm.DB {
 		q := s.db.WithContext(ctx).
 			Table("stores").
-			Where("deleted_at IS NULL").
-			Where("is_active = TRUE")
+			Joins("LEFT JOIN companies c ON c.id = stores.company_id").
+			Where("stores.deleted_at IS NULL").
+			Where("stores.is_active = TRUE")
 		if params.CompanyId != "" {
-			q = q.Where("company_id = ?", params.CompanyId)
+			q = q.Where("stores.company_id = ?", params.CompanyId)
 		}
 		if params.StoreId != "" {
-			q = q.Where("id = ?", params.StoreId)
+			q = q.Where("stores.id = ?", params.StoreId)
 		}
 		return q
 	}
@@ -836,9 +836,11 @@ func (s *Services) paginateStores(
 			  WHERE e.store_id = stores.id
 			    AND e.is_active = TRUE
 			    AND e.status = ?
-			    AND e.deleted_at IS NULL) AS active_store_employee_count`,
+			    AND e.deleted_at IS NULL) AS active_store_employee_count,
+			COALESCE(c.is_franchise, false) AS is_franchise`,
 			constants.GeneralStatusActive).
-		Order("name").
+		Order("COALESCE(c.is_franchise, false) ASC").
+		Order("stores.name ASC").
 		Limit(params.Limit).
 		Offset(params.Offset).
 		Find(&stores).Error
@@ -876,6 +878,7 @@ func mergeStoreTotals(stores []storeRef, totals []domain.StorePayroll) []domain.
 		total.StoreName = store.Name
 		total.EmployeeCount = store.EmployeeCount
 		total.ActiveStoreEmployeeCount = store.ActiveStoreEmployeeCount
+		total.IsFranchise = store.IsFranchise
 		result = append(result, total)
 	}
 	return result

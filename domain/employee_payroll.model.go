@@ -337,6 +337,9 @@ type EmployeePayrollRow struct {
 type StorePayroll struct {
 	StoreId   string `json:"store_id"`
 	StoreName string `json:"store_name"`
+	// IsFranchise — do'kon kompaniyasi franshizami. Ro'yxat shu maydon bo'yicha
+	// tartiblangan: franshiza do'konlari eng oxirida keladi.
+	IsFranchise bool `json:"is_franchise"`
 
 	EmployeeCount            int `json:"employee_count"`
 	ActiveStoreEmployeeCount int `json:"active_store_employee_count"`
