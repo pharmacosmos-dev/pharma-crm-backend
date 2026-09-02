@@ -7315,6 +7315,78 @@ const docTemplate = `{
                 }
             }
         },
+        "/employee/payroll/stores/statistics": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "/employee/payroll/stores ro'yxatining yig'ma ko'rsatkichlari.\nRo'yxat bilan bir xil filtrlardan o'tadi, lekin sahifalanmaydi: limit/offset ta'sir qilmaydi.\nUchta xodim sanog'i uchta boshqa narsa: total_employee_count (do'kon kartochkasidagi son),\ntotal_active_store_employee_count (haqiqatan faol xodimlar), total_payroll_count (oylik hisobga kirganlar).\nDIQQAT: total_store_plan_amount va total_store_sales_amount do'kon darajasidagi qiymatlar —\nhar bir do'kon bo'yicha BIR MARTA sanaladi, xodimlar soniga ko'paymaydi.\ndate berilsa yil/oy shundan olinadi; berilmasa year/month, ular ham bo'lmasa joriy oy.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "employees"
+                ],
+                "summary": "Store payroll statistics",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Store ID",
+                        "name": "store_id",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Sana YYYY-MM-DD (year/month o'rniga)",
+                        "name": "date",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Year (default: joriy)",
+                        "name": "year",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Month 1-12 (default: joriy)",
+                        "name": "month",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    }
+                }
+            }
+        },
         "/employee/payroll/{id}/management": {
             "put": {
                 "security": [

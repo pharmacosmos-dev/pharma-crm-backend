@@ -65,6 +65,7 @@ func (h *EmployeeHandler) EmployeeRoutes(r *gin.RouterGroup) {
 		employee.GET("/payroll/management", h.EmployeePayrollManagementList)
 		employee.GET("/payroll/management/statistics", h.PayrollManagementStatistics)
 		employee.GET("/payroll/employees/statistics", h.PayrollStatistics)
+		employee.GET("/payroll/stores/statistics", h.StorePayrollStatistics)
 		employee.PUT("/payroll/:id/management", h.UpdateEmployeePayrollManagement)
 	}
 }
@@ -1365,6 +1366,10 @@ func (h *EmployeeHandler) StorePayrollList(c *gin.Context) {
 		handleResponse(c, BadRequest, err.Error())
 		return
 	}
+	if err := params.ApplyDate(); err != nil {
+		handleResponse(c, BadRequest, err.Error())
+		return
+	}
 
 	// Admin bo'lmasa faqat o'z kompaniyasi va o'z do'konini ko'radi
 	if !helper.IsAdmin(user) {
@@ -1507,6 +1512,65 @@ func (h *EmployeeHandler) EmployeePayrollList(c *gin.Context) {
 	result["period"] = period
 
 	handleResponse(c, OK, result)
+}
+
+// StorePayrollStatistics godoc
+// @Summary      Store payroll statistics
+// @Description  /employee/payroll/stores ro'yxatining yig'ma ko'rsatkichlari.
+// @Description  Ro'yxat bilan bir xil filtrlardan o'tadi, lekin sahifalanmaydi: limit/offset ta'sir qilmaydi.
+// @Description  Uchta xodim sanog'i uchta boshqa narsa: total_employee_count (do'kon kartochkasidagi son),
+// @Description  total_active_store_employee_count (haqiqatan faol xodimlar), total_payroll_count (oylik hisobga kirganlar).
+// @Description  DIQQAT: total_store_plan_amount va total_store_sales_amount do'kon darajasidagi qiymatlar —
+// @Description  har bir do'kon bo'yicha BIR MARTA sanaladi, xodimlar soniga ko'paymaydi.
+// @Description  date berilsa yil/oy shundan olinadi; berilmasa year/month, ular ham bo'lmasa joriy oy.
+// @Tags         employees
+// @Security     BearerAuth
+// @Accept       json
+// @Produce      json
+// @Param        store_id  query  string  false  "Store ID"
+// @Param        date      query  string  false  "Sana YYYY-MM-DD (year/month o'rniga)"
+// @Param        year      query  int     false  "Year (default: joriy)"
+// @Param        month     query  int     false  "Month 1-12 (default: joriy)"
+// @Success      200  {object}  v1.Response
+// @Failure      400  {object}  v1.Response
+// @Failure      401  {object}  v1.Response
+// @Failure      500  {object}  v1.Response
+// @Router       /employee/payroll/stores/statistics [get]
+func (h *EmployeeHandler) StorePayrollStatistics(c *gin.Context) {
+	user := h.service.GetSignedUser(c)
+	if user.UserId == "" {
+		handleServiceResponse(c, nil, domain.UnauthorizedError)
+		return
+	}
+
+	var params domain.EmployeePayrollQueryParams
+	if err := c.ShouldBindQuery(&params); err != nil {
+		handleResponse(c, BadRequest, err.Error())
+		return
+	}
+	if err := params.ApplyDate(); err != nil {
+		handleResponse(c, BadRequest, err.Error())
+		return
+	}
+
+	// Admin bo'lmasa faqat o'z kompaniyasi va o'z do'koni bo'yicha
+	if !helper.IsAdmin(user) {
+		params.CompanyId = user.CompanyId
+		if user.StoreId != "" {
+			params.StoreId = user.StoreId
+		}
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
+	defer cancel()
+
+	stats, period, err := h.service.GetStorePayrollStatistics(ctx, &params)
+	if err != nil {
+		handleServiceResponse(c, nil, err)
+		return
+	}
+
+	handleResponse(c, OK, gin.H{"statistics": stats, "period": period})
 }
 
 // PayrollStatistics godoc

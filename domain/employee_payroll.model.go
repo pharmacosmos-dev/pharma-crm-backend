@@ -370,6 +370,48 @@ type StorePayroll struct {
 	NetPayAmount   float64 `json:"net_pay_amount"`
 }
 
+// StorePayrollStatistics — do'konlar ro'yxatining (/employee/payroll/stores)
+// yig'ma ko'rsatkichlari. Ro'yxat bilan bir xil filtrlardan o'tadi, lekin
+// sahifalanmaydi: limit/offset ta'sir qilmaydi, filtrga mos BARCHA do'konlar.
+//
+// Uchta xodim sanog'i uchta boshqa narsani bildiradi:
+//
+//	TotalEmployeeCount            — stores.employee_count yig'indisi (kartochkadagi son)
+//	TotalActiveStoreEmployeeCount — haqiqatan faol xodimlar (employees'dan jonli)
+//	TotalPayrollCount             — oylik hisobga kirgan xodimlar (rol + davomat doirasi)
+//
+// Odatda TotalPayrollCount <= TotalActiveStoreEmployeeCount: rol mos kelmagan
+// yoki smenaga chiqmagan xodimlar hisobga kirmaydi.
+type StorePayrollStatistics struct {
+	TotalStoresCount              int64 `json:"total_stores_count"`
+	TotalEmployeeCount            int64 `json:"total_employee_count"`
+	TotalActiveStoreEmployeeCount int64 `json:"total_active_store_employee_count"`
+	TotalPayrollCount             int64 `json:"total_payroll_count"`
+
+	TotalWorkedHours     float64 `json:"total_worked_hours"`
+	TotalAvgMonthlyHours float64 `json:"total_avg_monthly_hours"`
+
+	TotalSalaryRateAmount      float64 `json:"total_salary_rate_amount"`
+	TotalActualSalaryAmount    float64 `json:"total_actual_salary_amount"`
+	TotalIndividualSalesAmount float64 `json:"total_individual_sales_amount"`
+
+	// Do'kon darajasidagi qiymatlar — har bir do'kon bo'yicha BIR MARTA
+	// sanaladi, xodimlar soniga ko'paymaydi.
+	TotalStorePlanAmount  float64 `json:"total_store_plan_amount"`
+	TotalStoreSalesAmount float64 `json:"total_store_sales_amount"`
+
+	TotalKpiAmount         float64 `json:"total_kpi_amount"`
+	TotalBonusAmount       float64 `json:"total_bonus_amount"`
+	TotalGrossSalaryAmount float64 `json:"total_gross_salary_amount"`
+
+	// TotalAdvanceAmount — karta va naqd avans birga.
+	TotalAdvanceAmount float64 `json:"total_advance_amount"`
+	// TotalDeductionAmount — uchala ushlab qolish birga: muddat, qayta hisob, jarima.
+	TotalDeductionAmount float64 `json:"total_deduction_amount"`
+
+	TotalNetPayAmount float64 `json:"total_net_pay_amount"`
+}
+
 // Eslatma: bu strukturada xodimlar ro'yxati YO'Q va bo'lmasligi kerak.
 // Do'kon qatorlari GORM'ning Scan'i orqali to'ldiriladi; ichida []struct maydon
 // bo'lsa GORM uni bog'lanish (relation) deb hisoblab, foreign key talab qiladi

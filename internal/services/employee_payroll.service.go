@@ -759,6 +759,37 @@ func payrollSelectArgs(period domain.PayrollPeriod, filter payrollReadFilter) ma
 	}
 }
 
+// GetStorePayrollStatistics — GetStorePayrolls ro'yxatining yig'ma ko'rsatkichlari.
+//
+// Ro'yxat bilan bir xil filtrlardan o'tadi (davr, do'kon, kompaniya va rol +
+// davomat doirasi), lekin sahifalanmaydi: limit/offset o'zgarganda raqamlar
+// o'zgarmaydi, filtrga mos barcha do'kon hisobga olinadi.
+func (s *Services) GetStorePayrollStatistics(
+	ctx context.Context, params *domain.EmployeePayrollQueryParams,
+) (*domain.StorePayrollStatistics, domain.PayrollPeriod, error) {
+	period, err := resolvePayrollPeriod(params.Year, params.Month)
+	if err != nil {
+		s.log.Errorf("payroll: invalid period: %v", err)
+		return nil, period, domain.BadRequestError
+	}
+
+	var stats domain.StorePayrollStatistics
+	err = s.db.WithContext(ctx).Raw(storePayrollStatisticsQuery, map[string]any{
+		"year":       period.Year,
+		"month":      period.Month,
+		"company_id": nullIfEmpty(params.CompanyId),
+		"store_id":   nullIfEmpty(params.StoreId),
+		"status":     constants.GeneralStatusActive,
+		"roles":      pq.StringArray(payrollSalesRoles),
+	}).Scan(&stats).Error
+	if err != nil {
+		s.log.Errorf("payroll: could not get store statistics: %v", err)
+		return nil, period, domain.InternalServerError
+	}
+
+	return &stats, period, nil
+}
+
 // GetPayrollStatistics — GetEmployeePayrolls ro'yxatining yig'ma ko'rsatkichlari.
 //
 // Ro'yxat bilan bir xil filtrlardan o'tadi (davr, do'kon, kompaniya, rol va
@@ -1318,3 +1349,77 @@ WHERE p.year = @year
   AND p.role_names && CAST(@roles AS text[])
   AND p.worked_hours > 0
 GROUP BY p.store_id`
+
+// storePayrollStatisticsQuery — do'konlar ro'yxatining yig'ma ko'rsatkichlari.
+//
+// Ikkita manba birlashtiriladi:
+//
+//	stores_f   — do'konlar va ulardagi xodimlar soni (paginateStores bilan bir xil
+//	             filtr, lekin sahifasiz: filtrga mos BARCHA do'konlar)
+//	payrolls_f — o'sha do'konlarning oylik qatorlari (storePayrollTotalsQuery
+//	             bilan bir xil doira: rol mos va davomati bor xodimlar)
+//
+// store_plan va store_sales do'kon darajasidagi qiymatlar bo'lib, do'konning har
+// bir xodim qatorida takrorlanadi. Ularni payrolls_f ustidan SUM qilsa,
+// do'kondagi xodimlar soniga ko'payib ketardi — shuning uchun per_store'da
+// avval do'kon bo'yicha bittaga tushiriladi.
+const storePayrollStatisticsQuery = `
+WITH stores_f AS (
+    SELECT
+        s.id,
+        COALESCE(s.employee_count, 0) AS employee_count,
+        (SELECT COUNT(*)
+           FROM employees e
+          WHERE e.store_id = s.id
+            AND e.is_active = TRUE
+            AND e.status = CAST(@status AS text)
+            AND e.deleted_at IS NULL) AS active_employee_count
+    FROM stores s
+    WHERE s.deleted_at IS NULL
+      AND s.is_active = TRUE
+      AND (CAST(@company_id AS uuid) IS NULL OR s.company_id = CAST(@company_id AS uuid))
+      AND (CAST(@store_id AS uuid)   IS NULL OR s.id         = CAST(@store_id AS uuid))
+),
+payrolls_f AS (
+    SELECT p.*
+    FROM employee_payrolls p
+    WHERE p.year = @year
+      AND p.month = @month
+      AND p.store_id IN (SELECT id FROM stores_f)
+      AND p.role_names && CAST(@roles AS text[])
+      AND p.worked_hours > 0
+),
+per_store AS (
+    SELECT store_id,
+           MAX(store_plan_amount)  AS store_plan_amount,
+           MAX(store_sales_amount) AS store_sales_amount
+    FROM payrolls_f
+    GROUP BY store_id
+)
+SELECT
+    (SELECT COUNT(*) FROM stores_f)::bigint                             AS total_stores_count,
+    COALESCE((SELECT SUM(employee_count) FROM stores_f), 0)::bigint     AS total_employee_count,
+    COALESCE((SELECT SUM(active_employee_count) FROM stores_f), 0)::bigint AS total_active_store_employee_count,
+    (SELECT COUNT(*) FROM payrolls_f)::bigint                           AS total_payroll_count,
+
+    COALESCE(SUM(f.worked_hours), 0)      AS total_worked_hours,
+    COALESCE(SUM(f.avg_monthly_hours), 0) AS total_avg_monthly_hours,
+
+    COALESCE(SUM(f.salary_rate_amount), 0)      AS total_salary_rate_amount,
+    COALESCE(SUM(f.actual_salary_amount), 0)    AS total_actual_salary_amount,
+    COALESCE(SUM(f.individual_sales_amount), 0) AS total_individual_sales_amount,
+
+    COALESCE((SELECT SUM(store_plan_amount)  FROM per_store), 0) AS total_store_plan_amount,
+    COALESCE((SELECT SUM(store_sales_amount) FROM per_store), 0) AS total_store_sales_amount,
+
+    COALESCE(SUM(f.kpi_amount), 0)          AS total_kpi_amount,
+    COALESCE(SUM(f.bonus_amount), 0)        AS total_bonus_amount,
+    COALESCE(SUM(f.gross_salary_amount), 0) AS total_gross_salary_amount,
+
+    COALESCE(SUM(f.advance_card_amount + f.advance_cash_amount), 0) AS total_advance_amount,
+    COALESCE(SUM(f.deduction_term_amount
+               + f.deduction_recount_amount
+               + f.deduction_fine_amount), 0)                       AS total_deduction_amount,
+
+    COALESCE(SUM(f.net_pay_amount), 0) AS total_net_pay_amount
+FROM payrolls_f f`
