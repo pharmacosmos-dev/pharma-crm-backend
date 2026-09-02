@@ -324,6 +324,39 @@ func (s *Services) GetStoreTargetHistory(ctx context.Context, storeId string, co
 }
 
 
+// storeTargetBaseQuery — do'kon target ekranining umumiy asosi: ro'yxat ham,
+// yig'ma summary ham AYNAN shu so'rovdan quriladi. Aks holda ekrandagi qatorlar
+// bilan tepadagi jami raqamlar bir-biriga mos kelmay qolardi.
+//
+// stores'dan boshlanadi, store_targets esa LEFT JOIN: shu oyga target
+// qo'yilmagan do'kon ham chiqadi (amount = 0). Ilgari aksincha edi va target
+// yaratilmagan do'kon umuman ko'rinmasdi — ya'ni aynan target qo'yish kerak
+// bo'lgan do'konlarni topib bo'lmasdi.
+//
+// companies bilan INNER JOIN: franshiza kompaniyalarining do'konlari umuman
+// kirmaydi, target'i bor bo'lsa ham.
+func (s *Services) storeTargetBaseQuery(
+	ctx context.Context, companyIds []string, storeId, search string, year, month int,
+) *gorm.DB {
+	q := s.db.WithContext(ctx).
+		Table("stores s").
+		Joins("JOIN companies c ON c.id = s.company_id AND c.is_franchise = false AND c.deleted_at IS NULL").
+		Joins("LEFT JOIN store_targets st ON st.store_id = s.id AND st.year = ? AND st.month = ?", year, month).
+		Where("s.deleted_at IS NULL").
+		Where("s.is_active = TRUE")
+
+	if len(companyIds) > 0 {
+		q = q.Where("s.company_id IN ?", companyIds)
+	}
+	if storeId != "" {
+		q = q.Where("s.id = ?", storeId)
+	}
+	if search != "" {
+		q = q.Where("s.name ILIKE ?", "%"+search+"%")
+	}
+	return q
+}
+
 func (s *Services) GetStoreTargetList(ctx context.Context, params *domain.StoreTargetQueryParams) ([]domain.StoreTargetListItem, int64, error) {
 
 	if params.StoreId != "" && len(params.CompanyIds) > 0 {
@@ -372,31 +405,8 @@ func (s *Services) GetStoreTargetList(ctx context.Context, params *domain.StoreT
 	// ==================== COUNT QUERY =========================
 	// ==========================================================
 
-	// So'rov stores'dan boshlanadi, store_targets esa LEFT JOIN: shu oyga target
-	// qo'yilmagan do'kon ham ro'yxatda ko'rinadi (amount = 0). Ilgari aksincha edi
-	// va target yaratilmagan do'kon umuman chiqmasdi — ya'ni aynan target qo'yish
-	// kerak bo'lgan do'konlarni ro'yxatdan topib bo'lmasdi.
-	//
-	// companies bilan INNER JOIN: franshiza kompaniyalarining do'konlari
-	// ro'yxatga umuman kirmaydi.
 	baseQuery := func() *gorm.DB {
-		q := s.db.WithContext(ctx).
-			Table("stores s").
-			Joins("JOIN companies c ON c.id = s.company_id AND c.is_franchise = false AND c.deleted_at IS NULL").
-			Joins("LEFT JOIN store_targets st ON st.store_id = s.id AND st.year = ? AND st.month = ?", year, month).
-			Where("s.deleted_at IS NULL").
-			Where("s.is_active = TRUE")
-
-		if len(params.CompanyIds) > 0 {
-			q = q.Where("s.company_id IN ?", params.CompanyIds)
-		}
-		if params.StoreId != "" {
-			q = q.Where("s.id = ?", params.StoreId)
-		}
-		if params.SearchField != "" {
-			q = q.Where("s.name ILIKE ?", "%"+params.SearchField+"%")
-		}
-		return q
+		return s.storeTargetBaseQuery(ctx, params.CompanyIds, params.StoreId, params.SearchField, year, month)
 	}
 
 	countQuery := baseQuery()
@@ -734,7 +744,16 @@ func (s *Services) AutoCreateMonthlyStoreTargets() {
 		currentYear, currentMonth, created, len(prevTargets))
 }
 
-func (s *Services) GetCurrentMonthStoreTargetsSummary(ctx context.Context, companyIds []string, storeId string, year, month int) (*domain.StoreTargetSummary, error) {
+// GetCurrentMonthStoreTargetsSummary — GetStoreTargetList ro'yxatining yig'ma
+// ko'rsatkichlari. Ikkalasi ham storeTargetBaseQuery'dan quriladi, shuning uchun
+// total_stores ro'yxatdagi _meta.total_count bilan bir xil bo'ladi va summalar
+// aynan ekrandagi qatorlarni tasvirlaydi.
+//
+// Target qo'yilmagan do'kon ham sanoqqa kiradi (summasi 0 qo'shadi) — ya'ni
+// total_stores "necha do'kon bor", "necha target bor" emas.
+func (s *Services) GetCurrentMonthStoreTargetsSummary(
+	ctx context.Context, companyIds []string, storeId, search string, year, month int,
+) (*domain.StoreTargetSummary, error) {
 	now := time.Now()
 	if year == 0 {
 		year = now.Year()
@@ -743,33 +762,26 @@ func (s *Services) GetCurrentMonthStoreTargetsSummary(ctx context.Context, compa
 		month = int(now.Month())
 	}
 
-	type result struct {
-		TotalAmount float64 `json:"total_target_amount"`
-		TotalSales  float64 `json:"total_target_sales"`
+	var res struct {
+		TotalStores int64   `gorm:"column:total_stores"`
+		TotalAmount float64 `gorm:"column:total_amount"`
+		TotalSales  float64 `gorm:"column:total_sales"`
 	}
 
-	var res result
-
-	query := s.db.WithContext(ctx).
-		Table("store_targets st").
+	err := s.storeTargetBaseQuery(ctx, companyIds, storeId, search, year, month).
 		Select(`
+			COUNT(*)::bigint            AS total_stores,
 			COALESCE(SUM(st.amount), 0) AS total_amount,
-			COALESCE(SUM(st.sales), 0) AS total_sales
+			COALESCE(SUM(st.sales), 0)  AS total_sales
 		`).
-		Where("st.company_id IN ?", companyIds).
-		Where("st.year = ?", year).
-		Where("st.month = ?", month)
-
-	if storeId != "" {
-		query = query.Where("st.store_id = ?", storeId)
-	}
-
-	if err := query.Scan(&res).Error; err != nil {
+		Scan(&res).Error
+	if err != nil {
 		s.log.Errorf("could not get store target summary: %v", err)
 		return nil, domain.InternalServerError
 	}
 
 	return &domain.StoreTargetSummary{
+		TotalStores: res.TotalStores,
 		TotalAmount: res.TotalAmount,
 		TotalSales:  res.TotalSales,
 		Year:        year,

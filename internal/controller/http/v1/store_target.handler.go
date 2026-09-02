@@ -536,7 +536,10 @@ func (h *StoreTargetHandler) Summary(c *gin.Context) {
 		storeId = ""
 	}
 
-	summary, err := h.service.GetCurrentMonthStoreTargetsSummary(ctx, params.CompanyIds, storeId, params.Year, params.Month)
+	// SearchField ham uzatiladi: aks holda qidiruv paytida ro'yxat filtrlanib,
+	// tepadagi jami raqamlar butun ro'yxatniki bo'lib qolardi.
+	summary, err := h.service.GetCurrentMonthStoreTargetsSummary(
+		ctx, params.CompanyIds, storeId, params.SearchField, params.Year, params.Month)
 	if err != nil {
 		handleServiceResponse(c, nil, err)
 		return

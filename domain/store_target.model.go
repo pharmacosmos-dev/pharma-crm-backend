@@ -70,6 +70,10 @@ type StoreTargetQueryParams struct {
 }
 
 type StoreTargetSummary struct {
+	// TotalStores — filtrga mos do'konlar soni. Target qo'yilmaganlari ham
+	// kiradi, shuning uchun bu son GetStoreTargetList'ning _meta.total_count'i
+	// bilan bir xil bo'ladi.
+	TotalStores int64   `json:"total_stores"`
 	TotalAmount float64 `json:"total_target_amount"`
 	TotalSales  float64 `json:"total_target_sales"`
 	Year        int     `json:"year"`
