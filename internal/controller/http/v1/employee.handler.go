@@ -66,6 +66,7 @@ func (h *EmployeeHandler) EmployeeRoutes(r *gin.RouterGroup) {
 		employee.GET("/payroll/management/statistics", h.PayrollManagementStatistics)
 		employee.GET("/payroll/employees/statistics", h.PayrollStatistics)
 		employee.GET("/payroll/stores/statistics", h.StorePayrollStatistics)
+		employee.GET("/payroll/stores/export-excel", h.ExportStorePayrollExcel)
 		employee.PUT("/payroll/:id/management", h.UpdateEmployeePayrollManagement)
 	}
 }
@@ -1512,6 +1513,111 @@ func (h *EmployeeHandler) EmployeePayrollList(c *gin.Context) {
 	result["period"] = period
 
 	handleResponse(c, OK, result)
+}
+
+// ExportStorePayrollExcel godoc
+// @Summary      Export store payroll to Excel
+// @Description  /employee/payroll/stores ro'yxatini Excel fayl qilib saqlaydi va fayl nomini qaytaradi.
+// @Description  Ro'yxat bilan bir xil filtrlardan o'tadi, lekin SAHIFALANMAYDI: filtrga mos barcha do'kon fayldagi.
+// @Description  Tartib ham bir xil — franshiza do'konlari eng oxirida.
+// @Description  date berilsa yil/oy shundan olinadi; berilmasa year/month, ular ham bo'lmasa joriy oy.
+// @Tags         employees
+// @Security     BearerAuth
+// @Accept       json
+// @Produce      json
+// @Param        store_id  query  string  false  "Store ID"
+// @Param        date      query  string  false  "Sana YYYY-MM-DD (year/month o'rniga)"
+// @Param        year      query  int     false  "Year (default: joriy)"
+// @Param        month     query  int     false  "Month 1-12 (default: joriy)"
+// @Success      200  {object}  v1.Response
+// @Failure      400  {object}  v1.Response
+// @Failure      401  {object}  v1.Response
+// @Failure      500  {object}  v1.Response
+// @Router       /employee/payroll/stores/export-excel [get]
+func (h *EmployeeHandler) ExportStorePayrollExcel(c *gin.Context) {
+	user := h.service.GetSignedUser(c)
+	if user.UserId == "" {
+		handleServiceResponse(c, nil, domain.UnauthorizedError)
+		return
+	}
+
+	var params domain.EmployeePayrollQueryParams
+	if err := c.ShouldBindQuery(&params); err != nil {
+		handleResponse(c, BadRequest, err.Error())
+		return
+	}
+	if err := params.ApplyDate(); err != nil {
+		handleResponse(c, BadRequest, err.Error())
+		return
+	}
+
+	// Admin bo'lmasa faqat o'z kompaniyasi va o'z do'konini ko'radi
+	if !helper.IsAdmin(user) {
+		params.CompanyId = user.CompanyId
+		if user.StoreId != "" {
+			params.StoreId = user.StoreId
+		}
+	}
+
+	// Eksportda sahifalash yo'q: limit 0 qoldiriladi, xizmat uni "cheklovsiz"
+	// deb tushunadi. defaultLimitOffset ataylab chaqirilmaydi — u 10 qo'yardi.
+	params.Limit, params.Offset = 0, 0
+
+	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
+	defer cancel()
+
+	rows, _, period, err := h.service.GetStorePayrolls(ctx, &params)
+	if err != nil {
+		handleServiceResponse(c, nil, err)
+		return
+	}
+
+	f := excelize.NewFile()
+	sheet := constants.DefaultSheetName
+	f.SetSheetName("Sheet1", sheet)
+
+	headers := []string{
+		"Филиал", "Франшиза", "Сотрудников", "Активных", "В расчёте",
+		"Отработано часов", "Норма часов",
+		"Оклад", "Начислено по окладу", "Личные продажи",
+		"План магазина", "Продажи магазина",
+		"KPI", "Бонус", "Начислено всего", "Доля ФОТ, %",
+		"Аванс", "Удержания", "К выплате",
+	}
+	if err := setExcelHeaders(f, sheet, headers); err != nil {
+		h.log.Errorf("could not style payroll excel header: %v", err)
+		handleServiceResponse(c, nil, domain.InternalServerError)
+		return
+	}
+
+	for i, r := range rows {
+		// CoordinatesToCellName ustun harfini to'g'ri hisoblaydi (Z dan keyin AA),
+		// qo'lda 'A'+i qilish 26 ustundan keyin buzilardi.
+		set := func(col int, value any) {
+			cell, err := excelize.CoordinatesToCellName(col, i+2)
+			if err != nil {
+				return
+			}
+			f.SetCellValue(sheet, cell, value)
+		}
+		franchise := "Нет"
+		if r.IsFranchise {
+			franchise = "Да"
+		}
+		values := []any{
+			r.StoreName, franchise, r.EmployeeCount, r.ActiveStoreEmployeeCount, r.PayrollCount,
+			r.WorkedHours, r.AvgMonthlyHours,
+			r.SalaryRateAmount, r.ActualSalaryAmount, r.IndividualSalesAmount,
+			r.StorePlanAmount, r.StoreSalesAmount,
+			r.KpiAmount, r.BonusAmount, r.GrossSalaryAmount, r.SalaryPercent,
+			r.AdvanceAmount, r.TotalDeduction, r.NetPayAmount,
+		}
+		for col, v := range values {
+			set(col+1, v)
+		}
+	}
+
+	saveExcelToUploads(c, f, *h.log, fmt.Sprintf("Oylik_dokonlar_%d-%02d", period.Year, period.Month))
 }
 
 // StorePayrollStatistics godoc

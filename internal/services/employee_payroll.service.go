@@ -134,6 +134,15 @@ type payrollReadFilter struct {
 // holda menejer o'z oyligini ko'ra olmasdi.
 var payrollSalesRoles = []string{constants.RoleNameCashier, constants.RoleNameZavStore}
 
+// payrollNoLimit — 0 yoki manfiy limitni GORM'ning "cheklovsiz" qiymatiga (-1)
+// aylantiradi. Limit(0) "LIMIT 0" bo'lib hech narsa qaytarmaydi.
+func payrollNoLimit(limit int) int {
+	if limit <= 0 {
+		return -1
+	}
+	return limit
+}
+
 // nullIfEmpty — bo'sh satrni SQL NULL'ga aylantiradi: "filtr berilmagan" degani.
 func nullIfEmpty(value string) *string {
 	if value == "" {
@@ -896,7 +905,10 @@ func (s *Services) paginateStores(
 			constants.GeneralStatusActive).
 		Order("COALESCE(c.is_franchise, false) ASC").
 		Order("stores.name ASC").
-		Limit(params.Limit).
+		// Limit <= 0 → cheklovsiz (Excel eksporti barcha do'konni oladi).
+		// GORM'da Limit(0) "LIMIT 0" ga aylanadi va hech narsa qaytmaydi,
+		// shuning uchun -1 beriladi: u LIMIT bandini butunlay tushiradi.
+		Limit(payrollNoLimit(params.Limit)).
 		Offset(params.Offset).
 		Find(&stores).Error
 	if err != nil {
