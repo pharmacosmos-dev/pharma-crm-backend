@@ -7347,6 +7347,10 @@ paths:
         /employee/payroll/management ro'yxatining yig'ma ko'rsatkichlari: nechta do'kon,
         nechta xodim, oylik fond stavkasi (employees.salary yig'indisi) va avanslar jami
         (karta + naqd birga).
+        role_type_counts — employees.role_type bo'yicha xodimlar soni. Kalitlar bazadagi haqiqiy
+        qiymatlar ("CASHIER", "HEADOFCASHIER", "ROP_APTEKA", "INTERN", ...), yangi rol qo'shilsa
+        o'zi paydo bo'ladi. role_type to'ldirilmaganlar bo'sh kalit ("") ostida — shu sababli
+        qiymatlar yig'indisi doim total_employees'ga teng.
         Filtrlar ro'yxat bilan AYNAN bir xil, shuning uchun raqamlar ekrandagi ro'yxatga mos keladi.
         Sahifalanmaydi: limit/offset ta'sir qilmaydi, filtrga tushgan hamma xodim hisobga olinadi.
         date berilsa yil/oy shundan olinadi; berilmasa year/month, ular ham bo'lmasa joriy oy.
@@ -7545,6 +7549,56 @@ paths:
       security:
       - BearerAuth: []
       summary: Payroll by stores
+      tags:
+      - employees
+  /employee/payroll/stores/export-excel:
+    get:
+      consumes:
+      - application/json
+      description: |-
+        /employee/payroll/stores ro'yxatini Excel fayl qilib saqlaydi va fayl nomini qaytaradi.
+        Ro'yxat bilan bir xil filtrlardan o'tadi, lekin SAHIFALANMAYDI: filtrga mos barcha do'kon fayldagi.
+        Tartib ham bir xil — franshiza do'konlari eng oxirida.
+        date berilsa yil/oy shundan olinadi; berilmasa year/month, ular ham bo'lmasa joriy oy.
+      parameters:
+      - description: Store ID
+        in: query
+        name: store_id
+        type: string
+      - description: Sana YYYY-MM-DD (year/month o'rniga)
+        in: query
+        name: date
+        type: string
+      - description: 'Year (default: joriy)'
+        in: query
+        name: year
+        type: integer
+      - description: 'Month 1-12 (default: joriy)'
+        in: query
+        name: month
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Export store payroll to Excel
       tags:
       - employees
   /employee/payroll/stores/statistics:

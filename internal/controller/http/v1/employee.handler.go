@@ -67,6 +67,7 @@ func (h *EmployeeHandler) EmployeeRoutes(r *gin.RouterGroup) {
 		employee.GET("/payroll/employees/statistics", h.PayrollStatistics)
 		employee.GET("/payroll/stores/statistics", h.StorePayrollStatistics)
 		employee.GET("/payroll/stores/export-excel", h.ExportStorePayrollExcel)
+		employee.GET("/payroll/employees/export-excel", h.ExportEmployeePayrollExcel)
 		employee.PUT("/payroll/:id/management", h.UpdateEmployeePayrollManagement)
 	}
 }
@@ -1677,6 +1678,74 @@ func (h *EmployeeHandler) StorePayrollStatistics(c *gin.Context) {
 	}
 
 	handleResponse(c, OK, gin.H{"statistics": stats, "period": period})
+}
+
+// ExportEmployeePayrollExcel godoc
+// @Summary      Export employee payroll to Excel
+// @Description  /employee/payroll/employees hisobotini Excel qilib saqlaydi va fayl nomini qaytaradi.
+// @Description  Varaq do'konlar bo'yicha bloklarga bo'linadi: har blok do'kon yig'indisi qatori bilan boshlanadi,
+// @Description  ostida o'sha do'kon xodimlari, eng oxirida esa barcha do'konlar bo'yicha umumiy jami.
+// @Description  Sarlavhalar ikki qatorli va guruhlar bo'yicha ranglangan (Оклад, KPI, Аванс, Удержания, ...).
+// @Description  Ro'yxat bilan bir xil filtrlardan o'tadi, lekin SAHIFALANMAYDI: filtrga mos barcha xodim fayldagi.
+// @Description  date berilsa yil/oy shundan olinadi; berilmasa year/month, ular ham bo'lmasa joriy oy.
+// @Tags         employees
+// @Security     BearerAuth
+// @Accept       json
+// @Produce      json
+// @Param        store_id  query  string  false  "Store ID"
+// @Param        date      query  string  false  "Sana YYYY-MM-DD (year/month o'rniga)"
+// @Param        year      query  int     false  "Year (default: joriy)"
+// @Param        month     query  int     false  "Month 1-12 (default: joriy)"
+// @Success      200  {object}  v1.Response
+// @Failure      400  {object}  v1.Response
+// @Failure      401  {object}  v1.Response
+// @Failure      500  {object}  v1.Response
+// @Router       /employee/payroll/employees/export-excel [get]
+func (h *EmployeeHandler) ExportEmployeePayrollExcel(c *gin.Context) {
+	user := h.service.GetSignedUser(c)
+	if user.UserId == "" {
+		handleServiceResponse(c, nil, domain.UnauthorizedError)
+		return
+	}
+
+	var params domain.EmployeePayrollQueryParams
+	if err := c.ShouldBindQuery(&params); err != nil {
+		handleResponse(c, BadRequest, err.Error())
+		return
+	}
+	if err := params.ApplyDate(); err != nil {
+		handleResponse(c, BadRequest, err.Error())
+		return
+	}
+
+	if !helper.IsAdmin(user) {
+		params.CompanyId = user.CompanyId
+		if user.StoreId != "" {
+			params.StoreId = user.StoreId
+		}
+	}
+
+	// Eksportda sahifalash yo'q. So'rovda LIMIT NULLIF(@limit, 0) turibdi,
+	// shuning uchun 0 "cheklovsiz" degani.
+	params.Limit, params.Offset = 0, 0
+
+	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
+	defer cancel()
+
+	rows, _, period, err := h.service.GetEmployeePayrolls(ctx, &params)
+	if err != nil {
+		handleServiceResponse(c, nil, err)
+		return
+	}
+
+	f, err := buildPayrollExcel(constants.DefaultSheetName, rows)
+	if err != nil {
+		h.log.Errorf("could not build payroll excel: %v", err)
+		handleServiceResponse(c, nil, domain.InternalServerError)
+		return
+	}
+
+	saveExcelToUploads(c, f, *h.log, payrollExcelFileName(period.Year, period.Month))
 }
 
 // PayrollStatistics godoc
