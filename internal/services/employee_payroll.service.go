@@ -507,7 +507,8 @@ const payrollManagementFilterSQL = `
 	  AND (CAST(@company_id AS uuid) IS NULL OR p.company_id = CAST(@company_id AS uuid))
 	  AND (CAST(@search AS text)     IS NULL OR p.full_name ILIKE CAST(@search AS text)
 											 OR e.phone     ILIKE CAST(@search AS text))
-	  AND p.role_names && CAST(@roles AS text[])`
+	  AND p.role_names && CAST(@roles AS text[])
+	  AND COALESCE(e.status, '') <> CAST(@dismissed AS text)`
 
 // payrollManagementArgs — ro'yxat va statistika uchun umumiy parametrlar.
 // Limit/offset bu yerda yo'q: ular faqat ro'yxatga tegishli.
@@ -525,6 +526,7 @@ func payrollManagementArgs(
 		"company_id": nullIfEmpty(params.CompanyId),
 		"search":     nullIfEmpty(search),
 		"roles":      pq.StringArray(payrollSalesRoles),
+		"dismissed":  constants.GeneralStatusDismissed,
 	}
 }
 
