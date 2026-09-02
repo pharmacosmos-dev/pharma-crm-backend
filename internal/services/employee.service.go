@@ -81,6 +81,14 @@ func (s *Services) GetEmployees(ctx context.Context, params *domain.EmployeeQuer
 	if params.Status != "" {
 		query = query.Where("status = ?", params.Status)
 	}
+	// Berilmasa (nil) filtrlanmaydi — barcha xodimlar, shu jumladan bo'shatilganlar.
+	if params.IsDismissed != nil {
+		if *params.IsDismissed {
+			query = query.Where("status = ?", constants.GeneralStatusDismissed)
+		} else {
+			query = query.Where("status != ?", constants.GeneralStatusDismissed)
+		}
+	}
 
 	err := query.WithContext(ctx).
 		Count(&totalCount).

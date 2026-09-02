@@ -179,6 +179,7 @@ type EmployeeQueryParams struct {
 	CompanyId string `form:"company_id"`
 	RoleId    string `form:"role_id"`
 	Status    string `form:"status"`
-	Limit     int    `form:"limit"`
-	Offset    int    `form:"offset"`
+	IsDismissed *bool `form:"is_dismissed"`
+	Limit       int   `form:"limit"`
+	Offset      int   `form:"offset"`
 }

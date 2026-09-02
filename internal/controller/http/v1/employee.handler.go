@@ -200,6 +200,7 @@ func (h *EmployeeHandler) Get(c *gin.Context) {
 // @Param        role_id        query     string          false "Role ID"
 // @Param        store_id       query     string          false "Store ID"
 // @Param        status 		query     string          false "Status (deleted || blocked || active)"
+// @Param        is_dismissed   query     bool            false "false — ishdan bo'shatilganlarni (Уволен) chiqarib tashlaydi; true — faqat o'shalarni; berilmasa hammasi"
 // @Success      200  {array}   v1.Response
 // @Failure      400  {object}  v1.Response
 // @Failure      401  {object}  v1.Response
