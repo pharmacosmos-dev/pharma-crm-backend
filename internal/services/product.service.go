@@ -1342,7 +1342,7 @@ func (s *Services) GetNoorStoreProducts(params *domain.NoorQueryParam) ([]domain
 		sp.store_id,
 		sp.product_id,
 		SUM(sp.unit_quantity/(p.unit_per_pack/p.blister_count)) AS quantity,
-		ROUND(opp.retail_price)::int AS price,
+		ROUND(opp.retail_price)::int AS price
 	FROM store_products sp
 	JOIN products p ON sp.product_id = p.id
 	JOIN LATERAL (
