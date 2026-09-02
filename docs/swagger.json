@@ -6858,6 +6858,78 @@
                 }
             }
         },
+        "/employee/payroll/employees/export-excel": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "/employee/payroll/employees hisobotini Excel qilib saqlaydi va fayl nomini qaytaradi.\nVaraq do'konlar bo'yicha bloklarga bo'linadi: har blok do'kon yig'indisi qatori bilan boshlanadi,\nostida o'sha do'kon xodimlari, eng oxirida esa barcha do'konlar bo'yicha umumiy jami.\nSarlavhalar ikki qatorli va guruhlar bo'yicha ranglangan (Оклад, KPI, Аванс, Удержания, ...).\nRo'yxat bilan bir xil filtrlardan o'tadi, lekin SAHIFALANMAYDI: filtrga mos barcha xodim fayldagi.\ndate berilsa yil/oy shundan olinadi; berilmasa year/month, ular ham bo'lmasa joriy oy.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "employees"
+                ],
+                "summary": "Export employee payroll to Excel",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Store ID",
+                        "name": "store_id",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Sana YYYY-MM-DD (year/month o'rniga)",
+                        "name": "date",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Year (default: joriy)",
+                        "name": "year",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Month 1-12 (default: joriy)",
+                        "name": "month",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    }
+                }
+            }
+        },
         "/employee/payroll/employees/statistics": {
             "get": {
                 "security": [

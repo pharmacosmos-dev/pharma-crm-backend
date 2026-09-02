@@ -7228,6 +7228,58 @@ paths:
       summary: Payroll by employees
       tags:
       - employees
+  /employee/payroll/employees/export-excel:
+    get:
+      consumes:
+      - application/json
+      description: |-
+        /employee/payroll/employees hisobotini Excel qilib saqlaydi va fayl nomini qaytaradi.
+        Varaq do'konlar bo'yicha bloklarga bo'linadi: har blok do'kon yig'indisi qatori bilan boshlanadi,
+        ostida o'sha do'kon xodimlari, eng oxirida esa barcha do'konlar bo'yicha umumiy jami.
+        Sarlavhalar ikki qatorli va guruhlar bo'yicha ranglangan (Оклад, KPI, Аванс, Удержания, ...).
+        Ro'yxat bilan bir xil filtrlardan o'tadi, lekin SAHIFALANMAYDI: filtrga mos barcha xodim fayldagi.
+        date berilsa yil/oy shundan olinadi; berilmasa year/month, ular ham bo'lmasa joriy oy.
+      parameters:
+      - description: Store ID
+        in: query
+        name: store_id
+        type: string
+      - description: Sana YYYY-MM-DD (year/month o'rniga)
+        in: query
+        name: date
+        type: string
+      - description: 'Year (default: joriy)'
+        in: query
+        name: year
+        type: integer
+      - description: 'Month 1-12 (default: joriy)'
+        in: query
+        name: month
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Export employee payroll to Excel
+      tags:
+      - employees
   /employee/payroll/employees/statistics:
     get:
       consumes:
