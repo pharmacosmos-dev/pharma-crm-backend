@@ -436,8 +436,8 @@ func (s *Services) GetStoreTargetList(ctx context.Context, params *domain.StoreT
 			s.name                    AS store_name,
 			COALESCE(st.amount, 0)    AS amount,
 			COALESCE(st.sales, 0)     AS sales,
-			?                         AS year,
-			?                         AS month
+			CAST(? AS integer)        AS year,
+			CAST(? AS integer)        AS month
 		`, year, month)
 
 	// ==========================================================
