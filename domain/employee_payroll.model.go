@@ -209,7 +209,14 @@ type EmployeePayrollRow struct {
 	LastName         string  `json:"last_name"`
 	FullName         string  `json:"full_name"`
 	PositionSnapshot string  `json:"position_snapshot"`
-	Role             string  `json:"role"`
+	// Role — roles jadvalidagi nom(lar)i, payroll qatoriga snapshot qilingan
+	// ("Кассир", "Заведующий"). RoleType esa employees.role_type — tizimdagi
+	// rol kodi ("CASHIER", "HEADOFCASHIER"). Ikkalasi turli tushuncha.
+	//
+	// RoleType snapshot emas, employees'dan jonli olinadi: u management
+	// ekranidan tahrirlanadi va o'zgarish darhol ko'rinishi kerak.
+	Role     string `json:"role"`
+	RoleType string `json:"role_type"`
 
 	ExperienceYears float64 `json:"experience_years"`
 	WorkedHours     float64 `json:"worked_hours"`

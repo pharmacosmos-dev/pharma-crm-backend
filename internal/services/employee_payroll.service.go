@@ -1133,12 +1133,20 @@ ON CONFLICT (employee_id, year, month) DO UPDATE SET
     updated_at               = NOW()`
 
 // employeePayrollsSelectQuery — hisobotni employee_payrolls'dan o'qiydi.
-// JOIN yo'q: kerakli hamma narsa qatorning o'zida snapshot qilingan.
+// Deyarli hamma narsa qatorning o'zida snapshot qilingan; yagona istisno —
+// role_type, u employees'dan JONLI olinadi.
+//
+// Nega snapshot emas: role_type management ekranidan tahrirlanadi
+// (PUT /employee/payroll/{id}/management) va faqat employees'ga yoziladi.
+// Snapshot bo'lganida tahrirdan keyin cron ishlagunicha hisobotda eski qiymat
+// turgan bo'lardi.
+//
 // Filtrlar ixtiyoriy — NULL berilsa o'sha shart tekshirilmaydi.
 const employeePayrollsSelectQuery = `
 SELECT
     p.id, p.employee_id, p.store_id, p.store_name,
     p.first_name, p.last_name, p.full_name, p.position_snapshot, p.role,
+    COALESCE(e.role_type, '') AS role_type,
     p.experience_years, p.worked_hours, p.avg_monthly_hours,
     p.salary_rate_amount, p.actual_salary_amount, p.individual_sales_amount,
     p.store_target_id, p.store_plan_amount, p.store_sales_amount,
@@ -1151,6 +1159,7 @@ SELECT
     p.net_pay_amount, p.status, p.year, p.month, p.completed_at, p.calculated_at,
     COUNT(*) OVER () AS total_count
 FROM employee_payrolls p
+LEFT JOIN employees e ON e.id = p.employee_id
 WHERE p.year = @year
   AND p.month = @month
   AND (CAST(@employee_id AS uuid) IS NULL OR p.employee_id = CAST(@employee_id AS uuid))
