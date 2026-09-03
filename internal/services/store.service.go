@@ -143,19 +143,31 @@ func (s *Services) GetStores(ctx context.Context, params *domain.StoreQueryParam
 func (s *Services) storeEmployeeCountQuery(ctx context.Context, params *domain.StoreEmployeeCountQueryParams) *gorm.DB {
 	qb := s.db.WithContext(ctx).
 		Model(&domain.Store{}).
+		// Xodim doirasi oylik hisoboti (payrollManagementFilterSQL) bilan AYNAN
+		// bir xil bo'lishi shart: ikkala ekran bir xil son ko'rsatishi kerak.
+		// Shu sababli status va rol filtri bu yerda ham qo'llanadi — savdo bilan
+		// bog'liq bo'lmagan xodimlar (menejer, buxgalter) sanoqqa kirmaydi.
 		Joins(`
 			LEFT JOIN (
 				SELECT
-					store_id,
+					e.store_id,
 					COUNT(*) AS employee_count
-				FROM employees
-				WHERE deleted_at IS NULL
-				  AND is_active = TRUE
-				  AND store_id IS NOT NULL
-				GROUP BY store_id
+				FROM employees e
+				WHERE e.deleted_at IS NULL
+				  AND e.is_active = TRUE
+				  AND e.store_id IS NOT NULL
+				  AND e.status = ?
+				  AND EXISTS (
+					  SELECT 1
+					  FROM employee_roles er
+					  JOIN roles r ON r.id = er.role_id
+					  WHERE er.employee_id = e.id
+					    AND r.name IN (?, ?)
+				  )
+				GROUP BY e.store_id
 			) actual
 				ON actual.store_id = stores.id
-		`).
+		`, constants.GeneralStatusActive, constants.RoleNameCashier, constants.RoleNameZavStore).
 		Joins(`
 			LEFT JOIN (
 				SELECT

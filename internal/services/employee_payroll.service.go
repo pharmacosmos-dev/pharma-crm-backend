@@ -523,7 +523,17 @@ const payrollManagementFilterSQL = `
 	  AND (CAST(@search AS text)      IS NULL OR p.full_name ILIKE CAST(@search AS text)
 											  OR e.phone     ILIKE CAST(@search AS text))
 	  AND p.role_names && CAST(@roles AS text[])
-	  AND COALESCE(e.status, '') <> CAST(@dismissed AS text)`
+	  AND COALESCE(e.status, '') <> CAST(@dismissed AS text)
+	  AND e.deleted_at IS NULL
+	  AND EXISTS (
+		  SELECT 1
+		  FROM stores st
+		  JOIN companies co ON co.id = st.company_id
+		  WHERE st.id = p.store_id
+		    AND st.deleted_at IS NULL
+		    AND st.is_active = TRUE
+		    AND co.is_franchise = FALSE
+	  )`
 
 // payrollManagementArgs — ro'yxat va statistika uchun umumiy parametrlar.
 // Limit/offset bu yerda yo'q: ular faqat ro'yxatga tegishli.
@@ -563,7 +573,15 @@ func (s *Services) GetPayrollManagementStatistics(
 
 	const query = `
 		SELECT
-			COUNT(DISTINCT p.store_id)::bigint AS total_stores,
+			(SELECT COUNT(*)
+			   FROM stores st2
+			   JOIN companies co2 ON co2.id = st2.company_id
+			  WHERE st2.deleted_at IS NULL
+			    AND st2.is_active = TRUE
+			    AND co2.is_franchise = FALSE
+			    AND (CAST(@store_id AS uuid)   IS NULL OR st2.id         = CAST(@store_id AS uuid))
+			    AND (CAST(@company_id AS uuid) IS NULL OR st2.company_id = CAST(@company_id AS uuid))
+			)::bigint                          AS total_stores,
 			COUNT(*)::bigint                   AS total_employees,
 			-- oylik fond stavkasi: xodim kartochkasidagi oklad, ishlagan soatdan mustaqil
 			COALESCE(SUM(e.salary), 0)         AS total_salary,
