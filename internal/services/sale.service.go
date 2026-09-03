@@ -829,6 +829,10 @@ func (s *Services) EposResult(ctx context.Context, req *domain.EposResponseReque
 			return nil, err
 		}
 		updates["stage"] = constants.SaleStageFinished
+		// Attach the employee who actually closed the check (from the bearer token).
+		// The sale row can belong to another employee (shift handover, draft,
+		// accepted online sale), so it is rebound at the moment it is finished.
+		updates["employee_id"] = user.UserId
 		updates["updated_at"] = time.Now()
 		updates["completed_at"] = time.Now()
 	} else {
@@ -943,6 +947,8 @@ func (s *Services) EposResultReturn(
 		}
 		updates["is_returned"] = true
 		updates["stage"] = constants.SaleStageReturnedFinish
+		// Attach the employee who actually closed the return (from the bearer token).
+		updates["employee_id"] = user.UserId
 		updates["updated_at"] = time.Now()
 		updates["completed_at"] = time.Now()
 	} else {
