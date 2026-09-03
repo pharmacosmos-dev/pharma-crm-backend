@@ -7247,6 +7247,10 @@ paths:
         in: query
         name: store_id
         type: string
+      - description: Employee full name search
+        in: query
+        name: search
+        type: string
       - description: Year
         in: query
         name: year
@@ -7303,6 +7307,10 @@ paths:
         in: query
         name: store_id
         type: string
+      - description: Employee full name search
+        in: query
+        name: search
+        type: string
       - description: Sana YYYY-MM-DD (year/month o'rniga)
         in: query
         name: date
@@ -7354,6 +7362,10 @@ paths:
       - description: Store ID
         in: query
         name: store_id
+        type: string
+      - description: Employee full name search
+        in: query
+        name: search
         type: string
       - description: Sana YYYY-MM-DD (year/month o'rniga)
         in: query

@@ -120,6 +120,7 @@ type payrollReadFilter struct {
 	EmployeeId string
 	CompanyId  string
 	StoreId    string
+	Search     string
 	Roles      []string
 	// OnlyWorked — faqat davomati bor xodimlar (worked_hours > 0). Cron barcha
 	// faol xodimlarga qator yozadi, shu jumladan oy davomida umuman ishlamaganlarga
@@ -151,6 +152,13 @@ func nullIfEmpty(value string) *string {
 	return &value
 }
 
+func payrollSearchPattern(value string) string {
+	if value == "" {
+		return ""
+	}
+	return fmt.Sprintf("%%%s%%", value)
+}
+
 // region Get
 
 // GetEmployeePayrolls — xodimlar hisoboti. employee_payrolls'dan to'g'ridan-to'g'ri
@@ -174,6 +182,7 @@ func (s *Services) GetEmployeePayrolls(
 	page, err := s.selectPayrolls(ctx, period, payrollReadFilter{
 		CompanyId:  params.CompanyId,
 		StoreId:    params.StoreId,
+		Search:     params.Search,
 		Roles:      payrollSalesRoles,
 		OnlyWorked: true,
 		Limit:      params.Limit,
@@ -812,6 +821,7 @@ func payrollSelectArgs(period domain.PayrollPeriod, filter payrollReadFilter) ma
 		"employee_id": nullIfEmpty(filter.EmployeeId),
 		"store_id":    nullIfEmpty(filter.StoreId),
 		"company_id":  nullIfEmpty(filter.CompanyId),
+		"search":      nullIfEmpty(payrollSearchPattern(filter.Search)),
 		// Bo'sh massiv NULL bo'lib ketadi → o'sha shart tekshirilmaydi.
 		"roles":       pq.StringArray(filter.Roles),
 		"only_worked": filter.OnlyWorked,
@@ -866,6 +876,7 @@ func (s *Services) GetPayrollStatistics(
 	filter := payrollReadFilter{
 		CompanyId:  params.CompanyId,
 		StoreId:    params.StoreId,
+		Search:     params.Search,
 		Roles:      payrollSalesRoles,
 		OnlyWorked: true,
 	}
@@ -1309,6 +1320,7 @@ WHERE p.year = @year
   AND (CAST(@employee_id AS uuid) IS NULL OR p.employee_id = CAST(@employee_id AS uuid))
   AND (CAST(@store_id AS uuid)    IS NULL OR p.store_id    = CAST(@store_id AS uuid))
   AND (CAST(@company_id AS uuid)  IS NULL OR p.company_id  = CAST(@company_id AS uuid))
+	AND (CAST(@search AS text)      IS NULL OR p.full_name ILIKE CAST(@search AS text))
   AND (CAST(@roles AS text[])     IS NULL OR p.role_names && CAST(@roles AS text[]))
   AND (NOT CAST(@only_worked AS boolean) OR p.worked_hours > 0)`
 

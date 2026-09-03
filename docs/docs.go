@@ -6881,6 +6881,12 @@ const docTemplate = `{
                         "in": "query"
                     },
                     {
+                        "type": "string",
+                        "description": "Employee full name search",
+                        "name": "search",
+                        "in": "query"
+                    },
+                    {
                         "type": "integer",
                         "description": "Year",
                         "name": "year",
@@ -6960,6 +6966,12 @@ const docTemplate = `{
                     },
                     {
                         "type": "string",
+                        "description": "Employee full name search",
+                        "name": "search",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
                         "description": "Sana YYYY-MM-DD (year/month o'rniga)",
                         "name": "date",
                         "in": "query"
@@ -7028,6 +7040,12 @@ const docTemplate = `{
                         "type": "string",
                         "description": "Store ID",
                         "name": "store_id",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Employee full name search",
+                        "name": "search",
                         "in": "query"
                     },
                     {

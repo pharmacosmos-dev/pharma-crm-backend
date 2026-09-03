@@ -214,9 +214,11 @@ type EmployeePayrollAdvanceRow struct {
 type EmployeePayrollQueryParams struct {
 	EmployeeId string `form:"employee_id"`
 	StoreId    string `form:"store_id"`
-	Status     string `form:"status"`
-	Year       int    `form:"year"`
-	Month      int    `form:"month"`
+	// Search xodimning F.I.Sh. bo'yicha registrga bog'liq bo'lmagan qidiruv.
+	Search string `form:"search"`
+	Status string `form:"status"`
+	Year   int    `form:"year"`
+	Month  int    `form:"month"`
 	// Date — "YYYY-MM-DD" (yoki YYYY-MM / RFC3339). Berilsa Year/Month shundan
 	// olinadi. Payroll qatorlari oylik, shuning uchun kun qismi faqat oyni
 	// aniqlash uchun ishlatiladi.
