@@ -53,6 +53,7 @@ func (h *EmployeeHandler) EmployeeRoutes(r *gin.RouterGroup) {
 		employee.GET("/attendance/stats", h.AttendanceStats)
 		employee.GET("/attendance-days/list", h.EmployeeAttendanceDayList)
 		employee.POST("/attendance-manual", h.CreateAttendanceLogManual)
+		employee.PUT("/attendance-logs/:id", h.UpdateAttendanceLog)
 		employee.DELETE("/attendance-logs/:id", h.DeleteAttendanceLog)
 		employee.PATCH("/:id/face-descriptor", h.CreateOrUpdateFaceDescriptor)
 		employee.GET("/:id/face-descriptor", h.GetEmployeeFaceDescriptor)
@@ -1028,6 +1029,58 @@ func (h *EmployeeHandler) CreateAttendanceLogManual(c *gin.Context) {
 	}
 
 	handleResponse(c, CREATED, result)
+}
+
+// UpdateAttendanceLog godoc
+// @Summary      Update attendance event time
+// @Description  attendance_logs yozuvining event_at vaqtini qo'lda tuzatadi — face-id noto'g'ri vaqt yozgan
+// @Description  yoki avtomatik yopish xato ishlagan hollar uchun.
+// @Description  Faqat event_at o'zgaradi; xodim yoki voqea turini almashtirish uchun eskisini o'chirib,
+// @Description  /employee/attendance-manual orqali yangisini yaratish kerak.
+// @Description  DIQQAT: employee_attendance_days darhol qayta hisoblanmaydi — u kunlik cron bilan to'ladi
+// @Description  va cron faqat kechagi kunni qamraydi. Eskiroq kunni tuzatgandan keyin o'sha kunning
+// @Description  yig'indisi (ishlagan soat, kechikish) eski holicha qoladi.
+// @Tags         employees
+// @Security     BearerAuth
+// @Accept       json
+// @Produce      json
+// @Param        id    path  string                              true  "Attendance log ID"
+// @Param        body  body  domain.UpdateAttendanceLogRequest  true  "Yangi event_at"
+// @Success      200  {object}  v1.Response
+// @Failure      400  {object}  v1.Response
+// @Failure      401  {object}  v1.Response
+// @Failure      404  {object}  v1.Response
+// @Failure      500  {object}  v1.Response
+// @Router       /employee/attendance-logs/{id} [put]
+func (h *EmployeeHandler) UpdateAttendanceLog(c *gin.Context) {
+	user := h.service.GetSignedUser(c)
+	if user.UserId == "" {
+		handleServiceResponse(c, nil, domain.UnauthorizedError)
+		return
+	}
+
+	id := c.Param("id")
+	if err := uuid.Validate(id); err != nil {
+		handleResponse(c, BadRequest, "Invalid id")
+		return
+	}
+
+	var body domain.UpdateAttendanceLogRequest
+	if err := c.ShouldBindJSON(&body); err != nil {
+		handleResponse(c, BadRequest, err.Error())
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(c.Request.Context(), constants.DefaultContextTimeout)
+	defer cancel()
+
+	res, err := h.service.UpdateAttendanceLogEventAt(ctx, id, body.EventAt)
+	if err != nil {
+		handleServiceResponse(c, nil, err)
+		return
+	}
+
+	handleResponse(c, OK, res)
 }
 
 // DeleteAttendanceFaceId godoc

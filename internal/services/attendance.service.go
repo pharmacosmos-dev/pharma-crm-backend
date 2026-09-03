@@ -288,6 +288,44 @@ func (s *Services) GetAttendanceLogList(ctx context.Context, params *domain.Atte
 }
 
 
+// UpdateAttendanceLogEventAt — check-in/check-out vaqtini qo'lda tuzatadi
+// (face-id noto'g'ri vaqt yozgan yoki auto-close xato ishlagan hollar uchun).
+//
+// Yangilangan yozuvni qaytaradi. Ketma-ketlik (check-in/check-out navbati)
+// tekshirilmaydi — bu qo'lda tuzatish uchun, CreateManualAttendanceLog'dagi
+// kabi.
+//
+// DIQQAT: employee_attendance_days bu yerda qayta hisoblanmaydi. U kunlik cron
+// bilan to'ladi va cron faqat KECHAGI kunni qamraydi, shuning uchun eskiroq
+// kunni tuzatgandan keyin o'sha kunning yig'indisi eski holicha qoladi.
+// Qarang: RecalculateAttendanceDay.
+func (s *Services) UpdateAttendanceLogEventAt(
+	ctx context.Context, id string, eventAt time.Time,
+) (*domain.AttendanceLog, error) {
+	result := s.db.WithContext(ctx).
+		Model(&domain.AttendanceLog{}).
+		Where("id = ?", id).
+		Updates(map[string]any{
+			"event_at":   eventAt,
+			"updated_at": time.Now(),
+		})
+	if result.Error != nil {
+		s.log.Errorf("could not update attendance log event_at: %v", result.Error)
+		return nil, domain.InternalServerError
+	}
+	if result.RowsAffected == 0 {
+		return nil, domain.ResourceNotFoundError
+	}
+
+	var log domain.AttendanceLog
+	if err := s.db.WithContext(ctx).Take(&log, "id = ?", id).Error; err != nil {
+		s.log.Errorf("could not read back attendance log: %v", err)
+		return nil, domain.InternalServerError
+	}
+
+	return &log, nil
+}
+
 func (s *Services) DeleteAttendanceLog(ctx context.Context, id string) error {
 	result := s.db.WithContext(ctx).
 		Where("id = ?", id).

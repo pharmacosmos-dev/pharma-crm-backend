@@ -35,6 +35,15 @@ type ManualCreateAttendanceLogRequest struct {
 	EventAt    time.Time `json:"event_at" binding:"required" example:"2026-08-03T15:34:27+05:00"`
 }
 
+// UpdateAttendanceLogRequest — check-in/check-out vaqtini qo'lda tuzatish.
+//
+// Faqat event_at o'zgaradi: employee_id yoki event_type'ni bu yerdan
+// almashtirish yozuvni butunlay boshqa voqeaga aylantirardi — buning uchun
+// eskisini o'chirib, yangisini qo'lda yaratish to'g'riroq.
+type UpdateAttendanceLogRequest struct {
+	EventAt time.Time `json:"event_at" binding:"required" example:"2026-09-03T09:15:00+05:00"`
+}
+
 type AttendanceLogQueryParams struct {
 	StoreId      string      `form:"store_id"`
 	EmployeeId   string      `form:"employee_id"`
