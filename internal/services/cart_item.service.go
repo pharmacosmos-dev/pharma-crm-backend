@@ -364,6 +364,7 @@ func (s *Services) GetOrCheckOnlineCartItems(ctx context.Context, storeId string
 		cartItems = append(cartItems, domain.CartItemOnlineRequest{
 			SaleId:         saleId,
 			StoreProductId: storeProduct.Id,
+			ProductId:      storeProduct.ProductId,
 			UnitQuantity:   req[i].Quantity * (storeProduct.UnitPerPack / storeProduct.BlisterCount),
 			UnitPrice:      storeProduct.RetailPrice,
 			TotalPrice:     (storeProduct.RetailPrice / float64(storeProduct.UnitPerPack)) * float64(req[i].Quantity*(storeProduct.UnitPerPack/storeProduct.BlisterCount)),
