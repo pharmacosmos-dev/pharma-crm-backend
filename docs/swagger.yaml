@@ -2173,6 +2173,14 @@ definitions:
       unit_name:
         type: string
     type: object
+  domain.UpdateAttendanceLogRequest:
+    properties:
+      event_at:
+        example: "2026-09-03T09:15:00+05:00"
+        type: string
+    required:
+    - event_at
+    type: object
   domain.UpdateAutoOrderRequest:
     properties:
       is_auto_order:
@@ -6599,6 +6607,57 @@ paths:
       summary: Delete attendance log
       tags:
       - employees
+    put:
+      consumes:
+      - application/json
+      description: |-
+        attendance_logs yozuvining event_at vaqtini qo'lda tuzatadi — face-id noto'g'ri vaqt yozgan
+        yoki avtomatik yopish xato ishlagan hollar uchun.
+        Faqat event_at o'zgaradi; xodim yoki voqea turini almashtirish uchun eskisini o'chirib,
+        /employee/attendance-manual orqali yangisini yaratish kerak.
+        DIQQAT: employee_attendance_days darhol qayta hisoblanmaydi — u kunlik cron bilan to'ladi
+        va cron faqat kechagi kunni qamraydi. Eskiroq kunni tuzatgandan keyin o'sha kunning
+        yig'indisi (ishlagan soat, kechikish) eski holicha qoladi.
+      parameters:
+      - description: Attendance log ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Yangi event_at
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/domain.UpdateAttendanceLogRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Update attendance event time
+      tags:
+      - employees
   /employee/attendance-manual:
     post:
       consumes:
@@ -7347,9 +7406,25 @@ paths:
         in: query
         name: store_id
         type: string
+      - description: Employee ID
+        in: query
+        name: employee_id
+        type: string
+      - description: employees.role_type (CASHIER, HEADOFCASHIER, ...)
+        in: query
+        name: role_type
+        type: string
+      - description: employees.shift_type (day yoki night)
+        in: query
+        name: shift_type
+        type: string
       - description: Ism yoki telefon bo'yicha qidiruv
         in: query
         name: search
+        type: string
+      - description: Sana YYYY-MM-DD (year/month o'rniga)
+        in: query
+        name: date
         type: string
       - description: 'Year (default: joriy)'
         in: query
@@ -7410,6 +7485,18 @@ paths:
       - description: Store ID
         in: query
         name: store_id
+        type: string
+      - description: Employee ID
+        in: query
+        name: employee_id
+        type: string
+      - description: employees.role_type (CASHIER, HEADOFCASHIER, ...)
+        in: query
+        name: role_type
+        type: string
+      - description: employees.shift_type (day yoki night)
+        in: query
+        name: shift_type
         type: string
       - description: Ism yoki telefon bo'yicha qidiruv
         in: query
@@ -21987,7 +22074,8 @@ paths:
         in: query
         name: company_id
         type: string
-      - description: is_franchise
+      - description: 'E''TIBORGA OLINMAYDI: ro''yxatga faqat franshiza bo''lmagan
+          kompaniyalar do''konlari kiradi'
         in: query
         name: is_franchise
         type: boolean
@@ -22154,7 +22242,8 @@ paths:
         in: query
         name: company_id
         type: string
-      - description: is_franchise
+      - description: 'E''TIBORGA OLINMAYDI: ro''yxatga faqat franshiza bo''lmagan
+          kompaniyalar do''konlari kiradi'
         in: query
         name: is_franchise
         type: boolean

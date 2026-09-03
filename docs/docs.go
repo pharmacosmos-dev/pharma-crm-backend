@@ -5936,6 +5936,74 @@ const docTemplate = `{
             }
         },
         "/employee/attendance-logs/{id}": {
+            "put": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "attendance_logs yozuvining event_at vaqtini qo'lda tuzatadi — face-id noto'g'ri vaqt yozgan\nyoki avtomatik yopish xato ishlagan hollar uchun.\nFaqat event_at o'zgaradi; xodim yoki voqea turini almashtirish uchun eskisini o'chirib,\n/employee/attendance-manual orqali yangisini yaratish kerak.\nDIQQAT: employee_attendance_days darhol qayta hisoblanmaydi — u kunlik cron bilan to'ladi\nva cron faqat kechagi kunni qamraydi. Eskiroq kunni tuzatgandan keyin o'sha kunning\nyig'indisi (ishlagan soat, kechikish) eski holicha qoladi.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "employees"
+                ],
+                "summary": "Update attendance event time",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Attendance log ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Yangi event_at",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/domain.UpdateAttendanceLogRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    }
+                }
+            },
             "delete": {
                 "security": [
                     {
@@ -7036,8 +7104,32 @@ const docTemplate = `{
                     },
                     {
                         "type": "string",
+                        "description": "Employee ID",
+                        "name": "employee_id",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "employees.role_type (CASHIER, HEADOFCASHIER, ...)",
+                        "name": "role_type",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "employees.shift_type (day yoki night)",
+                        "name": "shift_type",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
                         "description": "Ism yoki telefon bo'yicha qidiruv",
                         "name": "search",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Sana YYYY-MM-DD (year/month o'rniga)",
+                        "name": "date",
                         "in": "query"
                     },
                     {
@@ -7116,6 +7208,24 @@ const docTemplate = `{
                         "type": "string",
                         "description": "Store ID",
                         "name": "store_id",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Employee ID",
+                        "name": "employee_id",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "employees.role_type (CASHIER, HEADOFCASHIER, ...)",
+                        "name": "role_type",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "employees.shift_type (day yoki night)",
+                        "name": "shift_type",
                         "in": "query"
                     },
                     {
@@ -30019,7 +30129,7 @@ const docTemplate = `{
                     },
                     {
                         "type": "boolean",
-                        "description": "is_franchise",
+                        "description": "E'TIBORGA OLINMAYDI: ro'yxatga faqat franshiza bo'lmagan kompaniyalar do'konlari kiradi",
                         "name": "is_franchise",
                         "in": "query"
                     }
@@ -30280,7 +30390,7 @@ const docTemplate = `{
                     },
                     {
                         "type": "boolean",
-                        "description": "is_franchise",
+                        "description": "E'TIBORGA OLINMAYDI: ro'yxatga faqat franshiza bo'lmagan kompaniyalar do'konlari kiradi",
                         "name": "is_franchise",
                         "in": "query"
                     }
@@ -37498,6 +37608,18 @@ const docTemplate = `{
                 },
                 "unit_name": {
                     "type": "string"
+                }
+            }
+        },
+        "domain.UpdateAttendanceLogRequest": {
+            "type": "object",
+            "required": [
+                "event_at"
+            ],
+            "properties": {
+                "event_at": {
+                    "type": "string",
+                    "example": "2026-09-03T09:15:00+05:00"
                 }
             }
         },
