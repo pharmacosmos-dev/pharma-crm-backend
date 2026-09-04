@@ -99,11 +99,11 @@ const payrollWorkDayHours = 8
 // Ikkala son ham employees/stores jadvallaridan keladi, payroll yig'indisidan
 // emas — shuning uchun cron hali ishlamagan do'konda ham to'g'ri ko'rinadi.
 type storeRef struct {
-	Id                       string `gorm:"column:id"`
-	Name                     string `gorm:"column:name"`
-	EmployeeCount            int    `gorm:"column:store_employee_count"`
-	ActiveStoreEmployeeCount int    `gorm:"column:active_store_employee_count"`
-	IsFranchise              bool   `gorm:"column:is_franchise"`
+	Id                       string  `gorm:"column:id"`
+	Name                     string  `gorm:"column:name"`
+	EmployeeCount            float64 `gorm:"column:store_employee_count"`
+	ActiveStoreEmployeeCount int     `gorm:"column:active_store_employee_count"`
+	IsFranchise              bool    `gorm:"column:is_franchise"`
 }
 
 // employeePayrollPageRow — hisobot qatori + umumiy son. total_count har bir
@@ -1472,7 +1472,7 @@ per_store AS (
 )
 SELECT
     (SELECT COUNT(*) FROM stores_f)::bigint                             AS total_stores_count,
-    COALESCE((SELECT SUM(employee_count) FROM stores_f), 0)::bigint     AS total_employee_count,
+    COALESCE((SELECT SUM(employee_count) FROM stores_f), 0)::numeric    AS total_employee_count,
     COALESCE((SELECT SUM(active_employee_count) FROM stores_f), 0)::bigint AS total_active_store_employee_count,
     (SELECT COUNT(*) FROM payrolls_f)::bigint                           AS total_payroll_count,
 

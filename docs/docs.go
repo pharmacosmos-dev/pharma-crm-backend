@@ -37410,7 +37410,7 @@ const docTemplate = `{
             ],
             "properties": {
                 "employee_count": {
-                    "type": "integer",
+                    "type": "number",
                     "minimum": 0
                 }
             }
@@ -37448,7 +37448,7 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "employee_count": {
-                    "type": "integer"
+                    "type": "number"
                 },
                 "inn": {
                     "type": "string"

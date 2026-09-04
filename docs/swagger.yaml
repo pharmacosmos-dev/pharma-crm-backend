@@ -2025,7 +2025,7 @@ definitions:
     properties:
       employee_count:
         minimum: 0
-        type: integer
+        type: number
     required:
     - employee_count
     type: object
@@ -2051,7 +2051,7 @@ definitions:
       detailed_name:
         type: string
       employee_count:
-        type: integer
+        type: number
       inn:
         type: string
       is_fullday:

@@ -16,7 +16,7 @@ type Store struct {
 	Phone              string         `gorm:"phone" json:"phone"`
 	Contact            string         `gorm:"contact" json:"contact"`
 	Inn                string         `gorm:"inn" json:"inn"`
-	EmployeeCount      int            `gorm:"employee_count" json:"employee_count"`
+	EmployeeCount      float64        `gorm:"employee_count" json:"employee_count"`
 	CashBoxCount       int            `gorm:"cash_box_count" json:"cash_box_count"`
 	Address            string         `gorm:"address" json:"address"`
 	Location           string         `gorm:"location" json:"location"`
@@ -38,7 +38,7 @@ type StoreDto struct {
 	Phone              string         `gorm:"phone" json:"phone"`
 	Contact            string         `gorm:"contact" json:"contact"`
 	Inn                string         `gorm:"inn" json:"inn"`
-	EmployeeCount      int            `gorm:"employee_count" json:"employee_count"`
+	EmployeeCount      float64        `gorm:"employee_count" json:"employee_count"`
 	CashBoxCount       int            `gorm:"cash_box_count" json:"cash_box_count"`
 	Address            string         `gorm:"address" json:"address"`
 	Location           string         `gorm:"location" json:"location"`
@@ -62,7 +62,7 @@ type StoreRequest struct {
 	DetailedName  string         `gorm:"detailed_name" json:"detailed_name"`
 	Address       string         `gorm:"address" json:"address"`
 	Inn           string         `gorm:"inn" json:"inn"`
-	EmployeeCount int            `gorm:"employee_count" json:"employee_count"`
+	EmployeeCount float64        `gorm:"employee_count" json:"employee_count"`
 	CashBoxCount  int            `gorm:"cash_box_count" json:"cash_box_count"`
 	StoreCode     int            `gorm:"store_code" json:"store_code"`
 	Location      string         `gorm:"location" json:"location"`
@@ -79,7 +79,7 @@ type StoreUpdateRequest struct {
 	DetailedName  string         `gorm:"detailed_name" json:"detailed_name"`
 	Address       string         `gorm:"address" json:"address"`
 	Inn           string         `gorm:"inn" json:"inn"`
-	EmployeeCount int            `gorm:"employee_count" json:"employee_count"`
+	EmployeeCount float64        `gorm:"employee_count" json:"employee_count"`
 	CashBoxCount  int            `gorm:"cash_box_count" json:"cash_box_count"`
 	StoreCode     int            `gorm:"store_code" json:"store_code"`
 	CompanyId     string         `gorm:"company_id" json:"company_id"`
@@ -119,29 +119,32 @@ type StoreEmployeeCountQueryParams struct {
 
 // StoreEmployeeCount holds the planned headcount of a store next to the number
 // of employees actually assigned to it.
+// EmployeeCount rejadagi son bo'lgani uchun kasr bo'lishi mumkin (yarim stavka:
+// 2.5). ActualEmployeeCount esa haqiqiy xodimlar sanog'i — u doim butun.
 type StoreEmployeeCount struct {
-	Id                  string `json:"id"`
-	StoreCode           int    `json:"store_code"`
-	Name                string `json:"name"`
-	CompanyId           string `json:"company_id"`
-	EmployeeCount       int    `json:"employee_count"`
-	CashBoxCount        int    `json:"cash_box_count"`
-	ActualEmployeeCount int    `json:"actual_employee_count"`
-	Difference          int `json:"difference"`
+	Id                  string  `json:"id"`
+	StoreCode           int     `json:"store_code"`
+	Name                string  `json:"name"`
+	CompanyId           string  `json:"company_id"`
+	EmployeeCount       float64 `json:"employee_count"`
+	CashBoxCount        int     `json:"cash_box_count"`
+	ActualEmployeeCount int     `json:"actual_employee_count"`
+	Difference          float64 `json:"difference"`
 }
 
 // StoreEmployeeCountStat is the StoreEmployeeCount list rolled up into totals.
 type StoreEmployeeCountStat struct {
-	TotalStores         int64 `json:"total_stores"`
-	TotalPlanEmployees  int64 `json:"total_plan_employees"`
-	ActualEmployeeCount int64 `json:"actual_employee_count"`
-	TotalDiff           int64 `json:"total_diff"`
+	TotalStores         int64   `json:"total_stores"`
+	TotalPlanEmployees  float64 `json:"total_plan_employees"`
+	ActualEmployeeCount int64   `json:"actual_employee_count"`
+	TotalDiff           float64 `json:"total_diff"`
 }
 
 // StoreEmployeeCountRequest updates the planned headcount of a single store.
 // The pointer keeps an explicit 0 distinguishable from a missing field.
+// Kasr qiymat qabul qilinadi (yarim stavka uchun 2.5).
 type StoreEmployeeCountRequest struct {
-	EmployeeCount *int `json:"employee_count" binding:"required,min=0"`
+	EmployeeCount *float64 `json:"employee_count" binding:"required,min=0"`
 }
 
 type StoreMapInfoQueryParams struct {

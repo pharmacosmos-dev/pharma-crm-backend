@@ -37403,7 +37403,7 @@
             ],
             "properties": {
                 "employee_count": {
-                    "type": "integer",
+                    "type": "number",
                     "minimum": 0
                 }
             }
@@ -37441,7 +37441,7 @@
                     "type": "string"
                 },
                 "employee_count": {
-                    "type": "integer"
+                    "type": "number"
                 },
                 "inn": {
                     "type": "string"

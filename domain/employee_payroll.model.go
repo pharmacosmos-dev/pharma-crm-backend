@@ -361,9 +361,11 @@ type StorePayroll struct {
 	// tartiblangan: franshiza do'konlari eng oxirida keladi.
 	IsFranchise bool `json:"is_franchise"`
 
-	EmployeeCount            int `json:"employee_count"`
-	ActiveStoreEmployeeCount int `json:"active_store_employee_count"`
-	PayrollCount             int `json:"payroll_count"`
+	// EmployeeCount — stores.employee_count, ya'ni rejadagi son: yarim stavka
+	// uchun kasr bo'lishi mumkin (2.5). Qolgan ikkitasi haqiqiy sanoq — butun.
+	EmployeeCount            float64 `json:"employee_count"`
+	ActiveStoreEmployeeCount int     `json:"active_store_employee_count"`
+	PayrollCount             int     `json:"payroll_count"`
 
 	WorkedHours     float64 `json:"worked_hours"`
 	AvgMonthlyHours float64 `json:"avg_monthly_hours"`
@@ -403,10 +405,10 @@ type StorePayroll struct {
 // Odatda TotalPayrollCount <= TotalActiveStoreEmployeeCount: rol mos kelmagan
 // yoki smenaga chiqmagan xodimlar hisobga kirmaydi.
 type StorePayrollStatistics struct {
-	TotalStoresCount              int64 `json:"total_stores_count"`
-	TotalEmployeeCount            int64 `json:"total_employee_count"`
-	TotalActiveStoreEmployeeCount int64 `json:"total_active_store_employee_count"`
-	TotalPayrollCount             int64 `json:"total_payroll_count"`
+	TotalStoresCount              int64   `json:"total_stores_count"`
+	TotalEmployeeCount            float64 `json:"total_employee_count"`
+	TotalActiveStoreEmployeeCount int64   `json:"total_active_store_employee_count"`
+	TotalPayrollCount             int64   `json:"total_payroll_count"`
 
 	TotalWorkedHours     float64 `json:"total_worked_hours"`
 	TotalAvgMonthlyHours float64 `json:"total_avg_monthly_hours"`
