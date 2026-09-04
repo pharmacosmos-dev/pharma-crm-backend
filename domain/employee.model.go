@@ -86,7 +86,7 @@ type EmployeeRequest struct {
 	Status          string         `gorm:"status" json:"-"`
 	Password        *string        `gorm:"password" json:"password"`
 	Language        string         `gorm:"language" json:"language" validate:"required,oneof=uz en ru"`
-	Birthdate       string         `gorm:"birthdate" json:"birthdate"`
+	Birthdate       *string        `gorm:"birthdate" json:"birthdate"`
 	StartDate       *string        `gorm:"start_date" json:"start_date"`
 	EndDate         *string        `gorm:"end_date" json:"end_date"`
 

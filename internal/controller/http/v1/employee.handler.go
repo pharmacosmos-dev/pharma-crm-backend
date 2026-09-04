@@ -82,6 +82,34 @@ func floatOrZero(v *float64) *float64 {
 	return &zero
 }
 
+// nullIfBlank — bo'sh (yoki faqat probel) string uchun nil qaytaradi.
+// DATE ustunlariga "" yozilsa Postgres 22007 xatosini beradi, shuning uchun
+// bunday qiymatlar NULL sifatida saqlanadi.
+func nullIfBlank(v *string) *string {
+	if v == nil || strings.TrimSpace(*v) == "" {
+		return nil
+	}
+	return v
+}
+
+// isPhoneTaken — telefon raqami o'chirilmagan boshqa xodimga biriktirilganmi.
+// Login telefon raqami bo'yicha ishlagani uchun raqam butun tizim bo'ylab yagona
+// bo'lishi kerak. excludeId berilsa (update), o'sha xodimning o'zi hisobga olinmaydi.
+func (h *EmployeeHandler) isPhoneTaken(c *gin.Context, phone, excludeId string) (bool, error) {
+	query := h.db.WithContext(c.Request.Context()).
+		Table("employees").
+		Where("phone = ? AND deleted_at IS NULL", phone)
+	if excludeId != "" {
+		query = query.Where("id <> ?", excludeId)
+	}
+
+	var count int64
+	if err := query.Count(&count).Error; err != nil {
+		return false, err
+	}
+	return count > 0, nil
+}
+
 // @Summary      Create employee
 // @Description  Create a new employee in the system.
 // @Tags         employees
@@ -110,6 +138,17 @@ func (h *EmployeeHandler) Create(c *gin.Context) {
 		handleResponse(c, BadRequest, "Invalid phone number, Format: 998901234567")
 		return
 	}
+	// telefon raqami band emasligini tekshirish
+	taken, err := h.isPhoneTaken(c, body.Phone, "")
+	if err != nil {
+		h.log.Errorf("ERROR on checking employee phone uniqueness: %v", err)
+		handleResponse(c, InternalError, "Can't check employee phone number")
+		return
+	}
+	if taken {
+		handleServiceResponse(c, nil, domain.DuplicatePhoneError)
+		return
+	}
 
 	hashedPassword, err := etc.Encrypt(*body.Password, h.cfg.HashKey)
 	if err != nil {
@@ -122,6 +161,10 @@ func (h *EmployeeHandler) Create(c *gin.Context) {
 	body.Id = uuid.New().String()
 	body.Status = "active"
 	body.FullName = body.FirstName + " " + body.LastName
+	// bo'sh sana qiymatlari NULL bo'lishi kerak (DATE ustunlari "" ni qabul qilmaydi)
+	body.Birthdate = nullIfBlank(body.Birthdate)
+	body.StartDate = nullIfBlank(body.StartDate)
+	body.EndDate = nullIfBlank(body.EndDate)
 	// create employee
 	err = h.db.
 		WithContext(c.Request.Context()).
@@ -353,8 +396,23 @@ func (h *EmployeeHandler) Update(c *gin.Context) {
 		handleResponse(c, BadRequest, "Invalid phone number, Format: 998901234567")
 		return
 	}
+	// telefon raqami boshqa xodimda band emasligini tekshirish
+	taken, err := h.isPhoneTaken(c, body.Phone, id)
+	if err != nil {
+		h.log.Errorf("ERROR on checking employee phone uniqueness: %v", err)
+		handleResponse(c, InternalError, "Can't check employee phone number")
+		return
+	}
+	if taken {
+		handleServiceResponse(c, nil, domain.DuplicatePhoneError)
+		return
+	}
 	// collect full_name by adding first and last name
 	body.FullName = body.FirstName + " " + body.LastName
+	// bo'sh sana qiymatlari NULL bo'lishi kerak (DATE ustunlari "" ni qabul qilmaydi)
+	body.Birthdate = nullIfBlank(body.Birthdate)
+	body.StartDate = nullIfBlank(body.StartDate)
+	body.EndDate = nullIfBlank(body.EndDate)
 	// check password password not nill
 	if body.Password != nil {
 		// get encrypted new password
