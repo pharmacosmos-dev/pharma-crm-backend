@@ -93,6 +93,10 @@ var (
 	DependencyFailedError    = NewError(http.StatusFailedDependency, "dependency.failed")
 	PaymeNotOperationalError = NewError(http.StatusFailedDependency, "payme.not.operational")
 	ClickNotOperationalError = NewError(http.StatusFailedDependency, "click.not.operational")
+	// NoorNotOperationalError — Noor API so'rovni rad etdi yoki javob bermadi
+	// (token yaroqsiz, buyurtma topilmadi, tarmoq uzildi). Sabab ilovada emas,
+	// shuning uchun 500 emas: batafsil status/body log'ga yoziladi.
+	NoorNotOperationalError = NewError(http.StatusFailedDependency, "noor.not.operational")
 
 	// 429 – Too Many Requests (rate limit)
 	RateLimitExceededError = NewError(http.StatusTooManyRequests, "rate.limit.exceeded")

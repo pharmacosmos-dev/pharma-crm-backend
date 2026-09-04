@@ -200,6 +200,8 @@ func mapErrorCodeToStatus(code int) Status {
 		return CONFLICT
 	case 422:
 		return UnprocessableEntity
+	case 424:
+		return FailedDependency
 	case 429:
 		return TooManyRequests
 	case 500:

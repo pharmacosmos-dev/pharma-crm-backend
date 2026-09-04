@@ -102,6 +102,11 @@ var (
 		Status:      "UNPROCESSABLE_ENTITY",
 		Description: "The server understands the request but cannot process it due to semantic errors.",
 	}
+	FailedDependency = Status{
+		Code:        424,
+		Status:      "ERROR",
+		Description: "The request failed because it depended on an external service that returned an error.",
+	}
 	TooManyRequests = Status{
 		Code:        429,
 		Status:      "TOO_MANY_REQUESTS",

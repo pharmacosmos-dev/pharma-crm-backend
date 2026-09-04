@@ -1337,6 +1337,7 @@ func (s *Services) AcceptOnlineSale(ctx context.Context, req *domain.ConfirmOnli
 
 	// check before accepted
 	if sale.OnlineStatus != constants.SaleOnlineStageNew && sale.Stage != constants.SaleStageNew {
+		_ = tx.Rollback()
 		return nil, domain.AlreadyAcceptedError
 	}
 
@@ -1373,7 +1374,7 @@ func (s *Services) AcceptOnlineSale(ctx context.Context, req *domain.ConfirmOnli
 		if err != nil {
 			_ = tx.Rollback()
 			s.log.Errorf("could not send order confirm request to noor: %v", err)
-			return nil, domain.InternalServerError
+			return nil, domain.NoorNotOperationalError
 		}
 	}
 
@@ -1444,7 +1445,7 @@ func (s *Services) CancelOnlineSale(ctx context.Context, req *domain.ConfirmOnli
 	if err != nil {
 		_ = tx.Rollback()
 		s.log.Errorf("could not send order cancel request to noor: %v", err)
-		return domain.InternalServerError
+		return domain.NoorNotOperationalError
 	}
 	// commit transaction
 	if err = tx.Commit().Error; err != nil {

@@ -1198,6 +1198,7 @@ func (h *SaleHandler) RemoveCustomerDiscount(c *gin.Context) {
 // @Param   body body domain.ConfirmOnlineSaleRequest true "confirm online sale"
 // @Success 200 {object} v1.Response
 // @Failure 400 {object} v1.Response
+// @Failure 424 {object} v1.Response "noor.not.operational — Noor API so'rovni rad etdi"
 // @Failure 500 {object} v1.Response
 // @Router 	/sale/online-accept [POST]
 func (h *SaleHandler) AcceptOnlineSale(c *gin.Context) {
@@ -1236,6 +1237,7 @@ func (h *SaleHandler) AcceptOnlineSale(c *gin.Context) {
 // @Param   body body domain.ConfirmOnlineSaleRequest true "cancel online sale"
 // @Success 200 {object} v1.Response
 // @Failure 400 {object} v1.Response
+// @Failure 424 {object} v1.Response "noor.not.operational — Noor API so'rovni rad etdi"
 // @Failure 500 {object} v1.Response
 // @Router /sale/online-cancel [POST]
 func (h *SaleHandler) CancelOnlineSale(c *gin.Context) {
