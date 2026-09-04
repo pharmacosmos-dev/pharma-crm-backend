@@ -195,6 +195,15 @@ func (s *Services) DashboardTopProducts(ctx context.Context, params *domain.Dash
 		qb.Where("s.store_id IN (?)", params.StoreIds)
 	}
 
+	// Company filter. sales jadvalida company_id yo'q, shuning uchun do'kon
+	// orqali bog'lanadi — boshqa dashboard so'rovlarida ham aynan shu usul.
+	// Busiz is_pharma/is_franchise tanlovi e'tiborsiz qolib, hamma kompaniya
+	// mahsulotlari aralashib ketardi: handler bu holatda StoreIds'ni bo'shatib,
+	// doirani faqat CompanyIds orqali beradi.
+	if len(params.CompanyIds) > 0 {
+		qb = qb.Joins("JOIN stores st ON st.id = s.store_id AND st.company_id IN (?)", params.CompanyIds)
+	}
+
 	// Sorting (replaced switch)
 	order := utils.BuildTopProductOrderClause(params.Order)
 
