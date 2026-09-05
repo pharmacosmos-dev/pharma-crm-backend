@@ -133,7 +133,11 @@ func (h *RoleHandler) Get(c *gin.Context) {
 
 // List godoc
 // @Summary Get a role
-// @Description Get a role from the request body
+// @Description Rollar ro'yxati. Token egasining employees.role_type qiymati "operator" yoki
+// @Description "technical_support" bo'lsa, javobda faqat roles.role_type = "head_pharmacist",
+// @Description "pharmacist", "regional_sales_manager" yoki "intern" bo'lgan rollar qaytadi
+// @Description (total_count ham shu filtrga mos). Qolgan barcha xodimlarga rollar to'liq ko'rinadi.
+// @Description Ro'yxatning haqiqiy manbasi — domain.RoleListVisibleRoleTypes.
 // @Tags roles
 // @Security     BearerAuth
 // @Accept json
@@ -167,6 +171,17 @@ func (h *RoleHandler) List(c *gin.Context) {
 		q = q.Where("CAST(public_id AS TEXT) ILIKE ? OR name ILIKE ? OR description ILIKE ?", search, search, search)
 	}
 
+	// Operator va Texnik yordam xodimlariga faqat cheklangan rollar ko'rinadi.
+	viewerRoleType, err := h.employeeRoleType(c)
+	if err != nil {
+		h.log.Error(err)
+		handleResponse(c, InternalError, err.Error())
+		return
+	}
+	if domain.IsRestrictedRoleListViewer(viewerRoleType) {
+		q = q.Where("LOWER(TRIM(role_type)) IN (?)", domain.RoleListVisibleRoleTypes)
+	}
+
 	err = q.
 		Count(&totalCount).
 		Limit(limit).
@@ -180,6 +195,29 @@ func (h *RoleHandler) List(c *gin.Context) {
 	}
 	data := utils.ListResponse(res, totalCount, limit, offset)
 	handleResponse(c, OK, data)
+}
+
+// employeeRoleType — token egasining employees.role_type qiymatini qaytaradi.
+// Token'da user_id bo'lmasa yoki xodim topilmasa bo'sh satr qaytadi.
+func (h *RoleHandler) employeeRoleType(c *gin.Context) (string, error) {
+	userID, ok := c.Get("user_id")
+	if !ok || userID == nil || userID == "" {
+		return "", nil
+	}
+	var roleTypes []string
+	err := h.db.
+		WithContext(c.Request.Context()).
+		Table("employees").
+		Where("id = ?", userID).
+		Limit(1).
+		Pluck("COALESCE(role_type, '')", &roleTypes).Error
+	if err != nil {
+		return "", err
+	}
+	if len(roleTypes) == 0 {
+		return "", nil
+	}
+	return roleTypes[0], nil
 }
 
 // Update godoc

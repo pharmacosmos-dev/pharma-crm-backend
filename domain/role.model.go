@@ -1,10 +1,49 @@
 package domain
 
 import (
+	"strings"
 	"time"
 
 	"github.com/pharma-crm-backend/pkg/utils"
 )
+
+// Role type slug'lari — roles.role_type va employees.role_type uchun umumiy lug'at.
+const (
+	RoleTypeHeadPharmacist       = "head_pharmacist"        // Заведующий
+	RoleTypePharmacist           = "pharmacist"             // Фармацевт
+	RoleTypeRegionalSalesManager = "regional_sales_manager" // РОП
+	RoleTypeIntern               = "intern"                 // Стажер
+	RoleTypeOperator             = "operator"               // Оператор
+	RoleTypeFounder              = "founder"                // Учредитель
+	RoleTypeAccountant           = "accountant"             // Бухгалтер
+	RoleTypeOperationsDirector   = "operations_director"    // Операционный директор
+	RoleTypeAutoOrderManager     = "auto_order_manager"     // Менеджер автозаказов
+	RoleTypeReturnsManager       = "returns_manager"        // Менеджер по возвратам
+	RoleTypeTechnicalSupport     = "technical_support"      // Техподдержка
+)
+
+// restrictedRoleListViewers — bu role_type'dagi xodimlarga rollar ro'yxati
+// to'liq ko'rinmaydi (employees.role_type bo'yicha).
+var restrictedRoleListViewers = map[string]struct{}{
+	RoleTypeOperator:         {},
+	RoleTypeTechnicalSupport: {},
+}
+
+// RoleListVisibleRoleTypes — cheklangan xodim GET /role/list'da ko'ra oladigan
+// roles.role_type qiymatlari.
+var RoleListVisibleRoleTypes = []string{
+	RoleTypeHeadPharmacist,
+	RoleTypePharmacist,
+	RoleTypeRegionalSalesManager,
+	RoleTypeIntern,
+}
+
+// IsRestrictedRoleListViewer — berilgan employees.role_type uchun rollar ro'yxati
+// RoleListVisibleRoleTypes bilan cheklanishi kerakligini bildiradi.
+func IsRestrictedRoleListViewer(employeeRoleType string) bool {
+	_, ok := restrictedRoleListViewers[strings.ToLower(strings.TrimSpace(employeeRoleType))]
+	return ok
+}
 
 type Role struct {
 	Id              string     `gorm:"id" json:"id"`

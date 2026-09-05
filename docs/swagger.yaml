@@ -19617,7 +19617,12 @@ paths:
     get:
       consumes:
       - application/json
-      description: Get a role from the request body
+      description: |-
+        Rollar ro'yxati. Token egasining employees.role_type qiymati "operator" yoki
+        "technical_support" bo'lsa, javobda faqat roles.role_type = "head_pharmacist",
+        "pharmacist", "regional_sales_manager" yoki "intern" bo'lgan rollar qaytadi
+        (total_count ham shu filtrga mos). Qolgan barcha xodimlarga rollar to'liq ko'rinadi.
+        Ro'yxatning haqiqiy manbasi — domain.RoleListVisibleRoleTypes.
       parameters:
       - description: Limit
         in: query
