@@ -19,7 +19,7 @@ const (
 	RoleTypeOperationsDirector   = "operations_director"    // Операционный директор
 	RoleTypeAutoOrderManager     = "auto_order_manager"     // Менеджер автозаказов
 	RoleTypeReturnsManager       = "returns_manager"        // Менеджер по возвратам
-	RoleTypeTechnicalSupport     = "technical_support"      // Техподдержка
+	RoleTypeTechnicalSupport     = "tech_support"           // Техподдержка
 )
 
 // restrictedRoleListViewers — bu role_type'dagi xodimlarga rollar ro'yxati
