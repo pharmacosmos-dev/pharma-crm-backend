@@ -516,9 +516,6 @@ definitions:
         minimum: 0
         type: number
       daily_work_hours:
-        description: |-
-          DailyWorkHours — faqat 4, 7 yoki 8 soat. Tip ataylab int: validator'ning
-          `oneof` qoidasi float maydonda panic beradi (Bad field type float64).
         enum:
         - 4
         - 7
@@ -529,10 +526,6 @@ definitions:
         minimum: 0
         type: number
       role_type:
-        description: |-
-          RoleType — xodimning tizimdagi roli (employees.role_type), masalan
-          "CASHIER", "HEADOFCASHIER", "MANAGER". Berilsa xodim kartochkasida
-          yangilanadi va keyingi oylarga ham amal qiladi.
         example: CASHIER
         maxLength: 55
         type: string
@@ -540,7 +533,6 @@ definitions:
         minimum: 0
         type: number
       shift_type:
-        description: 'ShiftType — smena turi: "day" (День) yoki "night" (Ночь).'
         enum:
         - day
         - night
@@ -1915,6 +1907,10 @@ definitions:
         items:
           $ref: '#/definitions/domain.RolePermissionReq'
         type: array
+      role_type:
+        example: CASHIER
+        maxLength: 55
+        type: string
     type: object
   domain.RoleUpdateRequest:
     properties:
@@ -1926,6 +1922,10 @@ definitions:
         items:
           $ref: '#/definitions/domain.RolePermissionReq'
         type: array
+      role_type:
+        example: CASHIER
+        maxLength: 55
+        type: string
     type: object
   domain.SaleItem:
     properties:
@@ -20606,6 +20606,10 @@ paths:
           description: Bad Request
           schema:
             $ref: '#/definitions/v1.Response'
+        "424":
+          description: noor.not.operational — Noor API so'rovni rad etdi
+          schema:
+            $ref: '#/definitions/v1.Response'
         "500":
           description: Internal Server Error
           schema:
@@ -20636,6 +20640,10 @@ paths:
             $ref: '#/definitions/v1.Response'
         "400":
           description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "424":
+          description: noor.not.operational — Noor API so'rovni rad etdi
           schema:
             $ref: '#/definitions/v1.Response'
         "500":

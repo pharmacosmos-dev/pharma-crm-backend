@@ -89,14 +89,8 @@ const (
 type EmployeePayrollAdvanceRequest struct {
 	KpiPercent *float64 `json:"kpi_percent" binding:"omitempty,min=0"`
 	Salary     *float64 `json:"salary" binding:"omitempty,min=0"`
-	// RoleType — xodimning tizimdagi roli (employees.role_type), masalan
-	// "CASHIER", "HEADOFCASHIER", "MANAGER". Berilsa xodim kartochkasida
-	// yangilanadi va keyingi oylarga ham amal qiladi.
 	RoleType *string `json:"role_type" binding:"omitempty,max=55" example:"CASHIER"`
-	// DailyWorkHours — faqat 4, 7 yoki 8 soat. Tip ataylab int: validator'ning
-	// `oneof` qoidasi float maydonda panic beradi (Bad field type float64).
-	DailyWorkHours *int `json:"daily_work_hours" binding:"omitempty,oneof=4 7 8" example:"8"`
-	// ShiftType — smena turi: "day" (День) yoki "night" (Ночь).
+	DailyWorkHours *int `json:"daily_work_hours" binding:"omitempty,oneof=4 7 8" example:"8"` 
 	ShiftType         *string  `json:"shift_type" binding:"omitempty,oneof=day night" example:"night"`
 	AdvanceCardAmount *float64 `json:"advance_card_amount" binding:"omitempty,min=0"`
 	AdvanceCashAmount *float64 `json:"advance_cash_amount" binding:"omitempty,min=0"`

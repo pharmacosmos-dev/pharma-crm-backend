@@ -1,0 +1,2 @@
+ALTER TABLE "roles"
+    ADD COLUMN IF NOT EXISTS "role_type" VARCHAR(55);

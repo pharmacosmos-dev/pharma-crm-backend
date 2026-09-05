@@ -28014,6 +28014,12 @@ const docTemplate = `{
                             "$ref": "#/definitions/v1.Response"
                         }
                     },
+                    "424": {
+                        "description": "noor.not.operational — Noor API so'rovni rad etdi",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
@@ -28061,6 +28067,12 @@ const docTemplate = `{
                     },
                     "400": {
                         "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "424": {
+                        "description": "noor.not.operational — Noor API so'rovni rad etdi",
                         "schema": {
                             "$ref": "#/definitions/v1.Response"
                         }
@@ -35139,7 +35151,6 @@ const docTemplate = `{
                     "minimum": 0
                 },
                 "daily_work_hours": {
-                    "description": "DailyWorkHours — faqat 4, 7 yoki 8 soat. Tip ataylab int: validator'ning\n` + "`" + `oneof` + "`" + ` qoidasi float maydonda panic beradi (Bad field type float64).",
                     "type": "integer",
                     "enum": [
                         4,
@@ -35153,7 +35164,6 @@ const docTemplate = `{
                     "minimum": 0
                 },
                 "role_type": {
-                    "description": "RoleType — xodimning tizimdagi roli (employees.role_type), masalan\n\"CASHIER\", \"HEADOFCASHIER\", \"MANAGER\". Berilsa xodim kartochkasida\nyangilanadi va keyingi oylarga ham amal qiladi.",
                     "type": "string",
                     "maxLength": 55,
                     "example": "CASHIER"
@@ -35163,7 +35173,6 @@ const docTemplate = `{
                     "minimum": 0
                 },
                 "shift_type": {
-                    "description": "ShiftType — smena turi: \"day\" (День) yoki \"night\" (Ночь).",
                     "type": "string",
                     "enum": [
                         "day",
@@ -37238,6 +37247,11 @@ const docTemplate = `{
                     "items": {
                         "$ref": "#/definitions/domain.RolePermissionReq"
                     }
+                },
+                "role_type": {
+                    "type": "string",
+                    "maxLength": 55,
+                    "example": "CASHIER"
                 }
             }
         },
@@ -37255,6 +37269,11 @@ const docTemplate = `{
                     "items": {
                         "$ref": "#/definitions/domain.RolePermissionReq"
                     }
+                },
+                "role_type": {
+                    "type": "string",
+                    "maxLength": 55,
+                    "example": "CASHIER"
                 }
             }
         },

@@ -12,6 +12,7 @@ type Role struct {
 	Name            string     `gorm:"name" json:"name"`
 	PermissionCount int        `gorm:"permission_count" json:"permission_count"`
 	Description     string     `gorm:"description" json:"description"`
+	RoleType        *string    `gorm:"column:role_type" json:"role_type"`
 	CreatedAt       *time.Time `gorm:"created_at" json:"created_at"`
 	UpdatedAt       *time.Time `gorm:"updated_at" json:"updated_at"`
 }
@@ -21,13 +22,16 @@ type RoleRequest struct {
 	Id          string              `gorm:"id" json:"-"`
 	Name        string              `gorm:"name" json:"name"`
 	Description string              `gorm:"description" json:"description"`
+	RoleType    *string             `gorm:"column:role_type" json:"role_type" binding:"omitempty,max=55" example:"CASHIER"`
 	Permissions []RolePermissionReq `json:"permissions"`
 }
 
-// RoleUpdateRequest structure for update
+// RoleUpdateRequest structure for update.
+// RoleType berilmasa (yuborilmasa yoki null bo'lsa) mavjud qiymat o'zgarmaydi.
 type RoleUpdateRequest struct {
 	Name        string              `gorm:"name" json:"name"`
 	Description string              `gorm:"description" json:"description"`
+	RoleType    *string             `gorm:"column:role_type" json:"role_type" binding:"omitempty,max=55" example:"CASHIER"`
 	Permissions []RolePermissionReq `gorm:"-" json:"permissions"`
 }
 
@@ -64,4 +68,3 @@ type MainPermWithRoles struct {
 	Description string               `json:"description"`
 	Permissions []PermissionWithRoles `json:"permissions"`
 }
-
