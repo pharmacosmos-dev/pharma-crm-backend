@@ -48,10 +48,13 @@ func (h *AuthHandler) Login(c *gin.Context) {
 	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
 	defer cancel()
 
+	// domain.Employee'da gorm.DeletedAt maydoni yo'q, shuning uchun GORM
+	// "deleted_at IS NULL" shartini O'ZI QO'SHMAYDI — qo'lda yozilgan.
 	var employee domain.Employee
 	err := h.db.WithContext(ctx).
 		Preload("Store").
 		Where("is_active = ?", true).
+		Where("deleted_at IS NULL").
 		First(&employee, "phone = ?", body.Phone).Error
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
@@ -74,10 +77,16 @@ func (h *AuthHandler) Login(c *gin.Context) {
 		handleResponse(c, CONFLICT, "Wrong password")
 		return
 	}
-	// dismissed employees keep their account but can no longer sign in.
-	// Checked after the password so it does not leak who is dismissed.
-	if employee.Status == constants.GeneralStatusDismissed {
+
+	switch employee.Status {
+	case constants.GeneralStatusDismissed:
 		handleServiceResponse(c, nil, domain.EmployeeDismissedError)
+		return
+	case constants.GeneralStatusDeleted:
+		handleServiceResponse(c, nil, domain.EmployeeDeletedError)
+		return
+	case constants.GeneralStatusBlocked, constants.GeneralStatusInactive:
+		handleServiceResponse(c, nil, domain.EmployeeBlockedError)
 		return
 	}
 

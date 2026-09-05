@@ -915,11 +915,14 @@ func (h *EmployeeHandler) BlockEmployee(c *gin.Context) {
 		handleResponse(c, BadRequest, "No employee IDs provided")
 		return
 	}
+	// O'chirilgan xodimning statusi "deleted" bo'lib qolishi kerak, aks holda
+	// keyingi unblock uni tiriltirib yuboradi.
 	err := h.db.
 		WithContext(c.Request.Context()).
 		Table("employees").
 		Where("id IN (?)", ids).
-		Update("status", "blocked").Error
+		Where("status <> ?", constants.GeneralStatusDeleted).
+		Update("status", constants.GeneralStatusBlocked).Error
 	if err != nil {
 		h.log.Error(fmt.Errorf("err: %v", err))
 		handleResponse(c, InternalError, err.Error())
@@ -952,12 +955,23 @@ func (h *EmployeeHandler) UnBlockEmployee(c *gin.Context) {
 		handleResponse(c, BadRequest, "No employee IDs provided")
 		return
 	}
+	// DIQQAT: ikkita ketma-ket .Update() ishlatmang. Update — finisher metod;
+	// birinchisi bajarilgach Statement.SQL to'lib qoladi va ikkinchi chaqiruv
+	// yangi SET qurmasdan AYNAN o'sha SQL'ni qayta bajaradi. Natijada status
+	// hech qachon yozilmasdan faqat is_active = true bo'lardi — o'chirilgan
+	// xodim (status = "deleted") tirilib, login qilib ketardi.
+	//
+	// O'chirilgan xodim unblock orqali qaytarilmaydi: uni tiklash alohida amal.
 	err := h.db.
 		WithContext(c.Request.Context()).
 		Table("employees").
 		Where("id IN (?)", ids).
-		Update("is_active", true).
-		Update("status", "active").Error
+		Where("status <> ?", constants.GeneralStatusDeleted).
+		Where("deleted_at IS NULL").
+		Updates(map[string]any{
+			"is_active": true,
+			"status":    constants.GeneralStatusActive,
+		}).Error
 	if err != nil {
 		h.log.Error(fmt.Errorf("err: %v", err))
 		handleResponse(c, InternalError, err.Error())

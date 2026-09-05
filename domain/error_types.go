@@ -61,6 +61,8 @@ var (
 
 	// 403 – Forbidden (kirish taqiqlangan)
 	EmployeeDismissedError = NewError(http.StatusForbidden, "employee.dismissed")
+	EmployeeDeletedError   = NewError(http.StatusForbidden, "employee.deleted")
+	EmployeeBlockedError   = NewError(http.StatusForbidden, "employee.blocked")
 
 	// 408 - Timeout (vaqt yetmadi)
 	OTPExpiredError          = NewError(http.StatusRequestTimeout, "otp.expired")
