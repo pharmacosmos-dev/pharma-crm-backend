@@ -396,16 +396,33 @@ func (h *EmployeeHandler) Update(c *gin.Context) {
 		handleResponse(c, BadRequest, "Invalid phone number, Format: 998901234567")
 		return
 	}
-	// telefon raqami boshqa xodimda band emasligini tekshirish
-	taken, err := h.isPhoneTaken(c, body.Phone, id)
-	if err != nil {
-		h.log.Errorf("ERROR on checking employee phone uniqueness: %v", err)
-		handleResponse(c, InternalError, "Can't check employee phone number")
+
+	var currentEmployee struct {
+		Phone   string  `gorm:"column:phone"`
+		StoreId *string `gorm:"column:store_id"`
+	}
+	if err = h.db.WithContext(c.Request.Context()).
+		Table("employees").
+		Select("phone, store_id").
+		Where("id = ?", id).
+		Scan(&currentEmployee).Error; err != nil {
+		h.log.Warn("ERROR on getting current employee: %v", err)
+		handleResponse(c, InternalError, "Can't get employee data")
 		return
 	}
-	if taken {
-		handleServiceResponse(c, nil, domain.DuplicatePhoneError)
-		return
+
+
+	if body.Phone != currentEmployee.Phone {
+		taken, err := h.isPhoneTaken(c, body.Phone, id)
+		if err != nil {
+			h.log.Errorf("ERROR on checking employee phone uniqueness: %v", err)
+			handleResponse(c, InternalError, "Can't check employee phone number")
+			return
+		}
+		if taken {
+			handleServiceResponse(c, nil, domain.DuplicatePhoneError)
+			return
+		}
 	}
 	// collect full_name by adding first and last name
 	body.FullName = body.FirstName + " " + body.LastName
@@ -473,24 +490,12 @@ func (h *EmployeeHandler) Update(c *gin.Context) {
 		updateData["password"] = *body.Password
 	}
 
-	// Explicitly set store_id to NULL if it is not provided in the request
+	// Explicitly set store_id to NULL if it is not provided in the request.
+	// Joriy do'kon yuqorida telefon bilan birga bir so'rovda o'qilgan.
 	var (
-		currentStoreId *string
+		currentStoreId = currentEmployee.StoreId
 		storeIdChanged bool
 	)
-	var currentEmployee struct {
-		StoreId *string `gorm:"column:store_id"`
-	}
-	if err = h.db.WithContext(c.Request.Context()).
-		Table("employees").
-		Select("store_id").
-		Where("id = ?", id).
-		Scan(&currentEmployee).Error; err != nil {
-		h.log.Warn("ERROR on getting current employee store_id: %v", err)
-		handleResponse(c, InternalError, "Can't get employee data")
-		return
-	}
-	currentStoreId = currentEmployee.StoreId
 
 	switch {
 	case currentStoreId == nil && body.StoreId == nil:
