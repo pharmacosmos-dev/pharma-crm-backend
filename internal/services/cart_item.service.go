@@ -18,6 +18,11 @@ import (
 // region Create
 
 func (s *Services) CreateCartItem(ctx context.Context, req *domain.CartItemRequest) (*domain.CartItem, error) {
+
+	if err := s.checkEmployeeIsInStore(ctx, req.EmployeeId); err != nil {
+		return nil, err
+	}
+
 	// start transaction for add cart_item
 	tx := s.db.Begin()
 	defer func() {
@@ -794,6 +799,23 @@ func (s *Services) UpdateCartItemMarkings(ctx context.Context, id string, req *d
 	return nil
 }
 
+
+func (s *Services) checkEmployeeIsInStore(ctx context.Context, employeeId string) error {
+	if employeeId == "" {
+		return nil
+	}
+
+	lastEventType, err := s.GetTodayLastAttendanceEventType(ctx, employeeId)
+	if err != nil {
+		return err
+	}
+
+	if lastEventType == domain.AttendanceEventCheckOut {
+		return domain.AttendanceNotInStoreError
+	}
+
+	return nil
+}
 
 func (s *Services) checkMarkingNotSold(ctx context.Context, tx *gorm.DB, marking string) error {
 	if marking == "" {

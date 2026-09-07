@@ -63,6 +63,7 @@ var (
 	EmployeeDismissedError = NewError(http.StatusForbidden, "employee.dismissed")
 	EmployeeDeletedError   = NewError(http.StatusForbidden, "employee.deleted")
 	EmployeeBlockedError   = NewError(http.StatusForbidden, "employee.blocked")
+	AttendanceNotInStoreError = NewError(http.StatusForbidden, "employee.notInStore")
 
 	// 408 - Timeout (vaqt yetmadi)
 	OTPExpiredError          = NewError(http.StatusRequestTimeout, "otp.expired")
