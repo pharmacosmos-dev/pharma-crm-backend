@@ -263,7 +263,8 @@ const (
 	RoleFranchise      = "FRANCHISE"
 	RoleFranchiseAdmin = "FRANCHISE_ADMIN"
 	RoleRopApteka      = "ROP_APTEKA"
-	RoleIntern         = "INTERN"
+	RoleIntern         = "INTERN" 
+	RoleConsultant     = "CONSULTANT" // consultant: 'Консультант',
 )
 
 // role names assigned via employee_roles (roles.name) — distinct from the
@@ -271,6 +272,7 @@ const (
 const (
 	RoleNameZavStore = "Заведующий" // store head/manager: exempt from the sale stats 14-day date range limit
 	RoleNameCashier  = "Кассир"     // cashier: sale stats/list restricted to their own sales
+	RoleNameConsultant = "Консультант" // consultant: sale stats/list restricted to their own sales
 )
 
 // movement type
