@@ -42,6 +42,7 @@ var (
 	ShiftToEmployeeNotCheckedInError          = NewError(http.StatusBadRequest, "shift.to_employee.not_checked_in")
 	CashboxCloseCheckOutRequiredError         = NewError(http.StatusBadRequest, "cashbox.close.check_out.required")
 	OnlineOrderUzumTezkorPaymentRequiredError = NewError(http.StatusBadRequest, "online_order.uzum_tezkor.payment.required")
+	AttendanceNotInStoreError                 = NewError(http.StatusBadRequest, "employee.notInStore")
 
 	// 401 – Unauthorized (token noto‘g‘ri yoki mavjud emas)
 	UnauthorizedError     = NewError(http.StatusUnauthorized, "user.not.authorized")
@@ -63,7 +64,6 @@ var (
 	EmployeeDismissedError = NewError(http.StatusForbidden, "employee.dismissed")
 	EmployeeDeletedError   = NewError(http.StatusForbidden, "employee.deleted")
 	EmployeeBlockedError   = NewError(http.StatusForbidden, "employee.blocked")
-	AttendanceNotInStoreError = NewError(http.StatusForbidden, "employee.notInStore")
 
 	// 408 - Timeout (vaqt yetmadi)
 	OTPExpiredError          = NewError(http.StatusRequestTimeout, "otp.expired")
