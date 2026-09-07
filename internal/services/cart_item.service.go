@@ -860,31 +860,58 @@ func (s *Services) IncrementCartItemQuantity(ctx context.Context, tx *gorm.DB, i
 	return &res, nil
 }
 
-// add marking count to cart items
+// add marking count and markings to cart items
+//
+// FinalSale so'rovidagi marking_data har bir element uchun cart_item id (id),
+// marking_count va marking_list olib keladi — hammasi bitta UPDATE bilan yoziladi.
+// marking_list bo'sh kelgan qatorda markings tegilmaydi (COALESCE): savdo davomida
+// "append marking" orqali yig'ilgan kodlar finalize paytida o'chib ketmasligi kerak.
 func (s *Services) updateCartItemsMarkingCount(ctx context.Context, tx *gorm.DB, req []domain.MarkingData) error {
 	if len(req) == 0 {
 		return nil
 	}
 
-	// Build VALUES part: ('uuid1', 5), ('uuid2', 10), ...
-	var valueStrings []string
+	// Build VALUES part: (?::uuid, ?::int, ARRAY[?,?]::text[]), ...
+	// Marking kodlari ARRAY[] ichida alohida matn parametr bo'lib ketadi — massivni
+	// bitta parametr qilib yuborish drayverdagi kodlashga bog'lanib qolardi.
+	valueStrings := make([]string, 0, len(req))
+	args := make([]any, 0, len(req)*3)
 	for _, r := range req {
-		valueStrings = append(valueStrings, fmt.Sprintf("('%s', %d)", r.Id, r.MarkingCount))
+		if r.Id == "" {
+			continue
+		}
+
+		// bo'sh ro'yxat NULL bo'lishi kerak, aks holda markings "{}" ga tozalanardi
+		markings := "NULL::text[]"
+		if len(r.MarkingList) > 0 {
+			markings = "ARRAY[" + strings.TrimSuffix(strings.Repeat("?,", len(r.MarkingList)), ",") + "]::text[]"
+		}
+
+		valueStrings = append(valueStrings, fmt.Sprintf("(?::uuid, ?::int, %s)", markings))
+		args = append(args, r.Id, r.MarkingCount)
+		for _, m := range r.MarkingList {
+			args = append(args, m)
+		}
+	}
+
+	if len(valueStrings) == 0 {
+		return nil
 	}
 
 	query := fmt.Sprintf(`
-		UPDATE 
+		UPDATE
 			cart_items AS c
-		SET 
-			marking_count = v.marking_count
+		SET
+			marking_count = v.marking_count,
+			markings      = COALESCE(v.markings, c.markings)
 		FROM (
 			VALUES %s
-		) AS v(id, marking_count)
-		WHERE c.id = v.id::uuid;
+		) AS v(id, marking_count, markings)
+		WHERE c.id = v.id;
 	`, strings.Join(valueStrings, ","))
 
 	// Execute raw SQL
-	err := tx.WithContext(ctx).Exec(query).Error
+	err := tx.WithContext(ctx).Exec(query, args...).Error
 	if err != nil {
 		s.log.Error("could not update cart_item marking_count: %v", err)
 		return domain.InternalServerError
