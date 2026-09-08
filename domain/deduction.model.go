@@ -315,6 +315,34 @@ type DeductionDetailRow struct {
 	StoreName         string `json:"store_name"`
 	DeductionTypeName string `json:"deduction_type_name"`
 	DeductionTypeCode string `json:"deduction_type_code"`
+
+	DeductionAudit `gorm:"embedded"`
+}
+
+// DeductionAudit — kim yaratgan / o'zgartirgan / tasdiqlagan.
+//
+// Uchala maydon ham NULL bo'lishi mumkin (hali tasdiqlanmagan, tizim yaratgan
+// va h.k.), shunda ismlar bo'sh satr bo'lib qaytadi.
+type DeductionAudit struct {
+	CreatedByFirstName string `json:"created_by_first_name"`
+	CreatedByLastName  string `json:"created_by_last_name"`
+
+	UpdatedByFirstName string `json:"updated_by_first_name"`
+	UpdatedByLastName  string `json:"updated_by_last_name"`
+
+	ApprovedByFirstName string `json:"approved_by_first_name"`
+	ApprovedByLastName  string `json:"approved_by_last_name"`
+}
+
+// DeductionRow — sarlavhalar ro'yxati uchun qator: sarlavha + bog'langan nomlar.
+type DeductionRow struct {
+	Deduction `gorm:"embedded"`
+
+	StoreName         string `json:"store_name"`
+	DeductionTypeName string `json:"deduction_type_name"`
+	DeductionTypeCode string `json:"deduction_type_code"`
+
+	DeductionAudit `gorm:"embedded"`
 }
 
 // region Query params

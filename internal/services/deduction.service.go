@@ -159,49 +159,73 @@ func (s *Services) CreateDeduction(
 	return &d, nil
 }
 
+// deductionListQuery — sarlavhalar ro'yxati, bog'langan nomlar bilan.
+// Tuzilishi deductionDetailListQuery bilan bir xil: nomlar JOIN orqali jonli
+// olinadi, umumiy son esa COUNT(*) OVER () bilan o'sha so'rovdan keladi.
+const deductionListQuery = `
+SELECT
+    d.*,
+    COALESCE(s.name, '') AS store_name,
+    COALESCE(t.name, '') AS deduction_type_name,
+    COALESCE(t.code, '') AS deduction_type_code,
+
+    COALESCE(cb.first_name, '') AS created_by_first_name,
+    COALESCE(cb.last_name, '')  AS created_by_last_name,
+    COALESCE(ub.first_name, '') AS updated_by_first_name,
+    COALESCE(ub.last_name, '')  AS updated_by_last_name,
+    COALESCE(ab.first_name, '') AS approved_by_first_name,
+    COALESCE(ab.last_name, '')  AS approved_by_last_name,
+
+    COUNT(*) OVER () AS total_count
+FROM deductions d
+LEFT JOIN stores s          ON s.id = d.store_id
+LEFT JOIN deduction_types t ON t.id = d.deduction_type_id
+LEFT JOIN employees cb      ON cb.id = d.created_by
+LEFT JOIN employees ub      ON ub.id = d.updated_by
+LEFT JOIN employees ab      ON ab.id = d.approved_by
+WHERE (CAST(@company_id AS uuid)        IS NULL OR d.company_id        = CAST(@company_id AS uuid))
+  AND (CAST(@store_id AS uuid)          IS NULL OR d.store_id          = CAST(@store_id AS uuid))
+  AND (CAST(@deduction_type_id AS uuid) IS NULL OR d.deduction_type_id = CAST(@deduction_type_id AS uuid))
+  AND (CAST(@status AS text)            IS NULL OR d.status            = CAST(@status AS text))
+  AND (CAST(@year AS int)               IS NULL OR d.year              = CAST(@year AS int))
+  AND (CAST(@month AS int)              IS NULL OR d.month             = CAST(@month AS int))
+ORDER BY d.year DESC, d.month DESC, d.created_at DESC
+LIMIT NULLIF(@limit, 0) OFFSET @offset`
+
 func (s *Services) GetDeductions(
 	ctx context.Context, params *domain.DeductionQueryParams,
-) ([]domain.Deduction, int64, error) {
-	newQuery := func() *gorm.DB {
-		q := s.db.WithContext(ctx).Model(&domain.Deduction{})
-		if params.CompanyId != "" {
-			q = q.Where("company_id = ?", params.CompanyId)
-		}
-		if params.StoreId != "" {
-			q = q.Where("store_id = ?", params.StoreId)
-		}
-		if params.DeductionTypeId != "" {
-			q = q.Where("deduction_type_id = ?", params.DeductionTypeId)
-		}
-		if params.Status != "" {
-			q = q.Where("status = ?", params.Status)
-		}
-		if params.Year != 0 {
-			q = q.Where("year = ?", params.Year)
-		}
-		if params.Month != 0 {
-			q = q.Where("month = ?", params.Month)
-		}
-		return q
+) ([]domain.DeductionRow, int64, error) {
+	var page []struct {
+		domain.DeductionRow `gorm:"embedded"`
+
+		TotalCount int64 `gorm:"column:total_count"`
 	}
 
-	var totalCount int64
-	if err := newQuery().Count(&totalCount).Error; err != nil {
-		s.log.Errorf("deduction: could not count: %v", err)
-		return nil, 0, domain.InternalServerError
-	}
-
-	var res []domain.Deduction
-	err := newQuery().
-		Order("year DESC, month DESC, created_at DESC").
-		Limit(payrollNoLimit(params.Limit)).
-		Offset(params.Offset).
-		Find(&res).Error
+	err := s.db.WithContext(ctx).Raw(deductionListQuery, map[string]any{
+		"company_id":        nullIfEmpty(params.CompanyId),
+		"store_id":          nullIfEmpty(params.StoreId),
+		"deduction_type_id": nullIfEmpty(params.DeductionTypeId),
+		"status":            nullIfEmpty(params.Status),
+		"year":              nullIfZero(params.Year),
+		"month":             nullIfZero(params.Month),
+		"limit":             params.Limit,
+		"offset":            params.Offset,
+	}).Scan(&page).Error
 	if err != nil {
 		s.log.Errorf("deduction: could not get list: %v", err)
 		return nil, 0, domain.InternalServerError
 	}
-	return res, totalCount, nil
+
+	var totalCount int64
+	if len(page) > 0 {
+		totalCount = page[0].TotalCount
+	}
+
+	rows := make([]domain.DeductionRow, len(page))
+	for i := range page {
+		rows[i] = page[i].DeductionRow
+	}
+	return rows, totalCount, nil
 }
 
 func (s *Services) GetDeductionById(ctx context.Context, id string) (*domain.Deduction, error) {
@@ -445,11 +469,22 @@ SELECT
     COALESCE(s.name, '')       AS store_name,
     COALESCE(t.name, '')       AS deduction_type_name,
     COALESCE(t.code, '')       AS deduction_type_code,
+
+    COALESCE(cb.first_name, '') AS created_by_first_name,
+    COALESCE(cb.last_name, '')  AS created_by_last_name,
+    COALESCE(ub.first_name, '') AS updated_by_first_name,
+    COALESCE(ub.last_name, '')  AS updated_by_last_name,
+    COALESCE(ab.first_name, '') AS approved_by_first_name,
+    COALESCE(ab.last_name, '')  AS approved_by_last_name,
+
     COUNT(*) OVER ()           AS total_count
 FROM deduction_details d
 LEFT JOIN employees e       ON e.id = d.employee_id
 LEFT JOIN stores s          ON s.id = d.store_id
 LEFT JOIN deduction_types t ON t.id = d.deduction_type_id
+LEFT JOIN employees cb      ON cb.id = d.created_by
+LEFT JOIN employees ub      ON ub.id = d.updated_by
+LEFT JOIN employees ab      ON ab.id = d.approved_by
 WHERE (CAST(@deduction_id AS uuid)      IS NULL OR d.deduction_id      = CAST(@deduction_id AS uuid))
   AND (CAST(@employee_id AS uuid)       IS NULL OR d.employee_id       = CAST(@employee_id AS uuid))
   AND (CAST(@store_id AS uuid)          IS NULL OR d.store_id          = CAST(@store_id AS uuid))
