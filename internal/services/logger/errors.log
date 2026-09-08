@@ -1,2 +1,0 @@
-time=2026-09-08T11:07:47.6921163Z level=ERROR msg="deduction: could not get: ERROR: current transaction is aborted, commands ignored until end of transaction block (SQLSTATE 25P02)"
-time=2026-09-08T11:07:47.6924606Z level=ERROR msg="deduction: could not get: ERROR: current transaction is aborted, commands ignored until end of transaction block (SQLSTATE 25P02)"

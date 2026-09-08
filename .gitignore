@@ -36,3 +36,5 @@ vendor/
 
 main
 test.*
+# test paytida yaratiladigan log papkalari
+internal/services/logger/
