@@ -470,6 +470,27 @@ definitions:
           type: string
         type: array
     type: object
+  domain.DeductionDetailItem:
+    properties:
+      amount:
+        minimum: 0
+        type: number
+      comment:
+        type: string
+      employee_id:
+        type: string
+      installments:
+        items:
+          $ref: '#/definitions/domain.DeductionInstallmentInput'
+        type: array
+      months_count:
+        example: 3
+        minimum: 1
+        type: integer
+    required:
+    - amount
+    - employee_id
+    type: object
   domain.DeductionDetailRequest:
     properties:
       amount:
@@ -490,14 +511,19 @@ definitions:
         items:
           $ref: '#/definitions/domain.DeductionInstallmentInput'
         type: array
+      items:
+        description: |-
+          Items — bir necha xodimga taqsimlash. Berilsa employee_id/amount
+          o'rniga shu ishlatiladi va hammasi bitta tranzaksiyada yoziladi.
+        items:
+          $ref: '#/definitions/domain.DeductionDetailItem'
+        type: array
       months_count:
         example: 4
         minimum: 1
         type: integer
     required:
-    - amount
     - deduction_id
-    - employee_id
     type: object
   domain.DeductionDetailUpdateRequest:
     properties:
@@ -555,6 +581,14 @@ definitions:
         maximum: 12
         minimum: 1
         type: integer
+      shortage_amount:
+        description: |-
+          ShortageAmount — taqsimlanishi kerak bo'lgan summa (masalan pereuchyot
+          kamomadi 15 mln). Berilsa xodimlarga taqsimlash shunga tekshiriladi.
+          Berilmasa (0) tekshiruv o'chadi — shtraf uchun odatda shunday.
+        example: 15000000
+        minimum: 0
+        type: number
       store_id:
         type: string
       year:
@@ -5988,11 +6022,17 @@ paths:
       consumes:
       - application/json
       description: |-
-        Xodimga ushlab qolish yozadi. store_id, year va month sarlavhadan olinadi — ularni yuborish shart emas.
+        Xodimga ushlab qolish yozadi. IKKI shakl qabul qilinadi:
+        BITTA xodim — employee_id + amount (shtraf uchun odatiy);
+        KO'P xodim — items[] massivi (pereuchyot kamomadini taqsimlash). items berilsa employee_id/amount e'tiborga olinmaydi.
+        store_id, year, month va tur sarlavhadan olinadi — ularni yuborish shart emas.
         Bir xodimga bir oyda bir necha qator bo'lishi mumkin (masalan ikkita shtraf).
-        Yozilgandan keyin sarlavhaning total_amount/paid_amount/status'i qayta hisoblanadi.
+        Sarlavhada shortage_amount berilgan bo'lsa (masalan kamomad 15 mln) tekshiruv ishlaydi:
+        items[] bilan yuborilsa yig'indi unga ANIQ TENG bo'lishi shart, bitta xodim qo'shilsa faqat oshib ketmasligi.
+        Teng kelmasa hech biri yozilmaydi (rollback) va 400 xatosi qaytadi, ichida taqsimot va kamomad summalari bilan.
+        Javob doim MASSIV — bitta xodimda ham bitta elementli.
       parameters:
-      - description: Qator
+      - description: Bitta qator yoki taqsimot
         in: body
         name: input
         required: true
@@ -6019,7 +6059,7 @@ paths:
             $ref: '#/definitions/v1.Response'
       security:
       - BearerAuth: []
-      summary: Create deduction detail
+      summary: Create deduction detail(s)
       tags:
       - deductions
   /deduction-detail/{id}:

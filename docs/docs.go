@@ -5246,7 +5246,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Xodimga ushlab qolish yozadi. store_id, year va month sarlavhadan olinadi — ularni yuborish shart emas.\nBir xodimga bir oyda bir necha qator bo'lishi mumkin (masalan ikkita shtraf).\nYozilgandan keyin sarlavhaning total_amount/paid_amount/status'i qayta hisoblanadi.",
+                "description": "Xodimga ushlab qolish yozadi. IKKI shakl qabul qilinadi:\nBITTA xodim — employee_id + amount (shtraf uchun odatiy);\nKO'P xodim — items[] massivi (pereuchyot kamomadini taqsimlash). items berilsa employee_id/amount e'tiborga olinmaydi.\nstore_id, year, month va tur sarlavhadan olinadi — ularni yuborish shart emas.\nBir xodimga bir oyda bir necha qator bo'lishi mumkin (masalan ikkita shtraf).\nSarlavhada shortage_amount berilgan bo'lsa (masalan kamomad 15 mln) tekshiruv ishlaydi:\nitems[] bilan yuborilsa yig'indi unga ANIQ TENG bo'lishi shart, bitta xodim qo'shilsa faqat oshib ketmasligi.\nTeng kelmasa hech biri yozilmaydi (rollback) va 400 xatosi qaytadi, ichida taqsimot va kamomad summalari bilan.\nJavob doim MASSIV — bitta xodimda ham bitta elementli.",
                 "consumes": [
                     "application/json"
                 ],
@@ -5256,10 +5256,10 @@ const docTemplate = `{
                 "tags": [
                     "deductions"
                 ],
-                "summary": "Create deduction detail",
+                "summary": "Create deduction detail(s)",
                 "parameters": [
                     {
-                        "description": "Qator",
+                        "description": "Bitta qator yoki taqsimot",
                         "name": "input",
                         "in": "body",
                         "required": true,
@@ -36257,12 +36257,40 @@ const docTemplate = `{
                 }
             }
         },
-        "domain.DeductionDetailRequest": {
+        "domain.DeductionDetailItem": {
             "type": "object",
             "required": [
                 "amount",
-                "deduction_id",
                 "employee_id"
+            ],
+            "properties": {
+                "amount": {
+                    "type": "number",
+                    "minimum": 0
+                },
+                "comment": {
+                    "type": "string"
+                },
+                "employee_id": {
+                    "type": "string"
+                },
+                "installments": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/domain.DeductionInstallmentInput"
+                    }
+                },
+                "months_count": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "example": 3
+                }
+            }
+        },
+        "domain.DeductionDetailRequest": {
+            "type": "object",
+            "required": [
+                "deduction_id"
             ],
             "properties": {
                 "amount": {
@@ -36283,6 +36311,13 @@ const docTemplate = `{
                     "type": "array",
                     "items": {
                         "$ref": "#/definitions/domain.DeductionInstallmentInput"
+                    }
+                },
+                "items": {
+                    "description": "Items — bir necha xodimga taqsimlash. Berilsa employee_id/amount\no'rniga shu ishlatiladi va hammasi bitta tranzaksiyada yoziladi.",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/domain.DeductionDetailItem"
                     }
                 },
                 "months_count": {
@@ -36374,6 +36409,12 @@ const docTemplate = `{
                     "type": "integer",
                     "maximum": 12,
                     "minimum": 1
+                },
+                "shortage_amount": {
+                    "description": "ShortageAmount — taqsimlanishi kerak bo'lgan summa (masalan pereuchyot\nkamomadi 15 mln). Berilsa xodimlarga taqsimlash shunga tekshiriladi.\nBerilmasa (0) tekshiruv o'chadi — shtraf uchun odatda shunday.",
+                    "type": "number",
+                    "minimum": 0,
+                    "example": 15000000
                 },
                 "store_id": {
                     "type": "string"
