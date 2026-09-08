@@ -214,7 +214,23 @@ type DeductionDetailRequest struct {
 	EmployeeId      string  `json:"employee_id" binding:"required"`
 	Amount          float64 `json:"amount" binding:"required,min=0"`
 	MonthsCount     int     `json:"months_count" binding:"omitempty,min=1" example:"4"`
-	Comment         *string `json:"comment"`
+	// Installments — notekis jadval: qaysi oyda qancha to'lanishi.
+	// Berilsa months_count e'tiborga olinmaydi va jadval aynan shu ro'yxatdan
+	// tuziladi (masalan birinchi oyda ko'proq, keyingilarida kamroq).
+	// Berilmasa summa months_count oyga TENG bo'linadi.
+	Installments []DeductionInstallmentInput `json:"installments"`
+	Comment      *string                     `json:"comment"`
+}
+
+// DeductionInstallmentInput — jadvaldagi bitta to'lov.
+//
+// Year/Month berilmasa to'lovlar ketma-ket joylashtiriladi: birinchisi qarz
+// oyidan, keyingilari undan keyingi oylarga. Ular faqat oyni o'tkazib yuborish
+// kerak bo'lganda beriladi.
+type DeductionInstallmentInput struct {
+	Amount float64 `json:"amount" binding:"required,min=0" example:"2500000"`
+	Year   int     `json:"year" binding:"omitempty,min=2000,max=2100"`
+	Month  int     `json:"month" binding:"omitempty,min=1,max=12"`
 }
 
 // DeductionInstallmentUpdateRequest — bitta oylik to'lovni tahrirlash.
@@ -259,18 +275,21 @@ type DeductionDetailUpdateRequest struct {
 	DeductionTypeId *string  `json:"deduction_type_id"`
 	Amount          *float64 `json:"amount" binding:"omitempty,min=0"`
 	MonthsCount     *int     `json:"months_count" binding:"omitempty,min=1"`
-	Comment         *string  `json:"comment"`
-	Approve         *bool    `json:"approve"`
+	// Installments — jadvalni notekis qilib qayta tuzish. Berilsa months_count
+	// e'tiborga olinmaydi.
+	Installments []DeductionInstallmentInput `json:"installments"`
+	Comment      *string                     `json:"comment"`
+	Approve      *bool                       `json:"approve"`
 }
 
 func (r DeductionDetailUpdateRequest) IsEmpty() bool {
 	return r.DeductionTypeId == nil && r.Amount == nil && r.MonthsCount == nil &&
-		r.Comment == nil && r.Approve == nil
+		len(r.Installments) == 0 && r.Comment == nil && r.Approve == nil
 }
 
 // RebuildsSchedule — to'lov jadvali qaytadan tuzilishi kerakligini bildiradi.
 func (r DeductionDetailUpdateRequest) RebuildsSchedule() bool {
-	return r.Amount != nil || r.MonthsCount != nil
+	return r.Amount != nil || r.MonthsCount != nil || len(r.Installments) > 0
 }
 
 // region Query params

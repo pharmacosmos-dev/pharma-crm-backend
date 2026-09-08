@@ -291,11 +291,19 @@ func (s *Services) CreateDeductionDetail(
 
 	// Qarz va uning to'lov jadvali birga yaratiladi: jadvalsiz qarz "qachon
 	// to'lanadi" degan savolga javob bermaydi va yig'indilar noto'g'ri chiqadi.
+	// Jadval oldindan tuziladi: notekis jadval berilgan bo'lsa yig'indisi qarzga
+	// mos kelmasa, hech narsa yozilmasdan 400 qaytadi.
+	installments, err := buildInstallments(&d, req.Installments)
+	if err != nil {
+		s.log.Errorf("deduction: invalid installment plan: %v", err)
+		return nil, domain.BadRequestError
+	}
+
 	err = s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		if err := tx.Create(&d).Error; err != nil {
 			return err
 		}
-		return tx.Create(buildInstallments(&d)).Error
+		return tx.Create(installments).Error
 	})
 	if err != nil {
 		s.log.Errorf("deduction: could not create detail: %v", err)
@@ -308,13 +316,57 @@ func (s *Services) CreateDeductionDetail(
 	return &d, nil
 }
 
-// buildInstallments — qarzni oylarga bo'ladi.
+// buildInstallments — qarzning to'lov jadvalini tuzadi.
 //
-// Birinchi to'lov qarz oyidan boshlanadi, qolganlari ketma-ket keyingi oylarga.
-// Har bir ulush 2 xonagacha PASTGA yaxlitlanadi, bo'linishda qolgan tiyinlar
-// esa OXIRGI to'lovga qo'shiladi — shunda to'lovlar yig'indisi qarz summasiga
-// aniq teng bo'ladi (aks holda 15 mln / 7 kabi holatlarda tiyinlar yo'qolardi).
-func buildInstallments(d *domain.DeductionDetail) []domain.DeductionInstallment {
+// custom berilgan bo'lsa jadval aynan shundan olinadi (notekis to'lash:
+// masalan birinchi oyda 2.5 mln, keyingi ikki oyda 750 mingdan). Aks holda
+// summa d.MonthsCount oyga teng bo'linadi.
+//
+// Ikkala holatda ham to'lovlar yig'indisi qarz summasiga aniq teng bo'lishi
+// ta'minlanadi: teng bo'lishda qoldiq tiyinlar oxirgi to'lovga qo'shiladi,
+// notekis jadvalda esa yig'indi tekshiriladi va mos kelmasa xato qaytadi.
+func buildInstallments(
+	d *domain.DeductionDetail, custom []domain.DeductionInstallmentInput,
+) ([]domain.DeductionInstallment, error) {
+	plans, err := planInstallments(d, custom)
+	if err != nil {
+		return nil, err
+	}
+
+	res := make([]domain.DeductionInstallment, 0, len(plans))
+	for i, p := range plans {
+		res = append(res, domain.DeductionInstallment{
+			Id:                uuid.New().String(),
+			DeductionDetailId: d.Id,
+			EmployeeId:        d.EmployeeId,
+			StoreId:           d.StoreId,
+			Year:              p.Year,
+			Month:             p.Month,
+			Seq:               i + 1,
+			Amount:            p.Amount,
+		})
+	}
+	return res, nil
+}
+
+// installmentPlan — bitta to'lovning summasi va oyi.
+type installmentPlan struct {
+	Amount float64
+	Year   int
+	Month  int
+}
+
+func planInstallments(
+	d *domain.DeductionDetail, custom []domain.DeductionInstallmentInput,
+) ([]installmentPlan, error) {
+	if len(custom) > 0 {
+		return planCustom(d, custom)
+	}
+	return planEqual(d), nil
+}
+
+// planEqual — summani teng bo'ladi, qoldiq tiyinlarni oxirgi to'lovga qo'shadi.
+func planEqual(d *domain.DeductionDetail) []installmentPlan {
 	months := d.MonthsCount
 	if months < 1 {
 		months = 1
@@ -322,28 +374,53 @@ func buildInstallments(d *domain.DeductionDetail) []domain.DeductionInstallment 
 
 	per := math.Floor(d.Amount/float64(months)*100) / 100
 
-	res := make([]domain.DeductionInstallment, 0, months)
+	plans := make([]installmentPlan, 0, months)
 	for i := 0; i < months; i++ {
 		amount := per
 		if i == months-1 {
 			amount = math.Round((d.Amount-per*float64(months-1))*100) / 100
 		}
-
-		// time.Date oy oshib ketsa yilni o'zi to'g'rilaydi (13-oy -> keyingi yil 1-oy)
-		m := time.Date(d.Year, time.Month(d.Month)+time.Month(i), 1, 0, 0, 0, 0, time.UTC)
-
-		res = append(res, domain.DeductionInstallment{
-			Id:                uuid.New().String(),
-			DeductionDetailId: d.Id,
-			EmployeeId:        d.EmployeeId,
-			StoreId:           d.StoreId,
-			Year:              m.Year(),
-			Month:             int(m.Month()),
-			Seq:               i + 1,
-			Amount:            amount,
-		})
+		y, m := shiftMonth(d.Year, d.Month, i)
+		plans = append(plans, installmentPlan{Amount: amount, Year: y, Month: m})
 	}
-	return res
+	return plans
+}
+
+// planCustom — foydalanuvchi bergan jadvalni tekshiradi.
+//
+// Yig'indi qarz summasiga teng bo'lishi SHART: aks holda xodim qarzidan
+// ko'proq yoki kamroq to'lab, sarlavha yig'indilari qarzga mos kelmay qolardi.
+// Taqqoslash tiyin aniqligida qilinadi — float qo'shishda paydo bo'ladigan
+// mayda farq xato deb hisoblanmasligi uchun.
+func planCustom(
+	d *domain.DeductionDetail, custom []domain.DeductionInstallmentInput,
+) ([]installmentPlan, error) {
+	plans := make([]installmentPlan, 0, len(custom))
+	var sum float64
+
+	for i, in := range custom {
+		amount := math.Round(in.Amount*100) / 100
+		sum += amount
+
+		y, m := in.Year, in.Month
+		if y == 0 || m == 0 {
+			// Berilmagan bo'lsa ketma-ket: qarz oyidan boshlab
+			y, m = shiftMonth(d.Year, d.Month, i)
+		}
+		plans = append(plans, installmentPlan{Amount: amount, Year: y, Month: m})
+	}
+
+	if math.Round(sum*100) != math.Round(d.Amount*100) {
+		return nil, fmt.Errorf("installments sum %.2f does not match debt %.2f", sum, d.Amount)
+	}
+	return plans, nil
+}
+
+// shiftMonth — sanadan n oy keyingi yil/oyni qaytaradi.
+// time.Date oy 12 dan oshsa yilni o'zi to'g'rilaydi.
+func shiftMonth(year, month, n int) (int, int) {
+	t := time.Date(year, time.Month(month)+time.Month(n), 1, 0, 0, 0, 0, time.UTC)
+	return t.Year(), int(t.Month())
 }
 
 func (s *Services) GetDeductionDetails(
@@ -474,7 +551,11 @@ func (s *Services) UpdateDeductionDetail(
 		if err := tx.Take(&updated, "id = ?", id).Error; err != nil {
 			return err
 		}
-		return tx.Create(buildInstallments(&updated)).Error
+		rebuilt, err := buildInstallments(&updated, req.Installments)
+		if err != nil {
+			return err
+		}
+		return tx.Create(rebuilt).Error
 	})
 	if err != nil {
 		s.log.Errorf("deduction: could not update detail: %v", err)
