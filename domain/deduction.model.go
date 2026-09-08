@@ -111,6 +111,65 @@ type DeductionDetail struct {
 
 func (DeductionDetail) TableName() string { return "deduction_details" }
 
+// region Requests
+
+type DeductionTypeRequest struct {
+	Code     string `json:"code" binding:"required,max=50" example:"SHORTAGE"`
+	Name     string `json:"name" binding:"required,max=255" example:"Kamomad"`
+	IsActive *bool  `json:"is_active"`
+}
+
+// DeductionRequest — do'kon+oy sarlavhasini yaratish.
+//
+// total_amount/paid_amount/status bu yerda yo'q: ular detallardan avtomatik
+// hisoblanadi, qo'lda kiritilsa sarlavha va qatorlar bir-biriga mos kelmay
+// qolardi.
+type DeductionRequest struct {
+	StoreId string  `json:"store_id" binding:"required"`
+	Year    int     `json:"year" binding:"required,min=2000,max=2100"`
+	Month   int     `json:"month" binding:"required,min=1,max=12"`
+	Comment *string `json:"comment"`
+}
+
+// DeductionUpdateRequest — hammasi ixtiyoriy: berilgani yoziladi.
+//
+// Approve true bo'lsa approved_by joriy foydalanuvchiga, approved_at hozirgi
+// vaqtga qo'yiladi. Tasdiqlashni bekor qilish uchun false yuboriladi.
+type DeductionUpdateRequest struct {
+	Comment *string `json:"comment"`
+	Approve *bool   `json:"approve"`
+}
+
+func (r DeductionUpdateRequest) IsEmpty() bool {
+	return r.Comment == nil && r.Approve == nil
+}
+
+type DeductionDetailRequest struct {
+	DeductionId     string  `json:"deduction_id" binding:"required"`
+	DeductionTypeId string  `json:"deduction_type_id" binding:"required"`
+	EmployeeId      string  `json:"employee_id" binding:"required"`
+	Amount          float64 `json:"amount" binding:"required,min=0"`
+	Comment         *string `json:"comment"`
+}
+
+// DeductionDetailUpdateRequest — hammasi ixtiyoriy.
+//
+// store_id/year/month bu yerda yo'q: ular sarlavhadan olinadi va qatorni
+// boshqa oyga ko'chirish sarlavha yig'indilarini buzardi. Boshqa oyga
+// ko'chirish kerak bo'lsa qator o'chirilib, yangisi yaratiladi.
+type DeductionDetailUpdateRequest struct {
+	DeductionTypeId *string  `json:"deduction_type_id"`
+	Amount          *float64 `json:"amount" binding:"omitempty,min=0"`
+	IsPaid          *bool    `json:"is_paid"`
+	Comment         *string  `json:"comment"`
+	Approve         *bool    `json:"approve"`
+}
+
+func (r DeductionDetailUpdateRequest) IsEmpty() bool {
+	return r.DeductionTypeId == nil && r.Amount == nil &&
+		r.IsPaid == nil && r.Comment == nil && r.Approve == nil
+}
+
 // region Query params
 
 type DeductionQueryParams struct {

@@ -74,6 +74,8 @@ var (
 	ConflictError                        = NewError(http.StatusConflict, "conflict")
 	NotEnoughProductError                = NewError(http.StatusConflict, "not.enough.product")
 	AlreadyExistsError                   = NewError(http.StatusConflict, "already.exists")
+	// InUseError — yozuv boshqa jadvalda ishlatilayotgani uchun o'chirilmaydi.
+	InUseError = NewError(http.StatusConflict, "record.in.use")
 	AlreadyCompletedError                = NewError(http.StatusConflict, "already.completed")
 	AlreadySentError                     = NewError(http.StatusConflict, "already.sent")
 	SaleIsClosedError                    = NewError(http.StatusConflict, "sale.is.closed")

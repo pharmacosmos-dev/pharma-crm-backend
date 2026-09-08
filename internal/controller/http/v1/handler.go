@@ -123,6 +123,7 @@ func (h *Handler) InitRoutes(r *gin.Engine) {
 		h.NewStoreTargetHandler(v1)
 		h.NewReminderHandler(v1)
 		h.NewHolidayHandler(v1)
+		h.NewDeductionHandler(v1)
 		// handler for external apis
 		h.NewNoorHandler(external)
 		// handler for partner auth apis
