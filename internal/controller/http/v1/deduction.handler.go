@@ -2,6 +2,7 @@ package v1
 
 import (
 	"context"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -47,6 +48,200 @@ func (h *DeductionHandler) DeductionRoutes(r *gin.RouterGroup) {
 		details.PUT("/:id", h.UpdateDetail)
 		details.DELETE("/:id", h.DeleteDetail)
 	}
+
+	installments := r.Group("/deduction-installment")
+	{
+		installments.GET("/list", h.ListInstallments)
+		installments.GET("/debt", h.EmployeeDebt)
+		installments.GET("/:id", h.GetInstallment)
+		installments.PUT("/:id", h.UpdateInstallment)
+	}
+}
+
+// region Installments
+
+// ListInstallments godoc
+// @Summary      List deduction installments
+// @Description  Qarzning oylik to'lov jadvali. Oylik ekranida "shu xodimning shu oydagi qarzi"ni
+// @Description  ko'rsatish uchun: ?employee_id=&year=&month=&is_paid=false
+// @Tags         deductions
+// @Security     BearerAuth
+// @Produce      json
+// @Param        deduction_detail_id  query  string  false  "Qarz ID"
+// @Param        employee_id          query  string  false  "Employee ID"
+// @Param        store_id             query  string  false  "Store ID"
+// @Param        is_paid              query  bool    false  "To'langanmi"
+// @Param        year                 query  int     false  "Year"
+// @Param        month                query  int     false  "Month 1-12"
+// @Param        limit                query  int     false  "Limit"
+// @Param        offset               query  int     false  "Offset"
+// @Success      200  {object}  v1.Response
+// @Failure      400  {object}  v1.Response
+// @Failure      401  {object}  v1.Response
+// @Router       /deduction-installment/list [get]
+func (h *DeductionHandler) ListInstallments(c *gin.Context) {
+	user, ok := h.signedUser(c)
+	if !ok {
+		return
+	}
+
+	var params domain.DeductionInstallmentQueryParams
+	if err := c.ShouldBindQuery(&params); err != nil {
+		handleServiceResponse(c, nil, domain.InvalidQueryError)
+		return
+	}
+	if !helper.IsAdmin(user) && user.StoreId != "" {
+		params.StoreId = user.StoreId
+	}
+	params.Limit, params.Offset = defaultLimitOffset(params.Limit, params.Offset)
+
+	ctx, cancel := context.WithTimeout(c.Request.Context(), constants.DefaultContextTimeout)
+	defer cancel()
+
+	res, totalCount, err := h.service.GetDeductionInstallments(ctx, &params)
+	if err != nil {
+		handleServiceResponse(c, nil, err)
+		return
+	}
+	handleResponse(c, OK, utils.ListResponse(res, totalCount, params.Limit, params.Offset))
+}
+
+// EmployeeDebt godoc
+// @Summary      Employee debt summary
+// @Description  Xodimning qarz holati: jami, to'langani, qolgani va so'ralgan oyga to'g'ri keladigan to'lov.
+// @Description  current_month_approved false bo'lsa — o'sha oy to'lovi hali tasdiqlanmagan, oylik ekranida ko'rsatiladi.
+// @Description  employee_id berilmasa token egasining o'z qarzi qaytadi.
+// @Description  year/month berilmasa joriy oy.
+// @Tags         deductions
+// @Security     BearerAuth
+// @Produce      json
+// @Param        employee_id  query  string  false  "Employee ID (default: o'zi)"
+// @Param        year         query  int     false  "Year (default: joriy)"
+// @Param        month        query  int     false  "Month 1-12 (default: joriy)"
+// @Success      200  {object}  v1.Response
+// @Failure      400  {object}  v1.Response
+// @Failure      401  {object}  v1.Response
+// @Router       /deduction-installment/debt [get]
+func (h *DeductionHandler) EmployeeDebt(c *gin.Context) {
+	user, ok := h.signedUser(c)
+	if !ok {
+		return
+	}
+
+	var params struct {
+		EmployeeId string `form:"employee_id"`
+		Year       int    `form:"year"`
+		Month      int    `form:"month"`
+	}
+	if err := c.ShouldBindQuery(&params); err != nil {
+		handleServiceResponse(c, nil, domain.InvalidQueryError)
+		return
+	}
+
+	employeeId := params.EmployeeId
+	if employeeId == "" {
+		employeeId = user.UserId
+	}
+	if err := uuid.Validate(employeeId); err != nil {
+		handleResponse(c, BadRequest, "Invalid employee_id")
+		return
+	}
+
+	now := time.Now().UTC().Add(domain.TashkentTimeDif)
+	if params.Year == 0 {
+		params.Year = now.Year()
+	}
+	if params.Month == 0 {
+		params.Month = int(now.Month())
+	}
+
+	ctx, cancel := context.WithTimeout(c.Request.Context(), constants.DefaultContextTimeout)
+	defer cancel()
+
+	res, err := h.service.GetEmployeeDebt(ctx, employeeId, params.Year, params.Month)
+	if err != nil {
+		handleServiceResponse(c, nil, err)
+		return
+	}
+	handleResponse(c, OK, res)
+}
+
+// GetInstallment godoc
+// @Summary      Get deduction installment
+// @Tags         deductions
+// @Security     BearerAuth
+// @Produce      json
+// @Param        id  path  string  true  "Installment ID"
+// @Success      200  {object}  v1.Response
+// @Failure      400  {object}  v1.Response
+// @Failure      401  {object}  v1.Response
+// @Failure      404  {object}  v1.Response
+// @Router       /deduction-installment/{id} [get]
+func (h *DeductionHandler) GetInstallment(c *gin.Context) {
+	if _, ok := h.signedUser(c); !ok {
+		return
+	}
+	id, ok := validId(c)
+	if !ok {
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(c.Request.Context(), constants.DefaultContextTimeout)
+	defer cancel()
+
+	res, err := h.service.GetDeductionInstallmentById(ctx, id)
+	if err != nil {
+		handleServiceResponse(c, nil, err)
+		return
+	}
+	handleResponse(c, OK, res)
+}
+
+// UpdateInstallment godoc
+// @Summary      Update deduction installment
+// @Description  Oylik to'lovni to'langan deb belgilaydi (is_paid) va tasdiqlaydi (approve).
+// @Description  Summani bu yerdan o'zgartirib bo'lmaydi — to'lovlar yig'indisi qarz summasiga teng bo'lishi kerak.
+// @Description  Har o'zgarishdan keyin qarz (is_paid) va sarlavha (paid_amount, status) qayta hisoblanadi.
+// @Tags         deductions
+// @Security     BearerAuth
+// @Accept       json
+// @Produce      json
+// @Param        id     path  string                                    true  "Installment ID"
+// @Param        input  body  domain.DeductionInstallmentUpdateRequest  true  "O'zgarishlar"
+// @Success      200  {object}  v1.Response
+// @Failure      400  {object}  v1.Response
+// @Failure      401  {object}  v1.Response
+// @Failure      404  {object}  v1.Response
+// @Router       /deduction-installment/{id} [put]
+func (h *DeductionHandler) UpdateInstallment(c *gin.Context) {
+	user, ok := h.signedUser(c)
+	if !ok {
+		return
+	}
+	id, ok := validId(c)
+	if !ok {
+		return
+	}
+
+	var body domain.DeductionInstallmentUpdateRequest
+	if err := c.ShouldBindJSON(&body); err != nil {
+		handleResponse(c, BadRequest, err.Error())
+		return
+	}
+	if body.IsEmpty() {
+		handleServiceResponse(c, nil, domain.InvalidRequestBodyError)
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(c.Request.Context(), constants.DefaultContextTimeout)
+	defer cancel()
+
+	res, err := h.service.UpdateDeductionInstallment(ctx, id, user.UserId, &body)
+	if err != nil {
+		handleServiceResponse(c, nil, err)
+		return
+	}
+	handleResponse(c, OK, res)
 }
 
 // signedUser — tizimga kirgan foydalanuvchini qaytaradi, kirmagan bo'lsa 401

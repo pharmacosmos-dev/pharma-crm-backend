@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"math"
 	"time"
 
 	"github.com/google/uuid"
@@ -269,6 +270,11 @@ func (s *Services) CreateDeductionDetail(
 		return nil, err
 	}
 
+	months := req.MonthsCount
+	if months < 1 {
+		months = 1
+	}
+
 	d := domain.DeductionDetail{
 		Id:              uuid.New().String(),
 		DeductionId:     parent.Id,
@@ -278,10 +284,20 @@ func (s *Services) CreateDeductionDetail(
 		Year:            parent.Year,
 		Month:           parent.Month,
 		Amount:          req.Amount,
+		MonthsCount:     months,
 		Comment:         req.Comment,
 		CreatedBy:       nullIfEmpty(userId),
 	}
-	if err := s.db.WithContext(ctx).Create(&d).Error; err != nil {
+
+	// Qarz va uning to'lov jadvali birga yaratiladi: jadvalsiz qarz "qachon
+	// to'lanadi" degan savolga javob bermaydi va yig'indilar noto'g'ri chiqadi.
+	err = s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		if err := tx.Create(&d).Error; err != nil {
+			return err
+		}
+		return tx.Create(buildInstallments(&d)).Error
+	})
+	if err != nil {
 		s.log.Errorf("deduction: could not create detail: %v", err)
 		return nil, domain.InternalServerError
 	}
@@ -290,6 +306,44 @@ func (s *Services) CreateDeductionDetail(
 		return nil, err
 	}
 	return &d, nil
+}
+
+// buildInstallments — qarzni oylarga bo'ladi.
+//
+// Birinchi to'lov qarz oyidan boshlanadi, qolganlari ketma-ket keyingi oylarga.
+// Har bir ulush 2 xonagacha PASTGA yaxlitlanadi, bo'linishda qolgan tiyinlar
+// esa OXIRGI to'lovga qo'shiladi — shunda to'lovlar yig'indisi qarz summasiga
+// aniq teng bo'ladi (aks holda 15 mln / 7 kabi holatlarda tiyinlar yo'qolardi).
+func buildInstallments(d *domain.DeductionDetail) []domain.DeductionInstallment {
+	months := d.MonthsCount
+	if months < 1 {
+		months = 1
+	}
+
+	per := math.Floor(d.Amount/float64(months)*100) / 100
+
+	res := make([]domain.DeductionInstallment, 0, months)
+	for i := 0; i < months; i++ {
+		amount := per
+		if i == months-1 {
+			amount = math.Round((d.Amount-per*float64(months-1))*100) / 100
+		}
+
+		// time.Date oy oshib ketsa yilni o'zi to'g'rilaydi (13-oy -> keyingi yil 1-oy)
+		m := time.Date(d.Year, time.Month(d.Month)+time.Month(i), 1, 0, 0, 0, 0, time.UTC)
+
+		res = append(res, domain.DeductionInstallment{
+			Id:                uuid.New().String(),
+			DeductionDetailId: d.Id,
+			EmployeeId:        d.EmployeeId,
+			StoreId:           d.StoreId,
+			Year:              m.Year(),
+			Month:             int(m.Month()),
+			Seq:               i + 1,
+			Amount:            amount,
+		})
+	}
+	return res
 }
 
 func (s *Services) GetDeductionDetails(
@@ -360,6 +414,22 @@ func (s *Services) UpdateDeductionDetail(
 		return nil, err
 	}
 
+	// Summa yoki oylar soni o'zgarsa jadval qaytadan tuziladi. Allaqachon
+	// to'langan to'lovi bor qarzda buni qilib bo'lmaydi — to'lov tarixi
+	// yo'qolardi. Bunday holatda qarzni o'chirib, yangisini yaratish kerak.
+	if req.RebuildsSchedule() {
+		var paidCount int64
+		err := s.db.WithContext(ctx).Model(&domain.DeductionInstallment{}).
+			Where("deduction_detail_id = ? AND is_paid", id).Count(&paidCount).Error
+		if err != nil {
+			s.log.Errorf("deduction: could not check paid installments: %v", err)
+			return nil, domain.InternalServerError
+		}
+		if paidCount > 0 {
+			return nil, domain.InUseError
+		}
+	}
+
 	updates := map[string]any{
 		"updated_by": nullIfEmpty(userId),
 		"updated_at": time.Now(),
@@ -370,17 +440,11 @@ func (s *Services) UpdateDeductionDetail(
 	if req.Amount != nil {
 		updates["amount"] = *req.Amount
 	}
+	if req.MonthsCount != nil {
+		updates["months_count"] = *req.MonthsCount
+	}
 	if req.Comment != nil {
 		updates["comment"] = *req.Comment
-	}
-	if req.IsPaid != nil {
-		updates["is_paid"] = *req.IsPaid
-		// paid_at to'lov belgilangan paytga qo'yiladi, bekor qilinsa tozalanadi
-		if *req.IsPaid {
-			updates["paid_at"] = time.Now()
-		} else {
-			updates["paid_at"] = nil
-		}
 	}
 	if req.Approve != nil {
 		if *req.Approve {
@@ -392,12 +456,34 @@ func (s *Services) UpdateDeductionDetail(
 		}
 	}
 
-	if err := s.db.WithContext(ctx).
-		Model(&domain.DeductionDetail{}).Where("id = ?", id).Updates(updates).Error; err != nil {
+	err = s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		if err := tx.Model(&domain.DeductionDetail{}).
+			Where("id = ?", id).Updates(updates).Error; err != nil {
+			return err
+		}
+		if !req.RebuildsSchedule() {
+			return nil
+		}
+
+		if err := tx.Where("deduction_detail_id = ?", id).
+			Delete(&domain.DeductionInstallment{}).Error; err != nil {
+			return err
+		}
+
+		var updated domain.DeductionDetail
+		if err := tx.Take(&updated, "id = ?", id).Error; err != nil {
+			return err
+		}
+		return tx.Create(buildInstallments(&updated)).Error
+	})
+	if err != nil {
 		s.log.Errorf("deduction: could not update detail: %v", err)
 		return nil, domain.InternalServerError
 	}
 
+	if err := s.recalcDeductionDetail(ctx, id); err != nil {
+		return nil, err
+	}
 	if err := s.recalcDeduction(ctx, existing.DeductionId); err != nil {
 		return nil, err
 	}
@@ -421,31 +507,62 @@ func (s *Services) DeleteDeductionDetail(ctx context.Context, id string) error {
 
 // region Helpers
 
-// recalcDeduction — sarlavha yig'indilarini qatorlardan qayta hisoblaydi.
+// recalcDeductionDetail — qarzning to'lov holatini jadvalidan qayta hisoblaydi.
 //
-// Har bir detal o'zgarishidan keyin chaqiriladi, shuning uchun sarlavhadagi
-// summa hamisha uning ostidagi qatorlarga teng bo'ladi.
+// is_paid qo'lda o'rnatilmaydi: barcha to'lovlar to'langandagina true bo'ladi.
+// Shuning uchun "3 oy to'ladi, 1 oy qoldi" holatida qarz ochiq ko'rinadi.
+func (s *Services) recalcDeductionDetail(ctx context.Context, detailId string) error {
+	const query = `
+		UPDATE deduction_details d
+		SET is_paid    = (t.cnt > 0 AND t.unpaid = 0),
+		    paid_at    = CASE WHEN t.cnt > 0 AND t.unpaid = 0
+		                      THEN COALESCE(d.paid_at, NOW()) END,
+		    updated_at = NOW()
+		FROM (
+		    SELECT COUNT(*) AS cnt,
+		           COUNT(*) FILTER (WHERE NOT is_paid) AS unpaid
+		    FROM deduction_installments
+		    WHERE deduction_detail_id = CAST(@id AS uuid)
+		) t
+		WHERE d.id = CAST(@id AS uuid)`
+
+	if err := s.db.WithContext(ctx).Exec(query, map[string]any{"id": detailId}).Error; err != nil {
+		s.log.Errorf("deduction: could not recalculate detail: %v", err)
+		return fmt.Errorf("recalculate deduction detail: %w", err)
+	}
+	return nil
+}
+
+// recalcDeduction — sarlavha yig'indilarini qayta hisoblaydi.
 //
-// status: barcha qatorlar to'langan bo'lsa 'paid', aks holda 'open'.
+// total_amount qarzlardan (deduction_details.amount), paid_amount esa TO'LOV
+// JADVALIDAN olinadi: qarz qisman to'langan bo'lsa sarlavhada aynan to'langan
+// qismi ko'rinishi kerak, butun qarz emas.
+//
+// status: barcha to'lovlar bajarilgan bo'lsa 'paid', aks holda 'open'.
 // Qator umuman bo'lmasa 'open' — hali hech narsa yozilmagan oy yopilgan
 // deb hisoblanmasligi kerak.
 func (s *Services) recalcDeduction(ctx context.Context, deductionId string) error {
 	const query = `
 		UPDATE deductions d
 		SET total_amount  = t.total,
-		    paid_amount   = t.paid,
-		    status        = CASE WHEN t.cnt > 0 AND t.unpaid = 0 THEN @paid ELSE @open END,
-		    completed_at  = CASE WHEN t.cnt > 0 AND t.unpaid = 0 THEN COALESCE(d.completed_at, NOW()) END,
+		    paid_amount   = i.paid,
+		    status        = CASE WHEN i.cnt > 0 AND i.unpaid = 0 THEN @paid ELSE @open END,
+		    completed_at  = CASE WHEN i.cnt > 0 AND i.unpaid = 0 THEN COALESCE(d.completed_at, NOW()) END,
 		    updated_at    = NOW()
 		FROM (
-		    SELECT
-		        COUNT(*)                                             AS cnt,
-		        COUNT(*) FILTER (WHERE NOT is_paid)                  AS unpaid,
-		        COALESCE(SUM(amount), 0)                             AS total,
-		        COALESCE(SUM(amount) FILTER (WHERE is_paid), 0)      AS paid
+		    SELECT COALESCE(SUM(amount), 0) AS total
 		    FROM deduction_details
 		    WHERE deduction_id = CAST(@id AS uuid)
-		) t
+		) t,
+		(
+		    SELECT COUNT(*)                                        AS cnt,
+		           COUNT(*) FILTER (WHERE NOT ins.is_paid)         AS unpaid,
+		           COALESCE(SUM(ins.amount) FILTER (WHERE ins.is_paid), 0) AS paid
+		    FROM deduction_installments ins
+		    JOIN deduction_details dd ON dd.id = ins.deduction_detail_id
+		    WHERE dd.deduction_id = CAST(@id AS uuid)
+		) i
 		WHERE d.id = CAST(@id AS uuid)`
 
 	err := s.db.WithContext(ctx).Exec(query, map[string]any{
@@ -458,4 +575,158 @@ func (s *Services) recalcDeduction(ctx context.Context, deductionId string) erro
 		return fmt.Errorf("recalculate deduction: %w", err)
 	}
 	return nil
+}
+
+// region Installments
+
+func (s *Services) GetDeductionInstallments(
+	ctx context.Context, params *domain.DeductionInstallmentQueryParams,
+) ([]domain.DeductionInstallment, int64, error) {
+	newQuery := func() *gorm.DB {
+		q := s.db.WithContext(ctx).Model(&domain.DeductionInstallment{})
+		if params.DeductionDetailId != "" {
+			q = q.Where("deduction_detail_id = ?", params.DeductionDetailId)
+		}
+		if params.EmployeeId != "" {
+			q = q.Where("employee_id = ?", params.EmployeeId)
+		}
+		if params.StoreId != "" {
+			q = q.Where("store_id = ?", params.StoreId)
+		}
+		if params.IsPaid != nil {
+			q = q.Where("is_paid = ?", *params.IsPaid)
+		}
+		if params.Year != 0 {
+			q = q.Where("year = ?", params.Year)
+		}
+		if params.Month != 0 {
+			q = q.Where("month = ?", params.Month)
+		}
+		return q
+	}
+
+	var totalCount int64
+	if err := newQuery().Count(&totalCount).Error; err != nil {
+		s.log.Errorf("deduction: could not count installments: %v", err)
+		return nil, 0, domain.InternalServerError
+	}
+
+	var res []domain.DeductionInstallment
+	err := newQuery().
+		Order("year, month, seq").
+		Limit(payrollNoLimit(params.Limit)).
+		Offset(params.Offset).
+		Find(&res).Error
+	if err != nil {
+		s.log.Errorf("deduction: could not get installments: %v", err)
+		return nil, 0, domain.InternalServerError
+	}
+	return res, totalCount, nil
+}
+
+func (s *Services) GetDeductionInstallmentById(
+	ctx context.Context, id string,
+) (*domain.DeductionInstallment, error) {
+	var i domain.DeductionInstallment
+	if err := s.db.WithContext(ctx).Take(&i, "id = ?", id).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, domain.ResourceNotFoundError
+		}
+		s.log.Errorf("deduction: could not get installment: %v", err)
+		return nil, domain.InternalServerError
+	}
+	return &i, nil
+}
+
+// UpdateDeductionInstallment — oylik to'lovni to'langan deb belgilaydi yoki
+// tasdiqlaydi. Har o'zgarishdan keyin qarz va sarlavha qayta hisoblanadi.
+func (s *Services) UpdateDeductionInstallment(
+	ctx context.Context, id, userId string, req *domain.DeductionInstallmentUpdateRequest,
+) (*domain.DeductionInstallment, error) {
+	existing, err := s.GetDeductionInstallmentById(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+
+	updates := map[string]any{
+		"updated_by": nullIfEmpty(userId),
+		"updated_at": time.Now(),
+	}
+	if req.Comment != nil {
+		updates["comment"] = *req.Comment
+	}
+	if req.IsPaid != nil {
+		updates["is_paid"] = *req.IsPaid
+		if *req.IsPaid {
+			updates["paid_at"] = time.Now()
+		} else {
+			updates["paid_at"] = nil
+		}
+	}
+	if req.Approve != nil {
+		if *req.Approve {
+			updates["approved_by"] = nullIfEmpty(userId)
+			updates["approved_at"] = time.Now()
+		} else {
+			updates["approved_by"] = nil
+			updates["approved_at"] = nil
+		}
+	}
+
+	if err := s.db.WithContext(ctx).
+		Model(&domain.DeductionInstallment{}).Where("id = ?", id).Updates(updates).Error; err != nil {
+		s.log.Errorf("deduction: could not update installment: %v", err)
+		return nil, domain.InternalServerError
+	}
+
+	// Zanjir: to'lov -> qarz -> sarlavha
+	detail, err := s.GetDeductionDetailById(ctx, existing.DeductionDetailId)
+	if err != nil {
+		return nil, err
+	}
+	if err := s.recalcDeductionDetail(ctx, detail.Id); err != nil {
+		return nil, err
+	}
+	if err := s.recalcDeduction(ctx, detail.DeductionId); err != nil {
+		return nil, err
+	}
+
+	return s.GetDeductionInstallmentById(ctx, id)
+}
+
+// GetEmployeeDebt — xodimning qarz holati va so'ralgan oydagi to'lovi.
+//
+// Oylik ekranida "shu xodimda qarz bormi, bu oyda qancha ushlab qolinadi"
+// degan savolga shu javob beradi.
+func (s *Services) GetEmployeeDebt(
+	ctx context.Context, employeeId string, year, month int,
+) (*domain.EmployeeDebt, error) {
+	const query = `
+		SELECT
+		    COALESCE(SUM(amount), 0)                                AS total_amount,
+		    COALESCE(SUM(amount) FILTER (WHERE is_paid), 0)         AS paid_amount,
+		    COALESCE(SUM(amount) FILTER (WHERE NOT is_paid), 0)     AS remaining_amount,
+		    COUNT(*) FILTER (WHERE NOT is_paid)                     AS unpaid_count,
+		    COALESCE(SUM(amount) FILTER (
+		        WHERE year = @year AND month = @month), 0)          AS current_month_amount,
+		    COALESCE(bool_and(is_paid) FILTER (
+		        WHERE year = @year AND month = @month), false)      AS current_month_paid,
+		    COALESCE(bool_and(approved_at IS NOT NULL) FILTER (
+		        WHERE year = @year AND month = @month), false)      AS current_month_approved
+		FROM deduction_installments
+		WHERE employee_id = CAST(@employee_id AS uuid)`
+
+	var debt domain.EmployeeDebt
+	err := s.db.WithContext(ctx).Raw(query, map[string]any{
+		"employee_id": employeeId,
+		"year":        year,
+		"month":       month,
+	}).Scan(&debt).Error
+	if err != nil {
+		s.log.Errorf("deduction: could not get employee debt: %v", err)
+		return nil, domain.InternalServerError
+	}
+
+	debt.EmployeeId = employeeId
+	return &debt, nil
 }

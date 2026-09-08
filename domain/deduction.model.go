@@ -95,7 +95,12 @@ type DeductionDetail struct {
 	Year            int    `json:"year" gorm:"column:year"`
 	Month           int    `json:"month" gorm:"column:month"`
 
-	Amount  float64    `json:"amount" gorm:"column:amount"`
+	Amount float64 `json:"amount" gorm:"column:amount"`
+	// MonthsCount — necha oyga bo'lib to'lanadi. Shuncha deduction_installments
+	// qatori hosil bo'ladi.
+	MonthsCount int `json:"months_count" gorm:"column:months_count"`
+	// IsPaid — to'lov jadvalidan HOSILA: barcha to'lovlar to'langanda true
+	// bo'ladi. Qo'lda o'rnatilmaydi.
 	IsPaid  bool       `json:"is_paid" gorm:"column:is_paid"`
 	PaidAt  *time.Time `json:"paid_at" gorm:"column:paid_at"`
 	Comment *string    `json:"comment" gorm:"column:comment"`
@@ -110,6 +115,60 @@ type DeductionDetail struct {
 }
 
 func (DeductionDetail) TableName() string { return "deduction_details" }
+
+// region Installments
+
+// DeductionInstallment — qarzning bitta oyga to'g'ri keladigan to'lovi.
+//
+// EmployeeId/StoreId qarzda ham bor, lekin bu yerda takrorlanadi: "shu
+// xodimning shu oydagi qarzi" so'rovi JOIN'siz o'qiladi — aynan shu so'rov
+// har oy oylik ekranida ishlatiladi.
+//
+// Seq — nechanchi to'lov (1..months_count). Bo'linishda qolgan tiyinlar
+// OXIRGI to'lovga qo'shiladi, shuning uchun to'lovlar yig'indisi qarz
+// summasiga aniq teng bo'ladi.
+type DeductionInstallment struct {
+	Id                string `json:"id" gorm:"column:id;primaryKey"`
+	DeductionDetailId string `json:"deduction_detail_id" gorm:"column:deduction_detail_id"`
+	EmployeeId        string `json:"employee_id" gorm:"column:employee_id"`
+	StoreId           string `json:"store_id" gorm:"column:store_id"`
+	Year              int    `json:"year" gorm:"column:year"`
+	Month             int    `json:"month" gorm:"column:month"`
+	Seq               int    `json:"seq" gorm:"column:seq"`
+
+	Amount  float64    `json:"amount" gorm:"column:amount"`
+	IsPaid  bool       `json:"is_paid" gorm:"column:is_paid"`
+	PaidAt  *time.Time `json:"paid_at" gorm:"column:paid_at"`
+	Comment *string    `json:"comment" gorm:"column:comment"`
+
+	UpdatedBy  *string    `json:"updated_by" gorm:"column:updated_by"`
+	ApprovedBy *string    `json:"approved_by" gorm:"column:approved_by"`
+	ApprovedAt *time.Time `json:"approved_at" gorm:"column:approved_at"`
+
+	CreatedAt *time.Time `json:"created_at" gorm:"column:created_at"`
+	UpdatedAt *time.Time `json:"updated_at" gorm:"column:updated_at"`
+}
+
+func (DeductionInstallment) TableName() string { return "deduction_installments" }
+
+// EmployeeDebt — bitta xodimning qarz holati.
+//
+// CurrentMonth* — so'ralgan oyga to'g'ri keladigan to'lov: oylik ekranida
+// "shu oyda qancha ushlab qolinadi" shu yerdan olinadi.
+type EmployeeDebt struct {
+	EmployeeId string `json:"employee_id"`
+
+	TotalAmount     float64 `json:"total_amount"`     // jami qarz
+	PaidAmount      float64 `json:"paid_amount"`      // to'langani
+	RemainingAmount float64 `json:"remaining_amount"` // qolgani
+
+	// So'ralgan oydagi to'lov. Qator bo'lmasa hammasi 0/false.
+	CurrentMonthAmount   float64 `json:"current_month_amount"`
+	CurrentMonthPaid     bool    `json:"current_month_paid"`
+	CurrentMonthApproved bool    `json:"current_month_approved"`
+
+	UnpaidCount int `json:"unpaid_count"` // qolgan to'lovlar soni
+}
 
 // region Requests
 
@@ -144,12 +203,45 @@ func (r DeductionUpdateRequest) IsEmpty() bool {
 	return r.Comment == nil && r.Approve == nil
 }
 
+// DeductionDetailRequest — xodimga qarz ajratish.
+//
+// MonthsCount — necha oyga bo'lib to'lanadi. Berilmasa 1 (bir oyda to'liq).
+// Yaratilganda shuncha to'lov qatori avtomatik hosil bo'ladi: birinchisi
+// sarlavha oyidan boshlanadi, qolganlari ketma-ket keyingi oylarga.
 type DeductionDetailRequest struct {
 	DeductionId     string  `json:"deduction_id" binding:"required"`
 	DeductionTypeId string  `json:"deduction_type_id" binding:"required"`
 	EmployeeId      string  `json:"employee_id" binding:"required"`
 	Amount          float64 `json:"amount" binding:"required,min=0"`
+	MonthsCount     int     `json:"months_count" binding:"omitempty,min=1" example:"4"`
 	Comment         *string `json:"comment"`
+}
+
+// DeductionInstallmentUpdateRequest — bitta oylik to'lovni tahrirlash.
+//
+// Summani bu yerdan o'zgartirib bo'lmaydi: to'lovlar yig'indisi qarz
+// summasiga teng bo'lishi kerak, bittasini o'zgartirsa bu buzilardi.
+// Summani o'zgartirish uchun qarzning o'zi (amount yoki months_count)
+// yangilanadi va jadval qaytadan tuziladi.
+type DeductionInstallmentUpdateRequest struct {
+	IsPaid  *bool   `json:"is_paid"`
+	Approve *bool   `json:"approve"`
+	Comment *string `json:"comment"`
+}
+
+func (r DeductionInstallmentUpdateRequest) IsEmpty() bool {
+	return r.IsPaid == nil && r.Approve == nil && r.Comment == nil
+}
+
+type DeductionInstallmentQueryParams struct {
+	DeductionDetailId string `form:"deduction_detail_id"`
+	EmployeeId        string `form:"employee_id"`
+	StoreId           string `form:"store_id"`
+	IsPaid            *bool  `form:"is_paid"`
+	Year              int    `form:"year"`
+	Month             int    `form:"month"`
+	Limit             int    `form:"limit"`
+	Offset            int    `form:"offset"`
 }
 
 // DeductionDetailUpdateRequest — hammasi ixtiyoriy.
@@ -157,17 +249,28 @@ type DeductionDetailRequest struct {
 // store_id/year/month bu yerda yo'q: ular sarlavhadan olinadi va qatorni
 // boshqa oyga ko'chirish sarlavha yig'indilarini buzardi. Boshqa oyga
 // ko'chirish kerak bo'lsa qator o'chirilib, yangisi yaratiladi.
+// is_paid bu yerda YO'Q: u to'lov jadvalidan hosila. Oylik to'lovni to'langan
+// deb belgilash uchun PUT /deduction-installment/{id} ishlatiladi.
+//
+// Amount yoki MonthsCount o'zgarsa to'lov jadvali qaytadan tuziladi. Shuning
+// uchun allaqachon to'langan to'lovi bor qarzda ular o'zgartirilmaydi — aks
+// holda to'lov tarixi yo'qolardi.
 type DeductionDetailUpdateRequest struct {
 	DeductionTypeId *string  `json:"deduction_type_id"`
 	Amount          *float64 `json:"amount" binding:"omitempty,min=0"`
-	IsPaid          *bool    `json:"is_paid"`
+	MonthsCount     *int     `json:"months_count" binding:"omitempty,min=1"`
 	Comment         *string  `json:"comment"`
 	Approve         *bool    `json:"approve"`
 }
 
 func (r DeductionDetailUpdateRequest) IsEmpty() bool {
-	return r.DeductionTypeId == nil && r.Amount == nil &&
-		r.IsPaid == nil && r.Comment == nil && r.Approve == nil
+	return r.DeductionTypeId == nil && r.Amount == nil && r.MonthsCount == nil &&
+		r.Comment == nil && r.Approve == nil
+}
+
+// RebuildsSchedule — to'lov jadvali qaytadan tuzilishi kerakligini bildiradi.
+func (r DeductionDetailUpdateRequest) RebuildsSchedule() bool {
+	return r.Amount != nil || r.MonthsCount != nil
 }
 
 // region Query params
