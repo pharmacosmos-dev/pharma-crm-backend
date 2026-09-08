@@ -43,6 +43,7 @@ func (h *DeductionHandler) DeductionRoutes(r *gin.RouterGroup) {
 	details := r.Group("/deduction-detail")
 	{
 		details.POST("", h.CreateDetail)
+		details.POST("/bulk", h.CreateDetailsBulk)
 		details.GET("/list", h.ListDetails)
 		details.GET("/:id", h.GetDetail)
 		details.PUT("/:id", h.UpdateDetail)
@@ -691,6 +692,47 @@ func (h *DeductionHandler) CreateDetail(c *gin.Context) {
 	defer cancel()
 
 	res, err := h.service.CreateDeductionDetail(ctx, user.UserId, &body)
+	if err != nil {
+		handleServiceResponse(c, nil, err)
+		return
+	}
+	handleResponse(c, CREATED, res)
+}
+
+// CreateDetailsBulk godoc
+// @Summary      Distribute a deduction across several employees
+// @Description  Bir necha xodimga bir vaqtda taqsimlaydi. Hammasi BITTA tranzaksiyada yoziladi.
+// @Description  Sarlavhada shortage_amount berilgan bo'lsa (masalan pereuchyot kamomadi 15 mln),
+// @Description  taqsimot unga TENG bo'lishi shart. Teng kelmasa hech biri yozilmaydi va
+// @Description  400 "noto'g'ri taqsimlandi" xatosi qaytadi, ichida taqsimot va kamomad summalari bilan.
+// @Description  shortage_amount 0 bo'lsa (shtraf) tekshiruv o'chadi.
+// @Description  Har bir element uchun months_count yoki installments berilishi mumkin — bitta qo'shishdagi kabi.
+// @Tags         deductions
+// @Security     BearerAuth
+// @Accept       json
+// @Produce      json
+// @Param        input  body  domain.DeductionDetailBulkRequest  true  "Taqsimot"
+// @Success      201  {object}  v1.Response
+// @Failure      400  {object}  v1.Response
+// @Failure      401  {object}  v1.Response
+// @Failure      404  {object}  v1.Response
+// @Router       /deduction-detail/bulk [post]
+func (h *DeductionHandler) CreateDetailsBulk(c *gin.Context) {
+	user, ok := h.signedUser(c)
+	if !ok {
+		return
+	}
+
+	var body domain.DeductionDetailBulkRequest
+	if err := c.ShouldBindJSON(&body); err != nil {
+		handleResponse(c, BadRequest, err.Error())
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(c.Request.Context(), constants.DefaultContextTimeout)
+	defer cancel()
+
+	res, err := h.service.CreateDeductionDetailsBulk(ctx, user.UserId, &body)
 	if err != nil {
 		handleServiceResponse(c, nil, err)
 		return

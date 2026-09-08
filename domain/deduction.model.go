@@ -63,6 +63,13 @@ type Deduction struct {
 	Year            int     `json:"year" gorm:"column:year"`
 	Month           int     `json:"month" gorm:"column:month"`
 
+	// ShortageAmount — taqsimlanishi kerak bo'lgan summa (pereuchyotdan chiqqan
+	// kamomad). Detallar yig'indisi shunga solishtiriladi.
+	//
+	// 0 = tekshirilmaydi. Shtrafda oldindan ma'lum summa bo'lmaydi, shuning
+	// uchun u odatda 0 qoladi.
+	ShortageAmount float64 `json:"shortage_amount" gorm:"column:shortage_amount"`
+
 	TotalAmount float64 `json:"total_amount" gorm:"column:total_amount"`
 	PaidAmount  float64 `json:"paid_amount" gorm:"column:paid_amount"`
 
@@ -188,11 +195,32 @@ type DeductionTypeRequest struct {
 // hisoblanadi, qo'lda kiritilsa sarlavha va qatorlar bir-biriga mos kelmay
 // qolardi.
 type DeductionRequest struct {
-	DeductionTypeId string  `json:"deduction_type_id" binding:"required"`
-	StoreId         string  `json:"store_id" binding:"required"`
-	Year            int     `json:"year" binding:"required,min=2000,max=2100"`
-	Month           int     `json:"month" binding:"required,min=1,max=12"`
-	Comment         *string `json:"comment"`
+	DeductionTypeId string `json:"deduction_type_id" binding:"required"`
+	StoreId         string `json:"store_id" binding:"required"`
+	Year            int    `json:"year" binding:"required,min=2000,max=2100"`
+	Month           int    `json:"month" binding:"required,min=1,max=12"`
+	// ShortageAmount — taqsimlanishi kerak bo'lgan summa (masalan pereuchyot
+	// kamomadi 15 mln). Berilsa xodimlarga taqsimlash shunga tekshiriladi.
+	// Berilmasa (0) tekshiruv o'chadi — shtraf uchun odatda shunday.
+	ShortageAmount float64 `json:"shortage_amount" binding:"omitempty,min=0" example:"15000000"`
+	Comment        *string `json:"comment"`
+}
+
+// DeductionDetailBulkRequest — bir necha xodimga bir vaqtda taqsimlash.
+//
+// Hammasi BITTA tranzaksiyada yoziladi: sarlavhada shortage_amount berilgan
+// bo'lsa va taqsimot unga teng kelmasa, hech biri yozilmaydi.
+type DeductionDetailBulkRequest struct {
+	DeductionId string                    `json:"deduction_id" binding:"required"`
+	Items       []DeductionDetailBulkItem `json:"items" binding:"required,min=1,dive"`
+}
+
+type DeductionDetailBulkItem struct {
+	EmployeeId   string                      `json:"employee_id" binding:"required"`
+	Amount       float64                     `json:"amount" binding:"required,min=0"`
+	MonthsCount  int                         `json:"months_count" binding:"omitempty,min=1" example:"3"`
+	Installments []DeductionInstallmentInput `json:"installments"`
+	Comment      *string                     `json:"comment"`
 }
 
 // DeductionUpdateRequest — hammasi ixtiyoriy: berilgani yoziladi.

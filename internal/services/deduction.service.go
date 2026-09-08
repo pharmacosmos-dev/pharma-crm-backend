@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"math"
+	"net/http"
 	"time"
 
 	"github.com/google/uuid"
@@ -145,6 +146,7 @@ func (s *Services) CreateDeduction(
 		CompanyId:       store.CompanyId,
 		Year:            req.Year,
 		Month:           req.Month,
+		ShortageAmount:  req.ShortageAmount,
 		Status:          domain.DeductionStatusOpen,
 		Comment:         req.Comment,
 		CreatedBy:       nullIfEmpty(userId),
@@ -333,9 +335,18 @@ func (s *Services) CreateDeductionDetail(
 		if err := tx.Create(&d).Error; err != nil {
 			return err
 		}
-		return tx.Create(installments).Error
+		if err := tx.Create(installments).Error; err != nil {
+			return err
+		}
+		// Bitta qator qo'shishda taqsimot kamomaddan OSHIB ketmasligi
+		// tekshiriladi. Tenglik talab qilinmaydi — taqsimot bosqichma-bosqich
+		// to'ldirilishi mumkin; to'liq tenglik bulk chaqiruvida tekshiriladi.
+		return checkDeductionOverflow(tx, parent)
 	})
 	if err != nil {
+		if overflow, ok := err.(*domain.Error); ok {
+			return nil, overflow
+		}
 		s.log.Errorf("deduction: could not create detail: %v", err)
 		return nil, domain.InternalServerError
 	}
@@ -344,6 +355,136 @@ func (s *Services) CreateDeductionDetail(
 		return nil, err
 	}
 	return &d, nil
+}
+
+// CreateDeductionDetailsBulk — bir necha xodimga bir vaqtda taqsimlash.
+//
+// Hammasi BITTA tranzaksiyada: sarlavhada shortage_amount berilgan bo'lsa,
+// yozilgandan keyin barcha detallar yig'indisi unga teng ekani tekshiriladi.
+// Teng kelmasa tranzaksiya bekor qilinadi — bitta ham qator qolmaydi.
+//
+// Tekshiruv "tur RECOUNT bo'lsa" emas, "shortage_amount qo'yilgan bo'lsa"
+// shartiga bog'langan: yangi tur qo'shilsa ham kod o'zgartirmasdan ishlaydi,
+// shtrafda esa shortage_amount 0 bo'lgani uchun tekshiruv o'zi o'chadi.
+func (s *Services) CreateDeductionDetailsBulk(
+	ctx context.Context, userId string, req *domain.DeductionDetailBulkRequest,
+) ([]domain.DeductionDetail, error) {
+	parent, err := s.GetDeductionById(ctx, req.DeductionId)
+	if err != nil {
+		return nil, err
+	}
+
+	// Qatorlar va jadvallar oldindan tuziladi: notekis jadval yig'indisi
+	// qarzga mos kelmasa, bazaga tegmasdan 400 qaytadi.
+	details := make([]domain.DeductionDetail, 0, len(req.Items))
+	installments := make([]domain.DeductionInstallment, 0, len(req.Items))
+
+	for _, item := range req.Items {
+		months := item.MonthsCount
+		if months < 1 {
+			months = 1
+		}
+
+		d := domain.DeductionDetail{
+			Id:              uuid.New().String(),
+			DeductionId:     parent.Id,
+			DeductionTypeId: parent.DeductionTypeId,
+			EmployeeId:      item.EmployeeId,
+			StoreId:         parent.StoreId,
+			Year:            parent.Year,
+			Month:           parent.Month,
+			Amount:          item.Amount,
+			MonthsCount:     months,
+			Comment:         item.Comment,
+			CreatedBy:       nullIfEmpty(userId),
+		}
+
+		plan, err := buildInstallments(&d, item.Installments)
+		if err != nil {
+			s.log.Errorf("deduction: invalid installment plan: %v", err)
+			return nil, domain.BadRequestError
+		}
+
+		details = append(details, d)
+		installments = append(installments, plan...)
+	}
+
+	err = s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		if err := tx.Create(&details).Error; err != nil {
+			return err
+		}
+		if err := tx.Create(&installments).Error; err != nil {
+			return err
+		}
+		// Tekshiruv YOZILGANDAN KEYIN: shunda sarlavhada oldindan turgan
+		// qatorlar ham hisobga kiradi va "yana qo'shib yuborish" ham tutiladi.
+		return checkDeductionDistribution(tx, parent)
+	})
+	if err != nil {
+		if mismatch, ok := err.(*domain.Error); ok {
+			return nil, mismatch
+		}
+		s.log.Errorf("deduction: could not create details in bulk: %v", err)
+		return nil, domain.InternalServerError
+	}
+
+	if err := s.recalcDeduction(ctx, parent.Id); err != nil {
+		return nil, err
+	}
+	return details, nil
+}
+
+// checkDeductionDistribution — detallar yig'indisi kutilgan kamomadga tengmi.
+//
+// shortage_amount 0 bo'lsa tekshirilmaydi. Taqqoslash tiyin aniqligida —
+// float qo'shishdagi mayda farq to'g'ri taqsimotni rad etmasligi uchun.
+func checkDeductionDistribution(tx *gorm.DB, parent *domain.Deduction) error {
+	if parent.ShortageAmount <= 0 {
+		return nil
+	}
+
+	distributed, err := sumDeductionDetails(tx, parent.Id)
+	if err != nil {
+		return err
+	}
+
+	if math.Round(distributed*100) != math.Round(parent.ShortageAmount*100) {
+		return domain.NewError(http.StatusBadRequest, fmt.Sprintf(
+			"deduction.distribution.mismatch: noto'g'ri taqsimlandi — taqsimot %.2f, kamomad %.2f",
+			distributed, parent.ShortageAmount))
+	}
+	return nil
+}
+
+// checkDeductionOverflow — taqsimot kamomaddan oshib ketmadimi.
+//
+// Bitta qator qo'shilganda ishlatiladi: tenglik talab qilinmaydi (taqsimot
+// bosqichma-bosqich to'ldirilishi mumkin), faqat oshib ketish to'siladi.
+func checkDeductionOverflow(tx *gorm.DB, parent *domain.Deduction) error {
+	if parent.ShortageAmount <= 0 {
+		return nil
+	}
+
+	distributed, err := sumDeductionDetails(tx, parent.Id)
+	if err != nil {
+		return err
+	}
+
+	if math.Round(distributed*100) > math.Round(parent.ShortageAmount*100) {
+		return domain.NewError(http.StatusBadRequest, fmt.Sprintf(
+			"deduction.distribution.overflow: taqsimot kamomaddan oshib ketdi — taqsimot %.2f, kamomad %.2f",
+			distributed, parent.ShortageAmount))
+	}
+	return nil
+}
+
+func sumDeductionDetails(tx *gorm.DB, deductionId string) (float64, error) {
+	var sum float64
+	err := tx.Model(&domain.DeductionDetail{}).
+		Where("deduction_id = ?", deductionId).
+		Select("COALESCE(SUM(amount), 0)").
+		Scan(&sum).Error
+	return sum, err
 }
 
 // buildInstallments — qarzning to'lov jadvalini tuzadi.
