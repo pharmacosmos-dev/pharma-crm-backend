@@ -470,6 +470,126 @@ definitions:
           type: string
         type: array
     type: object
+  domain.DeductionDetailRequest:
+    properties:
+      amount:
+        minimum: 0
+        type: number
+      comment:
+        type: string
+      deduction_id:
+        type: string
+      employee_id:
+        type: string
+      installments:
+        description: |-
+          Installments — notekis jadval: qaysi oyda qancha to'lanishi.
+          Berilsa months_count e'tiborga olinmaydi va jadval aynan shu ro'yxatdan
+          tuziladi (masalan birinchi oyda ko'proq, keyingilarida kamroq).
+          Berilmasa summa months_count oyga TENG bo'linadi.
+        items:
+          $ref: '#/definitions/domain.DeductionInstallmentInput'
+        type: array
+      months_count:
+        example: 4
+        minimum: 1
+        type: integer
+    required:
+    - amount
+    - deduction_id
+    - employee_id
+    type: object
+  domain.DeductionDetailUpdateRequest:
+    properties:
+      amount:
+        minimum: 0
+        type: number
+      approve:
+        type: boolean
+      comment:
+        type: string
+      installments:
+        description: |-
+          Installments — jadvalni notekis qilib qayta tuzish. Berilsa months_count
+          e'tiborga olinmaydi.
+        items:
+          $ref: '#/definitions/domain.DeductionInstallmentInput'
+        type: array
+      months_count:
+        minimum: 1
+        type: integer
+    type: object
+  domain.DeductionInstallmentInput:
+    properties:
+      amount:
+        example: 2500000
+        minimum: 0
+        type: number
+      month:
+        maximum: 12
+        minimum: 1
+        type: integer
+      year:
+        maximum: 2100
+        minimum: 2000
+        type: integer
+    required:
+    - amount
+    type: object
+  domain.DeductionInstallmentUpdateRequest:
+    properties:
+      approve:
+        type: boolean
+      comment:
+        type: string
+      is_paid:
+        type: boolean
+    type: object
+  domain.DeductionRequest:
+    properties:
+      comment:
+        type: string
+      deduction_type_id:
+        type: string
+      month:
+        maximum: 12
+        minimum: 1
+        type: integer
+      store_id:
+        type: string
+      year:
+        maximum: 2100
+        minimum: 2000
+        type: integer
+    required:
+    - deduction_type_id
+    - month
+    - store_id
+    - year
+    type: object
+  domain.DeductionTypeRequest:
+    properties:
+      code:
+        example: SHORTAGE
+        maxLength: 50
+        type: string
+      is_active:
+        type: boolean
+      name:
+        example: Kamomad
+        maxLength: 255
+        type: string
+    required:
+    - code
+    - name
+    type: object
+  domain.DeductionUpdateRequest:
+    properties:
+      approve:
+        type: boolean
+      comment:
+        type: string
+    type: object
   domain.DeleteProductBarcodeRequest:
     properties:
       id:
@@ -5818,6 +5938,785 @@ paths:
         audit trail
       tags:
       - dashboard
+  /deduction:
+    post:
+      consumes:
+      - application/json
+      description: |-
+        Do'kon + oy + TUR sarlavhasini yaratadi. Har bir tur o'z sarlavhasiga ega:
+        bir do'konning bir oyida shtraf, pereuchyot va srok uchun uchta alohida sarlavha bo'ladi.
+        Shu sababli bir oyda to'liq to'langan shtraf, o'sha oydagi uzoq muddatli pereuchyot qarzi sabab ochiq qolmaydi.
+        Bir xil (store_id, year, month, deduction_type_id) takrorlansa 409.
+        total_amount, paid_amount va status qo'lda kiritilmaydi — ular qatorlardan avtomatik hisoblanadi.
+      parameters:
+      - description: Sarlavha
+        in: body
+        name: input
+        required: true
+        schema:
+          $ref: '#/definitions/domain.DeductionRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Create deduction
+      tags:
+      - deductions
+  /deduction-detail:
+    post:
+      consumes:
+      - application/json
+      description: |-
+        Xodimga ushlab qolish yozadi. store_id, year va month sarlavhadan olinadi — ularni yuborish shart emas.
+        Bir xodimga bir oyda bir necha qator bo'lishi mumkin (masalan ikkita shtraf).
+        Yozilgandan keyin sarlavhaning total_amount/paid_amount/status'i qayta hisoblanadi.
+      parameters:
+      - description: Qator
+        in: body
+        name: input
+        required: true
+        schema:
+          $ref: '#/definitions/domain.DeductionDetailRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Create deduction detail
+      tags:
+      - deductions
+  /deduction-detail/{id}:
+    delete:
+      description: Qatorni o'chiradi va sarlavha yig'indilarini qayta hisoblaydi.
+      parameters:
+      - description: Detail ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Delete deduction detail
+      tags:
+      - deductions
+    get:
+      parameters:
+      - description: Detail ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Get deduction detail
+      tags:
+      - deductions
+    put:
+      consumes:
+      - application/json
+      description: |-
+        Hammasi ixtiyoriy — berilgani yoziladi, berilmagani eski qiymatida qoladi.
+        is_paid=true bo'lsa paid_at hozirgi vaqtga, false bo'lsa NULL'ga qo'yiladi.
+        approve=true bo'lsa approved_by joriy foydalanuvchiga qo'yiladi.
+        Har qanday o'zgarishdan keyin sarlavha yig'indilari qayta hisoblanadi.
+      parameters:
+      - description: Detail ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: O'zgarishlar
+        in: body
+        name: input
+        required: true
+        schema:
+          $ref: '#/definitions/domain.DeductionDetailUpdateRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Update deduction detail
+      tags:
+      - deductions
+  /deduction-detail/list:
+    get:
+      parameters:
+      - description: Deduction ID
+        in: query
+        name: deduction_id
+        type: string
+      - description: Employee ID
+        in: query
+        name: employee_id
+        type: string
+      - description: Store ID
+        in: query
+        name: store_id
+        type: string
+      - description: Type ID
+        in: query
+        name: deduction_type_id
+        type: string
+      - description: To'langanmi
+        in: query
+        name: is_paid
+        type: boolean
+      - description: Year
+        in: query
+        name: year
+        type: integer
+      - description: Month 1-12
+        in: query
+        name: month
+        type: integer
+      - description: Limit
+        in: query
+        name: limit
+        type: integer
+      - description: Offset
+        in: query
+        name: offset
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: List deduction details
+      tags:
+      - deductions
+  /deduction-installment/{id}:
+    get:
+      parameters:
+      - description: Installment ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Get deduction installment
+      tags:
+      - deductions
+    put:
+      consumes:
+      - application/json
+      description: |-
+        Oylik to'lovni to'langan deb belgilaydi (is_paid) va tasdiqlaydi (approve).
+        Summani bu yerdan o'zgartirib bo'lmaydi — to'lovlar yig'indisi qarz summasiga teng bo'lishi kerak.
+        Har o'zgarishdan keyin qarz (is_paid) va sarlavha (paid_amount, status) qayta hisoblanadi.
+      parameters:
+      - description: Installment ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: O'zgarishlar
+        in: body
+        name: input
+        required: true
+        schema:
+          $ref: '#/definitions/domain.DeductionInstallmentUpdateRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Update deduction installment
+      tags:
+      - deductions
+  /deduction-installment/debt:
+    get:
+      description: |-
+        Xodimning qarz holati: jami, to'langani, qolgani va so'ralgan oyga to'g'ri keladigan to'lov.
+        current_month_approved false bo'lsa — o'sha oy to'lovi hali tasdiqlanmagan, oylik ekranida ko'rsatiladi.
+        employee_id berilmasa token egasining o'z qarzi qaytadi.
+        year/month berilmasa joriy oy.
+      parameters:
+      - description: 'Employee ID (default: o''zi)'
+        in: query
+        name: employee_id
+        type: string
+      - description: 'Year (default: joriy)'
+        in: query
+        name: year
+        type: integer
+      - description: 'Month 1-12 (default: joriy)'
+        in: query
+        name: month
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Employee debt summary
+      tags:
+      - deductions
+  /deduction-installment/list:
+    get:
+      description: |-
+        Qarzning oylik to'lov jadvali. Oylik ekranida "shu xodimning shu oydagi qarzi"ni
+        ko'rsatish uchun: ?employee_id=&year=&month=&is_paid=false
+      parameters:
+      - description: Qarz ID
+        in: query
+        name: deduction_detail_id
+        type: string
+      - description: Employee ID
+        in: query
+        name: employee_id
+        type: string
+      - description: Store ID
+        in: query
+        name: store_id
+        type: string
+      - description: To'langanmi
+        in: query
+        name: is_paid
+        type: boolean
+      - description: Year
+        in: query
+        name: year
+        type: integer
+      - description: Month 1-12
+        in: query
+        name: month
+        type: integer
+      - description: Limit
+        in: query
+        name: limit
+        type: integer
+      - description: Offset
+        in: query
+        name: offset
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: List deduction installments
+      tags:
+      - deductions
+  /deduction-type:
+    post:
+      consumes:
+      - application/json
+      description: |-
+        Yangi ushlab qolish turi qo'shadi (masalan "Kamomad").
+        code — kodda ishlatiladigan barqaror kalit, keyin o'zgartirilmasligi kerak; name — ko'rinadigan nom.
+      parameters:
+      - description: Tur
+        in: body
+        name: input
+        required: true
+        schema:
+          $ref: '#/definitions/domain.DeductionTypeRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Create deduction type
+      tags:
+      - deductions
+  /deduction-type/{id}:
+    delete:
+      description: Turni o'chiradi. Unga bog'langan qatorlar bo'lsa 409 qaytadi —
+        bunday turni o'chirish o'rniga is_active = false qilib qo'yish kerak.
+      parameters:
+      - description: Type ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Delete deduction type
+      tags:
+      - deductions
+    get:
+      parameters:
+      - description: Type ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Get deduction type
+      tags:
+      - deductions
+    put:
+      consumes:
+      - application/json
+      description: code va name'ni yangilaydi. is_active berilsa turni faol/nofaol
+        qiladi.
+      parameters:
+      - description: Type ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Tur
+        in: body
+        name: input
+        required: true
+        schema:
+          $ref: '#/definitions/domain.DeductionTypeRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Update deduction type
+      tags:
+      - deductions
+  /deduction-type/list:
+    get:
+      description: Ushlab qolish turlari ro'yxati. Nofaollari ham qaytadi — eski qatorlarda
+        ular hali ishlatilgan bo'lishi mumkin.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: List deduction types
+      tags:
+      - deductions
+  /deduction/{id}:
+    delete:
+      description: Sarlavhani va uning BARCHA qatorlarini o'chiradi (CASCADE).
+      parameters:
+      - description: Deduction ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Delete deduction
+      tags:
+      - deductions
+    get:
+      parameters:
+      - description: Deduction ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Get deduction
+      tags:
+      - deductions
+    put:
+      consumes:
+      - application/json
+      description: |-
+        Izohni o'zgartiradi va tasdiqlaydi. approve=true bo'lsa approved_by joriy foydalanuvchiga qo'yiladi, false bo'lsa tasdiq bekor qilinadi.
+        total_amount/paid_amount/status bu yerdan o'zgartirilmaydi — ular qatorlardan hisoblanadi.
+      parameters:
+      - description: Deduction ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: O'zgarishlar
+        in: body
+        name: input
+        required: true
+        schema:
+          $ref: '#/definitions/domain.DeductionUpdateRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Update deduction
+      tags:
+      - deductions
+  /deduction/list:
+    get:
+      description: Do'kon + oy sarlavhalari. Admin bo'lmagan foydalanuvchi faqat o'z
+        kompaniyasi va do'konini ko'radi.
+      parameters:
+      - description: Store ID
+        in: query
+        name: store_id
+        type: string
+      - description: Tur bo'yicha (shtraf / pereuchyot / srok)
+        in: query
+        name: deduction_type_id
+        type: string
+      - description: open yoki paid
+        in: query
+        name: status
+        type: string
+      - description: Year
+        in: query
+        name: year
+        type: integer
+      - description: Month 1-12
+        in: query
+        name: month
+        type: integer
+      - description: Limit
+        in: query
+        name: limit
+        type: integer
+      - description: Offset
+        in: query
+        name: offset
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: List deductions
+      tags:
+      - deductions
   /discount-card:
     post:
       consumes:
