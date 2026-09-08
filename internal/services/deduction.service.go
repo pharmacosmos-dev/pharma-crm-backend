@@ -290,96 +290,42 @@ func (s *Services) DeleteDeduction(ctx context.Context, id string) error {
 
 // region Details
 
-func (s *Services) CreateDeductionDetail(
-	ctx context.Context, userId string, req *domain.DeductionDetailRequest,
-) (*domain.DeductionDetail, error) {
-	// store_id/year/month sarlavhadan olinadi: qator sarlavhasidan boshqa oyga
-	// tegishli bo'lib qolishi mumkin emas.
-	parent, err := s.GetDeductionById(ctx, req.DeductionId)
-	if err != nil {
-		return nil, err
-	}
 
-	months := req.MonthsCount
-	if months < 1 {
-		months = 1
-	}
-
-	d := domain.DeductionDetail{
-		Id:          uuid.New().String(),
-		DeductionId: parent.Id,
-		// Tur sarlavhadan meros olinadi — qator sarlavhasidan boshqa turda
-		// bo'lib qolishi mumkin emas
-		DeductionTypeId: parent.DeductionTypeId,
-		EmployeeId:      req.EmployeeId,
-		StoreId:         parent.StoreId,
-		Year:            parent.Year,
-		Month:           parent.Month,
-		Amount:          req.Amount,
-		MonthsCount:     months,
-		Comment:         req.Comment,
-		CreatedBy:       nullIfEmpty(userId),
-	}
-
-	// Qarz va uning to'lov jadvali birga yaratiladi: jadvalsiz qarz "qachon
-	// to'lanadi" degan savolga javob bermaydi va yig'indilar noto'g'ri chiqadi.
-	// Jadval oldindan tuziladi: notekis jadval berilgan bo'lsa yig'indisi qarzga
-	// mos kelmasa, hech narsa yozilmasdan 400 qaytadi.
-	installments, err := buildInstallments(&d, req.Installments)
-	if err != nil {
-		s.log.Errorf("deduction: invalid installment plan: %v", err)
-		return nil, domain.BadRequestError
-	}
-
-	err = s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		if err := tx.Create(&d).Error; err != nil {
-			return err
-		}
-		if err := tx.Create(installments).Error; err != nil {
-			return err
-		}
-		// Bitta qator qo'shishda taqsimot kamomaddan OSHIB ketmasligi
-		// tekshiriladi. Tenglik talab qilinmaydi — taqsimot bosqichma-bosqich
-		// to'ldirilishi mumkin; to'liq tenglik bulk chaqiruvida tekshiriladi.
-		return checkDeductionOverflow(tx, parent)
-	})
-	if err != nil {
-		if overflow, ok := err.(*domain.Error); ok {
-			return nil, overflow
-		}
-		s.log.Errorf("deduction: could not create detail: %v", err)
-		return nil, domain.InternalServerError
-	}
-
-	if err := s.recalcDeduction(ctx, parent.Id); err != nil {
-		return nil, err
-	}
-	return &d, nil
-}
-
-// CreateDeductionDetailsBulk — bir necha xodimga bir vaqtda taqsimlash.
+// CreateDeductionDetails — bitta yoki bir necha xodimga qarz biriktiradi.
 //
-// Hammasi BITTA tranzaksiyada: sarlavhada shortage_amount berilgan bo'lsa,
-// yozilgandan keyin barcha detallar yig'indisi unga teng ekani tekshiriladi.
+// So'rov ikki shaklda kelishi mumkin (qarang: DeductionDetailRequest):
+// bitta xodim (employee_id + amount) yoki ro'yxat (items[]). Ikkalasi ham
+// shu yerdan o'tadi va hammasi BITTA tranzaksiyada yoziladi.
+//
+// shortage_amount qo'yilgan sarlavhada tekshiruv ishlaydi:
+//
+//	ro'yxat bilan  — yig'indi kamomadga ANIQ TENG bo'lishi shart
+//	bitta xodim    — faqat oshib ketmasligi (taqsimot bosqichma-bosqich
+//	                 to'ldirilishi mumkin)
+//
 // Teng kelmasa tranzaksiya bekor qilinadi — bitta ham qator qolmaydi.
 //
 // Tekshiruv "tur RECOUNT bo'lsa" emas, "shortage_amount qo'yilgan bo'lsa"
 // shartiga bog'langan: yangi tur qo'shilsa ham kod o'zgartirmasdan ishlaydi,
 // shtrafda esa shortage_amount 0 bo'lgani uchun tekshiruv o'zi o'chadi.
-func (s *Services) CreateDeductionDetailsBulk(
-	ctx context.Context, userId string, req *domain.DeductionDetailBulkRequest,
+func (s *Services) CreateDeductionDetails(
+	ctx context.Context, userId string, req *domain.DeductionDetailRequest,
 ) ([]domain.DeductionDetail, error) {
+	// store_id/year/month/tur sarlavhadan olinadi: qator sarlavhasidan boshqa
+	// oyga yoki turga tegishli bo'lib qolishi mumkin emas.
 	parent, err := s.GetDeductionById(ctx, req.DeductionId)
 	if err != nil {
 		return nil, err
 	}
 
+	items, isList := req.NormalizeItems()
+
 	// Qatorlar va jadvallar oldindan tuziladi: notekis jadval yig'indisi
 	// qarzga mos kelmasa, bazaga tegmasdan 400 qaytadi.
-	details := make([]domain.DeductionDetail, 0, len(req.Items))
-	installments := make([]domain.DeductionInstallment, 0, len(req.Items))
+	details := make([]domain.DeductionDetail, 0, len(items))
+	installments := make([]domain.DeductionInstallment, 0, len(items))
 
-	for _, item := range req.Items {
+	for _, item := range items {
 		months := item.MonthsCount
 		if months < 1 {
 			months = 1
@@ -418,13 +364,19 @@ func (s *Services) CreateDeductionDetailsBulk(
 		}
 		// Tekshiruv YOZILGANDAN KEYIN: shunda sarlavhada oldindan turgan
 		// qatorlar ham hisobga kiradi va "yana qo'shib yuborish" ham tutiladi.
-		return checkDeductionDistribution(tx, parent)
+		//
+		// Ro'yxat "mana to'liq taqsimot" degani — tenglik talab qilinadi.
+		// Bitta xodim qo'shilganda esa faqat oshib ketmasligi tekshiriladi.
+		if isList {
+			return checkDeductionDistribution(tx, parent)
+		}
+		return checkDeductionOverflow(tx, parent)
 	})
 	if err != nil {
 		if mismatch, ok := err.(*domain.Error); ok {
 			return nil, mismatch
 		}
-		s.log.Errorf("deduction: could not create details in bulk: %v", err)
+		s.log.Errorf("deduction: could not create details: %v", err)
 		return nil, domain.InternalServerError
 	}
 

@@ -206,23 +206,6 @@ type DeductionRequest struct {
 	Comment        *string `json:"comment"`
 }
 
-// DeductionDetailBulkRequest — bir necha xodimga bir vaqtda taqsimlash.
-//
-// Hammasi BITTA tranzaksiyada yoziladi: sarlavhada shortage_amount berilgan
-// bo'lsa va taqsimot unga teng kelmasa, hech biri yozilmaydi.
-type DeductionDetailBulkRequest struct {
-	DeductionId string                    `json:"deduction_id" binding:"required"`
-	Items       []DeductionDetailBulkItem `json:"items" binding:"required,min=1,dive"`
-}
-
-type DeductionDetailBulkItem struct {
-	EmployeeId   string                      `json:"employee_id" binding:"required"`
-	Amount       float64                     `json:"amount" binding:"required,min=0"`
-	MonthsCount  int                         `json:"months_count" binding:"omitempty,min=1" example:"3"`
-	Installments []DeductionInstallmentInput `json:"installments"`
-	Comment      *string                     `json:"comment"`
-}
-
 // DeductionUpdateRequest — hammasi ixtiyoriy: berilgani yoziladi.
 //
 // Approve true bo'lsa approved_by joriy foydalanuvchiga, approved_at hozirgi
@@ -241,13 +224,22 @@ func (r DeductionUpdateRequest) IsEmpty() bool {
 // MonthsCount — necha oyga bo'lib to'lanadi. Berilmasa 1 (bir oyda to'liq).
 // Yaratilganda shuncha to'lov qatori avtomatik hosil bo'ladi: birinchisi
 // sarlavha oyidan boshlanadi, qolganlari ketma-ket keyingi oylarga.
+// DeductionDetailRequest — bitta yoki bir necha xodimga qarz biriktirish.
+//
+// Ikki shakl qabul qilinadi:
+//
+//	bitta xodim  — employee_id + amount (shtraf uchun odatiy)
+//	ko'p xodim   — items[] (pereuchyot kamomadini taqsimlash)
+//
+// items berilsa yuqoridagi employee_id/amount e'tiborga olinmaydi.
+//
 // deduction_type_id bu yerda YO'Q: tur sarlavhaga tegishli va detal uni
 // meros oladi. Aks holda sarlavha "shtraf" bo'lib, ostidagi qator
 // "pereuchyot" bo'lib qolishi mumkin edi.
 type DeductionDetailRequest struct {
 	DeductionId string  `json:"deduction_id" binding:"required"`
-	EmployeeId  string  `json:"employee_id" binding:"required"`
-	Amount      float64 `json:"amount" binding:"required,min=0"`
+	EmployeeId  string  `json:"employee_id"`
+	Amount      float64 `json:"amount" binding:"omitempty,min=0"`
 	MonthsCount     int     `json:"months_count" binding:"omitempty,min=1" example:"4"`
 	// Installments — notekis jadval: qaysi oyda qancha to'lanishi.
 	// Berilsa months_count e'tiborga olinmaydi va jadval aynan shu ro'yxatdan
@@ -255,6 +247,45 @@ type DeductionDetailRequest struct {
 	// Berilmasa summa months_count oyga TENG bo'linadi.
 	Installments []DeductionInstallmentInput `json:"installments"`
 	Comment      *string                     `json:"comment"`
+
+	// Items — bir necha xodimga taqsimlash. Berilsa employee_id/amount
+	// o'rniga shu ishlatiladi va hammasi bitta tranzaksiyada yoziladi.
+	Items []DeductionDetailItem `json:"items" binding:"omitempty,dive"`
+}
+
+// DeductionDetailItem — taqsimotdagi bitta xodim.
+type DeductionDetailItem struct {
+	EmployeeId   string                      `json:"employee_id" binding:"required"`
+	Amount       float64                     `json:"amount" binding:"required,min=0"`
+	MonthsCount  int                         `json:"months_count" binding:"omitempty,min=1" example:"3"`
+	Installments []DeductionInstallmentInput `json:"installments"`
+	Comment      *string                     `json:"comment"`
+}
+
+// NormalizeItems — so'rovni bitta ko'rinishga keltiradi.
+//
+// Ikkinchi qiymat: taqsimot RO'YXAT sifatida berilganmi. Ro'yxat "mana to'liq
+// taqsimot" degani, shuning uchun undan keyin yig'indi kamomadga aniq teng
+// bo'lishi tekshiriladi; bitta xodim qo'shilganda esa faqat oshib ketmasligi.
+func (r DeductionDetailRequest) NormalizeItems() ([]DeductionDetailItem, bool) {
+	if len(r.Items) > 0 {
+		return r.Items, true
+	}
+	return []DeductionDetailItem{{
+		EmployeeId:   r.EmployeeId,
+		Amount:       r.Amount,
+		MonthsCount:  r.MonthsCount,
+		Installments: r.Installments,
+		Comment:      r.Comment,
+	}}, false
+}
+
+// IsValid — ikkala shakldan biri to'liq berilganmi.
+func (r DeductionDetailRequest) IsValid() bool {
+	if len(r.Items) > 0 {
+		return true
+	}
+	return r.EmployeeId != "" && r.Amount > 0
 }
 
 // DeductionInstallmentInput — jadvaldagi bitta to'lov.

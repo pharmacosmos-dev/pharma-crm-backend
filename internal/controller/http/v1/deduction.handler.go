@@ -43,7 +43,6 @@ func (h *DeductionHandler) DeductionRoutes(r *gin.RouterGroup) {
 	details := r.Group("/deduction-detail")
 	{
 		details.POST("", h.CreateDetail)
-		details.POST("/bulk", h.CreateDetailsBulk)
 		details.GET("/list", h.ListDetails)
 		details.GET("/:id", h.GetDetail)
 		details.PUT("/:id", h.UpdateDetail)
@@ -662,15 +661,21 @@ func (h *DeductionHandler) Delete(c *gin.Context) {
 // region Details
 
 // CreateDetail godoc
-// @Summary      Create deduction detail
-// @Description  Xodimga ushlab qolish yozadi. store_id, year va month sarlavhadan olinadi — ularni yuborish shart emas.
+// @Summary      Create deduction detail(s)
+// @Description  Xodimga ushlab qolish yozadi. IKKI shakl qabul qilinadi:
+// @Description  BITTA xodim — employee_id + amount (shtraf uchun odatiy);
+// @Description  KO'P xodim — items[] massivi (pereuchyot kamomadini taqsimlash). items berilsa employee_id/amount e'tiborga olinmaydi.
+// @Description  store_id, year, month va tur sarlavhadan olinadi — ularni yuborish shart emas.
 // @Description  Bir xodimga bir oyda bir necha qator bo'lishi mumkin (masalan ikkita shtraf).
-// @Description  Yozilgandan keyin sarlavhaning total_amount/paid_amount/status'i qayta hisoblanadi.
+// @Description  Sarlavhada shortage_amount berilgan bo'lsa (masalan kamomad 15 mln) tekshiruv ishlaydi:
+// @Description  items[] bilan yuborilsa yig'indi unga ANIQ TENG bo'lishi shart, bitta xodim qo'shilsa faqat oshib ketmasligi.
+// @Description  Teng kelmasa hech biri yozilmaydi (rollback) va 400 xatosi qaytadi, ichida taqsimot va kamomad summalari bilan.
+// @Description  Javob doim MASSIV — bitta xodimda ham bitta elementli.
 // @Tags         deductions
 // @Security     BearerAuth
 // @Accept       json
 // @Produce      json
-// @Param        input  body  domain.DeductionDetailRequest  true  "Qator"
+// @Param        input  body  domain.DeductionDetailRequest  true  "Bitta qator yoki taqsimot"
 // @Success      201  {object}  v1.Response
 // @Failure      400  {object}  v1.Response
 // @Failure      401  {object}  v1.Response
@@ -687,52 +692,17 @@ func (h *DeductionHandler) CreateDetail(c *gin.Context) {
 		handleResponse(c, BadRequest, err.Error())
 		return
 	}
-
-	ctx, cancel := context.WithTimeout(c.Request.Context(), constants.DefaultContextTimeout)
-	defer cancel()
-
-	res, err := h.service.CreateDeductionDetail(ctx, user.UserId, &body)
-	if err != nil {
-		handleServiceResponse(c, nil, err)
-		return
-	}
-	handleResponse(c, CREATED, res)
-}
-
-// CreateDetailsBulk godoc
-// @Summary      Distribute a deduction across several employees
-// @Description  Bir necha xodimga bir vaqtda taqsimlaydi. Hammasi BITTA tranzaksiyada yoziladi.
-// @Description  Sarlavhada shortage_amount berilgan bo'lsa (masalan pereuchyot kamomadi 15 mln),
-// @Description  taqsimot unga TENG bo'lishi shart. Teng kelmasa hech biri yozilmaydi va
-// @Description  400 "noto'g'ri taqsimlandi" xatosi qaytadi, ichida taqsimot va kamomad summalari bilan.
-// @Description  shortage_amount 0 bo'lsa (shtraf) tekshiruv o'chadi.
-// @Description  Har bir element uchun months_count yoki installments berilishi mumkin — bitta qo'shishdagi kabi.
-// @Tags         deductions
-// @Security     BearerAuth
-// @Accept       json
-// @Produce      json
-// @Param        input  body  domain.DeductionDetailBulkRequest  true  "Taqsimot"
-// @Success      201  {object}  v1.Response
-// @Failure      400  {object}  v1.Response
-// @Failure      401  {object}  v1.Response
-// @Failure      404  {object}  v1.Response
-// @Router       /deduction-detail/bulk [post]
-func (h *DeductionHandler) CreateDetailsBulk(c *gin.Context) {
-	user, ok := h.signedUser(c)
-	if !ok {
-		return
-	}
-
-	var body domain.DeductionDetailBulkRequest
-	if err := c.ShouldBindJSON(&body); err != nil {
-		handleResponse(c, BadRequest, err.Error())
+	// employee_id/amount endi majburiy emas (items bilan almashtirilishi mumkin),
+	// shuning uchun ikkala shakldan biri to'liq kelganini qo'lda tekshiramiz.
+	if !body.IsValid() {
+		handleResponse(c, BadRequest, "employee_id va amount, yoki items[] berilishi kerak")
 		return
 	}
 
 	ctx, cancel := context.WithTimeout(c.Request.Context(), constants.DefaultContextTimeout)
 	defer cancel()
 
-	res, err := h.service.CreateDeductionDetailsBulk(ctx, user.UserId, &body)
+	res, err := h.service.CreateDeductionDetails(ctx, user.UserId, &body)
 	if err != nil {
 		handleServiceResponse(c, nil, err)
 		return
