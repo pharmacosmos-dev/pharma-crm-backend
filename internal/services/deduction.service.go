@@ -429,52 +429,81 @@ func shiftMonth(year, month, n int) (int, int) {
 	return t.Year(), int(t.Month())
 }
 
+// deductionDetailListQuery — qarzlar ro'yxati, bog'langan nomlar bilan.
+//
+// Nomlar JOIN orqali jonli olinadi (snapshot emas): xodim ismi yoki turning
+// nomi tahrirlansa ro'yxatda darhol ko'rinadi.
+//
+// Umumiy son COUNT(*) OVER () bilan o'sha so'rovdan keladi — alohida COUNT
+// so'rovi yo'q va u filtrdan ajralib qolishi mumkin emas.
+const deductionDetailListQuery = `
+SELECT
+    d.*,
+    COALESCE(e.first_name, '') AS employee_first_name,
+    COALESCE(e.last_name, '')  AS employee_last_name,
+    COALESCE(e.full_name, '')  AS employee_full_name,
+    COALESCE(s.name, '')       AS store_name,
+    COALESCE(t.name, '')       AS deduction_type_name,
+    COALESCE(t.code, '')       AS deduction_type_code,
+    COUNT(*) OVER ()           AS total_count
+FROM deduction_details d
+LEFT JOIN employees e       ON e.id = d.employee_id
+LEFT JOIN stores s          ON s.id = d.store_id
+LEFT JOIN deduction_types t ON t.id = d.deduction_type_id
+WHERE (CAST(@deduction_id AS uuid)      IS NULL OR d.deduction_id      = CAST(@deduction_id AS uuid))
+  AND (CAST(@employee_id AS uuid)       IS NULL OR d.employee_id       = CAST(@employee_id AS uuid))
+  AND (CAST(@store_id AS uuid)          IS NULL OR d.store_id          = CAST(@store_id AS uuid))
+  AND (CAST(@deduction_type_id AS uuid) IS NULL OR d.deduction_type_id = CAST(@deduction_type_id AS uuid))
+  AND (CAST(@is_paid AS boolean)        IS NULL OR d.is_paid           = CAST(@is_paid AS boolean))
+  AND (CAST(@year AS int)               IS NULL OR d.year              = CAST(@year AS int))
+  AND (CAST(@month AS int)              IS NULL OR d.month             = CAST(@month AS int))
+ORDER BY d.created_at DESC
+LIMIT NULLIF(@limit, 0) OFFSET @offset`
+
 func (s *Services) GetDeductionDetails(
 	ctx context.Context, params *domain.DeductionDetailQueryParams,
-) ([]domain.DeductionDetail, int64, error) {
-	newQuery := func() *gorm.DB {
-		q := s.db.WithContext(ctx).Model(&domain.DeductionDetail{})
-		if params.DeductionId != "" {
-			q = q.Where("deduction_id = ?", params.DeductionId)
-		}
-		if params.EmployeeId != "" {
-			q = q.Where("employee_id = ?", params.EmployeeId)
-		}
-		if params.StoreId != "" {
-			q = q.Where("store_id = ?", params.StoreId)
-		}
-		if params.DeductionTypeId != "" {
-			q = q.Where("deduction_type_id = ?", params.DeductionTypeId)
-		}
-		if params.IsPaid != nil {
-			q = q.Where("is_paid = ?", *params.IsPaid)
-		}
-		if params.Year != 0 {
-			q = q.Where("year = ?", params.Year)
-		}
-		if params.Month != 0 {
-			q = q.Where("month = ?", params.Month)
-		}
-		return q
+) ([]domain.DeductionDetailRow, int64, error) {
+	var page []struct {
+		domain.DeductionDetailRow `gorm:"embedded"`
+
+		TotalCount int64 `gorm:"column:total_count"`
 	}
 
-	var totalCount int64
-	if err := newQuery().Count(&totalCount).Error; err != nil {
-		s.log.Errorf("deduction: could not count details: %v", err)
-		return nil, 0, domain.InternalServerError
-	}
-
-	var res []domain.DeductionDetail
-	err := newQuery().
-		Order("created_at DESC").
-		Limit(payrollNoLimit(params.Limit)).
-		Offset(params.Offset).
-		Find(&res).Error
+	err := s.db.WithContext(ctx).Raw(deductionDetailListQuery, map[string]any{
+		"deduction_id":      nullIfEmpty(params.DeductionId),
+		"employee_id":       nullIfEmpty(params.EmployeeId),
+		"store_id":          nullIfEmpty(params.StoreId),
+		"deduction_type_id": nullIfEmpty(params.DeductionTypeId),
+		"is_paid":           params.IsPaid,
+		"year":              nullIfZero(params.Year),
+		"month":             nullIfZero(params.Month),
+		"limit":             params.Limit,
+		"offset":            params.Offset,
+	}).Scan(&page).Error
 	if err != nil {
 		s.log.Errorf("deduction: could not get details: %v", err)
 		return nil, 0, domain.InternalServerError
 	}
-	return res, totalCount, nil
+
+	// Umumiy son har bir qatorda takrorlanadi, birinchisidan olinadi.
+	var totalCount int64
+	if len(page) > 0 {
+		totalCount = page[0].TotalCount
+	}
+
+	rows := make([]domain.DeductionDetailRow, len(page))
+	for i := range page {
+		rows[i] = page[i].DeductionDetailRow
+	}
+	return rows, totalCount, nil
+}
+
+// nullIfZero — 0 ni SQL NULL'ga aylantiradi: "filtr berilmagan" degani.
+func nullIfZero(v int) *int {
+	if v == 0 {
+		return nil
+	}
+	return &v
 }
 
 func (s *Services) GetDeductionDetailById(ctx context.Context, id string) (*domain.DeductionDetail, error) {

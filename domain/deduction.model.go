@@ -301,6 +301,22 @@ func (r DeductionDetailUpdateRequest) RebuildsSchedule() bool {
 	return r.Amount != nil || r.MonthsCount != nil || len(r.Installments) > 0
 }
 
+// DeductionDetailRow — ro'yxat uchun qator: qarzning o'zi + bog'langan
+// jadvallardagi nomlar.
+//
+// Nomlar snapshot qilinmaydi, JOIN orqali jonli olinadi: xodim ismi yoki
+// turning nomi tahrirlansa ro'yxatda darhol ko'rinadi.
+type DeductionDetailRow struct {
+	DeductionDetail `gorm:"embedded"`
+
+	EmployeeFirstName string `json:"employee_first_name"`
+	EmployeeLastName  string `json:"employee_last_name"`
+	EmployeeFullName  string `json:"employee_full_name"`
+	StoreName         string `json:"store_name"`
+	DeductionTypeName string `json:"deduction_type_name"`
+	DeductionTypeCode string `json:"deduction_type_code"`
+}
+
 // region Query params
 
 type DeductionQueryParams struct {
