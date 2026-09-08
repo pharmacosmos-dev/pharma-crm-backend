@@ -566,7 +566,7 @@ func (h *DeductionHandler) Get(c *gin.Context) {
 	ctx, cancel := context.WithTimeout(c.Request.Context(), constants.DefaultContextTimeout)
 	defer cancel()
 
-	res, err := h.service.GetDeductionById(ctx, id)
+	res, err := h.service.GetDeductionRowById(ctx, id)
 	if err != nil {
 		handleServiceResponse(c, nil, err)
 		return
@@ -778,7 +778,7 @@ func (h *DeductionHandler) GetDetail(c *gin.Context) {
 	ctx, cancel := context.WithTimeout(c.Request.Context(), constants.DefaultContextTimeout)
 	defer cancel()
 
-	res, err := h.service.GetDeductionDetailById(ctx, id)
+	res, err := h.service.GetDeductionDetailRowById(ctx, id)
 	if err != nil {
 		handleServiceResponse(c, nil, err)
 		return

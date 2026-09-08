@@ -185,7 +185,8 @@ LEFT JOIN deduction_types t ON t.id = d.deduction_type_id
 LEFT JOIN employees cb      ON cb.id = d.created_by
 LEFT JOIN employees ub      ON ub.id = d.updated_by
 LEFT JOIN employees ab      ON ab.id = d.approved_by
-WHERE (CAST(@company_id AS uuid)        IS NULL OR d.company_id        = CAST(@company_id AS uuid))
+WHERE (CAST(@id AS uuid)                IS NULL OR d.id                = CAST(@id AS uuid))
+  AND (CAST(@company_id AS uuid)        IS NULL OR d.company_id        = CAST(@company_id AS uuid))
   AND (CAST(@store_id AS uuid)          IS NULL OR d.store_id          = CAST(@store_id AS uuid))
   AND (CAST(@deduction_type_id AS uuid) IS NULL OR d.deduction_type_id = CAST(@deduction_type_id AS uuid))
   AND (CAST(@status AS text)            IS NULL OR d.status            = CAST(@status AS text))
@@ -204,6 +205,7 @@ func (s *Services) GetDeductions(
 	}
 
 	err := s.db.WithContext(ctx).Raw(deductionListQuery, map[string]any{
+		"id":                nil, // ro'yxatda id bo'yicha filtr yo'q
 		"company_id":        nullIfEmpty(params.CompanyId),
 		"store_id":          nullIfEmpty(params.StoreId),
 		"deduction_type_id": nullIfEmpty(params.DeductionTypeId),
@@ -230,6 +232,62 @@ func (s *Services) GetDeductions(
 	return rows, totalCount, nil
 }
 
+// GetDeductionRowById — sarlavha + bog'langan nomlar (do'kon, tur, kim
+// yaratgan/o'zgartirgan/tasdiqlagan).
+//
+// Ro'yxat bilan AYNAN bir xil so'rovdan quriladi, faqat id bo'yicha filtrlanadi
+// — shuning uchun yakka olishda va ro'yxatda javob shakli bir xil bo'ladi.
+//
+// Ichki chaqiruvlar uchun GetDeductionById ishlatiladi: u JOIN'siz va tezroq.
+func (s *Services) GetDeductionRowById(ctx context.Context, id string) (*domain.DeductionRow, error) {
+	var rows []domain.DeductionRow
+	err := s.db.WithContext(ctx).Raw(deductionListQuery, map[string]any{
+		"id":                id,
+		"company_id":        nil,
+		"store_id":          nil,
+		"deduction_type_id": nil,
+		"status":            nil,
+		"year":              nil,
+		"month":             nil,
+		"limit":             1,
+		"offset":            0,
+	}).Scan(&rows).Error
+	if err != nil {
+		s.log.Errorf("deduction: could not get row: %v", err)
+		return nil, domain.InternalServerError
+	}
+	if len(rows) == 0 {
+		return nil, domain.ResourceNotFoundError
+	}
+	return &rows[0], nil
+}
+
+// GetDeductionDetailRowById — qator + bog'langan nomlar (xodim, do'kon, tur,
+// kim yaratgan/o'zgartirgan/tasdiqlagan).
+func (s *Services) GetDeductionDetailRowById(ctx context.Context, id string) (*domain.DeductionDetailRow, error) {
+	var rows []domain.DeductionDetailRow
+	err := s.db.WithContext(ctx).Raw(deductionDetailListQuery, map[string]any{
+		"id":                id,
+		"deduction_id":      nil,
+		"employee_id":       nil,
+		"store_id":          nil,
+		"deduction_type_id": nil,
+		"is_paid":           nil,
+		"year":              nil,
+		"month":             nil,
+		"limit":             1,
+		"offset":            0,
+	}).Scan(&rows).Error
+	if err != nil {
+		s.log.Errorf("deduction: could not get detail row: %v", err)
+		return nil, domain.InternalServerError
+	}
+	if len(rows) == 0 {
+		return nil, domain.ResourceNotFoundError
+	}
+	return &rows[0], nil
+}
+
 func (s *Services) GetDeductionById(ctx context.Context, id string) (*domain.Deduction, error) {
 	var d domain.Deduction
 	if err := s.db.WithContext(ctx).Take(&d, "id = ?", id).Error; err != nil {
@@ -242,9 +300,11 @@ func (s *Services) GetDeductionById(ctx context.Context, id string) (*domain.Ded
 	return &d, nil
 }
 
+// Javob GET bilan bir xil shaklda qaytadi (nomlar bilan), shunda frontend
+// yangilagandan keyin qatorni qayta so'ramasdan o'rniga qo'ya oladi.
 func (s *Services) UpdateDeduction(
 	ctx context.Context, id, userId string, req *domain.DeductionUpdateRequest,
-) (*domain.Deduction, error) {
+) (*domain.DeductionRow, error) {
 	updates := map[string]any{
 		"updated_by": nullIfEmpty(userId),
 		"updated_at": time.Now(),
@@ -271,7 +331,7 @@ func (s *Services) UpdateDeduction(
 	if result.RowsAffected == 0 {
 		return nil, domain.ResourceNotFoundError
 	}
-	return s.GetDeductionById(ctx, id)
+	return s.GetDeductionRowById(ctx, id)
 }
 
 // DeleteDeduction — sarlavhani va (CASCADE orqali) uning barcha qatorlarini
@@ -578,7 +638,8 @@ LEFT JOIN deduction_types t ON t.id = d.deduction_type_id
 LEFT JOIN employees cb      ON cb.id = d.created_by
 LEFT JOIN employees ub      ON ub.id = d.updated_by
 LEFT JOIN employees ab      ON ab.id = d.approved_by
-WHERE (CAST(@deduction_id AS uuid)      IS NULL OR d.deduction_id      = CAST(@deduction_id AS uuid))
+WHERE (CAST(@id AS uuid)                IS NULL OR d.id                = CAST(@id AS uuid))
+  AND (CAST(@deduction_id AS uuid)      IS NULL OR d.deduction_id      = CAST(@deduction_id AS uuid))
   AND (CAST(@employee_id AS uuid)       IS NULL OR d.employee_id       = CAST(@employee_id AS uuid))
   AND (CAST(@store_id AS uuid)          IS NULL OR d.store_id          = CAST(@store_id AS uuid))
   AND (CAST(@deduction_type_id AS uuid) IS NULL OR d.deduction_type_id = CAST(@deduction_type_id AS uuid))
@@ -598,6 +659,7 @@ func (s *Services) GetDeductionDetails(
 	}
 
 	err := s.db.WithContext(ctx).Raw(deductionDetailListQuery, map[string]any{
+		"id":                nil, // ro'yxatda id bo'yicha filtr yo'q
 		"deduction_id":      nullIfEmpty(params.DeductionId),
 		"employee_id":       nullIfEmpty(params.EmployeeId),
 		"store_id":          nullIfEmpty(params.StoreId),
@@ -646,9 +708,10 @@ func (s *Services) GetDeductionDetailById(ctx context.Context, id string) (*doma
 	return &d, nil
 }
 
+// Javob GET bilan bir xil shaklda qaytadi (nomlar bilan).
 func (s *Services) UpdateDeductionDetail(
 	ctx context.Context, id, userId string, req *domain.DeductionDetailUpdateRequest,
-) (*domain.DeductionDetail, error) {
+) (*domain.DeductionDetailRow, error) {
 	existing, err := s.GetDeductionDetailById(ctx, id)
 	if err != nil {
 		return nil, err
@@ -728,7 +791,7 @@ func (s *Services) UpdateDeductionDetail(
 	if err := s.recalcDeduction(ctx, existing.DeductionId); err != nil {
 		return nil, err
 	}
-	return s.GetDeductionDetailById(ctx, id)
+	return s.GetDeductionDetailRowById(ctx, id)
 }
 
 func (s *Services) DeleteDeductionDetail(ctx context.Context, id string) error {
