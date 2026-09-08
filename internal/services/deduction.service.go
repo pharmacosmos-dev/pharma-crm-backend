@@ -139,14 +139,15 @@ func (s *Services) CreateDeduction(
 	}
 
 	d := domain.Deduction{
-		Id:        uuid.New().String(),
-		StoreId:   req.StoreId,
-		CompanyId: store.CompanyId,
-		Year:      req.Year,
-		Month:     req.Month,
-		Status:    domain.DeductionStatusOpen,
-		Comment:   req.Comment,
-		CreatedBy: nullIfEmpty(userId),
+		Id:              uuid.New().String(),
+		DeductionTypeId: req.DeductionTypeId,
+		StoreId:         req.StoreId,
+		CompanyId:       store.CompanyId,
+		Year:            req.Year,
+		Month:           req.Month,
+		Status:          domain.DeductionStatusOpen,
+		Comment:         req.Comment,
+		CreatedBy:       nullIfEmpty(userId),
 	}
 	if err := s.db.WithContext(ctx).Create(&d).Error; err != nil {
 		if isUniqueViolation(err) {
@@ -168,6 +169,9 @@ func (s *Services) GetDeductions(
 		}
 		if params.StoreId != "" {
 			q = q.Where("store_id = ?", params.StoreId)
+		}
+		if params.DeductionTypeId != "" {
+			q = q.Where("deduction_type_id = ?", params.DeductionTypeId)
 		}
 		if params.Status != "" {
 			q = q.Where("status = ?", params.Status)
@@ -276,9 +280,11 @@ func (s *Services) CreateDeductionDetail(
 	}
 
 	d := domain.DeductionDetail{
-		Id:              uuid.New().String(),
-		DeductionId:     parent.Id,
-		DeductionTypeId: req.DeductionTypeId,
+		Id:          uuid.New().String(),
+		DeductionId: parent.Id,
+		// Tur sarlavhadan meros olinadi — qator sarlavhasidan boshqa turda
+		// bo'lib qolishi mumkin emas
+		DeductionTypeId: parent.DeductionTypeId,
 		EmployeeId:      req.EmployeeId,
 		StoreId:         parent.StoreId,
 		Year:            parent.Year,
@@ -510,9 +516,6 @@ func (s *Services) UpdateDeductionDetail(
 	updates := map[string]any{
 		"updated_by": nullIfEmpty(userId),
 		"updated_at": time.Now(),
-	}
-	if req.DeductionTypeId != nil {
-		updates["deduction_type_id"] = *req.DeductionTypeId
 	}
 	if req.Amount != nil {
 		updates["amount"] = *req.Amount

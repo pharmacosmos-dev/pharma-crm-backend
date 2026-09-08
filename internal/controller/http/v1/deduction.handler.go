@@ -457,7 +457,10 @@ func (h *DeductionHandler) DeleteType(c *gin.Context) {
 
 // Create godoc
 // @Summary      Create deduction
-// @Description  Do'kon + oy sarlavhasini yaratadi. Bir do'konga bir oyda bitta sarlavha (takrorlansa 409).
+// @Description  Do'kon + oy + TUR sarlavhasini yaratadi. Har bir tur o'z sarlavhasiga ega:
+// @Description  bir do'konning bir oyida shtraf, pereuchyot va srok uchun uchta alohida sarlavha bo'ladi.
+// @Description  Shu sababli bir oyda to'liq to'langan shtraf, o'sha oydagi uzoq muddatli pereuchyot qarzi sabab ochiq qolmaydi.
+// @Description  Bir xil (store_id, year, month, deduction_type_id) takrorlansa 409.
 // @Description  total_amount, paid_amount va status qo'lda kiritilmaydi — ular qatorlardan avtomatik hisoblanadi.
 // @Tags         deductions
 // @Security     BearerAuth
@@ -499,12 +502,13 @@ func (h *DeductionHandler) Create(c *gin.Context) {
 // @Tags         deductions
 // @Security     BearerAuth
 // @Produce      json
-// @Param        store_id  query  string  false  "Store ID"
-// @Param        status    query  string  false  "open yoki paid"
-// @Param        year      query  int     false  "Year"
-// @Param        month     query  int     false  "Month 1-12"
-// @Param        limit     query  int     false  "Limit"
-// @Param        offset    query  int     false  "Offset"
+// @Param        store_id           query  string  false  "Store ID"
+// @Param        deduction_type_id  query  string  false  "Tur bo'yicha (shtraf / pereuchyot / srok)"
+// @Param        status             query  string  false  "open yoki paid"
+// @Param        year               query  int     false  "Year"
+// @Param        month              query  int     false  "Month 1-12"
+// @Param        limit              query  int     false  "Limit"
+// @Param        offset             query  int     false  "Offset"
 // @Success      200  {object}  v1.Response
 // @Failure      400  {object}  v1.Response
 // @Failure      401  {object}  v1.Response

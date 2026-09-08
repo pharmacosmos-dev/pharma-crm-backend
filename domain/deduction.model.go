@@ -53,11 +53,15 @@ const (
 // "qancha qoldi" darhol ko'rinadi va yopilgan oyning summasi keyin xodim
 // qatorlari o'zgarsa ham siljib ketmaydi.
 type Deduction struct {
-	Id        string  `json:"id" gorm:"column:id;primaryKey"`
-	StoreId   string  `json:"store_id" gorm:"column:store_id"`
-	CompanyId *string `json:"company_id" gorm:"column:company_id"`
-	Year      int     `json:"year" gorm:"column:year"`
-	Month     int     `json:"month" gorm:"column:month"`
+	Id string `json:"id" gorm:"column:id;primaryKey"`
+	// DeductionTypeId — sarlavha turi. Kalit (store_id, year, month, type):
+	// har bir tur o'z sarlavhasiga ega, shuning uchun bir oyda to'liq to'langan
+	// shtraf o'sha oyning uzoq muddatli pereuchyot qarzi sabab ochiq qolmaydi.
+	DeductionTypeId string  `json:"deduction_type_id" gorm:"column:deduction_type_id"`
+	StoreId         string  `json:"store_id" gorm:"column:store_id"`
+	CompanyId       *string `json:"company_id" gorm:"column:company_id"`
+	Year            int     `json:"year" gorm:"column:year"`
+	Month           int     `json:"month" gorm:"column:month"`
 
 	TotalAmount float64 `json:"total_amount" gorm:"column:total_amount"`
 	PaidAmount  float64 `json:"paid_amount" gorm:"column:paid_amount"`
@@ -184,10 +188,11 @@ type DeductionTypeRequest struct {
 // hisoblanadi, qo'lda kiritilsa sarlavha va qatorlar bir-biriga mos kelmay
 // qolardi.
 type DeductionRequest struct {
-	StoreId string  `json:"store_id" binding:"required"`
-	Year    int     `json:"year" binding:"required,min=2000,max=2100"`
-	Month   int     `json:"month" binding:"required,min=1,max=12"`
-	Comment *string `json:"comment"`
+	DeductionTypeId string  `json:"deduction_type_id" binding:"required"`
+	StoreId         string  `json:"store_id" binding:"required"`
+	Year            int     `json:"year" binding:"required,min=2000,max=2100"`
+	Month           int     `json:"month" binding:"required,min=1,max=12"`
+	Comment         *string `json:"comment"`
 }
 
 // DeductionUpdateRequest — hammasi ixtiyoriy: berilgani yoziladi.
@@ -208,11 +213,13 @@ func (r DeductionUpdateRequest) IsEmpty() bool {
 // MonthsCount — necha oyga bo'lib to'lanadi. Berilmasa 1 (bir oyda to'liq).
 // Yaratilganda shuncha to'lov qatori avtomatik hosil bo'ladi: birinchisi
 // sarlavha oyidan boshlanadi, qolganlari ketma-ket keyingi oylarga.
+// deduction_type_id bu yerda YO'Q: tur sarlavhaga tegishli va detal uni
+// meros oladi. Aks holda sarlavha "shtraf" bo'lib, ostidagi qator
+// "pereuchyot" bo'lib qolishi mumkin edi.
 type DeductionDetailRequest struct {
-	DeductionId     string  `json:"deduction_id" binding:"required"`
-	DeductionTypeId string  `json:"deduction_type_id" binding:"required"`
-	EmployeeId      string  `json:"employee_id" binding:"required"`
-	Amount          float64 `json:"amount" binding:"required,min=0"`
+	DeductionId string  `json:"deduction_id" binding:"required"`
+	EmployeeId  string  `json:"employee_id" binding:"required"`
+	Amount      float64 `json:"amount" binding:"required,min=0"`
 	MonthsCount     int     `json:"months_count" binding:"omitempty,min=1" example:"4"`
 	// Installments — notekis jadval: qaysi oyda qancha to'lanishi.
 	// Berilsa months_count e'tiborga olinmaydi va jadval aynan shu ro'yxatdan
@@ -271,10 +278,12 @@ type DeductionInstallmentQueryParams struct {
 // Amount yoki MonthsCount o'zgarsa to'lov jadvali qaytadan tuziladi. Shuning
 // uchun allaqachon to'langan to'lovi bor qarzda ular o'zgartirilmaydi — aks
 // holda to'lov tarixi yo'qolardi.
+// deduction_type_id bu yerda ham YO'Q: turni o'zgartirish qatorni boshqa
+// sarlavhaga ko'chirish demak. Buning uchun qator o'chirilib, kerakli tur
+// sarlavhasida yangisi yaratiladi.
 type DeductionDetailUpdateRequest struct {
-	DeductionTypeId *string  `json:"deduction_type_id"`
-	Amount          *float64 `json:"amount" binding:"omitempty,min=0"`
-	MonthsCount     *int     `json:"months_count" binding:"omitempty,min=1"`
+	Amount      *float64 `json:"amount" binding:"omitempty,min=0"`
+	MonthsCount *int     `json:"months_count" binding:"omitempty,min=1"`
 	// Installments — jadvalni notekis qilib qayta tuzish. Berilsa months_count
 	// e'tiborga olinmaydi.
 	Installments []DeductionInstallmentInput `json:"installments"`
@@ -283,7 +292,7 @@ type DeductionDetailUpdateRequest struct {
 }
 
 func (r DeductionDetailUpdateRequest) IsEmpty() bool {
-	return r.DeductionTypeId == nil && r.Amount == nil && r.MonthsCount == nil &&
+	return r.Amount == nil && r.MonthsCount == nil &&
 		len(r.Installments) == 0 && r.Comment == nil && r.Approve == nil
 }
 
@@ -295,10 +304,11 @@ func (r DeductionDetailUpdateRequest) RebuildsSchedule() bool {
 // region Query params
 
 type DeductionQueryParams struct {
-	StoreId string `form:"store_id"`
-	Status  string `form:"status"`
-	Year    int    `form:"year"`
-	Month   int    `form:"month"`
+	StoreId         string `form:"store_id"`
+	DeductionTypeId string `form:"deduction_type_id"`
+	Status          string `form:"status"`
+	Year            int    `form:"year"`
+	Month           int    `form:"month"`
 	Date    string `form:"date"`
 	Limit   int    `form:"limit"`
 	Offset  int    `form:"offset"`
