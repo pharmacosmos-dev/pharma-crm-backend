@@ -8888,6 +8888,12 @@
                             "$ref": "#/definitions/v1.Response"
                         }
                     },
+                    "409": {
+                        "description": "Telefon raqami boshqa xodimda band",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
@@ -11769,7 +11775,7 @@
                         "BearerAuth": []
                     }
                 ],
-                "description": "Excel columns: 1) store_code, 2) store_name, 3) amount. For every row the store is\nfound by store_code and its CURRENT month store_target is upserted: an existing target\ngets its amount updated and employee targets redistributed (sales are kept), a missing\ntarget is created and distributed to the store's active employees — the same logic as\nthe create store target endpoint. store_name is informational only, matching is done by\nstore_code. Rows with an unknown store code or an invalid amount are reported in \"skipped\".",
+                "description": "Column A is store_code, column B is store_name. The amount column is NOT assumed to be\ncolumn C: real plan files keep the plan far to the right with hidden columns in between,\nso it is resolved from the header row (a header containing \"план\"/\"plan\"/\"summa\"/\"amount\")\nor taken from the amount_column parameter. When the header is ambiguous the upload is\nrejected and the candidate columns are listed, so a wrong column can never be written\nsilently. The column actually used is echoed back in the response.\nFor every row the store is found by store_code and its CURRENT month store_target is\nupserted: an existing target gets its amount updated and employee targets redistributed\n(sales are kept), a missing target is created and distributed to the store's active\nemployees, the same logic as the create store target endpoint. store_name is\ninformational only. Rows with an unknown store code or an invalid amount land in \"skipped\".",
                 "consumes": [
                     "multipart/form-data"
                 ],
@@ -11783,10 +11789,16 @@
                 "parameters": [
                     {
                         "type": "file",
-                        "description": "Excel file (.xlsx) with store_code, store_name, amount columns",
+                        "description": "Excel file (.xlsx) with store_code, store_name and an amount column",
                         "name": "file",
                         "in": "formData",
                         "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Amount column, letter or 1-based number (example: J or 10). Omit to resolve it from the header row",
+                        "name": "amount_column",
+                        "in": "query"
                     }
                 ],
                 "responses": {
@@ -36578,9 +36590,30 @@
                     ],
                     "example": 8
                 },
+                "first_name": {
+                    "type": "string",
+                    "maxLength": 55,
+                    "example": "John"
+                },
+                "hire_date": {
+                    "description": "HireDate — ishga qabul qilingan sana. employees.start_date bilan aralashmasin:\nu smena boshlanish vaqti (TIME).",
+                    "type": "string",
+                    "example": "2023-01-01"
+                },
                 "kpi_percent": {
                     "type": "number",
                     "minimum": 0
+                },
+                "last_name": {
+                    "type": "string",
+                    "maxLength": 55,
+                    "example": "Doe"
+                },
+                "phone": {
+                    "description": "Phone — 998XXXXXXXXX ko'rinishida, \"+\" belgisisiz (utils.IsValidPhone).",
+                    "type": "string",
+                    "maxLength": 20,
+                    "example": "998901234567"
                 },
                 "role_type": {
                     "type": "string",

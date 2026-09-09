@@ -676,9 +676,28 @@ definitions:
         - 8
         example: 8
         type: integer
+      first_name:
+        example: John
+        maxLength: 55
+        type: string
+      hire_date:
+        description: |-
+          HireDate — ishga qabul qilingan sana. employees.start_date bilan aralashmasin:
+          u smena boshlanish vaqti (TIME).
+        example: "2023-01-01"
+        type: string
       kpi_percent:
         minimum: 0
         type: number
+      last_name:
+        example: Doe
+        maxLength: 55
+        type: string
+      phone:
+        description: Phone — 998XXXXXXXXX ko'rinishida, "+" belgisisiz (utils.IsValidPhone).
+        example: "998901234567"
+        maxLength: 20
+        type: string
       role_type:
         example: CASHIER
         maxLength: 55
@@ -8162,6 +8181,10 @@ paths:
           description: Not Found
           schema:
             $ref: '#/definitions/v1.Response'
+        "409":
+          description: Telefon raqami boshqa xodimda band
+          schema:
+            $ref: '#/definitions/v1.Response'
         "500":
           description: Internal Server Error
           schema:
@@ -10340,18 +10363,29 @@ paths:
       consumes:
       - multipart/form-data
       description: |-
-        Excel columns: 1) store_code, 2) store_name, 3) amount. For every row the store is
-        found by store_code and its CURRENT month store_target is upserted: an existing target
-        gets its amount updated and employee targets redistributed (sales are kept), a missing
-        target is created and distributed to the store's active employees — the same logic as
-        the create store target endpoint. store_name is informational only, matching is done by
-        store_code. Rows with an unknown store code or an invalid amount are reported in "skipped".
+        Column A is store_code, column B is store_name. The amount column is NOT assumed to be
+        column C: real plan files keep the plan far to the right with hidden columns in between,
+        so it is resolved from the header row (a header containing "план"/"plan"/"summa"/"amount")
+        or taken from the amount_column parameter. When the header is ambiguous the upload is
+        rejected and the candidate columns are listed, so a wrong column can never be written
+        silently. The column actually used is echoed back in the response.
+        For every row the store is found by store_code and its CURRENT month store_target is
+        upserted: an existing target gets its amount updated and employee targets redistributed
+        (sales are kept), a missing target is created and distributed to the store's active
+        employees, the same logic as the create store target endpoint. store_name is
+        informational only. Rows with an unknown store code or an invalid amount land in "skipped".
       parameters:
-      - description: Excel file (.xlsx) with store_code, store_name, amount columns
+      - description: Excel file (.xlsx) with store_code, store_name and an amount
+          column
         in: formData
         name: file
         required: true
         type: file
+      - description: 'Amount column, letter or 1-based number (example: J or 10).
+          Omit to resolve it from the header row'
+        in: query
+        name: amount_column
+        type: string
       produces:
       - application/json
       responses:
