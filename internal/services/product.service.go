@@ -317,14 +317,19 @@ func movementPeriod(start, end *domain.CustomTime) (from, to time.Time, asOfDate
 	return start.UTC(), end.UTC(), false
 }
 
-// importPeriodCondition - importlar uchun sana shartini qaytaradi. asOfDate
-// rejimida import_date ishlatiladi, chunki updated_at ni baza triggeri har
-// yozuvda qayta yozadi va "shu sanagacha" chegarasini buzadi.
-func importPeriodCondition(alias string, asOfDate bool) string {
-	column := alias + ".updated_at"
+// importDateColumn - importlar uchun sana ustunini tanlaydi. asOfDate rejimida
+// import_date ishlatiladi, chunki updated_at ni baza triggeri har yozuvda qayta
+// yozadi va "shu sanagacha" chegarasini buzadi.
+func importDateColumn(alias string, asOfDate bool) string {
 	if asOfDate {
-		column = alias + ".import_date"
+		return alias + ".import_date"
 	}
+	return alias + ".updated_at"
+}
+
+// importPeriodCondition - importlar uchun to'liq oraliq shartini qaytaradi
+func importPeriodCondition(alias string, asOfDate bool) string {
+	column := importDateColumn(alias, asOfDate)
 	return fmt.Sprintf("%s >= ? AND %s <= ?", column, column)
 }
 
@@ -2521,46 +2526,62 @@ LEFT JOIN vozvrat_data vd ON true
 LEFT JOIN transfer_data td ON true
 LEFT JOIN imventory_quantity imq ON true
 `
-	// build time filter conditions per CTE type
-	var (
-		importTimeCond    string // for import_data (im.updated_at - qachon 'completed' bo'lgani)
-		saleTimeCond      string // for sales_data, return_sales_data (sa.completed_at)
-		transferTimeCond  string // for vozvrat_data, transfer_data (tr.created_at)
-		inventoryTimeCond string // for imventory_quantity (im.updated_at)
-		timeArgsPerCTE    []any  // collected once, reused per CTE
-	)
-
-	if params.StartDate != nil && !params.StartDate.GetTime().IsZero() {
-		startUTC := params.StartDate.UTC()
-		importTimeCond += " AND im.updated_at >= ?"
-		saleTimeCond += " AND sa.completed_at >= ?"
-		transferTimeCond += " AND tr.created_at >= ?"
-		inventoryTimeCond += " AND im.updated_at >= ?"
-		_ = startUTC // used below per-CTE
-		timeArgsPerCTE = append(timeArgsPerCTE, startUTC)
-	}
-
-	if params.EndDate != nil && !params.EndDate.GetTime().IsZero() {
-		endUTC := params.EndDate.UTC()
-		importTimeCond += " AND im.updated_at <= ?"
-		saleTimeCond += " AND sa.completed_at <= ?"
-		transferTimeCond += " AND tr.created_at <= ?"
-		inventoryTimeCond += " AND im.updated_at <= ?"
-		_ = endUTC // used below per-CTE
-		timeArgsPerCTE = append(timeArgsPerCTE, endUTC)
-	}
-
 	hasImportStoreDateFilter := params.StartDate != nil &&
 		!params.StartDate.GetTime().IsZero() &&
 		params.EndDate != nil &&
 		!params.EndDate.GetTime().IsZero()
 
+	// GetProducts bilan bir xil qoida: ikkala sana bitta kunga tushsa oraliq emas,
+	// "shu sanagacha" so'rovi deb qaraladi
+	var (
+		periodStart, periodEnd time.Time
+		isAsOfDate             bool
+	)
+	if hasImportStoreDateFilter {
+		periodStart, periodEnd, isAsOfDate = movementPeriod(params.StartDate, params.EndDate)
+	}
+
+	// build time filter conditions per CTE type
+	var (
+		importTimeCond    string // for import_data (import sanasi)
+		saleTimeCond      string // for sales_data, return_sales_data (sa.completed_at)
+		transferTimeCond  string // for vozvrat_data, transfer_data (tr.created_at)
+		inventoryTimeCond string // for imventory_quantity (import sanasi)
+		timeArgsPerCTE    []any  // collected once, reused per CTE
+	)
+
+	importDateCol := importDateColumn("im", isAsOfDate)
+
+	if isAsOfDate {
+		// faqat yuqori chegara: kun oxirigacha bo'lgan barcha harakatlar
+		importTimeCond += " AND " + importDateCol + " <= ?"
+		saleTimeCond += " AND sa.completed_at <= ?"
+		transferTimeCond += " AND tr.created_at <= ?"
+		inventoryTimeCond += " AND " + importDateCol + " <= ?"
+		timeArgsPerCTE = append(timeArgsPerCTE, periodEnd)
+	} else {
+		if params.StartDate != nil && !params.StartDate.GetTime().IsZero() {
+			importTimeCond += " AND im.updated_at >= ?"
+			saleTimeCond += " AND sa.completed_at >= ?"
+			transferTimeCond += " AND tr.created_at >= ?"
+			inventoryTimeCond += " AND im.updated_at >= ?"
+			timeArgsPerCTE = append(timeArgsPerCTE, params.StartDate.UTC())
+		}
+
+		if params.EndDate != nil && !params.EndDate.GetTime().IsZero() {
+			importTimeCond += " AND im.updated_at <= ?"
+			saleTimeCond += " AND sa.completed_at <= ?"
+			transferTimeCond += " AND tr.created_at <= ?"
+			inventoryTimeCond += " AND im.updated_at <= ?"
+			timeArgsPerCTE = append(timeArgsPerCTE, params.EndDate.UTC())
+		}
+	}
+
 	var importedStoreIds []string
 
 	if hasImportStoreDateFilter {
 		var err error
-		// as-of-date rejimi bu yerda hali yoqilmagan, eski xatti-harakat saqlanadi
-		importedStoreIds, err = s.getImportedStoreIds(ctx, params.ProductId, params.StartDate.UTC(), params.EndDate.UTC(), false)
+		importedStoreIds, err = s.getImportedStoreIds(ctx, params.ProductId, periodStart, periodEnd, isAsOfDate)
 		if err != nil {
 			s.log.Errorf("could not get imported store ids: %v", err)
 			return res, err
@@ -2580,7 +2601,7 @@ LEFT JOIN imventory_quantity imq ON true
 
 		if hasImportStoreDateFilter {
 			importStoreFilter = "AND im.store_id IN (?)"
-			salesStoreFilter = "AND sale_im.entry_type = 1 AND sale_im.status = 'completed' AND sale_im.updated_at >= ? AND sale_im.updated_at <= ?"
+			salesStoreFilter = "AND sale_im.entry_type = 1 AND sale_im.status = 'completed' AND " + importPeriodCondition("sale_im", isAsOfDate)
 			vozvratStoreFilter = "AND tr.from_store_id IN (?)"
 			transferOutStoreFilter = "filter ( where tr.from_store_id IN (?) )"
 			transferInStoreFilter = "filter ( where tr.to_store_id IN (?) )"
@@ -2607,12 +2628,12 @@ LEFT JOIN imventory_quantity imq ON true
 		args = append(args, timeArgsPerCTE...) // import_data time
 
 		if hasImportStoreDateFilter {
-			args = append(args, params.StartDate.UTC(), params.EndDate.UTC()) // sales_data: lot-level import check
+			args = append(args, periodStart, periodEnd) // sales_data: lot-level import check
 		}
 		args = append(args, timeArgsPerCTE...) // sales_data time
 
 		if hasImportStoreDateFilter {
-			args = append(args, params.StartDate.UTC(), params.EndDate.UTC()) // return_sales_data: lot-level import check
+			args = append(args, periodStart, periodEnd) // return_sales_data: lot-level import check
 		}
 		args = append(args, timeArgsPerCTE...) // return_sales_data time
 
@@ -2644,7 +2665,7 @@ LEFT JOIN imventory_quantity imq ON true
 		if hasImportStoreDateFilter {
 			var exists bool
 
-			err := s.db.WithContext(ctx).Raw(`
+			err := s.db.WithContext(ctx).Raw(fmt.Sprintf(`
 				SELECT EXISTS (
 					SELECT 1
 					FROM imports im
@@ -2653,14 +2674,13 @@ LEFT JOIN imventory_quantity imq ON true
 					  AND imd.product_id = ?
 					  AND im.entry_type = 1
 					  AND im.status = 'completed'
-					  AND im.updated_at >= ?
-					  AND im.updated_at <= ?
+					  AND %s
 				)
-			`,
+			`, importPeriodCondition("im", isAsOfDate)),
 				params.StoreId,
 				params.ProductId,
-				params.StartDate.UTC(),
-				params.EndDate.UTC(),
+				periodStart,
+				periodEnd,
 			).Scan(&exists).Error
 
 			if err != nil {
