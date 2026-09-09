@@ -1035,17 +1035,23 @@ func (h *HelperHandler) UploadCartItemQuantities(c *gin.Context) {
 
 // UploadStoreTargets godoc
 // @Summary Upload store targets excel (store_code, store_name, amount)
-// @Description Excel columns: 1) store_code, 2) store_name, 3) amount. For every row the store is
-// @Description found by store_code and its CURRENT month store_target is upserted: an existing target
-// @Description gets its amount updated and employee targets redistributed (sales are kept), a missing
-// @Description target is created and distributed to the store's active employees — the same logic as
-// @Description the create store target endpoint. store_name is informational only, matching is done by
-// @Description store_code. Rows with an unknown store code or an invalid amount are reported in "skipped".
+// @Description Column A is store_code, column B is store_name. The amount column is NOT assumed to be
+// @Description column C: real plan files keep the plan far to the right with hidden columns in between,
+// @Description so it is resolved from the header row (a header containing "план"/"plan"/"summa"/"amount")
+// @Description or taken from the amount_column parameter. When the header is ambiguous the upload is
+// @Description rejected and the candidate columns are listed, so a wrong column can never be written
+// @Description silently. The column actually used is echoed back in the response.
+// @Description For every row the store is found by store_code and its CURRENT month store_target is
+// @Description upserted: an existing target gets its amount updated and employee targets redistributed
+// @Description (sales are kept), a missing target is created and distributed to the store's active
+// @Description employees, the same logic as the create store target endpoint. store_name is
+// @Description informational only. Rows with an unknown store code or an invalid amount land in "skipped".
 // @Tags helper
 // @Security BearerAuth
 // @Accept multipart/form-data
 // @Produce json
-// @Param file formData file true "Excel file (.xlsx) with store_code, store_name, amount columns"
+// @Param file formData file true "Excel file (.xlsx) with store_code, store_name and an amount column"
+// @Param amount_column query string false "Amount column, letter or 1-based number (example: J or 10). Omit to resolve it from the header row"
 // @Success 200 {object} v1.Response
 // @Failure 400 {object} v1.Response
 // @Failure 500 {object} v1.Response
@@ -1081,7 +1087,9 @@ func (h *HelperHandler) UploadStoreTargets(c *gin.Context) {
 	defer xlsx.Close()
 
 	sheetName := xlsx.GetSheetName(0)
-	rows, err := xlsx.GetRows(sheetName)
+	// RawCellValue: katakning ko'rinishi emas, saqlangan qiymati kerak. Aks holda
+	// number format summani yaxlitlab qaytaradi va bazaga noto'g'ri raqam tushadi.
+	rows, err := xlsx.GetRows(sheetName, excelize.Options{RawCellValue: true})
 	if err != nil {
 		h.log.Errorf("Failed to get Excel rows: %v", err)
 		handleResponse(c, InternalError, "Failed to get Excel rows")
@@ -1092,28 +1100,34 @@ func (h *HelperHandler) UploadStoreTargets(c *gin.Context) {
 		return
 	}
 
+	// sarlavha qatori: birinchi katakda store_code o'rniga matn turadi
+	hasHeader := parseIntComma(excelCell(rows[0], 0)) == 0
+
+	amountIdx, amountHeader, err := resolveAmountColumn(c.Query("amount_column"), rows[0], hasHeader)
+	if err != nil {
+		handleResponse(c, BadRequest, err.Error())
+		return
+	}
+
 	var excelRows []domain.StoreTargetStoreCodeRow
 	for idx, row := range rows {
+		if idx == 0 && hasHeader {
+			continue
+		}
 		rowNumber := idx + 1
 
 		storeCodeCell := excelCell(row, 0)
 		storeName := excelCell(row, 1)
-		amountCell := excelCell(row, 2)
+		amountCell := excelCell(row, amountIdx)
 
 		// butunlay bo'sh qator — hisobotni ifloslantirmasin
 		if storeCodeCell == "" && storeName == "" && amountCell == "" {
 			continue
 		}
 
-		storeCode := parseIntComma(storeCodeCell)
-		// sarlavha qatori: birinchi katakda store_code o'rniga matn turadi
-		if idx == 0 && storeCode == 0 {
-			continue
-		}
-
 		excelRows = append(excelRows, domain.StoreTargetStoreCodeRow{
 			RowNumber: rowNumber,
-			StoreCode: storeCode,
+			StoreCode: parseIntComma(storeCodeCell),
 			StoreName: normalizeName(storeName),
 			Amount:    parseExcelAmount(amountCell),
 		})
@@ -1135,15 +1149,106 @@ func (h *HelperHandler) UploadStoreTargets(c *gin.Context) {
 		return
 	}
 
+	// qaysi ustun o'qilgani javobda ko'rinib tursin: noto'g'ri ustun yozilib
+	// ketgan holat aynan shu ma'lumot yo'qligidan bilinmay qolgan edi
+	res.AmountColumn, _ = excelize.ColumnNumberToName(amountIdx + 1)
+	res.AmountHeader = amountHeader
+
 	handleResponse(c, OK, res)
 }
 
 // excelCell — qator kaltaroq bo'lsa ham indeksdan xavfsiz o'qiydi
 func excelCell(row []string, i int) string {
-	if i < len(row) {
+	if i >= 0 && i < len(row) {
 		return strings.TrimSpace(row[i])
 	}
 	return ""
+}
+
+// amountHeaderRe — summa ustunining sarlavhasi shu so'zlardan birini o'z ichiga oladi
+var amountHeaderRe = regexp.MustCompile(`(?i)план|plan|сумма|summa|amount|target`)
+
+// resolveAmountColumn — summa qaysi ustunda turishini aniqlaydi va uning
+// 0 dan boshlanadigan indeksini qaytaradi.
+//
+// Summa har doim C ustunida deb hisoblab bo'lmaydi: haqiqiy plan fayllarida
+// A va B dan keyin bir nechta ustun yashirib qo'yiladi, plan esa ancha o'ngda,
+// masalan J da turadi. Shuning uchun ustun sarlavha qatoridan topiladi yoki
+// amount_column parametri bilan aniq ko'rsatiladi.
+//
+// Sarlavha bir nechta ustunga mos kelsa yuklash rad etiladi. Taxmin qilib
+// yozishdan ko'ra to'xtash afzal: noto'g'ri ustun jimgina bazaga tushsa,
+// bu do'konlarning oylik planini buzadi.
+func resolveAmountColumn(param string, header []string, hasHeader bool) (int, string, error) {
+	headerLabel := func(i int) string {
+		if hasHeader {
+			return excelCell(header, i)
+		}
+		return ""
+	}
+
+	if param = strings.TrimSpace(param); param != "" {
+		if n, err := strconv.Atoi(param); err == nil {
+			if n < 1 {
+				return 0, "", fmt.Errorf("amount_column must be 1 or greater, got %q", param)
+			}
+			return n - 1, headerLabel(n - 1), nil
+		}
+		n, err := excelize.ColumnNameToNumber(strings.ToUpper(param))
+		if err != nil {
+			return 0, "", fmt.Errorf("amount_column is not a valid column: %q", param)
+		}
+		return n - 1, headerLabel(n - 1), nil
+	}
+
+	// sarlavhasiz fayl: hujjatdagi oddiy uch ustunli format
+	if !hasHeader {
+		return 2, "", nil
+	}
+
+	var found []int
+	for i := 2; i < len(header); i++ {
+		if amountHeaderRe.MatchString(header[i]) {
+			found = append(found, i)
+		}
+	}
+
+	switch len(found) {
+	case 1:
+		return found[0], excelCell(header, found[0]), nil
+	case 0:
+		// uch ustunli faylda C dan boshqa nomzod yo'q
+		if len(header) == 3 {
+			return 2, excelCell(header, 2), nil
+		}
+		return 0, "", fmt.Errorf(
+			"could not tell which column holds the amount, pass amount_column (example: amount_column=J). Header: %s",
+			describeColumns(header))
+	default:
+		var names []string
+		for _, i := range found {
+			name, _ := excelize.ColumnNumberToName(i + 1)
+			names = append(names, fmt.Sprintf("%s (%s)", name, excelCell(header, i)))
+		}
+		return 0, "", fmt.Errorf(
+			"several columns look like the amount column, pass amount_column to choose one: %s",
+			strings.Join(names, ", "))
+	}
+}
+
+// describeColumns — sarlavha qatorini "A=ID, B=Aptека, J=План" ko'rinishida yozadi,
+// shunda foydalanuvchi amount_column ga nima berishni darrov ko'radi
+func describeColumns(header []string) string {
+	var parts []string
+	for i, cell := range header {
+		cell = strings.TrimSpace(cell)
+		if cell == "" {
+			continue
+		}
+		name, _ := excelize.ColumnNumberToName(i + 1)
+		parts = append(parts, fmt.Sprintf("%s=%s", name, cell))
+	}
+	return strings.Join(parts, ", ")
 }
 
 // parseExcelAmount — excel katagidagi summani float ga o'giradi. Summa

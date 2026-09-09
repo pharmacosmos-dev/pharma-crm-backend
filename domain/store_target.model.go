@@ -121,4 +121,9 @@ type StoreTargetCodeUpsertResult struct {
 	Skipped []StoreTargetSkippedRow `json:"skipped"`
 	Year    int                     `json:"year"`
 	Month   int                     `json:"month"`
+
+	// Summa qaysi ustundan o'qilgani. Yashirilgan ustunlari bor faylda summa
+	// C da emas, masalan J da turadi, shuning uchun bu javobda ko'rinib turishi kerak.
+	AmountColumn string `json:"amount_column"`
+	AmountHeader string `json:"amount_header,omitempty"`
 }
