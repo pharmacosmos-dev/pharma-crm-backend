@@ -85,12 +85,25 @@ const (
 //	RoleType           — FAQAT employees. employee_payrolls'da bunday ustun yo'q
 //	                     (u yerdagi role/role_names roles jadvalidan keladi va
 //	                     boshqa tushuncha). Hisob-kitobga ta'sir qilmaydi.
+//	FirstName/LastName — FAQAT employees; full_name shu ikkisidan qayta yig'iladi.
+//	                     Payroll qatoridagi ism snapshot'i ham sinxronlanadi,
+//	                     chunki ro'yxat p.full_name bo'yicha qidiradi/tartiblaydi.
+//	Phone              — FAQAT employees. Login shu raqam bo'yicha ishlagani uchun
+//	                     format va bandlik tekshiruvidan o'tadi.
+//	HireDate           — FAQAT employees. Hisob-kitobga kirmaydi.
 //	Avanslar           — faqat employee_payrolls, ular shu oyga tegishli.
-type EmployeePayrollAdvanceRequest struct {	
+type EmployeePayrollAdvanceRequest struct {
+	FirstName *string `json:"first_name" binding:"omitempty,max=55" example:"John"`
+	LastName  *string `json:"last_name" binding:"omitempty,max=55" example:"Doe"`
+	// Phone — 998XXXXXXXXX ko'rinishida, "+" belgisisiz (utils.IsValidPhone).
+	Phone *string `json:"phone" binding:"omitempty,max=20" example:"998901234567"`
+	// HireDate — ishga qabul qilingan sana. employees.start_date bilan aralashmasin:
+	// u smena boshlanish vaqti (TIME).
+	HireDate          *string  `json:"hire_date" binding:"omitempty,datetime=2006-01-02" example:"2023-01-01"`
 	KpiPercent        *float64 `json:"kpi_percent" binding:"omitempty,min=0"`
 	Salary            *float64 `json:"salary" binding:"omitempty,min=0"`
-	RoleType          *string `json:"role_type" binding:"omitempty,max=55" example:"CASHIER"`
-	DailyWorkHours    *int `json:"daily_work_hours" binding:"omitempty,oneof=4 7 8" example:"8"` 
+	RoleType          *string  `json:"role_type" binding:"omitempty,max=55" example:"CASHIER"`
+	DailyWorkHours    *int     `json:"daily_work_hours" binding:"omitempty,oneof=4 7 8" example:"8"`
 	ShiftType         *string  `json:"shift_type" binding:"omitempty,oneof=day night" example:"night"`
 	AdvanceCardAmount *float64 `json:"advance_card_amount" binding:"omitempty,min=0"`
 	AdvanceCashAmount *float64 `json:"advance_cash_amount" binding:"omitempty,min=0"`
@@ -100,13 +113,23 @@ type EmployeePayrollAdvanceRequest struct {
 func (r EmployeePayrollAdvanceRequest) IsEmpty() bool {
 	return r.KpiPercent == nil && r.Salary == nil && r.DailyWorkHours == nil &&
 		r.ShiftType == nil && r.RoleType == nil &&
+		r.FirstName == nil && r.LastName == nil &&
+		r.Phone == nil && r.HireDate == nil &&
 		r.AdvanceCardAmount == nil && r.AdvanceCashAmount == nil
 }
 
 // TouchesEmployee — employees jadvali ham yangilanishi kerakligini bildiradi.
 func (r EmployeePayrollAdvanceRequest) TouchesEmployee() bool {
 	return r.KpiPercent != nil || r.Salary != nil ||
-		r.DailyWorkHours != nil || r.ShiftType != nil || r.RoleType != nil
+		r.DailyWorkHours != nil || r.ShiftType != nil || r.RoleType != nil ||
+		r.FirstName != nil || r.LastName != nil ||
+		r.Phone != nil || r.HireDate != nil
+}
+
+// TouchesName — ism yoki familiya berilgani: payroll qatoridagi ism snapshot'i
+// ham yangilanishi kerak (ro'yxat p.full_name bo'yicha qidiradi va tartiblaydi).
+func (r EmployeePayrollAdvanceRequest) TouchesName() bool {
+	return r.FirstName != nil || r.LastName != nil
 }
 
 // EmployeePayrollAdvanceQueryParams — tahrirlash ro'yxatining filtrlari.
@@ -190,6 +213,7 @@ type EmployeePayrollAdvanceRow struct {
 	FirstName  string         `json:"first_name"`
 	LastName   string         `json:"last_name"`
 	Phone      string         `json:"phone"`
+	HireDate   *string        `json:"hire_date"`
 	StoreName  *string        `json:"store_name"`
 	Roles      pq.StringArray `json:"roles" gorm:"type:text[]" swaggertype:"array,string"`
 

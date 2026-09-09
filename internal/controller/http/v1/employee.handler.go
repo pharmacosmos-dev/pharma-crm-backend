@@ -2090,6 +2090,7 @@ func (h *EmployeeHandler) EmployeePayrollManagementList(c *gin.Context) {
 // @Failure      400  {object}  v1.Response
 // @Failure      401  {object}  v1.Response
 // @Failure      404  {object}  v1.Response
+// @Failure      409  {object}  v1.Response  "Telefon raqami boshqa xodimda band"
 // @Failure      500  {object}  v1.Response
 // @Router       /employee/payroll/{id}/management [put]
 func (h *EmployeeHandler) UpdateEmployeePayrollManagement(c *gin.Context) {
@@ -2110,6 +2111,13 @@ func (h *EmployeeHandler) UpdateEmployeePayrollManagement(c *gin.Context) {
 	}
 	if body.IsEmpty() {
 		handleServiceResponse(c, BadRequest, domain.InvalidRequestBodyError)
+		return
+	}
+	// Telefon berilgan bo'lsa formati /employee [post] va /employee/{id} [put]
+	// bilan AYNAN bir xil qoidada tekshiriladi — login shu raqam bo'yicha
+	// ishlaydi. Bandligi esa xizmat qatlamida, transaksiya ichida ko'riladi.
+	if body.Phone != nil && !utils.IsValidPhone(*body.Phone) {
+		handleResponse(c, BadRequest, "Invalid phone number, Format: 998901234567")
 		return
 	}
 

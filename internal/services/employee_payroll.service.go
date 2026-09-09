@@ -380,11 +380,17 @@ func (s *Services) recalculatePayrollMonth(
 //
 //	employee_payrolls — kpi_percent, salary va avanslardan berilgani, ustiga
 //	                    qayta hisoblangan summalar
-//	employees         — kpi_percent / salary / daily_work_hours berilgan bo'lsa
-//	                    (xodim kartochkasi, keyingi oylarga ham ta'sir qiladi)
+//	employees         — kpi_percent / salary / daily_work_hours / shift_type /
+//	                    role_type / ism-familiya / telefon / hire_date berilgan
+//	                    bo'lsa (xodim kartochkasi, keyingi oylarga ham ta'sir qiladi)
 //
 // daily_work_hours FAQAT employees'ga yoziladi: payroll qatorida bunday ustun
-// yo'q va oylik hisobiga ham kirmaydi.
+// yo'q va oylik hisobiga ham kirmaydi. Ism-familiya, telefon va hire_date ham
+// hisob-kitobga kirmaydi; ism o'zgarsa payroll qatoridagi snapshot sinxronlanadi.
+//
+// Telefon berilgan bo'lsa u BOSHQA xodimda band emasligi shu transaksiya ichida
+// tekshiriladi (band bo'lsa DuplicatePhoneError va butun o'zgarish bekor bo'ladi).
+// Formatni handler tekshiradi — /employee [post] bilan bir xil qoida.
 //
 // Summalar cron formulasi bilan AYNAN bir xil zanjir bo'yicha qayta hisoblanadi
 // (qarang: payrollUpsertQuery'dagi calc / kpi_rate / final CTE'lari):
@@ -457,6 +463,9 @@ func (s *Services) UpdateEmployeePayrollAdvance(
 		WHERE p.id = n.id
 		RETURNING p.*`
 
+	// full_name alohida ustun bo'lgani uchun ism/familiya o'zgarganda u ham
+	// qayta yig'iladi. Ikkalasi ham berilmagan bo'lsa qo'lda kiritilgan
+	// full_name buzilmasin uchun eski qiymatida qoldiriladi.
 	const employeeQuery = `
 		UPDATE employees
 		SET kpi_percent      = COALESCE(CAST(@kpi AS numeric), kpi_percent),
@@ -464,9 +473,46 @@ func (s *Services) UpdateEmployeePayrollAdvance(
 			daily_work_hours = COALESCE(CAST(@daily_hours AS numeric), daily_work_hours),
 			shift_type       = COALESCE(CAST(@shift_type AS varchar), shift_type),
 			role_type        = COALESCE(CAST(@role_type AS varchar), role_type),
+			first_name       = COALESCE(CAST(@first_name AS varchar), first_name),
+			last_name        = COALESCE(CAST(@last_name AS varchar), last_name),
+			full_name        = CASE
+				WHEN CAST(@first_name AS varchar) IS NULL
+				 AND CAST(@last_name AS varchar)  IS NULL
+				THEN full_name
+				ELSE TRIM(BOTH ' ' FROM
+					COALESCE(CAST(@first_name AS varchar), first_name, '') || ' ' ||
+					COALESCE(CAST(@last_name AS varchar),  last_name,  ''))
+			END,
+			phone            = COALESCE(CAST(@phone AS varchar), phone),
+			hire_date        = COALESCE(CAST(@hire_date AS date), hire_date),
 			updated_by       = CAST(@updated_by AS uuid),
 			updated_at       = NOW()
 		WHERE id = CAST(@employee_id AS uuid)`
+
+	// phoneTakenQuery — raqam BOSHQA o'chirilmagan xodimda bandmi.
+	// Employee handler'dagi isPhoneTaken bilan bir xil qoida, lekin shu yerda
+	// transaksiya ichida bajariladi: tekshiruv bilan yozuv orasida boshqa so'rov
+	// o'sha raqamni olib qo'ya olmaydi.
+	const phoneTakenQuery = `
+		SELECT COUNT(*)
+		FROM employees
+		WHERE phone = CAST(@phone AS varchar)
+		  AND deleted_at IS NULL
+		  AND id <> CAST(@employee_id AS uuid)`
+
+	// nameSnapshotQuery — payroll qatoridagi ism nusxasini xodim kartochkasiga
+	// moslaydi. Kerak, chunki tahrirlash ro'yxati p.full_name bo'yicha qidiradi
+	// va tartiblaydi: aks holda ism o'zgargach xodim qidiruvda topilmay qolardi
+	// (kechasi cron qatorni qayta yozguncha).
+	const nameSnapshotQuery = `
+		UPDATE employee_payrolls p
+		SET first_name = e.first_name,
+			last_name  = e.last_name,
+			full_name  = e.full_name,
+			updated_at = NOW()
+		FROM employees e
+		WHERE e.id = p.employee_id
+		  AND p.id = CAST(@id AS uuid)`
 
 	var res domain.EmployeePayroll
 
@@ -493,6 +539,23 @@ func (s *Services) UpdateEmployeePayrollAdvance(
 			return nil
 		}
 
+		// Telefon raqami login uchun kalit, shuning uchun tizim bo'ylab yagona
+		// bo'lishi shart. Xodimning o'zi hisobga olinmaydi: front eski raqamni
+		// qaytarib yuborsa update to'xtab qolmasin.
+		if req.Phone != nil {
+			var count int64
+			if err := tx.Raw(phoneTakenQuery, map[string]any{
+				"phone":       *req.Phone,
+				"employee_id": res.EmployeeId,
+			}).Scan(&count).Error; err != nil {
+				s.log.Errorf("payroll: could not check employee phone uniqueness: %v", err)
+				return domain.InternalServerError
+			}
+			if count > 0 {
+				return domain.DuplicatePhoneError
+			}
+		}
+
 		if err := tx.Exec(employeeQuery, map[string]any{
 			"employee_id": res.EmployeeId,
 			"kpi":         req.KpiPercent,
@@ -500,10 +563,21 @@ func (s *Services) UpdateEmployeePayrollAdvance(
 			"daily_hours": req.DailyWorkHours,
 			"shift_type":  req.ShiftType,
 			"role_type":   req.RoleType,
+			"first_name":  req.FirstName,
+			"last_name":   req.LastName,
+			"phone":       req.Phone,
+			"hire_date":   req.HireDate,
 			"updated_by":  nullIfEmpty(updatedBy),
 		}).Error; err != nil {
 			s.log.Errorf("payroll: could not update employee card: %v", err)
 			return domain.InternalServerError
+		}
+
+		if req.TouchesName() {
+			if err := tx.Exec(nameSnapshotQuery, map[string]any{"id": id}).Error; err != nil {
+				s.log.Errorf("payroll: could not sync payroll name snapshot: %v", err)
+				return domain.InternalServerError
+			}
 		}
 
 		return nil
@@ -664,6 +738,7 @@ func (s *Services) GetEmployeePayrollManagement(
 			COALESCE(e.first_name, '')       AS first_name,
 			COALESCE(e.last_name, '')        AS last_name,
 			COALESCE(e.phone, '')            AS phone,
+			TO_CHAR(e.hire_date, 'YYYY-MM-DD') AS hire_date,
 			COALESCE(p.role_names, '{}')     AS roles,
 			e.role_type,
 			p.store_name,

@@ -44,8 +44,11 @@ type Employee struct {
 	Birthdate       string           `gorm:"birthdate" json:"birthdate"`
 	Photo           string           `gorm:"photo" json:"photo"`
 	Passport        *string          `gorm:"passport" json:"passport"`
+	// StartDate/EndDate — smena boshlanish va tugash VAQTI (TIME), sana emas.
+	// Ishga qabul qilingan sana uchun HireDate ishlatiladi.
 	StartDate       *string          `gorm:"start_date" json:"start_date,omitempty"`
 	EndDate         *string          `gorm:"end_date" json:"end_date,omitempty"`
+	HireDate        *string          `gorm:"column:hire_date" json:"hire_date,omitempty"`
 	Salary          float64          `gorm:"salary" json:"salary"`
 
 	DailyWorkHours  float64          `gorm:"daily_work_hours" json:"daily_work_hours"`
