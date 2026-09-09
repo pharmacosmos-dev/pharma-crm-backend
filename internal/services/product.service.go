@@ -305,6 +305,29 @@ func endOfTashkentDay(t time.Time) time.Time {
 	return time.Date(y, m, d, 23, 59, 59, int(time.Second-time.Nanosecond), tashkentZone).UTC()
 }
 
+// movementPeriod - start_date/end_date juftligidan amaldagi oraliqni qaytaradi.
+// Ikkala sana bitta Toshkent kuniga tushsa "shu sanagacha" rejimi yoqiladi: quyi
+// chegara olib tashlanadi va yuqori chegara o'sha kunning oxiri bo'ladi.
+// Qoida bitta joyda turishi kerak, chunki GetProducts va GetProductMovements
+// bir xil natija berishi shart. Ikkala sana ham nil bo'lmasligi kutiladi.
+func movementPeriod(start, end *domain.CustomTime) (from, to time.Time, asOfDate bool) {
+	if isSameTashkentDay(start.GetTime(), end.GetTime()) {
+		return domain.BeginingTime, endOfTashkentDay(end.GetTime()), true
+	}
+	return start.UTC(), end.UTC(), false
+}
+
+// importPeriodCondition - importlar uchun sana shartini qaytaradi. asOfDate
+// rejimida import_date ishlatiladi, chunki updated_at ni baza triggeri har
+// yozuvda qayta yozadi va "shu sanagacha" chegarasini buzadi.
+func importPeriodCondition(alias string, asOfDate bool) string {
+	column := alias + ".updated_at"
+	if asOfDate {
+		column = alias + ".import_date"
+	}
+	return fmt.Sprintf("%s >= ? AND %s <= ?", column, column)
+}
+
 // get products get list
 func (s *Services) GetProducts(ctx context.Context, params *domain.ProductQueryParam) ([]domain.ProductData, int64, error) {
 	hasImportDateFilter := params.StartDate != nil && !params.StartDate.GetTime().IsZero() &&
@@ -313,12 +336,12 @@ func (s *Services) GetProducts(ctx context.Context, params *domain.ProductQueryP
 	// start_date va end_date bitta kunga tushsa bu oraliq emas, "shu sanagacha" so'rovi
 	// deb qaraladi: quyi chegara olib tashlanadi, yuqori chegara o'sha kunning oxiri
 	// bo'ladi va ostatkalar ham aynan shu sanaga hisoblanadi
-	isAsOfDate := hasImportDateFilter &&
-		isSameTashkentDay(params.StartDate.GetTime(), params.EndDate.GetTime())
-
-	var asOfEnd time.Time
-	if isAsOfDate {
-		asOfEnd = endOfTashkentDay(params.EndDate.GetTime())
+	var (
+		periodStart, periodEnd time.Time
+		isAsOfDate             bool
+	)
+	if hasImportDateFilter {
+		periodStart, periodEnd, isAsOfDate = movementPeriod(params.StartDate, params.EndDate)
 	}
 
 	// Pre-aggregate store_products
@@ -341,7 +364,7 @@ func (s *Services) GetProducts(ctx context.Context, params *domain.ProductQueryP
 		// faqat yuqori chegara: kun oxirigacha bo'lgan butun tarix olinadi.
 		// RFC3339Nano kerak, chunki chegara 23:59:59.999999999 ga teng va
 		// oddiy RFC3339 kasr qismini tashlab yuboradi
-		spConditions = append(spConditions, fmt.Sprintf("created_at <= '%s'", asOfEnd.Format(time.RFC3339Nano)))
+		spConditions = append(spConditions, fmt.Sprintf("created_at <= '%s'", periodEnd.Format(time.RFC3339Nano)))
 	} else {
 		if params.StartDate != nil {
 			spConditions = append(spConditions, fmt.Sprintf("created_at >= '%s'", params.StartDate.GetTime().UTC().Format(time.RFC3339)))
@@ -475,12 +498,7 @@ func (s *Services) GetProducts(ctx context.Context, params *domain.ProductQueryP
 			productIds[i] = res[i].ID
 		}
 
-		movStart, movEnd := params.StartDate.UTC(), params.EndDate.UTC()
-		if isAsOfDate {
-			movStart, movEnd = domain.BeginingTime, asOfEnd
-		}
-
-		netQuantities, err := s.getProductMovementQuantities(ctx, productIds, params.StoreId, movStart, movEnd, isAsOfDate)
+		netQuantities, err := s.getProductMovementQuantities(ctx, productIds, params.StoreId, periodStart, periodEnd, isAsOfDate)
 		if err != nil {
 			s.log.Errorf("could not get product movement quantities: %v", err)
 			return nil, 0, domain.InternalServerError
@@ -541,10 +559,7 @@ func (s *Services) getProductMovementQuantities(ctx context.Context, productIds 
 		salesStoreFilter = "AND sp.store_id = ?"
 	}
 
-	importPeriod := "AND im.updated_at >= ? AND im.updated_at <= ?"
-	if asOfDate {
-		importPeriod = "AND im.import_date >= ? AND im.import_date <= ?"
-	}
+	importPeriod := "AND " + importPeriodCondition("im", asOfDate)
 
 	// imported_stores: har bir mahsulot uchun, shu davrda import bo'lgan do'konlar
 	// juftligi (product_id, store_id) - GetProductMovements/GetSingleProductDashboard/
@@ -1182,18 +1197,20 @@ func (s *Services) GetProducerByCode(ctx context.Context, tx *gorm.DB, code stri
 // GetProducts tomonidan ishlatiladi - shunda barchasi bir xil do'konlar to'plamiga
 // asoslanadi (har birida alohida yozilgan subquery matni tufayli kelib chiqadigan
 // nomuvofiqlik xavfi yo'qoladi), va subquery faqat bir marta bajariladi.
-func (s *Services) getImportedStoreIds(ctx context.Context, productId string, startDate, endDate time.Time) ([]string, error) {
+// asOfDate rejimida importlar import_date bo'yicha olinadi, chunki updated_at ni
+// baza triggeri har yozuvda qayta yozadi va "shu sanagacha" chegarasini buzadi.
+// Oddiy oraliq rejimida eski xatti-harakat saqlanadi.
+func (s *Services) getImportedStoreIds(ctx context.Context, productId string, startDate, endDate time.Time, asOfDate bool) ([]string, error) {
 	var storeIds []string
-	err := s.db.WithContext(ctx).Raw(`
+	err := s.db.WithContext(ctx).Raw(fmt.Sprintf(`
 		SELECT DISTINCT im.store_id
 		FROM imports im
 		JOIN import_details imd ON im.id = imd.import_id
 		WHERE im.entry_type = 1
 		  AND im.status = 'completed'
 		  AND imd.product_id = ?
-		  AND im.updated_at >= ?
-		  AND im.updated_at <= ?
-	`, productId, startDate, endDate).Scan(&storeIds).Error
+		  AND %s
+	`, importPeriodCondition("im", asOfDate)), productId, startDate, endDate).Scan(&storeIds).Error
 	if err != nil {
 		return nil, err
 	}
@@ -1264,8 +1281,9 @@ func (s *Services) GetStoreProductsByProductId(ctx context.Context, params *doma
 		query = query.Where("sp.store_id = ?", params.StoreId)
 	} else if hasImportDateFilter {
 		// store_id berilmagan, lekin sana berilgan bo'lsa - faqat shu davrda
-		// import bo'lgan do'konlar bo'yicha ko'rsatamiz (boshqa 3 funksiya bilan bir xil manba)
-		importedStoreIds, err := s.getImportedStoreIds(ctx, params.ProductId, params.StartDate.UTC(), params.EndDate.UTC())
+		// import bo'lgan do'konlar bo'yicha ko'rsatamiz (boshqa 3 funksiya bilan bir xil manba).
+		// as-of-date rejimi bu yerda hali yoqilmagan, eski xatti-harakat saqlanadi
+		importedStoreIds, err := s.getImportedStoreIds(ctx, params.ProductId, params.StartDate.UTC(), params.EndDate.UTC(), false)
 		if err != nil {
 			s.log.Errorf("could not get imported store ids: %v", err)
 			return nil, 0, domain.InternalServerError
@@ -1733,18 +1751,39 @@ ORDER BY created_at DESC
 LIMIT ? OFFSET ?;
 	`
 
+	hasImportStoreDateFilter := params.StartDate != nil &&
+		!params.StartDate.GetTime().IsZero() &&
+		params.EndDate != nil &&
+		!params.EndDate.GetTime().IsZero()
+
+	// GetProducts bilan bir xil qoida: ikkala sana bitta kunga tushsa oraliq emas,
+	// "shu sanagacha" so'rovi deb qaraladi
+	var (
+		periodStart, periodEnd time.Time
+		isAsOfDate             bool
+	)
+	if hasImportStoreDateFilter {
+		periodStart, periodEnd, isAsOfDate = movementPeriod(params.StartDate, params.EndDate)
+	}
+
 	// build time filter for outer query
 	var timeFilter string
 	var timeArgs []any
 
-	if params.StartDate != nil && !params.StartDate.GetTime().IsZero() {
-		timeFilter += " AND created_at >= ?"
-		timeArgs = append(timeArgs, params.StartDate.UTC())
-	}
-
-	if params.EndDate != nil && !params.EndDate.GetTime().IsZero() {
+	if isAsOfDate {
+		// faqat yuqori chegara: kun oxirigacha bo'lgan barcha harakatlar
 		timeFilter += " AND created_at <= ?"
-		timeArgs = append(timeArgs, params.EndDate.UTC())
+		timeArgs = append(timeArgs, periodEnd)
+	} else {
+		if params.StartDate != nil && !params.StartDate.GetTime().IsZero() {
+			timeFilter += " AND created_at >= ?"
+			timeArgs = append(timeArgs, params.StartDate.UTC())
+		}
+
+		if params.EndDate != nil && !params.EndDate.GetTime().IsZero() {
+			timeFilter += " AND created_at <= ?"
+			timeArgs = append(timeArgs, params.EndDate.UTC())
+		}
 	}
 
 	var entryTypeFilter string
@@ -1759,16 +1798,11 @@ LIMIT ? OFFSET ?;
 		outerWhere = "WHERE 1=1" + timeFilter + entryTypeFilter
 	}
 
-	hasImportStoreDateFilter := params.StartDate != nil &&
-		!params.StartDate.GetTime().IsZero() &&
-		params.EndDate != nil &&
-		!params.EndDate.GetTime().IsZero()
-
 	var importedStoreIds []string
 
 	if hasImportStoreDateFilter {
 		var err error
-		importedStoreIds, err = s.getImportedStoreIds(ctx, params.ProductId, params.StartDate.UTC(), params.EndDate.UTC())
+		importedStoreIds, err = s.getImportedStoreIds(ctx, params.ProductId, periodStart, periodEnd, isAsOfDate)
 		if err != nil {
 			s.log.Errorf("could not get imported store ids: %v", err)
 			return res, totalCount, err
@@ -1790,7 +1824,7 @@ LIMIT ? OFFSET ?;
 		if hasImportStoreDateFilter {
 			importDataFilter = "AND im.store_id IN (?)"
 			inventoryDataFilter = "AND im.store_id IN (?)"
-			salesDataFilter = "AND sale_im.entry_type = 1 AND sale_im.status = 'completed' AND sale_im.updated_at >= ? AND sale_im.updated_at <= ?"
+			salesDataFilter = "AND sale_im.entry_type = 1 AND sale_im.status = 'completed' AND " + importPeriodCondition("sale_im", isAsOfDate)
 			vozvratDataFilter = "AND tr.from_store_id IN (?)"
 			transferInDataFilter = "AND tr.to_store_id IN (?)"
 			transferOutDataFilter = "AND tr.from_store_id IN (?)"
@@ -1818,7 +1852,7 @@ LIMIT ? OFFSET ?;
 		if hasImportStoreDateFilter {
 			args = append(args, importedStoreIds)                              // import_data
 			args = append(args, importedStoreIds)                              // inventory_data
-			args = append(args, params.StartDate.UTC(), params.EndDate.UTC())  // sales_data (lot-level via import_detail_id)
+			args = append(args, periodStart, periodEnd)                        // sales_data (lot-level via import_detail_id)
 			args = append(args, importedStoreIds)                              // vozvrat_data
 			args = append(args, importedStoreIds)                              // transfer_in_data
 			args = append(args, importedStoreIds)                              // transfer_out_data
@@ -1835,7 +1869,7 @@ LIMIT ? OFFSET ?;
 		if hasImportStoreDateFilter {
 			var exists bool
 
-			err := s.db.WithContext(ctx).Raw(`
+			err := s.db.WithContext(ctx).Raw(fmt.Sprintf(`
 				SELECT EXISTS (
 					SELECT 1
 					FROM imports im
@@ -1844,14 +1878,13 @@ LIMIT ? OFFSET ?;
 					  AND imd.product_id = ?
 					  AND im.entry_type = 1
 					  AND im.status = 'completed'
-					  AND im.updated_at >= ?
-					  AND im.updated_at <= ?
+					  AND %s
 				)
-			`,
+			`, importPeriodCondition("im", isAsOfDate)),
 				params.StoreId,
 				params.ProductId,
-				params.StartDate.UTC(),
-				params.EndDate.UTC(),
+				periodStart,
+				periodEnd,
 			).Scan(&exists).Error
 
 			if err != nil {
@@ -2526,7 +2559,8 @@ LEFT JOIN imventory_quantity imq ON true
 
 	if hasImportStoreDateFilter {
 		var err error
-		importedStoreIds, err = s.getImportedStoreIds(ctx, params.ProductId, params.StartDate.UTC(), params.EndDate.UTC())
+		// as-of-date rejimi bu yerda hali yoqilmagan, eski xatti-harakat saqlanadi
+		importedStoreIds, err = s.getImportedStoreIds(ctx, params.ProductId, params.StartDate.UTC(), params.EndDate.UTC(), false)
 		if err != nil {
 			s.log.Errorf("could not get imported store ids: %v", err)
 			return res, err
