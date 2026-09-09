@@ -2,6 +2,7 @@ package v1
 
 import (
 	"bytes"
+	"context"
 	"encoding/csv"
 	"encoding/json"
 	"errors"
@@ -61,6 +62,7 @@ func (h *HelperHandler) HelperRoutes(r *gin.RouterGroup) {
 		helper.POST("/check-products-by-material-code", h.CheckProductsByMaterialCode)
 		helper.POST("/upload-product-categories", h.UploadProductCategories)
 		helper.POST("/upload-cart-item-quantities", h.UploadCartItemQuantities)
+		helper.POST("/upload-store-targets", h.UploadStoreTargets)
 		// helper.POST("/upload-category", h.UploadCategory)
 		// helper.POST("/upload-customer", h.UploadCustomer)
 		// helper.POST("/upload-import", h.UploadImport)
@@ -1029,6 +1031,168 @@ func (h *HelperHandler) UploadCartItemQuantities(c *gin.Context) {
 		"updated": updated,
 		"skipped": skippedRows,
 	})
+}
+
+// UploadStoreTargets godoc
+// @Summary Upload store targets excel (store_code, store_name, amount)
+// @Description Excel columns: 1) store_code, 2) store_name, 3) amount. For every row the store is
+// @Description found by store_code and its CURRENT month store_target is upserted: an existing target
+// @Description gets its amount updated and employee targets redistributed (sales are kept), a missing
+// @Description target is created and distributed to the store's active employees — the same logic as
+// @Description the create store target endpoint. store_name is informational only, matching is done by
+// @Description store_code. Rows with an unknown store code or an invalid amount are reported in "skipped".
+// @Tags helper
+// @Security BearerAuth
+// @Accept multipart/form-data
+// @Produce json
+// @Param file formData file true "Excel file (.xlsx) with store_code, store_name, amount columns"
+// @Success 200 {object} v1.Response
+// @Failure 400 {object} v1.Response
+// @Failure 500 {object} v1.Response
+// @Router /helper/upload-store-targets [POST]
+func (h *HelperHandler) UploadStoreTargets(c *gin.Context) {
+	var file domain.File
+	if err := c.ShouldBind(&file); err != nil {
+		handleResponse(c, BadRequest, err.Error())
+		return
+	}
+
+	ext := filepath.Ext(file.File.Filename)
+	if ext != ".xlsx" && ext != ".xls" {
+		handleResponse(c, BadRequest, "Unsupported file format")
+		return
+	}
+
+	newFilename := uuid.New().String() + ext
+	savePath := filepath.Join("uploads", newFilename)
+	if err := c.SaveUploadedFile(file.File, savePath); err != nil {
+		h.log.Errorf("Failed to save file: %v", err)
+		handleResponse(c, InternalError, "Failed to save file")
+		return
+	}
+	defer os.Remove(savePath)
+
+	xlsx, err := excelize.OpenFile(savePath)
+	if err != nil {
+		h.log.Errorf("Failed to open Excel file: %v", err)
+		handleResponse(c, BadRequest, "Failed to open Excel file")
+		return
+	}
+	defer xlsx.Close()
+
+	sheetName := xlsx.GetSheetName(0)
+	rows, err := xlsx.GetRows(sheetName)
+	if err != nil {
+		h.log.Errorf("Failed to get Excel rows: %v", err)
+		handleResponse(c, InternalError, "Failed to get Excel rows")
+		return
+	}
+	if len(rows) == 0 {
+		handleResponse(c, BadRequest, "Empty file")
+		return
+	}
+
+	var excelRows []domain.StoreTargetStoreCodeRow
+	for idx, row := range rows {
+		rowNumber := idx + 1
+
+		storeCodeCell := excelCell(row, 0)
+		storeName := excelCell(row, 1)
+		amountCell := excelCell(row, 2)
+
+		// butunlay bo'sh qator — hisobotni ifloslantirmasin
+		if storeCodeCell == "" && storeName == "" && amountCell == "" {
+			continue
+		}
+
+		storeCode := parseIntComma(storeCodeCell)
+		// sarlavha qatori: birinchi katakda store_code o'rniga matn turadi
+		if idx == 0 && storeCode == 0 {
+			continue
+		}
+
+		excelRows = append(excelRows, domain.StoreTargetStoreCodeRow{
+			RowNumber: rowNumber,
+			StoreCode: storeCode,
+			StoreName: normalizeName(storeName),
+			Amount:    parseExcelAmount(amountCell),
+		})
+	}
+
+	if len(excelRows) == 0 {
+		handleResponse(c, BadRequest, "No data was found in the Excel file")
+		return
+	}
+
+	// so'rov konteksti emas: mijoz uzilib qolsa ham ko'p qatorli yozuv
+	// yarim yo'lda rollback bo'lib ketmasin
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
+	defer cancel()
+
+	res, err := h.service.UpsertStoreTargetsByStoreCode(ctx, excelRows)
+	if err != nil {
+		handleServiceResponse(c, nil, err)
+		return
+	}
+
+	handleResponse(c, OK, res)
+}
+
+// excelCell — qator kaltaroq bo'lsa ham indeksdan xavfsiz o'qiydi
+func excelCell(row []string, i int) string {
+	if i < len(row) {
+		return strings.TrimSpace(row[i])
+	}
+	return ""
+}
+
+// parseExcelAmount — excel katagidagi summani float ga o'giradi. Summa
+// "1 500 000", "1,500,000", "1 500 000,50" yoki "1500000.5" ko'rinishida kelishi
+// mumkin: bo'shliqlar (NBSP ham) razryad ajratgichi deb tashlanadi, vergul esa
+// faqat oxirida 1-2 xona qolsa kasr ajratgichi, aks holda razryad ajratgichi.
+func parseExcelAmount(value string) float64 {
+	// bo'shliq (excel ko'pincha uzilmas bo'shliq 0x00A0 ni ishlatadi) va apostrof
+	// razryad ajratgichi — hammasi tashlanadi
+	s := strings.Map(func(r rune) rune {
+		switch r {
+		case ' ', 0x00A0, '\'', '`':
+			return -1
+		}
+		return r
+	}, strings.TrimSpace(value))
+	if s == "" {
+		return 0
+	}
+
+	dots := strings.Count(s, ".")
+	commas := strings.Count(s, ",")
+
+	switch {
+	case dots > 0 && commas > 0:
+		// ikkalasi ham bor: oxirgi kelgani kasr ajratgichi, ikkinchisi razryad
+		if strings.LastIndex(s, ",") > strings.LastIndex(s, ".") {
+			s = strings.ReplaceAll(s, ".", "")
+			s = strings.ReplaceAll(s, ",", ".")
+		} else {
+			s = strings.ReplaceAll(s, ",", "")
+		}
+	case commas > 0:
+		// "1500000,50" — kasr; "1,500,000" yoki "1,500" — razryad
+		if commas == 1 && len(s)-strings.Index(s, ",")-1 <= 2 {
+			s = strings.Replace(s, ",", ".", 1)
+		} else {
+			s = strings.ReplaceAll(s, ",", "")
+		}
+	case dots > 1:
+		// "1.500.000" — nuqta razryad ajratgichi
+		s = strings.ReplaceAll(s, ".", "")
+	}
+
+	amount, err := strconv.ParseFloat(s, 64)
+	if err != nil {
+		return 0
+	}
+	return amount
 }
 
 // readCSVRows reads a csv file, auto-detecting comma vs semicolon delimiter

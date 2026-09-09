@@ -93,3 +93,32 @@ type StoreTargetUpsertResult struct {
 	Skipped int `json:"skipped"`
 	Total   int `json:"total"`
 }
+
+// StoreTargetStoreCodeRow — excel qatori: A=store_code, B=store_name, C=amount.
+// store_name faqat hisobotda ko'rinadi, do'kon store_code orqali topiladi.
+type StoreTargetStoreCodeRow struct {
+	RowNumber int
+	StoreCode int
+	StoreName string
+	Amount    float64
+}
+
+// StoreTargetSkippedRow — o'tkazib yuborilgan qator: qaysi qator, nima sababdan.
+// Excel yuklashda bitta xato qator butun faylni to'xtatmaydi, shuning uchun
+// javobda aynan qaysi qatorlar tushib qolgani ko'rinib turishi kerak.
+type StoreTargetSkippedRow struct {
+	Row       int     `json:"row"`
+	StoreCode int     `json:"store_code"`
+	StoreName string  `json:"store_name"`
+	Amount    float64 `json:"amount"`
+	Reason    string  `json:"reason"`
+}
+
+type StoreTargetCodeUpsertResult struct {
+	Total   int                     `json:"total"`
+	Created int                     `json:"created"`
+	Updated int                     `json:"updated"`
+	Skipped []StoreTargetSkippedRow `json:"skipped"`
+	Year    int                     `json:"year"`
+	Month   int                     `json:"month"`
+}

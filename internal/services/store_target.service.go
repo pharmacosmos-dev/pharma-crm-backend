@@ -1057,3 +1057,129 @@ func (s *Services) UpsertStoreTargetsFromExcel(ctx context.Context, rows []domai
 
 	return result, nil
 }
+
+// UpsertStoreTargetsByStoreCode — excel'dan kelgan (store_code, amount) qatorlarini
+// JORIY oy uchun store_targets ga yozadi. Do'kon store_code orqali topiladi
+// (excel'dagi store_name faqat hisobot uchun, moslashtirishda ishlatilmaydi).
+//
+// Mantiq CreateStoreTarget bilan bir xil: joriy oy target'i bo'lsa amount
+// yangilanadi va xodim targetlari qayta taqsimlanadi (sales saqlanadi), bo'lmasa
+// yangi target yaratilib xodimlarga taqsimlanadi.
+//
+// Bitta qatordagi xato (do'kon topilmadi, summa noto'g'ri) butun yuklashni
+// to'xtatmaydi — u skipped ro'yxatiga tushadi. Faqat haqiqiy DB xatosida
+// tranzaksiya butunlay rollback bo'ladi, ya'ni fayl yo to'liq yoziladi yo umuman yo'q.
+func (s *Services) UpsertStoreTargetsByStoreCode(ctx context.Context, rows []domain.StoreTargetStoreCodeRow) (*domain.StoreTargetCodeUpsertResult, error) {
+	now := time.Now()
+	year := now.Year()
+	month := int(now.Month())
+
+	result := &domain.StoreTargetCodeUpsertResult{
+		Total:   len(rows),
+		Skipped: []domain.StoreTargetSkippedRow{},
+		Year:    year,
+		Month:   month,
+	}
+
+	skip := func(row domain.StoreTargetStoreCodeRow, reason string) {
+		result.Skipped = append(result.Skipped, domain.StoreTargetSkippedRow{
+			Row:       row.RowNumber,
+			StoreCode: row.StoreCode,
+			StoreName: row.StoreName,
+			Amount:    row.Amount,
+			Reason:    reason,
+		})
+	}
+
+	tx := s.db.WithContext(ctx).Begin()
+	defer func() {
+		if r := recover(); r != nil {
+			tx.Rollback()
+		}
+	}()
+
+	startOfMonth := time.Date(year, time.Month(month), 1, 0, 0, 0, 0, time.Local)
+
+	for _, row := range rows {
+		if row.StoreCode <= 0 {
+			skip(row, "store code is empty or invalid")
+			continue
+		}
+		if row.Amount <= 0 {
+			skip(row, "amount is empty or invalid")
+			continue
+		}
+
+		var store domain.Store
+		err := tx.Select("id, company_id, store_code, name").
+			Where("store_code = ? AND deleted_at IS NULL", row.StoreCode).
+			Take(&store).Error
+		if err != nil {
+			if errors.Is(err, gorm.ErrRecordNotFound) {
+				skip(row, "store not found by store code")
+				continue
+			}
+			tx.Rollback()
+			s.log.Errorf("UpsertStoreTargetsByStoreCode: get store failed store_code=%d: %v", row.StoreCode, err)
+			return nil, domain.InternalServerError
+		}
+
+		var existing domain.StoreTarget
+		err = tx.Where("store_id = ? AND year = ? AND month = ?", store.Id, year, month).
+			First(&existing).Error
+
+		switch {
+		case err == nil:
+			if err := tx.Model(&existing).Update("amount", row.Amount).Error; err != nil {
+				tx.Rollback()
+				s.log.Errorf("UpsertStoreTargetsByStoreCode: update failed store_code=%d: %v", row.StoreCode, err)
+				return nil, domain.InternalServerError
+			}
+			existing.Amount = row.Amount
+
+			if err := s.redistributeToEmployees(tx, &existing); err != nil {
+				tx.Rollback()
+				return nil, domain.InternalServerError
+			}
+			result.Updated++
+
+		case errors.Is(err, gorm.ErrRecordNotFound):
+			target := domain.StoreTarget{
+				Id:        uuid.New().String(),
+				StoreId:   store.Id,
+				CompanyId: store.CompanyId,
+				Amount:    row.Amount,
+				Year:      year,
+				Month:     month,
+				SyncedAt:  &startOfMonth,
+			}
+
+			if err := tx.Create(&target).Error; err != nil {
+				tx.Rollback()
+				s.log.Errorf("UpsertStoreTargetsByStoreCode: create failed store_code=%d: %v", row.StoreCode, err)
+				return nil, domain.InternalServerError
+			}
+
+			if err := s.distributeToEmployees(tx, &target); err != nil {
+				tx.Rollback()
+				return nil, domain.InternalServerError
+			}
+			result.Created++
+
+		default:
+			tx.Rollback()
+			s.log.Errorf("UpsertStoreTargetsByStoreCode: db error store_code=%d: %v", row.StoreCode, err)
+			return nil, domain.InternalServerError
+		}
+	}
+
+	if err := tx.Commit().Error; err != nil {
+		s.log.Errorf("UpsertStoreTargetsByStoreCode: commit failed: %v", err)
+		return nil, domain.InternalServerError
+	}
+
+	s.log.Infof("UpsertStoreTargetsByStoreCode %d-%02d: total=%d created=%d updated=%d skipped=%d",
+		year, month, result.Total, result.Created, result.Updated, len(result.Skipped))
+
+	return result, nil
+}

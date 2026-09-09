@@ -11769,6 +11769,55 @@ const docTemplate = `{
                 }
             }
         },
+        "/helper/upload-store-targets": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Excel columns: 1) store_code, 2) store_name, 3) amount. For every row the store is\nfound by store_code and its CURRENT month store_target is upserted: an existing target\ngets its amount updated and employee targets redistributed (sales are kept), a missing\ntarget is created and distributed to the store's active employees — the same logic as\nthe create store target endpoint. store_name is informational only, matching is done by\nstore_code. Rows with an unknown store code or an invalid amount are reported in \"skipped\".",
+                "consumes": [
+                    "multipart/form-data"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "helper"
+                ],
+                "summary": "Upload store targets excel (store_code, store_name, amount)",
+                "parameters": [
+                    {
+                        "type": "file",
+                        "description": "Excel file (.xlsx) with store_code, store_name, amount columns",
+                        "name": "file",
+                        "in": "formData",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    }
+                }
+            }
+        },
         "/helper/upload-store-terminals": {
             "post": {
                 "security": [
