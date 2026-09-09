@@ -544,9 +544,11 @@ func (s *Services) GetProducts(ctx context.Context, params *domain.ProductQueryP
 }
 
 // getProductMovementQuantities berilgan mahsulotlar uchun [startDate, endDate] oralig'idagi
-// import, sotuv/qaytarish va vozvrat/inventarizatsiya harakatlari yig'indisini (netto miqdorini)
-// hisoblaydi - product_id -> netto miqdor xaritasi qaytaradi. Do'kondan-do'konga oddiy transfer
-// (entry_type=1) tizim bo'ylab hisoblanganda har doim 0 ga tenglashgani uchun kiritilmagan.
+// import, sotuv/qaytarish, vozvrat, inventarizatsiya va do'kondan do'konga o'tkazma
+// harakatlari yig'indisini (netto miqdorini) hisoblaydi - product_id -> netto miqdor
+// xaritasi qaytaradi. Model store_products dagi haqiqiy arifmetikaga mos: 'sent'
+// bosqichida manbadan expected_count ayiriladi va qabul qiluvchida tovar hali yo'q,
+// 'completed' bosqichida esa manba -accepted_count, qabul qiluvchi +accepted_count bo'ladi.
 // storeId bo'sh bo'lmasa hisob faqat shu do'kon bo'yicha yuritiladi.
 // asOfDate rejimida importlar import_date bo'yicha filtrlanadi, chunki updated_at ni
 // baza triggeri har yozuvda qayta yozadi va "shu sanagacha" chegarasini buzadi.
@@ -556,12 +558,17 @@ func (s *Services) getProductMovementQuantities(ctx context.Context, productIds 
 		return map[string]int{}, nil
 	}
 
-	// do'kon filtri ikki joyda kerak: import, transfer va inventarizatsiya
-	// imported_stores CTE si orqali cheklanadi, sotuvlar esa alohida
+	// do'kon filtri ikki joyda kerak: import, vozvrat va inventarizatsiya
+	// imported_stores CTE si orqali cheklanadi, sotuvlar esa alohida.
+	// Do'kondan do'konga o'tkazmalar to'g'ridan to'g'ri do'kon ustuni bo'yicha
+	// cheklanadi: chiqim manba, kirim esa qabul qiluvchi do'konga tegishli
 	importStoreFilter, salesStoreFilter := "", ""
+	fromStoreFilter, toStoreFilter := "", ""
 	if storeId != "" {
 		importStoreFilter = "AND im.store_id = ?"
 		salesStoreFilter = "AND sp.store_id = ?"
+		fromStoreFilter = "AND tr.from_store_id = ?"
+		toStoreFilter = "AND tr.to_store_id = ?"
 	}
 
 	importPeriod := "AND " + importPeriodCondition("im", asOfDate)
@@ -615,7 +622,7 @@ func (s *Services) getProductMovementQuantities(ctx context.Context, productIds 
 		JOIN transfers tr ON td.transfer_id = tr.id
 		JOIN products p ON p.id = td.product_id
 		JOIN imported_stores ist ON ist.product_id = td.product_id AND ist.store_id = tr.from_store_id
-		WHERE (tr.status = 'completed' OR tr.status = 'sent-to-1c') AND tr.entry_type = 2
+		WHERE tr.status IN ('completed', 'sent-to-1c', 'failed_sent_to_1c') AND tr.entry_type = 2
 		  AND tr.created_at >= ? AND tr.created_at <= ?
 		GROUP BY td.product_id
 
@@ -628,9 +635,55 @@ func (s *Services) getProductMovementQuantities(ctx context.Context, productIds 
 		WHERE im.entry_type = 2 AND im.status = 'completed'
 		  %[3]s
 		GROUP BY imd.product_id
+
+		UNION ALL
+
+		-- do'kondan do'konga o'tkazma, yakunlangan: manba do'kondan accepted_count ayiriladi.
+		-- failed_sent_to_1c ham yakunlangan hisoblanadi, chunki tovar qabul qilingan va
+		-- faqat 1C ga yuborish muvaffaqiyatsiz tugagan
+		SELECT td.product_id, (SUM(td.accepted_count) * MAX(p.unit_per_pack)) * (-1) AS qty
+		FROM transfer_details td
+		JOIN transfers tr ON td.transfer_id = tr.id
+		JOIN products p ON p.id = td.product_id
+		WHERE tr.entry_type = 1
+		  AND tr.status IN ('completed', 'sent-to-1c', 'failed_sent_to_1c')
+		  AND td.product_id IN (?)
+		  %[4]s
+		  AND tr.created_at >= ? AND tr.created_at <= ?
+		GROUP BY td.product_id
+
+		UNION ALL
+
+		-- o'sha o'tkazmaning kirim tomoni: qabul qiluvchi do'kon accepted_count oladi.
+		-- Do'kon tanlanmaganda bu ikki tomon bir birini yo'q qiladi
+		SELECT td.product_id, SUM(td.accepted_count) * MAX(p.unit_per_pack) AS qty
+		FROM transfer_details td
+		JOIN transfers tr ON td.transfer_id = tr.id
+		JOIN products p ON p.id = td.product_id
+		WHERE tr.entry_type = 1
+		  AND tr.status IN ('completed', 'sent-to-1c', 'failed_sent_to_1c')
+		  AND td.product_id IN (?)
+		  %[5]s
+		  AND tr.created_at >= ? AND tr.created_at <= ?
+		GROUP BY td.product_id
+
+		UNION ALL
+
+		-- xavodagi o'tkazma va vozvrat: 'sent' bosqichida manba do'kondan expected_count
+		-- allaqachon ayirilgan, qabul qiluvchida esa tovar hali yo'q. Shuning uchun
+		-- faqat chiqim tomoni hisoblanadi
+		SELECT td.product_id, (SUM(td.expected_count) * MAX(p.unit_per_pack)) * (-1) AS qty
+		FROM transfer_details td
+		JOIN transfers tr ON td.transfer_id = tr.id
+		JOIN products p ON p.id = td.product_id
+		WHERE tr.status NOT IN ('new', 'completed', 'sent-to-1c', 'failed_sent_to_1c', 'canceled')
+		  AND td.product_id IN (?)
+		  %[4]s
+		  AND tr.created_at >= ? AND tr.created_at <= ?
+		GROUP BY td.product_id
 	) combined
 	GROUP BY product_id
-	`, importStoreFilter, salesStoreFilter, importPeriod)
+	`, importStoreFilter, salesStoreFilter, importPeriod, fromStoreFilter, toStoreFilter)
 
 	// argumentlar tartibi so'rovdagi ? belgilar ketma-ketligiga qat'iy mos kelishi shart
 	args := []interface{}{productIds}
@@ -646,8 +699,26 @@ func (s *Services) getProductMovementQuantities(ctx context.Context, productIds 
 	}
 	args = append(args, startDate, endDate, startDate, endDate)
 
-	args = append(args, startDate, endDate) // transfer/vozvrat_data
+	args = append(args, startDate, endDate) // vozvrat_data
 	args = append(args, startDate, endDate) // inventory_data
+
+	args = append(args, productIds) // transfer chiqim, yakunlangan
+	if storeId != "" {
+		args = append(args, storeId)
+	}
+	args = append(args, startDate, endDate)
+
+	args = append(args, productIds) // transfer kirim, yakunlangan
+	if storeId != "" {
+		args = append(args, storeId)
+	}
+	args = append(args, startDate, endDate)
+
+	args = append(args, productIds) // xavodagi transfer va vozvrat, faqat chiqim
+	if storeId != "" {
+		args = append(args, storeId)
+	}
+	args = append(args, startDate, endDate)
 
 	var rows []struct {
 		ProductId   string `gorm:"column:product_id"`
@@ -1623,7 +1694,7 @@ vozvrat_data AS (
     JOIN transfers tr ON td.transfer_id = tr.id
     JOIN var_data vd ON td.product_id = vd.product_id
     JOIN stores s ON s.id = tr.from_store_id
-    WHERE (tr.status = 'completed' OR tr.status = 'sent-to-1c') AND tr.entry_type = 2
+    WHERE tr.status IN ('completed', 'sent-to-1c', 'failed_sent_to_1c') AND tr.entry_type = 2
     %s
     GROUP BY tr.id, s.id, vd.unit_per_pack
 ),
@@ -1644,7 +1715,7 @@ transfer_in_data AS (
     JOIN var_data vd ON td.product_id = vd.product_id
     JOIN stores fs ON fs.id = tr.from_store_id
     JOIN stores ts ON ts.id = tr.to_store_id
-    WHERE (tr.status = 'completed' OR tr.status = 'sent-to-1c') AND tr.entry_type = 1
+    WHERE tr.status IN ('completed', 'sent-to-1c', 'failed_sent_to_1c') AND tr.entry_type = 1
     %s
     GROUP BY tr.id, fs.id, ts.id, vd.unit_per_pack
  ),
@@ -1666,7 +1737,7 @@ transfer_in_data AS (
     JOIN var_data vd ON td.product_id = vd.product_id
     JOIN stores fs ON fs.id = tr.from_store_id
     JOIN stores ts ON ts.id = tr.to_store_id
-    WHERE (tr.status = 'completed' OR tr.status = 'sent-to-1c') AND tr.entry_type = 1
+    WHERE tr.status IN ('completed', 'sent-to-1c', 'failed_sent_to_1c') AND tr.entry_type = 1
     %s
     GROUP BY tr.id, fs.id, ts.id, vd.unit_per_pack
  ),
@@ -1689,16 +1760,22 @@ vozvrat_pending_data AS (
     GROUP BY tr.id, s.id, vd.unit_per_pack
 ),
 transfer_in_pending_data AS (
+    -- Faqat xabar uchun: tovar yo'lda, qabul qiluvchi do'kon zaxirasiga hali kirmagan.
+    -- Miqdor va summa ataylab nol, aks holda ro'yxat yig'indisi GetProducts va
+    -- GetSingleProductDashboard bilan farq qilib qoladi. Haqiqiy miqdor metadata da.
     SELECT
         tr.id, tr.public_id::int,
         6 AS entry_type,
         tr.created_at,
         fs.name || ' -> ' || ts.name as store_name,
-        SUM(td.expected_count) * vd.unit_per_pack AS quantity,
-        SUM(td.expected_count * td.retail_price) AS sum,
+        0::numeric AS quantity,
+        0::numeric AS sum,
         tr.name as name,
         tr.status,
-        NULL::jsonb AS metadata,
+        jsonb_build_object(
+            'pending_in_count',  (SUM(td.expected_count) * vd.unit_per_pack)::INTEGER,
+            'pending_in_amount', ROUND(SUM(td.expected_count * td.retail_price), 2)
+        ) AS metadata,
         vd.unit_per_pack
     FROM transfer_details td
     JOIN transfers tr ON td.transfer_id = tr.id
@@ -1771,6 +1848,13 @@ LIMIT ? OFFSET ?;
 		periodStart, periodEnd, isAsOfDate = movementPeriod(params.StartDate, params.EndDate)
 	}
 
+	// Importlar hodisa sanasi bo'yicha kesilishi kerak, xuddi GetProducts va
+	// GetSingleProductDashboard kabi. Tashqi filtr created_at ustunida ishlagani
+	// uchun import qatorining sanasi ham o'sha ustundan olinadi, shunda filtr va
+	// ko'rinadigan sana bir xil bo'ladi.
+	baseQuery = strings.ReplaceAll(baseQuery, "im.created_at,",
+		importDateColumn("im", isAsOfDate)+"::timestamptz AS created_at,")
+
 	// build time filter for outer query
 	var timeFilter string
 	var timeArgs []any
@@ -1803,6 +1887,14 @@ LIMIT ? OFFSET ?;
 		outerWhere = "WHERE 1=1" + timeFilter + entryTypeFilter
 	}
 
+	// sotuvlarga partiya cheklovi: sotilgan partiya ham shu davrda kelgan bo'lishi
+	// kerak. GetProducts bilan bir xil qoida, shuning uchun barcha tarmoqlarda qo'llanadi
+	salesLotFilter := ""
+	if hasImportStoreDateFilter {
+		salesLotFilter = " AND sale_im.entry_type = 1 AND sale_im.status = 'completed' AND " +
+			importPeriodCondition("sale_im", isAsOfDate)
+	}
+
 	var importedStoreIds []string
 
 	if hasImportStoreDateFilter {
@@ -1829,7 +1921,7 @@ LIMIT ? OFFSET ?;
 		if hasImportStoreDateFilter {
 			importDataFilter = "AND im.store_id IN (?)"
 			inventoryDataFilter = "AND im.store_id IN (?)"
-			salesDataFilter = "AND sale_im.entry_type = 1 AND sale_im.status = 'completed' AND " + importPeriodCondition("sale_im", isAsOfDate)
+			salesDataFilter = salesLotFilter
 			vozvratDataFilter = "AND tr.from_store_id IN (?)"
 			transferInDataFilter = "AND tr.to_store_id IN (?)"
 			transferOutDataFilter = "AND tr.from_store_id IN (?)"
@@ -1906,7 +1998,7 @@ LIMIT ? OFFSET ?;
 			baseQuery,
 			"AND im.store_id = ?",
 			"AND im.store_id = ?",
-			"AND sa.store_id = ?",
+			"AND sa.store_id = ?"+salesLotFilter,
 			"AND tr.from_store_id = ?",
 			"AND tr.to_store_id = ?",
 			"AND tr.from_store_id = ?",
@@ -1920,13 +2012,18 @@ LIMIT ? OFFSET ?;
 			params.StoreId, // import_data
 			params.StoreId, // inventory_data
 			params.StoreId, // sales_data
+		}
+		if hasImportStoreDateFilter {
+			args = append(args, periodStart, periodEnd) // sales_data: partiya cheklovi
+		}
+		args = append(args,
 			params.StoreId, // vozvrat_data
 			params.StoreId, // transfer_in_data
 			params.StoreId, // transfer_out_data
 			params.StoreId, // vozvrat_pending_data
 			params.StoreId, // transfer_in_pending_data
 			params.StoreId, // transfer_out_pending_data
-		}
+		)
 		args = append(args, timeArgs...)
 		args = append(args, entryTypeArgs...)
 		args = append(args, params.Limit, params.Offset)
@@ -1936,7 +2033,7 @@ LIMIT ? OFFSET ?;
 			baseQuery,
 			"AND s.company_id = ?",
 			"AND s.company_id = ?",
-			"AND st.company_id = ?",
+			"AND st.company_id = ?"+salesLotFilter,
 			"AND s.company_id = ?",
 			"AND ts.company_id = ?",
 			"AND fs.company_id = ?",
@@ -1950,13 +2047,18 @@ LIMIT ? OFFSET ?;
 			params.CompanyId, // import_data
 			params.CompanyId, // inventory_data
 			params.CompanyId, // sales_data
+		}
+		if hasImportStoreDateFilter {
+			args = append(args, periodStart, periodEnd) // sales_data: partiya cheklovi
+		}
+		args = append(args,
 			params.CompanyId, // vozvrat_data
 			params.CompanyId, // transfer_in_data
 			params.CompanyId, // transfer_out_data
 			params.CompanyId, // vozvrat_pending_data
 			params.CompanyId, // transfer_in_pending_data
 			params.CompanyId, // transfer_out_pending_data
-		}
+		)
 		args = append(args, timeArgs...)
 		args = append(args, entryTypeArgs...)
 		args = append(args, params.Limit, params.Offset)
@@ -1966,7 +2068,7 @@ LIMIT ? OFFSET ?;
 			baseQuery,
 			"AND im.store_id = ? AND s.company_id = ?",
 			"AND im.store_id = ? AND s.company_id = ?",
-			"AND sa.store_id = ? AND st.company_id = ?",
+			"AND sa.store_id = ? AND st.company_id = ?"+salesLotFilter,
 			"AND tr.from_store_id = ? AND s.company_id = ?",
 			"AND tr.to_store_id = ? AND ts.company_id = ?",
 			"AND tr.from_store_id = ? AND fs.company_id = ?",
@@ -1980,13 +2082,18 @@ LIMIT ? OFFSET ?;
 			params.StoreId, params.CompanyId, // import_data
 			params.StoreId, params.CompanyId, // inventory_data
 			params.StoreId, params.CompanyId, // sales_data
+		}
+		if hasImportStoreDateFilter {
+			args = append(args, periodStart, periodEnd) // sales_data: partiya cheklovi
+		}
+		args = append(args,
 			params.StoreId, params.CompanyId, // vozvrat_data
 			params.StoreId, params.CompanyId, // transfer_in_data
 			params.StoreId, params.CompanyId, // transfer_out_data
 			params.StoreId, params.CompanyId, // vozvrat_pending_data
 			params.StoreId, params.CompanyId, // transfer_in_pending_data
 			params.StoreId, params.CompanyId, // transfer_out_pending_data
-		}
+		)
 		args = append(args, timeArgs...)
 		args = append(args, entryTypeArgs...)
 		args = append(args, params.Limit, params.Offset)
@@ -2499,6 +2606,22 @@ imventory_quantity as (
 	JOIN var_data p ON imd.product_id = p.product_id
 	LEFT JOIN stores s ON s.id = im.store_id
 	WHERE im.entry_type = 2 AND im.status = 'completed' %s
+),
+transfer_pending_data AS (
+    -- xavodagi transfer va vozvrat: 'sent' bosqichida manba do'kondan expected_count
+    -- allaqachon ayirilgan, qabul qiluvchida esa tovar hali yo'q
+    SELECT
+        (SUM(td.expected_count) FILTER (WHERE tr.entry_type = 1) * vd.unit_per_pack)::INTEGER * (-1) AS pending_out_count,
+        SUM(td.expected_count * td.retail_price) FILTER (WHERE tr.entry_type = 1) * (-1) AS pending_out_amount,
+        (SUM(td.expected_count) FILTER (WHERE tr.entry_type = 2) * vd.unit_per_pack)::INTEGER * (-1) AS pending_vozvrat_count,
+        SUM(td.expected_count * td.retail_price) FILTER (WHERE tr.entry_type = 2) * (-1) AS pending_vozvrat_amount
+    FROM transfer_details td
+        JOIN transfers tr ON td.transfer_id = tr.id
+        JOIN var_data vd ON td.product_id = vd.product_id
+        JOIN stores s ON s.id = tr.from_store_id
+    WHERE tr.status NOT IN ('new', 'completed', 'sent-to-1c', 'failed_sent_to_1c', 'canceled')
+        %s
+    GROUP BY vd.unit_per_pack
 )
 SELECT
     COALESCE(pq.unit_quantity, 0) AS unit_quantity,
@@ -2508,10 +2631,10 @@ SELECT
     COALESCE(rsd.return_sale_amount, 0) AS return_sale_amount,
     COALESCE(id.import_count, 0) AS import_count,
     COALESCE(id.import_amount, 0) AS import_amount,
-    COALESCE(vd.return_to_sklad_count, 0) AS return_to_sklad_count,
-    COALESCE(vd.return_to_sklad_amount, 0) AS return_to_sklad_amount,
-    COALESCE(td.transfer_out_count, 0) AS transfer_out_count,
-    COALESCE(td.transfer_out_amount, 0) AS transfer_out_amount,
+    COALESCE(vd.return_to_sklad_count, 0) + COALESCE(tpd.pending_vozvrat_count, 0) AS return_to_sklad_count,
+    COALESCE(vd.return_to_sklad_amount, 0) + COALESCE(tpd.pending_vozvrat_amount, 0) AS return_to_sklad_amount,
+    COALESCE(td.transfer_out_count, 0) + COALESCE(tpd.pending_out_count, 0) AS transfer_out_count,
+    COALESCE(td.transfer_out_amount, 0) + COALESCE(tpd.pending_out_amount, 0) AS transfer_out_amount,
     COALESCE(td.transfer_in_count, 0) AS transfer_in_count,
     COALESCE(td.transfer_in_amount, 0) AS transfer_in_amount,
 	COALESCE(imq.inventory_plus_count, 0) AS inventory_plus_count,
@@ -2525,6 +2648,7 @@ LEFT JOIN return_sales_data rsd ON true
 LEFT JOIN vozvrat_data vd ON true
 LEFT JOIN transfer_data td ON true
 LEFT JOIN imventory_quantity imq ON true
+LEFT JOIN transfer_pending_data tpd ON true
 `
 	hasImportStoreDateFilter := params.StartDate != nil &&
 		!params.StartDate.GetTime().IsZero() &&
@@ -2577,6 +2701,13 @@ LEFT JOIN imventory_quantity imq ON true
 		}
 	}
 
+	// sotuvlarga partiya cheklovi: GetProducts va GetProductMovements bilan bir xil qoida
+	salesLotFilter := ""
+	if hasImportStoreDateFilter {
+		salesLotFilter = " AND sale_im.entry_type = 1 AND sale_im.status = 'completed' AND " +
+			importPeriodCondition("sale_im", isAsOfDate)
+	}
+
 	var importedStoreIds []string
 
 	if hasImportStoreDateFilter {
@@ -2601,7 +2732,7 @@ LEFT JOIN imventory_quantity imq ON true
 
 		if hasImportStoreDateFilter {
 			importStoreFilter = "AND im.store_id IN (?)"
-			salesStoreFilter = "AND sale_im.entry_type = 1 AND sale_im.status = 'completed' AND " + importPeriodCondition("sale_im", isAsOfDate)
+			salesStoreFilter = salesLotFilter
 			vozvratStoreFilter = "AND tr.from_store_id IN (?)"
 			transferOutStoreFilter = "filter ( where tr.from_store_id IN (?) )"
 			transferInStoreFilter = "filter ( where tr.to_store_id IN (?) )"
@@ -2619,6 +2750,7 @@ LEFT JOIN imventory_quantity imq ON true
 			transferWhereStoreFilter+transferTimeCond, // 9: transfer_data WHERE
 			productQtyStoreFilter,                  // 10: product_quantity
 			inventoryStoreFilter+inventoryTimeCond, // 11: imventory_quantity
+			vozvratStoreFilter+transferTimeCond,    // 12: transfer_pending_data
 		)
 		args = []any{params.ProductId}
 
@@ -2660,6 +2792,10 @@ LEFT JOIN imventory_quantity imq ON true
 			args = append(args, importedStoreIds) // imventory_quantity store filter
 		}
 		args = append(args, timeArgsPerCTE...) // imventory_quantity time
+		if hasImportStoreDateFilter {
+			args = append(args, importedStoreIds) // transfer_pending_data store filter
+		}
+		args = append(args, timeArgsPerCTE...) // transfer_pending_data time
 
 	} else if params.StoreId != "" && params.CompanyId == "" {
 		if hasImportStoreDateFilter {
@@ -2696,8 +2832,8 @@ LEFT JOIN imventory_quantity imq ON true
 		query = fmt.Sprintf(
 			baseQuery,
 			"AND im.store_id = ?"+importTimeCond,
-			"AND sa.store_id = ?"+saleTimeCond,
-			"AND sa.store_id = ?"+saleTimeCond,
+			"AND sa.store_id = ?"+salesLotFilter+saleTimeCond,
+			"AND sa.store_id = ?"+salesLotFilter+saleTimeCond,
 			"AND tr.from_store_id = ?"+transferTimeCond,
 			"filter ( where tr.from_store_id = ? )",
 			"filter ( where tr.from_store_id = ? )",
@@ -2706,13 +2842,20 @@ LEFT JOIN imventory_quantity imq ON true
 			"AND (tr.from_store_id = ? OR tr.to_store_id = ?)"+transferTimeCond,
 			"AND store_id = ?",
 			"AND s.id = ?"+inventoryTimeCond,
+			"AND tr.from_store_id = ?"+transferTimeCond,
 		)
 		args = []any{params.ProductId}
 		args = append(args, params.StoreId)                 // import_data
 		args = append(args, timeArgsPerCTE...)              // import_data time
 		args = append(args, params.StoreId)                 // sales_data
+		if hasImportStoreDateFilter {
+			args = append(args, periodStart, periodEnd) // sales_data: partiya cheklovi
+		}
 		args = append(args, timeArgsPerCTE...)              // sales_data time
 		args = append(args, params.StoreId)                 // return_sales_data
+		if hasImportStoreDateFilter {
+			args = append(args, periodStart, periodEnd) // return_sales_data: partiya cheklovi
+		}
 		args = append(args, timeArgsPerCTE...)              // return_sales_data time
 		args = append(args, params.StoreId)                 // vozvrat_data
 		args = append(args, timeArgsPerCTE...)              // vozvrat_data time
@@ -2725,13 +2868,15 @@ LEFT JOIN imventory_quantity imq ON true
 		args = append(args, params.StoreId)                 // product_quantity
 		args = append(args, params.StoreId)                 // inventory_quantity
 		args = append(args, timeArgsPerCTE...)              // inventory_quantity time
+		args = append(args, params.StoreId) // transfer_pending_data
+		args = append(args, timeArgsPerCTE...) // transfer_pending_data time
 
 	} else if params.StoreId == "" && params.CompanyId != "" {
 		query = fmt.Sprintf(
 			baseQuery,
 			"AND s.company_id = ?"+importTimeCond,
-			"AND st.company_id = ?"+saleTimeCond,
-			"AND st.company_id = ?"+saleTimeCond,
+			"AND st.company_id = ?"+salesLotFilter+saleTimeCond,
+			"AND st.company_id = ?"+salesLotFilter+saleTimeCond,
 			"AND s.company_id = ?"+transferTimeCond,
 			"filter ( where fs.company_id = ?)",
 			"filter ( where fs.company_id = ? )",
@@ -2740,13 +2885,20 @@ LEFT JOIN imventory_quantity imq ON true
 			"AND (fs.company_id = ? OR ts.company_id = ?)"+transferTimeCond,
 			"AND company_id = ?",
 			"AND s.company_id = ?"+inventoryTimeCond,
+			"AND s.company_id = ?"+transferTimeCond,
 		)
 		args = []any{params.ProductId}
 		args = append(args, params.CompanyId)                   // import_data
 		args = append(args, timeArgsPerCTE...)                  // import_data time
 		args = append(args, params.CompanyId)                   // sales_data
+		if hasImportStoreDateFilter {
+			args = append(args, periodStart, periodEnd) // sales_data: partiya cheklovi
+		}
 		args = append(args, timeArgsPerCTE...)                  // sales_data time
 		args = append(args, params.CompanyId)                   // return_sales_data
+		if hasImportStoreDateFilter {
+			args = append(args, periodStart, periodEnd) // return_sales_data: partiya cheklovi
+		}
 		args = append(args, timeArgsPerCTE...)                  // return_sales_data time
 		args = append(args, params.CompanyId)                   // vozvrat_data
 		args = append(args, timeArgsPerCTE...)                  // vozvrat_data time
@@ -2759,13 +2911,15 @@ LEFT JOIN imventory_quantity imq ON true
 		args = append(args, params.CompanyId)                   // product_quantity
 		args = append(args, params.CompanyId)                   // inventory_quantity
 		args = append(args, timeArgsPerCTE...)                  // inventory_quantity time
+		args = append(args, params.CompanyId) // transfer_pending_data
+		args = append(args, timeArgsPerCTE...) // transfer_pending_data time
 
 	} else { // both storeId and companyId
 		query = fmt.Sprintf(
 			baseQuery,
 			"AND im.store_id = ? AND s.company_id = ?"+importTimeCond,
-			"AND sa.store_id = ? AND st.company_id = ?"+saleTimeCond,
-			"AND sa.store_id = ? AND st.company_id = ?"+saleTimeCond,
+			"AND sa.store_id = ? AND st.company_id = ?"+salesLotFilter+saleTimeCond,
+			"AND sa.store_id = ? AND st.company_id = ?"+salesLotFilter+saleTimeCond,
 			"AND tr.from_store_id = ? AND s.company_id = ?"+transferTimeCond,
 			"filter ( where tr.from_store_id = ? )",
 			"filter ( where tr.from_store_id = ? )",
@@ -2774,13 +2928,20 @@ LEFT JOIN imventory_quantity imq ON true
 			"AND (tr.from_store_id = ? OR tr.to_store_id = ?)"+transferTimeCond,
 			"AND store_id = ?",
 			"AND s.id = ?"+inventoryTimeCond,
+			"AND tr.from_store_id = ? AND s.company_id = ?"+transferTimeCond,
 		)
 		args = []any{params.ProductId}
 		args = append(args, params.StoreId, params.CompanyId) // import_data
 		args = append(args, timeArgsPerCTE...)                // import_data time
 		args = append(args, params.StoreId, params.CompanyId) // sales_data
+		if hasImportStoreDateFilter {
+			args = append(args, periodStart, periodEnd) // sales_data: partiya cheklovi
+		}
 		args = append(args, timeArgsPerCTE...)                // sales_data time
 		args = append(args, params.StoreId, params.CompanyId) // return_sales_data
+		if hasImportStoreDateFilter {
+			args = append(args, periodStart, periodEnd) // return_sales_data: partiya cheklovi
+		}
 		args = append(args, timeArgsPerCTE...)                // return_sales_data time
 		args = append(args, params.StoreId, params.CompanyId) // vozvrat_data
 		args = append(args, timeArgsPerCTE...)                // vozvrat_data time
@@ -2793,6 +2954,8 @@ LEFT JOIN imventory_quantity imq ON true
 		args = append(args, params.StoreId)                   // product_quantity
 		args = append(args, params.StoreId)                   // inventory_quantity
 		args = append(args, timeArgsPerCTE...)                // inventory_quantity time
+		args = append(args, params.StoreId, params.CompanyId) // transfer_pending_data
+		args = append(args, timeArgsPerCTE...) // transfer_pending_data time
 	}
 
 	// Execute query
