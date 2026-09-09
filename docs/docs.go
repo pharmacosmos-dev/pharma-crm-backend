@@ -18820,7 +18820,7 @@ const docTemplate = `{
                     },
                     {
                         "type": "string",
-                        "description": "Filter by store_product arrival date from (e.g. 2026-01-01T00:00:00+05:00)",
+                        "description": "Filter by store_product arrival date from (e.g. 2026-01-01T00:00:00+05:00). If start_date and end_date fall on the same Tashkent day, the range is treated as 'up to that date': the lower bound is dropped and balances are calculated as of the end of that day.",
                         "name": "start_date",
                         "in": "query"
                     },
@@ -19429,7 +19429,7 @@ const docTemplate = `{
                     },
                     {
                         "type": "string",
-                        "description": "Filter by store_product arrival date from (e.g. 2026-01-01T00:00:00+05:00)",
+                        "description": "Filter by store_product arrival date from (e.g. 2026-01-01T00:00:00+05:00). If start_date and end_date fall on the same Tashkent day, the range is treated as 'up to that date': the lower bound is dropped and balances are calculated as of the end of that day.",
                         "name": "start_date",
                         "in": "query"
                     },

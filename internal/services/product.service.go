@@ -289,10 +289,37 @@ func (s *Services) GetProductById(ctx context.Context, productId string, storeId
 	return &res, nil
 }
 
+// tashkentZone - hisobot sanalari Toshkent kalendar kuni bo'yicha aniqlanadi
+var tashkentZone = time.FixedZone("UTC+5", int(constants.DateTimeTashkent/time.Second))
+
+// isSameTashkentDay - ikkala sana bir xil Toshkent kalendar kuniga tushadimi
+func isSameTashkentDay(a, b time.Time) bool {
+	ay, am, ad := a.In(tashkentZone).Date()
+	by, bm, bd := b.In(tashkentZone).Date()
+	return ay == by && am == bm && ad == bd
+}
+
+// endOfTashkentDay - berilgan sananing Toshkent bo'yicha kun oxirini UTC da qaytaradi
+func endOfTashkentDay(t time.Time) time.Time {
+	y, m, d := t.In(tashkentZone).Date()
+	return time.Date(y, m, d, 23, 59, 59, int(time.Second-time.Nanosecond), tashkentZone).UTC()
+}
+
 // get products get list
 func (s *Services) GetProducts(ctx context.Context, params *domain.ProductQueryParam) ([]domain.ProductData, int64, error) {
 	hasImportDateFilter := params.StartDate != nil && !params.StartDate.GetTime().IsZero() &&
 		params.EndDate != nil && !params.EndDate.GetTime().IsZero()
+
+	// start_date va end_date bitta kunga tushsa bu oraliq emas, "shu sanagacha" so'rovi
+	// deb qaraladi: quyi chegara olib tashlanadi, yuqori chegara o'sha kunning oxiri
+	// bo'ladi va ostatkalar ham aynan shu sanaga hisoblanadi
+	isAsOfDate := hasImportDateFilter &&
+		isSameTashkentDay(params.StartDate.GetTime(), params.EndDate.GetTime())
+
+	var asOfEnd time.Time
+	if isAsOfDate {
+		asOfEnd = endOfTashkentDay(params.EndDate.GetTime())
+	}
 
 	// Pre-aggregate store_products
 	storeJoin := `
@@ -310,11 +337,18 @@ func (s *Services) GetProducts(ctx context.Context, params *domain.ProductQueryP
 	if params.StoreId != "" {
 		spConditions = append(spConditions, fmt.Sprintf("store_id = '%s'", params.StoreId))
 	}
-	if params.StartDate != nil {
-		spConditions = append(spConditions, fmt.Sprintf("created_at >= '%s'", params.StartDate.GetTime().UTC().Format(time.RFC3339)))
-	}
-	if params.EndDate != nil {
-		spConditions = append(spConditions, fmt.Sprintf("created_at <= '%s'", params.EndDate.GetTime().UTC().Format(time.RFC3339)))
+	if isAsOfDate {
+		// faqat yuqori chegara: kun oxirigacha bo'lgan butun tarix olinadi.
+		// RFC3339Nano kerak, chunki chegara 23:59:59.999999999 ga teng va
+		// oddiy RFC3339 kasr qismini tashlab yuboradi
+		spConditions = append(spConditions, fmt.Sprintf("created_at <= '%s'", asOfEnd.Format(time.RFC3339Nano)))
+	} else {
+		if params.StartDate != nil {
+			spConditions = append(spConditions, fmt.Sprintf("created_at >= '%s'", params.StartDate.GetTime().UTC().Format(time.RFC3339)))
+		}
+		if params.EndDate != nil {
+			spConditions = append(spConditions, fmt.Sprintf("created_at <= '%s'", params.EndDate.GetTime().UTC().Format(time.RFC3339)))
+		}
 	}
 	if len(spConditions) > 0 {
 		storeJoin += " AND " + strings.Join(spConditions, " AND ")
@@ -430,16 +464,23 @@ func (s *Services) GetProducts(ctx context.Context, params *domain.ProductQueryP
 		return nil, 0, domain.InternalServerError
 	}
 
-	// store_id berilmagan, sana berilgan bo'lsa - unit_quantity joriy zaxira o'rniga
-	// shu davrdagi harakatlar (import, sotuv, qaytarish, transfer) yig'indisi sifatida
-	// hisoblanadi (GetSingleProductDashboard/GetProductMovements kabi)
-	if params.StoreId == "" && hasImportDateFilter {
+	// unit_quantity joriy zaxira o'rniga harakatlar (import, sotuv, qaytarish,
+	// transfer, inventarizatsiya) yig'indisi sifatida hisoblanadi
+	// (GetSingleProductDashboard/GetProductMovements kabi).
+	// as-of-date rejimida hisob tarix boshidan yuritiladi, shuning uchun natija
+	// o'sha sanadagi ostatka bo'ladi va do'kon tanlangan holatda ham ishlaydi.
+	if hasImportDateFilter && (isAsOfDate || params.StoreId == "") {
 		productIds := make([]string, len(res))
 		for i := range res {
 			productIds[i] = res[i].ID
 		}
 
-		netQuantities, err := s.getProductMovementQuantities(ctx, productIds, params.StartDate.UTC(), params.EndDate.UTC())
+		movStart, movEnd := params.StartDate.UTC(), params.EndDate.UTC()
+		if isAsOfDate {
+			movStart, movEnd = domain.BeginingTime, asOfEnd
+		}
+
+		netQuantities, err := s.getProductMovementQuantities(ctx, productIds, params.StoreId, movStart, movEnd, isAsOfDate)
 		if err != nil {
 			s.log.Errorf("could not get product movement quantities: %v", err)
 			return nil, 0, domain.InternalServerError
@@ -483,23 +524,41 @@ func (s *Services) GetProducts(ctx context.Context, params *domain.ProductQueryP
 // import, sotuv/qaytarish va vozvrat/inventarizatsiya harakatlari yig'indisini (netto miqdorini)
 // hisoblaydi - product_id -> netto miqdor xaritasi qaytaradi. Do'kondan-do'konga oddiy transfer
 // (entry_type=1) tizim bo'ylab hisoblanganda har doim 0 ga tenglashgani uchun kiritilmagan.
-func (s *Services) getProductMovementQuantities(ctx context.Context, productIds []string, startDate, endDate time.Time) (map[string]int, error) {
+// storeId bo'sh bo'lmasa hisob faqat shu do'kon bo'yicha yuritiladi.
+// asOfDate rejimida importlar import_date bo'yicha filtrlanadi, chunki updated_at ni
+// baza triggeri har yozuvda qayta yozadi va "shu sanagacha" chegarasini buzadi.
+// Oddiy oraliq rejimida eski xatti-harakat saqlanadi va updated_at ishlatiladi.
+func (s *Services) getProductMovementQuantities(ctx context.Context, productIds []string, storeId string, startDate, endDate time.Time, asOfDate bool) (map[string]int, error) {
 	if len(productIds) == 0 {
 		return map[string]int{}, nil
+	}
+
+	// do'kon filtri ikki joyda kerak: import, transfer va inventarizatsiya
+	// imported_stores CTE si orqali cheklanadi, sotuvlar esa alohida
+	importStoreFilter, salesStoreFilter := "", ""
+	if storeId != "" {
+		importStoreFilter = "AND im.store_id = ?"
+		salesStoreFilter = "AND sp.store_id = ?"
+	}
+
+	importPeriod := "AND im.updated_at >= ? AND im.updated_at <= ?"
+	if asOfDate {
+		importPeriod = "AND im.import_date >= ? AND im.import_date <= ?"
 	}
 
 	// imported_stores: har bir mahsulot uchun, shu davrda import bo'lgan do'konlar
 	// juftligi (product_id, store_id) - GetProductMovements/GetSingleProductDashboard/
 	// GetStoreProductsByProducty bilan bir xil qoidaga asoslanadi, shunda barchasi
 	// bir xil (product, store) to'plami bo'yicha hisoblaydi.
-	query := `
+	query := fmt.Sprintf(`
 	WITH imported_stores AS (
 		SELECT DISTINCT imd.product_id, im.store_id
 		FROM imports im
 		JOIN import_details imd ON im.id = imd.import_id
 		WHERE im.entry_type = 1 AND im.status = 'completed'
 		  AND imd.product_id IN (?)
-		  AND im.updated_at >= ? AND im.updated_at <= ?
+		  %[1]s
+		  %[3]s
 	)
 	SELECT product_id, SUM(qty)::INTEGER AS net_quantity
 	FROM (
@@ -509,7 +568,7 @@ func (s *Services) getProductMovementQuantities(ctx context.Context, productIds 
 		JOIN products p ON p.id = imd.product_id
 		JOIN imported_stores ist ON ist.product_id = imd.product_id AND ist.store_id = im.store_id
 		WHERE im.entry_type = 1 AND im.status = 'completed'
-		  AND im.updated_at >= ? AND im.updated_at <= ?
+		  %[3]s
 		GROUP BY imd.product_id
 
 		UNION ALL
@@ -523,8 +582,9 @@ func (s *Services) getProductMovementQuantities(ctx context.Context, productIds 
 		JOIN imports im ON im.id = imd.import_id
 		WHERE sa.stage IN (9, 11)
 		  AND sp.product_id IN (?)
+		  %[2]s
 		  AND im.entry_type = 1 AND im.status = 'completed'
-		  AND im.updated_at >= ? AND im.updated_at <= ?
+		  %[3]s
 		  AND sa.completed_at >= ? AND sa.completed_at <= ?
 		GROUP BY sp.product_id
 
@@ -546,24 +606,35 @@ func (s *Services) getProductMovementQuantities(ctx context.Context, productIds 
 		JOIN imports im ON im.id = imd.import_id
 		JOIN imported_stores ist ON ist.product_id = imd.product_id AND ist.store_id = im.store_id
 		WHERE im.entry_type = 2 AND im.status = 'completed'
-		  AND im.updated_at >= ? AND im.updated_at <= ?
+		  %[3]s
 		GROUP BY imd.product_id
 	) combined
 	GROUP BY product_id
-	`
+	`, importStoreFilter, salesStoreFilter, importPeriod)
+
+	// argumentlar tartibi so'rovdagi ? belgilar ketma-ketligiga qat'iy mos kelishi shart
+	args := []interface{}{productIds}
+	if storeId != "" {
+		args = append(args, storeId)
+	}
+	args = append(args, startDate, endDate) // imported_stores
+	args = append(args, startDate, endDate) // import_data
+
+	args = append(args, productIds) // sales_data (lot-level via import_detail_id)
+	if storeId != "" {
+		args = append(args, storeId)
+	}
+	args = append(args, startDate, endDate, startDate, endDate)
+
+	args = append(args, startDate, endDate) // transfer/vozvrat_data
+	args = append(args, startDate, endDate) // inventory_data
 
 	var rows []struct {
 		ProductId   string `gorm:"column:product_id"`
 		NetQuantity int    `gorm:"column:net_quantity"`
 	}
 
-	err := s.db.WithContext(ctx).Raw(query,
-		productIds, startDate, endDate, // imported_stores
-		startDate, endDate, // import_data
-		productIds, startDate, endDate, startDate, endDate, // sales_data (lot-level via import_detail_id)
-		startDate, endDate, // transfer/vozvrat_data
-		startDate, endDate, // inventory_data
-	).Scan(&rows).Error
+	err := s.db.WithContext(ctx).Raw(query, args...).Scan(&rows).Error
 	if err != nil {
 		return nil, err
 	}
