@@ -23,6 +23,7 @@ type EmployeeClaims struct {
 	StoreId   string   `json:"store_id"`
 	StoreIds  []string `json:"store_ids"`
 	Role      string   `json:"role"`
+	RoleType  string   `json:"role_type"`
 }
 
 type Employee struct {

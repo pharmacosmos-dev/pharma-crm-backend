@@ -62,7 +62,7 @@ var (
 
 // Roles slices
 var (
-	AllAdminRoles      = []string{RoleAdmin, RoleSuperAdmin, RoleFounder, RoleAccountant, RoleDirector, RoleAutoZakaz, RoleManager, RoleRopApteka}
+	AllAdminRoles      = []string{RoleAdmin, RoleSuperAdmin, RoleFounder, RoleAccountant, RoleDirector, RoleAutoZakaz, RoleManager}
 	StoreTargetViewAll = []string{RoleAdmin, RoleSuperAdmin, RoleFounder, RoleDirector, RoleManager}
 )
 

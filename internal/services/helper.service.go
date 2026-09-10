@@ -95,6 +95,16 @@ func (s *Services) GetSignedUser(c *gin.Context) *domain.EmployeeClaims {
 		user.Role, _ = role.(string)
 	}
 
+	if roleType, ok := c.Get("role_type"); ok && roleType != nil {
+		user.RoleType, _ = roleType.(string)
+	}
+
+	// token'dagi "role" claim'iga employees.role_type yoziladi (auth.handler.go),
+	// shuning uchun alohida role_type bo'lmasa o'sha qiymat ishlatiladi
+	if user.RoleType == "" {
+		user.RoleType = user.Role
+	}
+
 	return &user
 }
 

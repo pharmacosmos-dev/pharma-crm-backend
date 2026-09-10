@@ -4,6 +4,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/pharma-crm-backend/domain/constants"
 	"github.com/pharma-crm-backend/pkg/utils"
 )
 
@@ -20,6 +21,7 @@ const (
 	RoleTypeAutoOrderManager     = "auto_order_manager"     // Менеджер автозаказов
 	RoleTypeReturnsManager       = "returns_manager"        // Менеджер по возвратам
 	RoleTypeTechnicalSupport     = "tech_support"           // Техподдержка
+	RoleTypeHeadPharmacistIntern = "head_pharmacist_intern" // Стажер заведующего
 )
 
 // restrictedRoleListViewers — bu role_type'dagi xodimlarga rollar ro'yxati
@@ -36,6 +38,19 @@ var RoleListVisibleRoleTypes = []string{
 	RoleTypePharmacist,
 	RoleTypeRegionalSalesManager,
 	RoleTypeIntern,
+}
+
+// IsRopAptekaRoleType — berilgan employees.role_type РОП (apteka ROP'i) ekanini
+// bildiradi. Bazada ikki xil yozuv uchraydi: eski qatorlarda
+// constants.RoleRopApteka ("ROP_APTEKA"), yangi role_type lug'atida esa
+// RoleTypeRegionalSalesManager ("regional_sales_manager").
+func IsRopAptekaRoleType(employeeRoleType string) bool {
+	switch strings.ToLower(strings.TrimSpace(employeeRoleType)) {
+	case strings.ToLower(constants.RoleRopApteka), RoleTypeRegionalSalesManager:
+		return true
+	default:
+		return false
+	}
 }
 
 // IsRestrictedRoleListViewer — berilgan employees.role_type uchun rollar ro'yxati
@@ -88,22 +103,22 @@ type RoleRef struct {
 }
 
 type PermissionWithRoles struct {
-	Id          string               `json:"id"`
-	Name        string               `json:"name"`
-	Description string               `json:"description"`
-	Key         string               `json:"key"`
-	Route       string               `json:"route"`
-	Type        string               `json:"type"`
-	ParentId    string               `json:"parent_id"`
-	Method      utils.StringArray    `json:"method"`
-	Roles       []RoleRef            `json:"roles"`
+	Id          string                `json:"id"`
+	Name        string                `json:"name"`
+	Description string                `json:"description"`
+	Key         string                `json:"key"`
+	Route       string                `json:"route"`
+	Type        string                `json:"type"`
+	ParentId    string                `json:"parent_id"`
+	Method      utils.StringArray     `json:"method"`
+	Roles       []RoleRef             `json:"roles"`
 	Children    []PermissionWithRoles `json:"children"`
 }
 
 type MainPermWithRoles struct {
-	ID          string               `json:"id"`
-	Key         string               `json:"key"`
-	Name		string               `json:"name"`
-	Description string               `json:"description"`
+	ID          string                `json:"id"`
+	Key         string                `json:"key"`
+	Name        string                `json:"name"`
+	Description string                `json:"description"`
 	Permissions []PermissionWithRoles `json:"permissions"`
 }

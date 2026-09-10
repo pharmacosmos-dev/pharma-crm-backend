@@ -272,6 +272,8 @@ func (h *SaleHandler) GetSales(c *gin.Context) {
 		}
 	}
 
+	applyRopAptekaSaleScope(user, &params)
+
 	if isCashier {
 		params.VendorId = user.UserId
 	}
@@ -609,6 +611,8 @@ func (h *SaleHandler) GetSalesStats(c *gin.Context) {
 		}
 	}
 	// admin: hech qanday filter yo'q — barchasini ko'radi
+
+	applyRopAptekaSaleScope(user, &params)
 
 	if isCashier {
 		params.VendorId = user.UserId

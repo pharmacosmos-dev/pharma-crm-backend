@@ -478,11 +478,7 @@ func (h *ReportHandler) GetProductsReport(c *gin.Context) {
 		params.CompanyId = user.CompanyId
 	}
 
-	if len(user.StoreIds) > 0 {
-		params.StoreIds = user.StoreIds
-		params.StoreId = ""
-		params.CompanyId = ""
-	}
+	applyRopAptekaScope(user, &params)
 
 	// get default limit and offset for pagination
 	params.Limit, params.Offset = defaultLimitOffset(params.Limit, params.Offset)
@@ -543,11 +539,7 @@ func (h *ReportHandler) GetProductsReportStats(c *gin.Context) {
 		params.CompanyId = user.CompanyId
 	}
 
-	if len(user.StoreIds) > 0 {
-		params.StoreIds = user.StoreIds
-		params.StoreId = ""
-		params.CompanyId = ""
-	}
+	applyRopAptekaScope(user, &params)
 
 	res, err := h.service.GetProductsReportStats(ctx, &params)
 	if err != nil {
@@ -794,27 +786,7 @@ func (h *ReportHandler) StoreReportAmount(c *gin.Context) {
 		params.CompanyIds = []string{user.CompanyId}
 	}
 
-	if len(user.StoreIds) > 0 {
-		limitDate := time.Now().
-			AddDate(0, 0, -60).
-			Truncate(24 * time.Hour)
-
-		// time.Time -> domain.CustomTime
-		customLimitDate := domain.CustomTime(limitDate)
-		params.StoreIds = user.StoreIds
-		params.StoreId = ""
-		params.CompanyId = ""
-		
-		// start_date yuborilmagan bo‘lsa default 60 kun
-		if params.StartDate == nil || params.StartDate.GetTime().IsZero() {
-			params.StartDate = &customLimitDate
-		} else {
-			// agar start_date 60 kundan eski bo‘lsa 60 kunga kesiladi
-			if params.StartDate.GetTime().Before(limitDate) {
-				params.StartDate = &customLimitDate
-			}
-		}
-	}
+	applyRopAptekaScope(user, &params)
 
 	// Kassir roli (employee_roles orqali) faqat bugungi kundan boshqa (masalan, default 10 kunlik)
 	// oraliqlarda o'z sotuvlarini ko'radi; start_date bugungi kun bo'lsa cheklov qo'llanilmaydi
@@ -932,7 +904,7 @@ func (h *ReportHandler) StoreReportAmountExport(c *gin.Context) {
 	f.SetSheetName("Sheet1", sheetName)
 
 	// Headerlar
-	headers := []string{"ID", "АПТЕКА", "ДАТА", "НАЛИЧНЫЕ", "HUMO", "UZCARD", "CLICK", "PAYME", "ALIF","UZUM", "UZUMTEZKOR", "НАКОПИТЕЛЬНЫЙ", "ВОЗВРАТ", "ОБЩАЯ СУММА", "Количество чеков"}
+	headers := []string{"ID", "АПТЕКА", "ДАТА", "НАЛИЧНЫЕ", "HUMO", "UZCARD", "CLICK", "PAYME", "ALIF", "UZUM", "UZUMTEZKOR", "НАКОПИТЕЛЬНЫЙ", "ВОЗВРАТ", "ОБЩАЯ СУММА", "Количество чеков"}
 
 	err = setExcelHeaders(f, sheetName, headers)
 	if err != nil {
@@ -1014,10 +986,8 @@ func (h *ReportHandler) StoreReportStats(c *gin.Context) {
 			AddDate(0, 0, -10).
 			Truncate(24 * time.Hour)
 
-		// time.Time -> domain.CustomTime
 		customLimitDate := domain.CustomTime(limitDate)
 
-		// start_date yuborilmagan bo‘lsa default 10 kun
 		if params.StartDate == nil || params.StartDate.GetTime().IsZero() {
 			params.StartDate = &customLimitDate
 		} else {
@@ -1036,26 +1006,7 @@ func (h *ReportHandler) StoreReportStats(c *gin.Context) {
 		params.CompanyIds = []string{user.CompanyId}
 	}
 
-	if len(user.StoreIds) > 0 {
-		limitDate := time.Now().
-			AddDate(0, 0, -10).
-			Truncate(24 * time.Hour)
-
-		// time.Time -> domain.CustomTime
-		customLimitDate := domain.CustomTime(limitDate)
-		params.StoreIds = user.StoreIds
-		params.StoreId = ""
-		params.CompanyId = ""
-		// start_date yuborilmagan bo‘lsa default 10 kun
-		if params.StartDate == nil || params.StartDate.GetTime().IsZero() {
-			params.StartDate = &customLimitDate
-		} else {
-			// agar start_date 10 kundan eski bo‘lsa 10 kunga kesiladi
-			if params.StartDate.GetTime().Before(limitDate) {
-				params.StartDate = &customLimitDate
-			}
-		}
-	}
+	applyRopAptekaScope(user, &params)
 
 	// Kassir roli (employee_roles orqali) faqat bugungi kundan boshqa (masalan, default 10 kunlik)
 	// oraliqlarda o'z sotuvlarini ko'radi; start_date bugungi kun bo'lsa cheklov qo'llanilmaydi
@@ -1116,7 +1067,7 @@ func (h *ReportHandler) ReportTopProducts(c *gin.Context) {
 	if c.Request.Body != nil {
 		_ = c.ShouldBindJSON(&params.StoreIds)
 	}
-	
+
 	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
 	defer cancel()
 	// get limit offset with checking default
@@ -1195,7 +1146,7 @@ func (h *ReportHandler) ReportTopSeller(c *gin.Context) {
 		handleServiceResponse(c, BadRequest, domain.InvalidQueryError)
 		return
 	}
-	
+
 	// bind store ids
 	if c.Request.Body != nil {
 		_ = c.ShouldBindJSON(&params.StoreIds)
