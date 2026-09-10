@@ -7,7 +7,7 @@ import (
 )
 
 // ropAptekaReportDays — РОП hisobot va sotuvlarda ko'ra oladigan eng uzoq oraliq (kunlarda)
-const ropAptekaReportDays = 60
+const ropAptekaReportDays = 30
 
 // ropAptekaScope — РОП uchun hisoblangan filtr qiymatlari
 type ropAptekaScope struct {
