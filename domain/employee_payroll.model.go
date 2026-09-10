@@ -100,7 +100,7 @@ type EmployeePayrollAdvanceRequest struct {
 	LastName  *string `json:"last_name" binding:"omitempty,max=55" example:"Doe"`
 	Phone *string `json:"phone" binding:"omitempty,max=20" example:"998901234567"`
 	HireDate *string `json:"hire_date" binding:"omitempty,datetime=2006-01-02" example:"2023-01-01"`
-	PasportNumber *string `json:"pasport_number" binding:"omitempty,max=50" example:"AA1234567"`
+	Passport *string `json:"passport" binding:"omitempty,max=50" example:"AA1234567"`
 	Staff             *string  `json:"staff" binding:"omitempty,max=100" example:"shtat"`
 	KpiPercent        *float64 `json:"kpi_percent" binding:"omitempty,min=0"`
 	Salary            *float64 `json:"salary" binding:"omitempty,min=0"`
@@ -117,7 +117,7 @@ func (r EmployeePayrollAdvanceRequest) IsEmpty() bool {
 		r.ShiftType == nil && r.RoleType == nil &&
 		r.FirstName == nil && r.LastName == nil &&
 		r.Phone == nil && r.HireDate == nil &&
-		r.PasportNumber == nil && r.Staff == nil &&
+		r.Passport == nil && r.Staff == nil &&
 		r.AdvanceCardAmount == nil && r.AdvanceCashAmount == nil
 }
 
@@ -127,7 +127,7 @@ func (r EmployeePayrollAdvanceRequest) TouchesEmployee() bool {
 		r.DailyWorkHours != nil || r.ShiftType != nil || r.RoleType != nil ||
 		r.FirstName != nil || r.LastName != nil ||
 		r.Phone != nil || r.HireDate != nil ||
-		r.PasportNumber != nil || r.Staff != nil
+		r.Passport != nil || r.Staff != nil
 }
 
 // TouchesName — ism yoki familiya berilgani: payroll qatoridagi ism snapshot'i
@@ -198,6 +198,7 @@ type EmployeePayrollAdvanceRow struct {
 	LastName      string         `json:"last_name"`
 	Phone         string         `json:"phone"`
 	HireDate      *string        `json:"hire_date"`
+	BirthDate     *string        `json:"birth_date"`
 	StoreName     *string        `json:"store_name"`
 	Roles         pq.StringArray `json:"roles" gorm:"type:text[]" swaggertype:"array,string"`
 	PasportNumber string         `json:"pasport_number"`
