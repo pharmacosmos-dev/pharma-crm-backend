@@ -91,16 +91,17 @@ const (
 //	Phone              — FAQAT employees. Login shu raqam bo'yicha ishlagani uchun
 //	                     format va bandlik tekshiruvidan o'tadi.
 //	HireDate           — FAQAT employees. Hisob-kitobga kirmaydi.
-//	PasportNumber      — FAQAT employees, `passport` ustuniga yoziladi. JSON nomi
-//	                     front bilan kelishilgan "pasport_number" ko'rinishida.
+//	BirthDate          — FAQAT employees. Tug'ilgan sana, hisob-kitobga kirmaydi.
+//	Passport           — FAQAT employees, `passport` ustuniga yoziladi.
 //	Staff              — FAQAT employees. Shtat holati, hisob-kitobga kirmaydi.
 //	Avanslar           — faqat employee_payrolls, ular shu oyga tegishli.
 type EmployeePayrollAdvanceRequest struct {
-	FirstName *string `json:"first_name" binding:"omitempty,max=55" example:"John"`
-	LastName  *string `json:"last_name" binding:"omitempty,max=55" example:"Doe"`
-	Phone *string `json:"phone" binding:"omitempty,max=20" example:"998901234567"`
-	HireDate *string `json:"hire_date" binding:"omitempty,datetime=2006-01-02" example:"2023-01-01"`
-	Passport *string `json:"passport" binding:"omitempty,max=50" example:"AA1234567"`
+	FirstName         *string `json:"first_name" binding:"omitempty,max=55" example:"John"`
+	LastName          *string `json:"last_name" binding:"omitempty,max=55" example:"Doe"`
+	Phone             *string `json:"phone" binding:"omitempty,max=20" example:"998901234567"`
+	HireDate          *string `json:"hire_date" binding:"omitempty,datetime=2006-01-02" example:"2023-01-01"`
+	BirthDate         *string  `json:"birthdate" binding:"omitempty,datetime=2006-01-02" example:"1995-04-12"`
+	Passport          *string  `json:"passport" binding:"omitempty,max=50" example:"AA1234567"`
 	Staff             *string  `json:"staff" binding:"omitempty,max=100" example:"shtat"`
 	KpiPercent        *float64 `json:"kpi_percent" binding:"omitempty,min=0"`
 	Salary            *float64 `json:"salary" binding:"omitempty,min=0"`
@@ -116,7 +117,7 @@ func (r EmployeePayrollAdvanceRequest) IsEmpty() bool {
 	return r.KpiPercent == nil && r.Salary == nil && r.DailyWorkHours == nil &&
 		r.ShiftType == nil && r.RoleType == nil &&
 		r.FirstName == nil && r.LastName == nil &&
-		r.Phone == nil && r.HireDate == nil &&
+		r.Phone == nil && r.HireDate == nil && r.BirthDate == nil &&
 		r.Passport == nil && r.Staff == nil &&
 		r.AdvanceCardAmount == nil && r.AdvanceCashAmount == nil
 }
@@ -126,7 +127,7 @@ func (r EmployeePayrollAdvanceRequest) TouchesEmployee() bool {
 	return r.KpiPercent != nil || r.Salary != nil ||
 		r.DailyWorkHours != nil || r.ShiftType != nil || r.RoleType != nil ||
 		r.FirstName != nil || r.LastName != nil ||
-		r.Phone != nil || r.HireDate != nil ||
+		r.Phone != nil || r.HireDate != nil || r.BirthDate != nil ||
 		r.Passport != nil || r.Staff != nil
 }
 
@@ -139,17 +140,17 @@ func (r EmployeePayrollAdvanceRequest) TouchesName() bool {
 // EmployeePayrollAdvanceQueryParams — tahrirlash ro'yxatining filtrlari.
 // Year/Month berilmasa joriy oy olinadi; kelajakdagi oy qabul qilinmaydi.
 type EmployeePayrollAdvanceQueryParams struct {
-	StoreId string `form:"store_id"`
+	StoreId    string `form:"store_id"`
 	EmployeeId string `form:"employee_id"`
-	RoleType string `form:"role_type"`
-	ShiftType string `form:"shift_type"`
-	Search    string `form:"search"`
-	Year      int    `form:"year"`
-	Month     int    `form:"month"`
-	Date   string `form:"date"`
-	Limit  int    `form:"limit"`
-	Offset int    `form:"offset"`
-	CompanyId string `form:"-"`
+	RoleType   string `form:"role_type"`
+	ShiftType  string `form:"shift_type"`
+	Search     string `form:"search"`
+	Year       int    `form:"year"`
+	Month      int    `form:"month"`
+	Date       string `form:"date"`
+	Limit      int    `form:"limit"`
+	Offset     int    `form:"offset"`
+	CompanyId  string `form:"-"`
 }
 
 // ApplyDate — Date berilgan bo'lsa undan Year/Month'ni ajratib oladi.
@@ -185,9 +186,9 @@ type PayrollManagementStatistics struct {
 	TotalStores    int64 `json:"total_stores"`
 	TotalEmployees int64 `json:"total_employees"`
 
-	TotalSalary float64 `json:"total_salary"`
-	TotalAdvanceAmount float64 `json:"total_advance_amount"`
-	RoleTypeCounts map[string]int64 `json:"role_type_counts" gorm:"-"`
+	TotalSalary        float64          `json:"total_salary"`
+	TotalAdvanceAmount float64          `json:"total_advance_amount"`
+	RoleTypeCounts     map[string]int64 `json:"role_type_counts" gorm:"-"`
 }
 
 type EmployeePayrollAdvanceRow struct {
@@ -198,10 +199,10 @@ type EmployeePayrollAdvanceRow struct {
 	LastName      string         `json:"last_name"`
 	Phone         string         `json:"phone"`
 	HireDate      *string        `json:"hire_date"`
-	BirthDate     *string        `json:"birth_date"`
+	BirthDate     *string        `json:"birthdate" gorm:"column:birthdate"`
 	StoreName     *string        `json:"store_name"`
 	Roles         pq.StringArray `json:"roles" gorm:"type:text[]" swaggertype:"array,string"`
-	PasportNumber string         `json:"pasport_number"`
+	PasportNumber string         `json:"pasport_number" gorm:"column:passport"`
 	Staff         string         `json:"staff"`
 
 	// KpiPercent employee_payrolls'dan olinadi — shu oyda AMALDA ishlatilgan foiz.
@@ -219,10 +220,10 @@ type EmployeePayrollAdvanceRow struct {
 type EmployeePayrollQueryParams struct {
 	EmployeeId string `form:"employee_id"`
 	StoreId    string `form:"store_id"`
-	Search string `form:"search"`
-	Status string `form:"status"`
-	Year   int    `form:"year"`
-	Month  int    `form:"month"`
+	Search     string `form:"search"`
+	Status     string `form:"status"`
+	Year       int    `form:"year"`
+	Month      int    `form:"month"`
 
 	Date   string `form:"date"`
 	Limit  int    `form:"limit"`

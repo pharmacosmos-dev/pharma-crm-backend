@@ -485,6 +485,7 @@ func (s *Services) UpdateEmployeePayrollAdvance(
 			END,
 			phone            = COALESCE(CAST(@phone AS varchar), phone),
 			hire_date        = COALESCE(CAST(@hire_date AS date), hire_date),
+			birthdate        = COALESCE(CAST(@birth_date AS date), birthdate),
 			passport         = COALESCE(CAST(@passport AS varchar), passport),
 			staff            = COALESCE(CAST(@staff AS text), staff),
 			updated_by       = CAST(@updated_by AS uuid),
@@ -569,6 +570,7 @@ func (s *Services) UpdateEmployeePayrollAdvance(
 			"last_name":   req.LastName,
 			"phone":       req.Phone,
 			"hire_date":   req.HireDate,
+			"birth_date":  req.BirthDate,
 			"passport":    req.Passport,
 			"staff":       req.Staff,
 			"updated_by":  nullIfEmpty(updatedBy),
@@ -715,7 +717,7 @@ func (s *Services) GetPayrollManagementStatistics(
 
 // GetEmployeePayrollManagement — oylik tahrirlash ro'yxati: xodim kartochkasidagi
 // qiymatlar (salary, daily_work_hours, shift_type, experience_years, phone,
-// role_type, hire_date, pasport_number, staff) va so'ralgan oyning payroll
+// role_type, hire_date, birthdate, pasport_number, staff) va so'ralgan oyning payroll
 // qatoridan kpi_percent bilan avanslar.
 //
 // passport va staff ustunlari nullable, shuning uchun COALESCE bilan bo'sh satrga
@@ -747,7 +749,7 @@ func (s *Services) GetEmployeePayrollManagement(
 			COALESCE(e.last_name, '')        AS last_name,
 			COALESCE(e.phone, '')            AS phone,
 			TO_CHAR(e.hire_date, 'YYYY-MM-DD') AS hire_date,
-			COALESCE(e.birth_date, '')       AS birth_date,
+			TO_CHAR(e.birthdate, 'YYYY-MM-DD') AS birthdate,
 			COALESCE(p.role_names, '{}')     AS roles,
 			COALESCE(e.passport, '')         AS passport,
 			COALESCE(e.staff, '')            AS staff,
