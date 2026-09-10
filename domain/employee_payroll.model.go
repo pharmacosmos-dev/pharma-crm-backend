@@ -202,7 +202,7 @@ type EmployeePayrollAdvanceRow struct {
 	BirthDate     *string        `json:"birthdate" gorm:"column:birthdate"`
 	StoreName     *string        `json:"store_name"`
 	Roles         pq.StringArray `json:"roles" gorm:"type:text[]" swaggertype:"array,string"`
-	PasportNumber string         `json:"pasport_number" gorm:"column:passport"`
+	Passport      string         `json:"passport" gorm:"column:passport"`
 	Staff         string         `json:"staff"`
 
 	// KpiPercent employee_payrolls'dan olinadi — shu oyda AMALDA ishlatilgan foiz.
