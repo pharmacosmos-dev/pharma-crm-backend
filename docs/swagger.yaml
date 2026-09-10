@@ -669,6 +669,9 @@ definitions:
       advance_cash_amount:
         minimum: 0
         type: number
+      birthdate:
+        example: "1995-04-12"
+        type: string
       daily_work_hours:
         enum:
         - 4
@@ -690,7 +693,7 @@ definitions:
         example: Doe
         maxLength: 55
         type: string
-      pasport_number:
+      passport:
         example: AA1234567
         maxLength: 50
         type: string
@@ -17306,6 +17309,72 @@ paths:
       security:
       - BearerAuth: []
       summary: Update retail price by 1C
+      tags:
+      - 1C Api
+  /product1c/report/store-stats:
+    post:
+      consumes:
+      - application/json
+      description: Get store report stats (sales, payment types, returns) with 1C
+        token
+      parameters:
+      - description: Limit
+        in: query
+        name: limit
+        type: integer
+      - description: Offset
+        in: query
+        name: offset
+        type: integer
+      - description: Start Date Format(2025-03)
+        format: 2025-03
+        in: query
+        name: start_date
+        type: string
+      - description: End Date Format(2025-04)
+        format: 2025-04
+        in: query
+        name: end_date
+        type: string
+      - description: Search
+        in: query
+        name: search
+        type: string
+      - description: Store ID
+        in: query
+        name: store_id
+        type: string
+      - description: Store CODE
+        in: query
+        name: store_code
+        type: string
+      - description: Employee ID
+        in: query
+        name: employee_id
+        type: string
+      - description: ids
+        in: body
+        name: body
+        schema:
+          $ref: '#/definitions/domain.DashboardBody'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Get store report stats by 1C
       tags:
       - 1C Api
   /product1c/repricing:

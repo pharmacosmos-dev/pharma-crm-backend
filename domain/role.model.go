@@ -22,6 +22,7 @@ const (
 	RoleTypeReturnsManager       = "returns_manager"        // Менеджер по возвратам
 	RoleTypeTechnicalSupport     = "tech_support"           // Техподдержка
 	RoleTypeHeadPharmacistIntern = "head_pharmacist_intern" // Стажер заведующего
+	RoleTypePharmacyAssistant    = "pharmacy_assistant"     // Помощник фармацевта 
 )
 
 // restrictedRoleListViewers — bu role_type'dagi xodimlarga rollar ro'yxati

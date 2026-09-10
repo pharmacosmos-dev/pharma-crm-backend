@@ -22611,6 +22611,106 @@
                 }
             }
         },
+        "/product1c/report/store-stats": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Get store report stats (sales, payment types, returns) with 1C token",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "1C Api"
+                ],
+                "summary": "Get store report stats by 1C",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Limit",
+                        "name": "limit",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Offset",
+                        "name": "offset",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "format": "2025-03",
+                        "description": "Start Date Format(2025-03)",
+                        "name": "start_date",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "format": "2025-04",
+                        "description": "End Date Format(2025-04)",
+                        "name": "end_date",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Search",
+                        "name": "search",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Store ID",
+                        "name": "store_id",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Store CODE",
+                        "name": "store_code",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Employee ID",
+                        "name": "employee_id",
+                        "in": "query"
+                    },
+                    {
+                        "description": "ids",
+                        "name": "body",
+                        "in": "body",
+                        "schema": {
+                            "$ref": "#/definitions/domain.DashboardBody"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    }
+                }
+            }
+        },
         "/product1c/repricing": {
             "post": {
                 "security": [
@@ -36581,6 +36681,10 @@
                     "type": "number",
                     "minimum": 0
                 },
+                "birthdate": {
+                    "type": "string",
+                    "example": "1995-04-12"
+                },
                 "daily_work_hours": {
                     "type": "integer",
                     "enum": [
@@ -36608,7 +36712,7 @@
                     "maxLength": 55,
                     "example": "Doe"
                 },
-                "pasport_number": {
+                "passport": {
                     "type": "string",
                     "maxLength": 50,
                     "example": "AA1234567"

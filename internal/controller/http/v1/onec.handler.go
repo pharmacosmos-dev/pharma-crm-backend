@@ -38,6 +38,7 @@ func (h *ProductOnecHandler) ProductOnecRoutes(r *gin.RouterGroup) {
 		onec.POST("/uzumtezkor/repricing-products", logger, h.InsertFromOnec)
 		onec.POST("/transfer/create-and-send", h.CreateAndSendForOnec)
 		onec.POST("/return/create-and-send", h.CreateAndSendReturnForOnec)
+		onec.POST("/report/store-stats", h.StoreReportStats)
 	}
 	r.POST("/generate-token", h.GenerateOnecToken)
 }
@@ -713,6 +714,72 @@ func (h *ProductOnecHandler) CreateAndSendReturnForOnec(c *gin.Context) {
 	defer cancel()
 
 	res, err := h.service.CreateAndSendReturnForOnec(ctx, &request, "")
+	if err != nil {
+		handleServiceResponse(c, nil, err)
+		return
+	}
+
+	handleResponse(c, OK, res)
+}
+
+// StoreReportStats godoc
+// @Summary Get store report stats by 1C
+// @Description Get store report stats (sales, payment types, returns) with 1C token
+// @Tags        1C Api
+// @Security    BearerAuth
+// @Accept      json
+// @Produce     json
+// @Param   limit       query int    false "Limit"
+// @Param   offset      query int    false "Offset"
+// @Param   start_date  query string false "Start Date Format(2025-03)"
+// @Param   end_date    query string false "End Date Format(2025-04)"
+// @Param   search      query string false "Search"
+// @Param   store_id    query string false "Store ID"
+// @Param   store_code  query string false "Store CODE"
+// @Param   employee_id query string false "Employee ID"
+// @Param   body body domain.DashboardBody false "ids"
+// @Success 200 {object} v1.Response
+// @Failure 400 {object} v1.Response
+// @Failure 500 {object} v1.Response
+// @Router /product1c/report/store-stats [POST]
+func (h *ProductOnecHandler) StoreReportStats(c *gin.Context) {
+	var params domain.ReportQueryParam
+	if err := c.ShouldBindQuery(&params); err != nil {
+		handleServiceResponse(c, BadRequest, domain.InvalidQueryError)
+		return
+	}
+
+	var body domain.DashboardBody
+	// bind store and company ids
+	if c.Request.Body != nil {
+		_ = c.ShouldBindJSON(&body)
+	}
+
+	params.StoreIds = body.StoreIds
+	params.CompanyIds = body.CompanyIds
+
+	params.Limit, params.Offset = defaultLimitOffset(params.Limit, params.Offset)
+
+	ctx, cancel := context.WithTimeout(context.Background(), constants.ContextTimeoutForReports)
+	defer cancel()
+
+	// 1C do'kon kodi bilan ishlaydi — store_code kelsa store_id ga o'giriladi
+	if storeCode := c.Query("store_code"); storeCode != "" {
+		store, err := h.service.GetStoreByField("store_code", storeCode)
+		if err != nil {
+			handleServiceResponse(c, nil, err)
+			return
+		}
+		if store.Id == "" {
+			handleServiceResponse(c, nil, domain.NotFoundError)
+			return
+		}
+		params.StoreId = store.Id
+		params.StoreIds = nil
+	}
+
+	// 1C tizim tokeni bilan keladi — xodim roli bo'yicha cheklovlar qo'llanilmaydi
+	res, err := h.service.ReportByStoreStats(ctx, &params)
 	if err != nil {
 		handleServiceResponse(c, nil, err)
 		return
