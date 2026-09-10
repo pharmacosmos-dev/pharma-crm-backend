@@ -212,11 +212,32 @@ type SkipAutoOrderItem struct {
 
 // expense document structure
 type ExpenseDok struct {
-	DocumentDate string `gorm:"document_date" json:"data_dok"`
-	NumberDok    string `gorm:"nomer_dok" json:"nomer_dok"`
-	DiscountSum  string `gorm:"discont_sum" json:"discont_sum"`
+	DocumentDate  string  `gorm:"document_date" json:"data_dok"`
+	NumberDok     string  `gorm:"nomer_dok" json:"nomer_dok"`
+	DiscountSum   string  `gorm:"discont_sum" json:"discont_sum"`
+	ChequeCount   int     `json:"chek_soni"`
+	CashSum       float64 `json:"cash_sum"`
+	UzcardSum     float64 `json:"UzCard"`
+	HumoSum       float64 `json:"Humo"`
+	ClickSum      float64 `json:"Click"`
+	PaymeSum      float64 `json:"Payme"`
+	AlifSum       float64 `json:"Alif"`
+	UzumSum       float64 `json:"Uzum"`
+	UzumTezkorSum float64 `json:"uzumtezkor"`
 }
 
+// expense document cheque count and payment type sums
+type ExpenseChequeTotals struct {
+	ChequeCount   int     `gorm:"column:cheque_count"`
+	CashSum       float64 `gorm:"column:cash_sum"`
+	UzcardSum     float64 `gorm:"column:uzcard_sum"`
+	HumoSum       float64 `gorm:"column:humo_sum"`
+	ClickSum      float64 `gorm:"column:click_sum"`
+	PaymeSum      float64 `gorm:"column:payme_sum"`
+	AlifSum       float64 `gorm:"column:alif_sum"`
+	UzumSum       float64 `gorm:"column:uzum_sum"`
+	UzumTezkorSum float64 `gorm:"column:uzum_tezkor_sum"`
+}
 // expense product structure
 type ExpenseProduct struct {
 	MaterialCode        int     `gorm:"material_code" json:"material_code"`

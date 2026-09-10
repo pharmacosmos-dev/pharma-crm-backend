@@ -297,6 +297,12 @@ func (s *Services) sendReportTo1C(store *domain.Store, date string) error {
 		return nil
 	}
 
+	// get cheque count and payment type sums
+	err = s.fillExpenseChequeTotals(&expenseData.Document, store.Id, startTime, endTime)
+	if err != nil {
+		return err
+	}
+
 	// send fakt to 1C
 	err = s.DoRequestOnec(context.Background(), expenseData, "/rasxod")
 	if err != nil {
@@ -466,6 +472,12 @@ func (s *Services) sendReportWithNumberTo1C(store *domain.Store, date string) er
 	// check expense product length
 	if len(expenseData.Товары) < 1 {
 		return domain.NotEnoughProductError
+	}
+
+	// get cheque count and payment type sums
+	err = s.fillExpenseChequeTotals(&expenseData.Document, store.Id, startTime, endTime)
+	if err != nil {
+		return err
 	}
 
 	// send fakt to 1C
@@ -759,6 +771,12 @@ func (s *Services) sendReportToTemporary(store *domain.Store, date string) error
 		return nil
 	}
 
+	// get cheque count and payment type sums
+	err = s.fillExpenseChequeTotals(&expenseData.Document, store.Id, startTime, endTime)
+	if err != nil {
+		return err
+	}
+
 	// send fakt to 1C
 	err = s.DoRequestOnec(context.Background(), expenseData, constants.OnecPathRasxod)
 	if err != nil {
@@ -770,6 +788,47 @@ func (s *Services) sendReportToTemporary(store *domain.Store, date string) error
 	if err != nil {
 		return err
 	}
+	return nil
+}
+
+
+// fillExpenseChequeTotals — hujjat oynasidagi chek soni va to'lov turlari bo'yicha summalarni to'ldiradi.
+// Qaytarim cheklarida to'lov ustunlari manfiy saqlanadi, shuning uchun oddiy SUM saldoni beradi.
+func (s *Services) fillExpenseChequeTotals(dok *domain.ExpenseDok, storeId string, startTime, endTime time.Time) error {
+	query := `
+	SELECT
+		COUNT(*) AS cheque_count,
+		COALESCE(SUM(s.cash), 0) AS cash_sum,
+		COALESCE(SUM(s.uzcard), 0) AS uzcard_sum,
+		COALESCE(SUM(s.humo), 0) AS humo_sum,
+		COALESCE(SUM(s.click), 0) AS click_sum,
+		COALESCE(SUM(s.payme), 0) AS payme_sum,
+		COALESCE(SUM(s.alif), 0) AS alif_sum,
+		COALESCE(SUM(s.uzum), 0) AS uzum_sum,
+		COALESCE(SUM(s.uzum_tez_kor), 0) AS uzum_tezkor_sum
+	FROM sales s
+	WHERE s.store_id = ?
+	  AND s.stage IN (9, 11)
+	  AND s.completed_at BETWEEN ? AND ?;
+	`
+
+	var totals domain.ExpenseChequeTotals
+	err := s.db.Raw(query, storeId, startTime, endTime).Scan(&totals).Error
+	if err != nil {
+		s.log.Errorf("could not get cheque totals: %v", err)
+		return err
+	}
+
+	dok.ChequeCount = totals.ChequeCount
+	dok.CashSum = totals.CashSum
+	dok.UzcardSum = totals.UzcardSum
+	dok.HumoSum = totals.HumoSum
+	dok.ClickSum = totals.ClickSum
+	dok.PaymeSum = totals.PaymeSum
+	dok.AlifSum = totals.AlifSum
+	dok.UzumSum = totals.UzumSum
+	dok.UzumTezkorSum = totals.UzumTezkorSum
+
 	return nil
 }
 
