@@ -485,6 +485,8 @@ func (s *Services) UpdateEmployeePayrollAdvance(
 			END,
 			phone            = COALESCE(CAST(@phone AS varchar), phone),
 			hire_date        = COALESCE(CAST(@hire_date AS date), hire_date),
+			passport         = COALESCE(CAST(@passport AS varchar), passport),
+			staff            = COALESCE(CAST(@staff AS text), staff),
 			updated_by       = CAST(@updated_by AS uuid),
 			updated_at       = NOW()
 		WHERE id = CAST(@employee_id AS uuid)`
@@ -567,6 +569,8 @@ func (s *Services) UpdateEmployeePayrollAdvance(
 			"last_name":   req.LastName,
 			"phone":       req.Phone,
 			"hire_date":   req.HireDate,
+			"passport":    req.PasportNumber,
+			"staff":       req.Staff,
 			"updated_by":  nullIfEmpty(updatedBy),
 		}).Error; err != nil {
 			s.log.Errorf("payroll: could not update employee card: %v", err)
@@ -711,7 +715,11 @@ func (s *Services) GetPayrollManagementStatistics(
 
 // GetEmployeePayrollManagement — oylik tahrirlash ro'yxati: xodim kartochkasidagi
 // qiymatlar (salary, daily_work_hours, shift_type, experience_years, phone,
-// role_type) va so'ralgan oyning payroll qatoridan kpi_percent bilan avanslar.
+// role_type, hire_date, pasport_number, staff) va so'ralgan oyning payroll
+// qatoridan kpi_percent bilan avanslar.
+//
+// passport va staff ustunlari nullable, shuning uchun COALESCE bilan bo'sh satrga
+// keltiriladi: struktura maydonlari pointer emas va NULL'ni qabul qilmaydi.
 //
 // employee_payrolls asosiy jadval, employees unga LEFT JOIN qilinadi: shu sababli
 // qaytgan har bir qatorda id bo'ladi va uni to'g'ridan-to'g'ri
@@ -740,7 +748,8 @@ func (s *Services) GetEmployeePayrollManagement(
 			COALESCE(e.phone, '')            AS phone,
 			TO_CHAR(e.hire_date, 'YYYY-MM-DD') AS hire_date,
 			COALESCE(p.role_names, '{}')     AS roles,
-			e.role_type,
+			COALESCE(e.passport, '')         AS pasport_number,
+			COALESCE(e.staff, '')            AS staff,
 			p.store_name,
 			e.kpi_percent,
 			COALESCE(e.salary, 0)            AS salary,

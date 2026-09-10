@@ -49,6 +49,8 @@ type Employee struct {
 	StartDate       *string          `gorm:"start_date" json:"start_date,omitempty"`
 	EndDate         *string          `gorm:"end_date" json:"end_date,omitempty"`
 	HireDate        *string          `gorm:"column:hire_date" json:"hire_date,omitempty"`
+	// Staff — xodimning shtat holati. Nullable: to'ldirilmagan bo'lishi mumkin.
+	Staff           *string          `gorm:"column:staff" json:"staff,omitempty"`
 	Salary          float64          `gorm:"salary" json:"salary"`
 
 	DailyWorkHours  float64          `gorm:"daily_work_hours" json:"daily_work_hours"`

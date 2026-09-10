@@ -681,9 +681,6 @@ definitions:
         maxLength: 55
         type: string
       hire_date:
-        description: |-
-          HireDate — ishga qabul qilingan sana. employees.start_date bilan aralashmasin:
-          u smena boshlanish vaqti (TIME).
         example: "2023-01-01"
         type: string
       kpi_percent:
@@ -693,8 +690,11 @@ definitions:
         example: Doe
         maxLength: 55
         type: string
+      pasport_number:
+        example: AA1234567
+        maxLength: 50
+        type: string
       phone:
-        description: Phone — 998XXXXXXXXX ko'rinishida, "+" belgisisiz (utils.IsValidPhone).
         example: "998901234567"
         maxLength: 20
         type: string
@@ -710,6 +710,10 @@ definitions:
         - day
         - night
         example: night
+        type: string
+      staff:
+        example: shtat
+        maxLength: 100
         type: string
     type: object
   domain.EmployeeRequest:
@@ -8145,9 +8149,10 @@ paths:
       consumes:
       - application/json
       description: |-
-        kpi_percent, salary, daily_work_hours, shift_type, role_type, advance_card_amount va advance_cash_amount maydonlarini payroll id bo'yicha yangilaydi.
+        kpi_percent, salary, daily_work_hours, shift_type, role_type, first_name, last_name, phone, hire_date, pasport_number, staff, advance_card_amount va advance_cash_amount maydonlarini payroll id bo'yicha yangilaydi.
         Hammasi ixtiyoriy — berilgani yoziladi, berilmagani eski qiymatida qoladi.
-        kpi_percent/salary ikkala jadvalga; daily_work_hours (4, 7, 8), shift_type va role_type faqat employees'ga; avanslar esa faqat shu oyning payroll qatoriga yoziladi.
+        kpi_percent/salary ikkala jadvalga; daily_work_hours (4, 7, 8), shift_type, role_type, ism-familiya, phone, hire_date, pasport_number va staff faqat employees'ga; avanslar esa faqat shu oyning payroll qatoriga yoziladi.
+        pasport_number employees.passport ustuniga yoziladi; staff — xodimning shtat holati, erkin matn.
         role_type xodim kartochkasida saqlanadi va keyingi oylarga ham amal qiladi — payroll hisob-kitobiga ta'sir qilmaydi.
         actual_salary_amount, kpi_amount, gross_salary_amount va net_pay_amount shu yerda qayta hisoblanadi — cron kutilmaydi.
       parameters:

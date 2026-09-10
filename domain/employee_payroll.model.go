@@ -91,15 +91,17 @@ const (
 //	Phone              — FAQAT employees. Login shu raqam bo'yicha ishlagani uchun
 //	                     format va bandlik tekshiruvidan o'tadi.
 //	HireDate           — FAQAT employees. Hisob-kitobga kirmaydi.
+//	PasportNumber      — FAQAT employees, `passport` ustuniga yoziladi. JSON nomi
+//	                     front bilan kelishilgan "pasport_number" ko'rinishida.
+//	Staff              — FAQAT employees. Shtat holati, hisob-kitobga kirmaydi.
 //	Avanslar           — faqat employee_payrolls, ular shu oyga tegishli.
 type EmployeePayrollAdvanceRequest struct {
 	FirstName *string `json:"first_name" binding:"omitempty,max=55" example:"John"`
 	LastName  *string `json:"last_name" binding:"omitempty,max=55" example:"Doe"`
-	// Phone — 998XXXXXXXXX ko'rinishida, "+" belgisisiz (utils.IsValidPhone).
 	Phone *string `json:"phone" binding:"omitempty,max=20" example:"998901234567"`
-	// HireDate — ishga qabul qilingan sana. employees.start_date bilan aralashmasin:
-	// u smena boshlanish vaqti (TIME).
-	HireDate          *string  `json:"hire_date" binding:"omitempty,datetime=2006-01-02" example:"2023-01-01"`
+	HireDate *string `json:"hire_date" binding:"omitempty,datetime=2006-01-02" example:"2023-01-01"`
+	PasportNumber *string `json:"pasport_number" binding:"omitempty,max=50" example:"AA1234567"`
+	Staff             *string  `json:"staff" binding:"omitempty,max=100" example:"shtat"`
 	KpiPercent        *float64 `json:"kpi_percent" binding:"omitempty,min=0"`
 	Salary            *float64 `json:"salary" binding:"omitempty,min=0"`
 	RoleType          *string  `json:"role_type" binding:"omitempty,max=55" example:"CASHIER"`
@@ -115,6 +117,7 @@ func (r EmployeePayrollAdvanceRequest) IsEmpty() bool {
 		r.ShiftType == nil && r.RoleType == nil &&
 		r.FirstName == nil && r.LastName == nil &&
 		r.Phone == nil && r.HireDate == nil &&
+		r.PasportNumber == nil && r.Staff == nil &&
 		r.AdvanceCardAmount == nil && r.AdvanceCashAmount == nil
 }
 
@@ -123,7 +126,8 @@ func (r EmployeePayrollAdvanceRequest) TouchesEmployee() bool {
 	return r.KpiPercent != nil || r.Salary != nil ||
 		r.DailyWorkHours != nil || r.ShiftType != nil || r.RoleType != nil ||
 		r.FirstName != nil || r.LastName != nil ||
-		r.Phone != nil || r.HireDate != nil
+		r.Phone != nil || r.HireDate != nil ||
+		r.PasportNumber != nil || r.Staff != nil
 }
 
 // TouchesName — ism yoki familiya berilgani: payroll qatoridagi ism snapshot'i
@@ -136,22 +140,15 @@ func (r EmployeePayrollAdvanceRequest) TouchesName() bool {
 // Year/Month berilmasa joriy oy olinadi; kelajakdagi oy qabul qilinmaydi.
 type EmployeePayrollAdvanceQueryParams struct {
 	StoreId string `form:"store_id"`
-	// EmployeeId — bitta xodim bo'yicha.
 	EmployeeId string `form:"employee_id"`
-	// RoleType — employees.role_type bo'yicha ("CASHIER", "HEADOFCASHIER", ...).
 	RoleType string `form:"role_type"`
-	// ShiftType — employees.shift_type bo'yicha ("day" yoki "night").
 	ShiftType string `form:"shift_type"`
 	Search    string `form:"search"`
 	Year      int    `form:"year"`
 	Month     int    `form:"month"`
-	// Date — "YYYY-MM-DD" (yoki RFC3339). Berilsa Year/Month shundan olinadi va
-	// alohida berilgan year/month e'tiborga olinmaydi. Payroll qatorlari oylik
-	// bo'lgani uchun kun qismi faqat oyni aniqlash uchun ishlatiladi.
 	Date   string `form:"date"`
 	Limit  int    `form:"limit"`
 	Offset int    `form:"offset"`
-
 	CompanyId string `form:"-"`
 }
 
@@ -187,35 +184,24 @@ func yearMonthFromDate(date string) (int, int, error) {
 type PayrollManagementStatistics struct {
 	TotalStores    int64 `json:"total_stores"`
 	TotalEmployees int64 `json:"total_employees"`
-	// TotalSalary — employees.salary yig'indisi, ya'ni oylik fond stavkasi.
-	// Ishlagan soatga bog'liq emas (actual_salary_amount'dan farqli).
-	TotalSalary float64 `json:"total_salary"`
-	// TotalAdvanceAmount — karta va naqd avanslar birga.
-	TotalAdvanceAmount float64 `json:"total_advance_amount"`
 
-	// RoleTypeCounts — employees.role_type bo'yicha xodimlar soni. Kalitlar
-	// bazadagi haqiqiy qiymatlar ("CASHIER", "HEADOFCASHIER", "ROP_APTEKA",
-	// "INTERN", ...), shuning uchun yangi rol qo'shilsa kod o'zgarmaydi va
-	// hech kim sanoqdan tushib qolmaydi.
-	//
-	// role_type to'ldirilmagan xodimlar bo'sh kalit ("") ostida turadi — shu
-	// sababli qiymatlar yig'indisi doim TotalEmployees'ga teng.
-	//
-	// gorm:"-" shart: asosiy so'rov bitta qator qaytaradi, map esa alohida
-	// GROUP BY so'rovdan to'ldiriladi.
+	TotalSalary float64 `json:"total_salary"`
+	TotalAdvanceAmount float64 `json:"total_advance_amount"`
 	RoleTypeCounts map[string]int64 `json:"role_type_counts" gorm:"-"`
 }
 
 type EmployeePayrollAdvanceRow struct {
-	Id         string         `json:"id"`
-	EmployeeId string         `json:"employee_id"`
-	RoleType   string         `json:"role_type"`
-	FirstName  string         `json:"first_name"`
-	LastName   string         `json:"last_name"`
-	Phone      string         `json:"phone"`
-	HireDate   *string        `json:"hire_date"`
-	StoreName  *string        `json:"store_name"`
-	Roles      pq.StringArray `json:"roles" gorm:"type:text[]" swaggertype:"array,string"`
+	Id            string         `json:"id"`
+	EmployeeId    string         `json:"employee_id"`
+	RoleType      string         `json:"role_type"`
+	FirstName     string         `json:"first_name"`
+	LastName      string         `json:"last_name"`
+	Phone         string         `json:"phone"`
+	HireDate      *string        `json:"hire_date"`
+	StoreName     *string        `json:"store_name"`
+	Roles         pq.StringArray `json:"roles" gorm:"type:text[]" swaggertype:"array,string"`
+	PasportNumber string         `json:"pasport_number"`
+	Staff         string         `json:"staff"`
 
 	// KpiPercent employee_payrolls'dan olinadi — shu oyda AMALDA ishlatilgan foiz.
 	KpiPercent      float64 `json:"kpi_percent"`
@@ -232,14 +218,11 @@ type EmployeePayrollAdvanceRow struct {
 type EmployeePayrollQueryParams struct {
 	EmployeeId string `form:"employee_id"`
 	StoreId    string `form:"store_id"`
-	// Search xodimning F.I.Sh. bo'yicha registrga bog'liq bo'lmagan qidiruv.
 	Search string `form:"search"`
 	Status string `form:"status"`
 	Year   int    `form:"year"`
 	Month  int    `form:"month"`
-	// Date — "YYYY-MM-DD" (yoki YYYY-MM / RFC3339). Berilsa Year/Month shundan
-	// olinadi. Payroll qatorlari oylik, shuning uchun kun qismi faqat oyni
-	// aniqlash uchun ishlatiladi.
+
 	Date   string `form:"date"`
 	Limit  int    `form:"limit"`
 	Offset int    `form:"offset"`

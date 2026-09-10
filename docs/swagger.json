@@ -8834,7 +8834,7 @@
                         "BearerAuth": []
                     }
                 ],
-                "description": "kpi_percent, salary, daily_work_hours, shift_type, role_type, advance_card_amount va advance_cash_amount maydonlarini payroll id bo'yicha yangilaydi.\nHammasi ixtiyoriy — berilgani yoziladi, berilmagani eski qiymatida qoladi.\nkpi_percent/salary ikkala jadvalga; daily_work_hours (4, 7, 8), shift_type va role_type faqat employees'ga; avanslar esa faqat shu oyning payroll qatoriga yoziladi.\nrole_type xodim kartochkasida saqlanadi va keyingi oylarga ham amal qiladi — payroll hisob-kitobiga ta'sir qilmaydi.\nactual_salary_amount, kpi_amount, gross_salary_amount va net_pay_amount shu yerda qayta hisoblanadi — cron kutilmaydi.",
+                "description": "kpi_percent, salary, daily_work_hours, shift_type, role_type, first_name, last_name, phone, hire_date, pasport_number, staff, advance_card_amount va advance_cash_amount maydonlarini payroll id bo'yicha yangilaydi.\nHammasi ixtiyoriy — berilgani yoziladi, berilmagani eski qiymatida qoladi.\nkpi_percent/salary ikkala jadvalga; daily_work_hours (4, 7, 8), shift_type, role_type, ism-familiya, phone, hire_date, pasport_number va staff faqat employees'ga; avanslar esa faqat shu oyning payroll qatoriga yoziladi.\npasport_number employees.passport ustuniga yoziladi; staff — xodimning shtat holati, erkin matn.\nrole_type xodim kartochkasida saqlanadi va keyingi oylarga ham amal qiladi — payroll hisob-kitobiga ta'sir qilmaydi.\nactual_salary_amount, kpi_amount, gross_salary_amount va net_pay_amount shu yerda qayta hisoblanadi — cron kutilmaydi.",
                 "consumes": [
                     "application/json"
                 ],
@@ -36596,7 +36596,6 @@
                     "example": "John"
                 },
                 "hire_date": {
-                    "description": "HireDate — ishga qabul qilingan sana. employees.start_date bilan aralashmasin:\nu smena boshlanish vaqti (TIME).",
                     "type": "string",
                     "example": "2023-01-01"
                 },
@@ -36609,8 +36608,12 @@
                     "maxLength": 55,
                     "example": "Doe"
                 },
+                "pasport_number": {
+                    "type": "string",
+                    "maxLength": 50,
+                    "example": "AA1234567"
+                },
                 "phone": {
-                    "description": "Phone — 998XXXXXXXXX ko'rinishida, \"+\" belgisisiz (utils.IsValidPhone).",
                     "type": "string",
                     "maxLength": 20,
                     "example": "998901234567"
@@ -36631,6 +36634,11 @@
                         "night"
                     ],
                     "example": "night"
+                },
+                "staff": {
+                    "type": "string",
+                    "maxLength": 100,
+                    "example": "shtat"
                 }
             }
         },
