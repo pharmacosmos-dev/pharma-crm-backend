@@ -8055,6 +8055,12 @@
                         "in": "query"
                     },
                     {
+                        "type": "string",
+                        "description": "employees.role_type (CASHIER, HEADOFCASHIER, ...)",
+                        "name": "role_type",
+                        "in": "query"
+                    },
+                    {
                         "type": "integer",
                         "description": "Year",
                         "name": "year",
@@ -8140,6 +8146,12 @@
                     },
                     {
                         "type": "string",
+                        "description": "employees.role_type (CASHIER, HEADOFCASHIER, ...)",
+                        "name": "role_type",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
                         "description": "Sana YYYY-MM-DD (year/month o'rniga)",
                         "name": "date",
                         "in": "query"
@@ -8214,6 +8226,12 @@
                         "type": "string",
                         "description": "Employee full name search",
                         "name": "search",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "employees.role_type (CASHIER, HEADOFCASHIER, ...)",
+                        "name": "role_type",
                         "in": "query"
                     },
                     {
@@ -31140,7 +31158,7 @@
                         "BearerAuth": []
                     }
                 ],
-                "description": "Do'konga yangi target qo'yishdan oldingi ko'rsatkichlar: shu oyga qo'yilgan target, oldingi oyning target'i va savdosi, o'tgan yilning AYNAN shu oyidagi savdo hamda oxirgi 12 to'liq oyning o'rtacha oylik savdosi.\nOxirgi 12 oyga so'ralgan oyning O'ZI kirmaydi: 2026-09 so'ralsa oraliq 2025-09 dan 2026-08 gacha, umumiy savdo 12 ga bo'linadi (last_12_months_from / last_12_months_to javobda qaytadi).\nSavdo store_targets.sales dan emas, sales jadvalidan hisoblanadi (stage = 9, sale_type = 'SALE', qaytarilmagan) — target qatori yo'q oylar ham hisobga kiradi.\nDo'konga bog'langan foydalanuvchilar uchun faqat o'z do'koni qaytadi, path'dagi store_id ular uchun e'tiborga olinmaydi.",
+                "description": "Do'konga yangi target qo'yishdan oldingi ko'rsatkichlar: shu oyga qo'yilgan target, oldingi oyning target'i va savdosi, o'tgan yilning AYNAN shu oyidagi savdo hamda oxirgi 12 to'liq oyning o'rtacha oylik savdosi.\nOxirgi 12 oyga so'ralgan oyning O'ZI kirmaydi: 2026-09 so'ralsa oraliq 2025-09 dan 2026-08 gacha (last_12_months_from / last_12_months_to javobda qaytadi).\nO'rtacha oylik savdo yig'indini SAVDO BO'LGAN oylar soniga bo'ladi, 12 ga emas: 3 oydan beri ishlayotgan do'konda maxraj 3 bo'ladi. Bo'luvchi last_12_months_with_sales da qaytadi.\nSavdo store_targets.sales dan emas, sales jadvalidan hisoblanadi (stage = 9, sale_type = 'SALE', qaytarilmagan) — target qatori yo'q oylar ham hisobga kiradi.\nDo'konga bog'langan foydalanuvchilar uchun faqat o'z do'koni qaytadi, path'dagi store_id ular uchun e'tiborga olinmaydi.",
                 "consumes": [
                     "application/json"
                 ],

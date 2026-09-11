@@ -122,6 +122,7 @@ type payrollReadFilter struct {
 	StoreId    string
 	Search     string
 	Roles      []string
+	RoleType string
 	// OnlyWorked — faqat davomati bor xodimlar (worked_hours > 0). Cron barcha
 	// faol xodimlarga qator yozadi, shu jumladan oy davomida umuman ishlamaganlarga
 	// ham — ro'yxatda ular nol qatorlar bo'lib turmasligi uchun.
@@ -183,6 +184,7 @@ func (s *Services) GetEmployeePayrolls(
 		CompanyId:  params.CompanyId,
 		StoreId:    params.StoreId,
 		Search:     params.Search,
+		RoleType:   params.RoleType,
 		Roles:      payrollSalesRoles,
 		OnlyWorked: true,
 		Limit:      params.Limit,
@@ -914,6 +916,7 @@ func payrollSelectArgs(period domain.PayrollPeriod, filter payrollReadFilter) ma
 		"employee_id": nullIfEmpty(filter.EmployeeId),
 		"store_id":    nullIfEmpty(filter.StoreId),
 		"company_id":  nullIfEmpty(filter.CompanyId),
+		"role_type":   nullIfEmpty(filter.RoleType),
 		"search":      nullIfEmpty(payrollSearchPattern(filter.Search)),
 		// Bo'sh massiv NULL bo'lib ketadi → o'sha shart tekshirilmaydi.
 		"roles":       pq.StringArray(filter.Roles),
@@ -955,9 +958,9 @@ func (s *Services) GetStorePayrollStatistics(
 
 // GetPayrollStatistics — GetEmployeePayrolls ro'yxatining yig'ma ko'rsatkichlari.
 //
-// Ro'yxat bilan bir xil filtrlardan o'tadi (davr, do'kon, kompaniya, rol va
-// "faqat ishlaganlar" doirasi), lekin sahifalanmaydi: limit/offset o'zgarganda
-// raqamlar o'zgarmaydi, hamma mos xodim hisobga olinadi.
+// Ro'yxat bilan bir xil filtrlardan o'tadi (davr, do'kon, kompaniya, rol,
+// role_type va "faqat ishlaganlar" doirasi), lekin sahifalanmaydi: limit/offset
+// o'zgarganda raqamlar o'zgarmaydi, hamma mos xodim hisobga olinadi.
 func (s *Services) GetPayrollStatistics(
 	ctx context.Context, params *domain.EmployeePayrollQueryParams,
 ) (*domain.PayrollStatistics, domain.PayrollPeriod, error) {
@@ -971,6 +974,7 @@ func (s *Services) GetPayrollStatistics(
 		CompanyId:  params.CompanyId,
 		StoreId:    params.StoreId,
 		Search:     params.Search,
+		RoleType:   params.RoleType,
 		Roles:      payrollSalesRoles,
 		OnlyWorked: true,
 	}
@@ -1419,6 +1423,7 @@ WHERE p.year = @year
   AND (CAST(@employee_id AS uuid) IS NULL OR p.employee_id = CAST(@employee_id AS uuid))
   AND (CAST(@store_id AS uuid)    IS NULL OR p.store_id    = CAST(@store_id AS uuid))
   AND (CAST(@company_id AS uuid)  IS NULL OR p.company_id  = CAST(@company_id AS uuid))
+  AND (CAST(@role_type AS text)   IS NULL OR e.role_type   = CAST(@role_type AS text))
 	AND (CAST(@search AS text)      IS NULL OR p.full_name ILIKE CAST(@search AS text))
   AND (CAST(@roles AS text[])     IS NULL OR p.role_names && CAST(@roles AS text[]))
   AND (NOT CAST(@only_worked AS boolean) OR p.worked_hours > 0)`

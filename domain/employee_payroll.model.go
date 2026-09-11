@@ -222,8 +222,9 @@ type EmployeePayrollQueryParams struct {
 	StoreId    string `form:"store_id"`
 	Search     string `form:"search"`
 	Status     string `form:"status"`
-	Year       int    `form:"year"`
-	Month      int    `form:"month"`
+	RoleType string `form:"role_type"`
+	Year     int    `form:"year"`
+	Month    int    `form:"month"`
 
 	Date   string `form:"date"`
 	Limit  int    `form:"limit"`

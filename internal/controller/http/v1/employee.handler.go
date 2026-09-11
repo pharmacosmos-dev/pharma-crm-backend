@@ -1596,6 +1596,7 @@ func (h *EmployeeHandler) RecalculatePayroll(c *gin.Context) {
 // @Produce      json
 // @Param        store_id  query  string  false  "Store ID (berilmasa barcha xodimlar)"
 // @Param        search    query  string  false  "Employee full name search"
+// @Param        role_type query  string  false  "employees.role_type (CASHIER, HEADOFCASHIER, ...)"
 // @Param        year      query  int     false  "Year"
 // @Param        month     query  int     false  "Month"
 // @Param        limit     query  int     false  "Limit (employees)"
@@ -1825,6 +1826,7 @@ func (h *EmployeeHandler) StorePayrollStatistics(c *gin.Context) {
 // @Produce      json
 // @Param        store_id  query  string  false  "Store ID"
 // @Param        search    query  string  false  "Employee full name search"
+// @Param        role_type query  string  false  "employees.role_type (CASHIER, HEADOFCASHIER, ...)"
 // @Param        date      query  string  false  "Sana YYYY-MM-DD (year/month o'rniga)"
 // @Param        year      query  int     false  "Year (default: joriy)"
 // @Param        month     query  int     false  "Month 1-12 (default: joriy)"
@@ -1894,6 +1896,7 @@ func (h *EmployeeHandler) ExportEmployeePayrollExcel(c *gin.Context) {
 // @Produce      json
 // @Param        store_id  query  string  false  "Store ID"
 // @Param        search    query  string  false  "Employee full name search"
+// @Param        role_type query  string  false  "employees.role_type (CASHIER, HEADOFCASHIER, ...)"
 // @Param        date      query  string  false  "Sana YYYY-MM-DD (year/month o'rniga)"
 // @Param        year      query  int     false  "Year (default: joriy)"
 // @Param        month     query  int     false  "Month 1-12 (default: joriy)"
