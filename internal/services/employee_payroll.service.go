@@ -492,15 +492,19 @@ func (s *Services) UpdateEmployeePayrollAdvance(
 			updated_at       = NOW()
 		WHERE id = CAST(@employee_id AS uuid)`
 
-	// phoneTakenQuery — raqam BOSHQA o'chirilmagan xodimda bandmi.
-	// Employee handler'dagi isPhoneTaken bilan bir xil qoida, lekin shu yerda
-	// transaksiya ichida bajariladi: tekshiruv bilan yozuv orasida boshqa so'rov
+	// phoneTakenQuery — raqam BOSHQA o'chirilmagan va FAOL xodimda bandmi.
+	// Transaksiya ichida bajariladi: tekshiruv bilan yozuv orasida boshqa so'rov
 	// o'sha raqamni olib qo'ya olmaydi.
+	//
+	// is_active = FALSE xodim bandlik hisobiga kirmaydi — ishdan bo'shagan
+	// xodimning raqami yangisiga qayta biriktirilishi mumkin. Shu sababli bu
+	// yerdagi qoida employee handler'dagi isPhoneTaken'dan ko'ra yumshoqroq.
 	const phoneTakenQuery = `
 		SELECT COUNT(*)
 		FROM employees
 		WHERE phone = CAST(@phone AS varchar)
 		  AND deleted_at IS NULL
+		  AND is_active = TRUE
 		  AND id <> CAST(@employee_id AS uuid)`
 
 	// nameSnapshotQuery — payroll qatoridagi ism nusxasini xodim kartochkasiga
