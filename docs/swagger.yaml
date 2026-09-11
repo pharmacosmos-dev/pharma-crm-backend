@@ -8626,7 +8626,8 @@ paths:
         ro'yxati yo'q. Xodimlarni olish uchun /employee/payroll/employees?store_id=...
         ishlatiladi. Pagination do'konlarga qo'yiladi. Joriy oy so'ralsa ma'lumot
         jonli hisoblanadi (oy boshidan bugungi kungacha), o'tgan oy so'ralsa employee_payrolls
-        jadvalidan olinadi. year/month berilmasa joriy oy.
+        jadvalidan olinadi. year/month berilmasa joriy oy. Ro'yxatga faqat franshiza
+        bo'lmagan kompaniyalar (companies.is_franchise = false) do'konlari kiradi.
       parameters:
       - description: 'Yil (default: joriy)'
         in: query
@@ -8679,7 +8680,7 @@ paths:
       description: |-
         /employee/payroll/stores ro'yxatini Excel fayl qilib saqlaydi va fayl nomini qaytaradi.
         Ro'yxat bilan bir xil filtrlardan o'tadi, lekin SAHIFALANMAYDI: filtrga mos barcha do'kon fayldagi.
-        Tartib ham bir xil — franshiza do'konlari eng oxirida.
+        Tartib ham bir xil. Franshiza do'konlari faylga ham kirmaydi.
         date berilsa yil/oy shundan olinadi; berilmasa year/month, ular ham bo'lmasa joriy oy.
       parameters:
       - description: Store ID
@@ -8728,7 +8729,7 @@ paths:
       - application/json
       description: |-
         /employee/payroll/stores ro'yxatining yig'ma ko'rsatkichlari.
-        Ro'yxat bilan bir xil filtrlardan o'tadi, lekin sahifalanmaydi: limit/offset ta'sir qilmaydi.
+        Ro'yxat bilan bir xil filtrlardan o'tadi (franshiza do'konlari bu yerda ham hisobga kirmaydi), lekin sahifalanmaydi: limit/offset ta'sir qilmaydi.
         Uchta xodim sanog'i uchta boshqa narsa: total_employee_count (do'kon kartochkasidagi son),
         total_active_store_employee_count (haqiqatan faol xodimlar), total_payroll_count (oylik hisobga kirganlar).
         DIQQAT: total_store_plan_amount va total_store_sales_amount do'kon darajasidagi qiymatlar —

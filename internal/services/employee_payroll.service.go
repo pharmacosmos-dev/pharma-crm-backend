@@ -236,6 +236,8 @@ func (s *Services) GetMyPayroll(
 // Xodimlar soni esa bundan mustasno: employee_count va
 // active_store_employee_count stores/employees jadvallaridan olinadi, ya'ni
 // cron hali qamramagan xodimlarni ham sanaydi.
+//
+// Franshiza do'konlari ro'yxatga umuman kirmaydi (qarang: paginateStores).
 func (s *Services) GetStorePayrolls(
 	ctx context.Context, params *domain.EmployeePayrollQueryParams,
 ) ([]domain.StorePayroll, int64, domain.PayrollPeriod, error) {
@@ -922,8 +924,9 @@ func payrollSelectArgs(period domain.PayrollPeriod, filter payrollReadFilter) ma
 // GetStorePayrollStatistics — GetStorePayrolls ro'yxatining yig'ma ko'rsatkichlari.
 //
 // Ro'yxat bilan bir xil filtrlardan o'tadi (davr, do'kon, kompaniya va rol +
-// davomat doirasi), lekin sahifalanmaydi: limit/offset o'zgarganda raqamlar
-// o'zgarmaydi, filtrga mos barcha do'kon hisobga olinadi.
+// davomat doirasi, franshiza do'konlari chiqarib tashlanishi ham), lekin
+// sahifalanmaydi: limit/offset o'zgarganda raqamlar o'zgarmaydi, filtrga mos
+// barcha do'kon hisobga olinadi.
 func (s *Services) GetStorePayrollStatistics(
 	ctx context.Context, params *domain.EmployeePayrollQueryParams,
 ) (*domain.StorePayrollStatistics, domain.PayrollPeriod, error) {
@@ -993,6 +996,10 @@ func payrollRowsOf(page []employeePayrollPageRow) []domain.EmployeePayrollRow {
 }
 
 // paginateStores — filtrga mos do'konlarning bir sahifasini va umumiy sonini qaytaradi.
+//
+// Franshiza do'konlari (companies.is_franchise = true) ro'yxatga kirmaydi.
+// Kompaniyasi biriktirilmagan do'kon franshiza emas deb qaraladi — javobdagi
+// is_franchise maydoni va tartiblash ham shu COALESCE qoidasiga tayanadi.
 func (s *Services) paginateStores(
 	ctx context.Context, params *domain.EmployeePayrollQueryParams,
 ) ([]storeRef, int64, error) {
@@ -1001,7 +1008,8 @@ func (s *Services) paginateStores(
 			Table("stores").
 			Joins("LEFT JOIN companies c ON c.id = stores.company_id").
 			Where("stores.deleted_at IS NULL").
-			Where("stores.is_active = TRUE")
+			Where("stores.is_active = TRUE").
+			Where("COALESCE(c.is_franchise, false) = false")
 		if params.CompanyId != "" {
 			q = q.Where("stores.company_id = ?", params.CompanyId)
 		}
@@ -1540,8 +1548,10 @@ WITH stores_f AS (
             AND e.status = CAST(@status AS text)
             AND e.deleted_at IS NULL) AS active_employee_count
     FROM stores s
+    LEFT JOIN companies c ON c.id = s.company_id
     WHERE s.deleted_at IS NULL
       AND s.is_active = TRUE
+      AND COALESCE(c.is_franchise, false) = false
       AND (CAST(@company_id AS uuid) IS NULL OR s.company_id = CAST(@company_id AS uuid))
       AND (CAST(@store_id AS uuid)   IS NULL OR s.id         = CAST(@store_id AS uuid))
 ),

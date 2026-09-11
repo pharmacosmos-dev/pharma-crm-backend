@@ -8612,7 +8612,7 @@
                         "BearerAuth": []
                     }
                 ],
-                "description": "Do'konlar kesimidagi oylik yig'indilar (ishlagan soati, oylik, KPI, bonus, ushlab qolishlar) — javobda faqat do'kon qatorlari keladi, xodimlar ro'yxati yo'q. Xodimlarni olish uchun /employee/payroll/employees?store_id=... ishlatiladi. Pagination do'konlarga qo'yiladi. Joriy oy so'ralsa ma'lumot jonli hisoblanadi (oy boshidan bugungi kungacha), o'tgan oy so'ralsa employee_payrolls jadvalidan olinadi. year/month berilmasa joriy oy.",
+                "description": "Do'konlar kesimidagi oylik yig'indilar (ishlagan soati, oylik, KPI, bonus, ushlab qolishlar) — javobda faqat do'kon qatorlari keladi, xodimlar ro'yxati yo'q. Xodimlarni olish uchun /employee/payroll/employees?store_id=... ishlatiladi. Pagination do'konlarga qo'yiladi. Joriy oy so'ralsa ma'lumot jonli hisoblanadi (oy boshidan bugungi kungacha), o'tgan oy so'ralsa employee_payrolls jadvalidan olinadi. year/month berilmasa joriy oy. Ro'yxatga faqat franshiza bo'lmagan kompaniyalar (companies.is_franchise = false) do'konlari kiradi.",
                 "consumes": [
                     "application/json"
                 ],
@@ -8690,7 +8690,7 @@
                         "BearerAuth": []
                     }
                 ],
-                "description": "/employee/payroll/stores ro'yxatini Excel fayl qilib saqlaydi va fayl nomini qaytaradi.\nRo'yxat bilan bir xil filtrlardan o'tadi, lekin SAHIFALANMAYDI: filtrga mos barcha do'kon fayldagi.\nTartib ham bir xil — franshiza do'konlari eng oxirida.\ndate berilsa yil/oy shundan olinadi; berilmasa year/month, ular ham bo'lmasa joriy oy.",
+                "description": "/employee/payroll/stores ro'yxatini Excel fayl qilib saqlaydi va fayl nomini qaytaradi.\nRo'yxat bilan bir xil filtrlardan o'tadi, lekin SAHIFALANMAYDI: filtrga mos barcha do'kon fayldagi.\nTartib ham bir xil. Franshiza do'konlari faylga ham kirmaydi.\ndate berilsa yil/oy shundan olinadi; berilmasa year/month, ular ham bo'lmasa joriy oy.",
                 "consumes": [
                     "application/json"
                 ],
@@ -8762,7 +8762,7 @@
                         "BearerAuth": []
                     }
                 ],
-                "description": "/employee/payroll/stores ro'yxatining yig'ma ko'rsatkichlari.\nRo'yxat bilan bir xil filtrlardan o'tadi, lekin sahifalanmaydi: limit/offset ta'sir qilmaydi.\nUchta xodim sanog'i uchta boshqa narsa: total_employee_count (do'kon kartochkasidagi son),\ntotal_active_store_employee_count (haqiqatan faol xodimlar), total_payroll_count (oylik hisobga kirganlar).\nDIQQAT: total_store_plan_amount va total_store_sales_amount do'kon darajasidagi qiymatlar —\nhar bir do'kon bo'yicha BIR MARTA sanaladi, xodimlar soniga ko'paymaydi.\ndate berilsa yil/oy shundan olinadi; berilmasa year/month, ular ham bo'lmasa joriy oy.",
+                "description": "/employee/payroll/stores ro'yxatining yig'ma ko'rsatkichlari.\nRo'yxat bilan bir xil filtrlardan o'tadi (franshiza do'konlari bu yerda ham hisobga kirmaydi), lekin sahifalanmaydi: limit/offset ta'sir qilmaydi.\nUchta xodim sanog'i uchta boshqa narsa: total_employee_count (do'kon kartochkasidagi son),\ntotal_active_store_employee_count (haqiqatan faol xodimlar), total_payroll_count (oylik hisobga kirganlar).\nDIQQAT: total_store_plan_amount va total_store_sales_amount do'kon darajasidagi qiymatlar —\nhar bir do'kon bo'yicha BIR MARTA sanaladi, xodimlar soniga ko'paymaydi.\ndate berilsa yil/oy shundan olinadi; berilmasa year/month, ular ham bo'lmasa joriy oy.",
                 "consumes": [
                     "application/json"
                 ],

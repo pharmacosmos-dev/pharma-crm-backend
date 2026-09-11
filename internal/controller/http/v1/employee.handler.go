@@ -1471,7 +1471,7 @@ func (h *EmployeeHandler) EmployeeAttendanceDayList(c *gin.Context) {
 
 // StorePayrollList godoc
 // @Summary      Payroll by stores
-// @Description  Do'konlar kesimidagi oylik yig'indilar (ishlagan soati, oylik, KPI, bonus, ushlab qolishlar) — javobda faqat do'kon qatorlari keladi, xodimlar ro'yxati yo'q. Xodimlarni olish uchun /employee/payroll/employees?store_id=... ishlatiladi. Pagination do'konlarga qo'yiladi. Joriy oy so'ralsa ma'lumot jonli hisoblanadi (oy boshidan bugungi kungacha), o'tgan oy so'ralsa employee_payrolls jadvalidan olinadi. year/month berilmasa joriy oy.
+// @Description  Do'konlar kesimidagi oylik yig'indilar (ishlagan soati, oylik, KPI, bonus, ushlab qolishlar) — javobda faqat do'kon qatorlari keladi, xodimlar ro'yxati yo'q. Xodimlarni olish uchun /employee/payroll/employees?store_id=... ishlatiladi. Pagination do'konlarga qo'yiladi. Joriy oy so'ralsa ma'lumot jonli hisoblanadi (oy boshidan bugungi kungacha), o'tgan oy so'ralsa employee_payrolls jadvalidan olinadi. year/month berilmasa joriy oy. Ro'yxatga faqat franshiza bo'lmagan kompaniyalar (companies.is_franchise = false) do'konlari kiradi.
 // @Tags         employees
 // @Security     BearerAuth
 // @Accept       json
@@ -1651,7 +1651,7 @@ func (h *EmployeeHandler) EmployeePayrollList(c *gin.Context) {
 // @Summary      Export store payroll to Excel
 // @Description  /employee/payroll/stores ro'yxatini Excel fayl qilib saqlaydi va fayl nomini qaytaradi.
 // @Description  Ro'yxat bilan bir xil filtrlardan o'tadi, lekin SAHIFALANMAYDI: filtrga mos barcha do'kon fayldagi.
-// @Description  Tartib ham bir xil — franshiza do'konlari eng oxirida.
+// @Description  Tartib ham bir xil. Franshiza do'konlari faylga ham kirmaydi.
 // @Description  date berilsa yil/oy shundan olinadi; berilmasa year/month, ular ham bo'lmasa joriy oy.
 // @Tags         employees
 // @Security     BearerAuth
@@ -1755,7 +1755,7 @@ func (h *EmployeeHandler) ExportStorePayrollExcel(c *gin.Context) {
 // StorePayrollStatistics godoc
 // @Summary      Store payroll statistics
 // @Description  /employee/payroll/stores ro'yxatining yig'ma ko'rsatkichlari.
-// @Description  Ro'yxat bilan bir xil filtrlardan o'tadi, lekin sahifalanmaydi: limit/offset ta'sir qilmaydi.
+// @Description  Ro'yxat bilan bir xil filtrlardan o'tadi (franshiza do'konlari bu yerda ham hisobga kirmaydi), lekin sahifalanmaydi: limit/offset ta'sir qilmaydi.
 // @Description  Uchta xodim sanog'i uchta boshqa narsa: total_employee_count (do'kon kartochkasidagi son),
 // @Description  total_active_store_employee_count (haqiqatan faol xodimlar), total_payroll_count (oylik hisobga kirganlar).
 // @Description  DIQQAT: total_store_plan_amount va total_store_sales_amount do'kon darajasidagi qiymatlar —
