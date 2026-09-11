@@ -257,7 +257,8 @@ func (h *StoreTargetHandler) StoreHistory(c *gin.Context) {
 // StoreStatistics godoc
 // @Summary      Store target statistics
 // @Description  Do'konga yangi target qo'yishdan oldingi ko'rsatkichlar: shu oyga qo'yilgan target, oldingi oyning target'i va savdosi, o'tgan yilning AYNAN shu oyidagi savdo hamda oxirgi 12 to'liq oyning o'rtacha oylik savdosi.
-// @Description  Oxirgi 12 oyga so'ralgan oyning O'ZI kirmaydi: 2026-09 so'ralsa oraliq 2025-09 dan 2026-08 gacha, umumiy savdo 12 ga bo'linadi (last_12_months_from / last_12_months_to javobda qaytadi).
+// @Description  Oxirgi 12 oyga so'ralgan oyning O'ZI kirmaydi: 2026-09 so'ralsa oraliq 2025-09 dan 2026-08 gacha (last_12_months_from / last_12_months_to javobda qaytadi).
+// @Description  O'rtacha oylik savdo yig'indini SAVDO BO'LGAN oylar soniga bo'ladi, 12 ga emas: 3 oydan beri ishlayotgan do'konda maxraj 3 bo'ladi. Bo'luvchi last_12_months_with_sales da qaytadi.
 // @Description  Savdo store_targets.sales dan emas, sales jadvalidan hisoblanadi (stage = 9, sale_type = 'SALE', qaytarilmagan) — target qatori yo'q oylar ham hisobga kiradi.
 // @Description  Do'konga bog'langan foydalanuvchilar uchun faqat o'z do'koni qaytadi, path'dagi store_id ular uchun e'tiborga olinmaydi.
 // @Tags         store-target

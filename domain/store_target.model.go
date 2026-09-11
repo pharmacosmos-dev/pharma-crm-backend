@@ -80,39 +80,26 @@ type StoreTargetSummary struct {
 	Month       int     `json:"month"`
 }
 
-// StoreTargetStatistics — bitta do'konga yangi target qo'yishdan oldin kerak
-// bo'ladigan tarixiy ko'rsatkichlar. Hammasi bitta do'kon va bitta oy (year,
-// month) uchun, ya'ni "shu oyga qancha qo'yilgan va o'tmishda qancha sotilgan".
-//
-// Savdo raqamlari store_targets.sales dan emas, sales jadvalidan hisoblanadi:
-// target qatori yo'q oylar ham hisobga kirishi kerak.
+
 type StoreTargetStatistics struct {
 	StoreId   string `json:"store_id"`
 	StoreName string `json:"store_name"`
 
-	// So'ralgan davr (berilmasa joriy oy).
 	Year  int `json:"year"`
 	Month int `json:"month"`
 
-	// CurrentTargetAmount — shu oyga qo'yilgan target. Target yo'q bo'lsa 0.
 	CurrentTargetAmount float64 `json:"current_target_amount"`
 
-	// Oldingi oy: yanvar so'ralsa bu o'tgan yilning dekabri bo'ladi.
 	PreviousYear              int     `json:"previous_year"`
 	PreviousMonth             int     `json:"previous_month"`
 	PreviousMonthTargetAmount float64 `json:"previous_month_target_amount"`
 	PreviousMonthSales        float64 `json:"previous_month_sales"`
 
-	// LastYearSameMonthSales — o'tgan yilning AYNAN shu oyidagi savdo.
 	LastYearSameMonthSales float64 `json:"last_year_same_month_sales"`
-
-	// Oxirgi 12 to'liq oy: so'ralgan oyning O'ZI kirmaydi. Masalan 2026-09
-	// so'ralsa oraliq 2025-09 dan 2026-08 gacha (ikkala chegara ham kiradi).
 	Last12MonthsFrom       string  `json:"last_12_months_from"`
 	Last12MonthsTo         string  `json:"last_12_months_to"`
 	Last12MonthsTotalSales float64 `json:"last_12_months_total_sales"`
-	// Last12MonthsAvgSales — yuqoridagi yig'indi 12 ga bo'linadi. Do'kon
-	// oraliqning bir qismida ishlamagan bo'lsa ham maxraj 12 bo'lib qoladi.
+	Last12MonthsWithSales int `json:"last_12_months_with_sales"`
 	Last12MonthsAvgSales float64 `json:"last_12_months_avg_sales"`
 }
 

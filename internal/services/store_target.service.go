@@ -341,6 +341,10 @@ func (s *Services) GetStoreTargetHistory(ctx context.Context, storeId string, co
 // Uchala savdo ko'rsatkichi BITTA skandan chiqadi: eng keng oraliq (12 oy)
 // qolgan ikkitasini o'z ichiga oladi, ular FILTER bilan ajratiladi. ts'dan
 // LEFT JOIN qilingani uchun savdo umuman bo'lmasa ham bitta qator qaytadi.
+//
+// O'rtacha oylik savdo yig'indini SAVDO BO'LGAN OYLAR soniga bo'ladi, 12 ga
+// emas: 3 oydan beri ishlayotgan aptekaning o'rtachasi 3 oyga bo'linadi, aks
+// holda bo'sh oylar uni to'rt baravar pasaytirardi.
 const storeTargetStatisticsQuery = `
 WITH ts AS (
     SELECT
@@ -355,7 +359,9 @@ sales_agg AS (
             WHERE sl.created_at >= t.prev_from), 0) AS previous_month_sales,
         COALESCE(SUM(sl.total_amount) FILTER (
             WHERE sl.created_at < t.year_ago_to), 0) AS last_year_same_month_sales,
-        COALESCE(SUM(sl.total_amount), 0)           AS last_12_months_total_sales
+        COALESCE(SUM(sl.total_amount), 0)           AS last_12_months_total_sales,
+        COUNT(DISTINCT date_trunc('month', sl.created_at + INTERVAL '5 hours'))::int
+            AS last_12_months_with_sales
     FROM ts t
     LEFT JOIN sales sl
            ON sl.store_id = CAST(@store_id AS uuid)
@@ -380,16 +386,23 @@ SELECT
     s.previous_month_sales,
     s.last_year_same_month_sales,
     s.last_12_months_total_sales,
-    ROUND(s.last_12_months_total_sales / 12, 2) AS last_12_months_avg_sales
+    s.last_12_months_with_sales,
+    COALESCE(ROUND(
+        s.last_12_months_total_sales / NULLIF(s.last_12_months_with_sales, 0)
+    , 2), 0) AS last_12_months_avg_sales
 FROM targets t, sales_agg s`
 
 // GetStoreTargetStatistics — do'konga yangi target qo'yishdan oldingi ko'rsatkichlar:
 // shu oyga qo'yilgan target, o'tgan oyning target'i va savdosi, o'tgan yilning shu
-// oyidagi savdo va oxirgi 12 to'liq oyning o'rtacha oylik savdosi.
+// oyidagi savdo va oxirgi 12 oydagi o'rtacha oylik savdo.
 //
 // 12 oylik oraliqqa so'ralgan oyning O'ZI kirmaydi: 2026-09 uchun 2025-09 dan
-// 2026-08 gacha, yig'indi esa 12 ga bo'linadi. Joriy oy hali tugamagani uchun
-// uni qo'shish o'rtachani sun'iy ravishda pasaytirardi.
+// 2026-08 gacha. Joriy oy hali tugamagani uchun uni qo'shish o'rtachani sun'iy
+// ravishda pasaytirardi.
+//
+// O'rtacha oraliqdagi savdo bo'lgan oylar soniga bo'linadi (12 ga emas), shuning
+// uchun yangi ochilgan do'kon ham haqiqiy o'rtachasini oladi. Bo'luvchi javobda
+// last_12_months_with_sales sifatida qaytadi.
 //
 // year/month berilmasa joriy oy olinadi.
 func (s *Services) GetStoreTargetStatistics(
@@ -438,6 +451,7 @@ func (s *Services) GetStoreTargetStatistics(
 		PreviousMonthSales        float64 `gorm:"column:previous_month_sales"`
 		LastYearSameMonthSales    float64 `gorm:"column:last_year_same_month_sales"`
 		Last12MonthsTotalSales    float64 `gorm:"column:last_12_months_total_sales"`
+		Last12MonthsWithSales     int     `gorm:"column:last_12_months_with_sales"`
 		Last12MonthsAvgSales      float64 `gorm:"column:last_12_months_avg_sales"`
 	}
 
@@ -467,6 +481,7 @@ func (s *Services) GetStoreTargetStatistics(
 		Last12MonthsFrom:          windowStart.Format("2006-01"),
 		Last12MonthsTo:            prevStart.Format("2006-01"),
 		Last12MonthsTotalSales:    row.Last12MonthsTotalSales,
+		Last12MonthsWithSales:     row.Last12MonthsWithSales,
 		Last12MonthsAvgSales:      row.Last12MonthsAvgSales,
 	}, nil
 }
