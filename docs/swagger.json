@@ -31133,6 +31133,79 @@
                 }
             }
         },
+        "/store-target/statistics/{store_id}": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Do'konga yangi target qo'yishdan oldingi ko'rsatkichlar: shu oyga qo'yilgan target, oldingi oyning target'i va savdosi, o'tgan yilning AYNAN shu oyidagi savdo hamda oxirgi 12 to'liq oyning o'rtacha oylik savdosi.\nOxirgi 12 oyga so'ralgan oyning O'ZI kirmaydi: 2026-09 so'ralsa oraliq 2025-09 dan 2026-08 gacha, umumiy savdo 12 ga bo'linadi (last_12_months_from / last_12_months_to javobda qaytadi).\nSavdo store_targets.sales dan emas, sales jadvalidan hisoblanadi (stage = 9, sale_type = 'SALE', qaytarilmagan) — target qatori yo'q oylar ham hisobga kiradi.\nDo'konga bog'langan foydalanuvchilar uchun faqat o'z do'koni qaytadi, path'dagi store_id ular uchun e'tiborga olinmaydi.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "store-target"
+                ],
+                "summary": "Store target statistics",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Store ID",
+                        "name": "store_id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Yil (default: joriy)",
+                        "name": "year",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Oy 1-12 (default: joriy)",
+                        "name": "month",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    }
+                }
+            }
+        },
         "/store-target/summary": {
             "get": {
                 "security": [

@@ -32,6 +32,7 @@ func (h *StoreTargetHandler) StoreTargetRoutes(r *gin.RouterGroup) {
 		target.DELETE("/:id", h.Delete)
 		target.PUT("/:id", h.Update)
 		target.GET("/:store_id", h.StoreHistory)
+		target.GET("/statistics/:store_id", h.StoreStatistics)
 		target.GET("/list", h.List)
 		// target.GET("/my", h.GetMyTarget)
 		target.GET("/employee/list/:store_id", h.EmployeeHistory)
@@ -250,6 +251,64 @@ func (h *StoreTargetHandler) StoreHistory(c *gin.Context) {
 	}
 
 	handleResponse(c, OK, results)
+}
+
+
+// StoreStatistics godoc
+// @Summary      Store target statistics
+// @Description  Do'konga yangi target qo'yishdan oldingi ko'rsatkichlar: shu oyga qo'yilgan target, oldingi oyning target'i va savdosi, o'tgan yilning AYNAN shu oyidagi savdo hamda oxirgi 12 to'liq oyning o'rtacha oylik savdosi.
+// @Description  Oxirgi 12 oyga so'ralgan oyning O'ZI kirmaydi: 2026-09 so'ralsa oraliq 2025-09 dan 2026-08 gacha, umumiy savdo 12 ga bo'linadi (last_12_months_from / last_12_months_to javobda qaytadi).
+// @Description  Savdo store_targets.sales dan emas, sales jadvalidan hisoblanadi (stage = 9, sale_type = 'SALE', qaytarilmagan) — target qatori yo'q oylar ham hisobga kiradi.
+// @Description  Do'konga bog'langan foydalanuvchilar uchun faqat o'z do'koni qaytadi, path'dagi store_id ular uchun e'tiborga olinmaydi.
+// @Tags         store-target
+// @Security     BearerAuth
+// @Accept       json
+// @Produce      json
+// @Param        store_id  path   string  true   "Store ID"
+// @Param        year      query  int     false  "Yil (default: joriy)"
+// @Param        month     query  int     false  "Oy 1-12 (default: joriy)"
+// @Success      200 {object} v1.Response
+// @Failure      400 {object} v1.Response
+// @Failure      401 {object} v1.Response
+// @Failure      404 {object} v1.Response
+// @Failure      500 {object} v1.Response
+// @Router       /store-target/statistics/{store_id} [get]
+func (h *StoreTargetHandler) StoreStatistics(c *gin.Context) {
+	user := h.service.GetSignedUser(c)
+	if user.UserId == "" {
+		handleServiceResponse(c, nil, domain.UnauthorizedError)
+		return
+	}
+
+	// Doira StoreHistory bilan bir xil: bitta do'konga biriktirilgan
+	// foydalanuvchi path'da boshqa do'konni yozib ham uni ko'ra olmaydi.
+	storeId := c.Param("store_id")
+	if !utils.In(user.Role, constants.StoreTargetViewAll...) {
+		if user.StoreId == "" {
+			handleResponse(c, BadRequest, "store_id not found for user")
+			return
+		}
+		storeId = user.StoreId
+	}
+
+	if storeId == "" {
+		handleResponse(c, BadRequest, "store_id is required")
+		return
+	}
+
+	year, _ := strconv.Atoi(c.Query("year"))
+	month, _ := strconv.Atoi(c.Query("month"))
+
+	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
+	defer cancel()
+
+	result, err := h.service.GetStoreTargetStatistics(ctx, storeId, year, month)
+	if err != nil {
+		handleServiceResponse(c, nil, err)
+		return
+	}
+
+	handleResponse(c, OK, result)
 }
 
 

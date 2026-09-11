@@ -323,6 +323,153 @@ func (s *Services) GetStoreTargetHistory(ctx context.Context, storeId string, co
 	return results, nil
 }
 
+// storeTargetStatisticsQuery — bitta do'konning target/savdo ko'rsatkichlari.
+//
+// @month_start — so'ralgan oyning 1-kuni. Qolgan uchta oraliq shundan chiqadi,
+// shuning uchun oy uzunligi (28/29/30/31) qo'lda hisoblanmaydi.
+//
+// Savdo manbai — sales jadvali, store_targets.sales EMAS: oxirgi 12 oyning
+// ba'zilarida target qatori bo'lmasligi mumkin va o'rtacha tasodifiy oylardan
+// chiqib ketardi. Filtr payroll hisobidagi bilan bir xil: yakunlangan
+// (stage = 9), qaytarish hujjati bo'lmagan (sale_type = 'SALE') va
+// qaytarilmagan sotuvlar.
+//
+// sales.created_at UTC'da saqlanadi, oy chegaralari esa Toshkent kuni bo'yicha
+// kerak — shuning uchun chegaralar 5 soatga suriladi (ustunning o'ziga funksiya
+// qo'llanmaydi, aks holda indeks ishlamay qolardi).
+//
+// Uchala savdo ko'rsatkichi BITTA skandan chiqadi: eng keng oraliq (12 oy)
+// qolgan ikkitasini o'z ichiga oladi, ular FILTER bilan ajratiladi. ts'dan
+// LEFT JOIN qilingani uchun savdo umuman bo'lmasa ham bitta qator qaytadi.
+const storeTargetStatisticsQuery = `
+WITH ts AS (
+    SELECT
+        (CAST(@month_start AS date) - INTERVAL '1 year')::timestamp  - INTERVAL '5 hours' AS win_from,
+        CAST(@month_start AS date)::timestamp                        - INTERVAL '5 hours' AS win_to,
+        (CAST(@month_start AS date) - INTERVAL '1 month')::timestamp - INTERVAL '5 hours' AS prev_from,
+        (CAST(@month_start AS date) - INTERVAL '11 months')::timestamp - INTERVAL '5 hours' AS year_ago_to
+),
+sales_agg AS (
+    SELECT
+        COALESCE(SUM(sl.total_amount) FILTER (
+            WHERE sl.created_at >= t.prev_from), 0) AS previous_month_sales,
+        COALESCE(SUM(sl.total_amount) FILTER (
+            WHERE sl.created_at < t.year_ago_to), 0) AS last_year_same_month_sales,
+        COALESCE(SUM(sl.total_amount), 0)           AS last_12_months_total_sales
+    FROM ts t
+    LEFT JOIN sales sl
+           ON sl.store_id = CAST(@store_id AS uuid)
+          AND sl.stage = 9
+          AND sl.sale_type = 'SALE'
+          AND sl.is_returned IS NOT TRUE
+          AND sl.created_at >= t.win_from
+          AND sl.created_at <  t.win_to
+),
+targets AS (
+    SELECT
+        COALESCE(MAX(st.amount) FILTER (
+            WHERE st.year = @year AND st.month = @month), 0) AS current_target_amount,
+        COALESCE(MAX(st.amount) FILTER (
+            WHERE st.year = @prev_year AND st.month = @prev_month), 0) AS previous_month_target_amount
+    FROM store_targets st
+    WHERE st.store_id = CAST(@store_id AS uuid)
+)
+SELECT
+    t.current_target_amount,
+    t.previous_month_target_amount,
+    s.previous_month_sales,
+    s.last_year_same_month_sales,
+    s.last_12_months_total_sales,
+    ROUND(s.last_12_months_total_sales / 12, 2) AS last_12_months_avg_sales
+FROM targets t, sales_agg s`
+
+// GetStoreTargetStatistics — do'konga yangi target qo'yishdan oldingi ko'rsatkichlar:
+// shu oyga qo'yilgan target, o'tgan oyning target'i va savdosi, o'tgan yilning shu
+// oyidagi savdo va oxirgi 12 to'liq oyning o'rtacha oylik savdosi.
+//
+// 12 oylik oraliqqa so'ralgan oyning O'ZI kirmaydi: 2026-09 uchun 2025-09 dan
+// 2026-08 gacha, yig'indi esa 12 ga bo'linadi. Joriy oy hali tugamagani uchun
+// uni qo'shish o'rtachani sun'iy ravishda pasaytirardi.
+//
+// year/month berilmasa joriy oy olinadi.
+func (s *Services) GetStoreTargetStatistics(
+	ctx context.Context, storeId string, year, month int,
+) (*domain.StoreTargetStatistics, error) {
+	if _, err := uuid.Parse(storeId); err != nil {
+		return nil, domain.BadRequestError
+	}
+
+	now := time.Now()
+	if year == 0 {
+		year = now.Year()
+	}
+	if month == 0 {
+		month = int(now.Month())
+	}
+	if month < 1 || month > 12 || year < 2000 {
+		return nil, domain.BadRequestError
+	}
+
+	var store struct {
+		Id   string `gorm:"column:id"`
+		Name string `gorm:"column:name"`
+	}
+	if err := s.db.WithContext(ctx).
+		Table("stores").
+		Select("id, name").
+		Where("id = ? AND deleted_at IS NULL", storeId).
+		Take(&store).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, domain.NotFoundError
+		}
+		s.log.Errorf("could not get store for target statistics: %v", err)
+		return nil, domain.InternalServerError
+	}
+
+	// Oy chegaralarini Go hisoblaydi — javobda ham ko'rsatiladi, SQL esa
+	// faqat oyning 1-kunini oladi va oraliqlarni o'zi suradi.
+	monthStart := time.Date(year, time.Month(month), 1, 0, 0, 0, 0, time.UTC)
+	prevStart := monthStart.AddDate(0, -1, 0)
+	windowStart := monthStart.AddDate(-1, 0, 0)
+
+	var row struct {
+		CurrentTargetAmount       float64 `gorm:"column:current_target_amount"`
+		PreviousMonthTargetAmount float64 `gorm:"column:previous_month_target_amount"`
+		PreviousMonthSales        float64 `gorm:"column:previous_month_sales"`
+		LastYearSameMonthSales    float64 `gorm:"column:last_year_same_month_sales"`
+		Last12MonthsTotalSales    float64 `gorm:"column:last_12_months_total_sales"`
+		Last12MonthsAvgSales      float64 `gorm:"column:last_12_months_avg_sales"`
+	}
+
+	if err := s.db.WithContext(ctx).Raw(storeTargetStatisticsQuery, map[string]any{
+		"store_id":    storeId,
+		"month_start": monthStart.Format("2006-01-02"),
+		"year":        year,
+		"month":       month,
+		"prev_year":   prevStart.Year(),
+		"prev_month":  int(prevStart.Month()),
+	}).Scan(&row).Error; err != nil {
+		s.log.Errorf("could not get store target statistics: %v", err)
+		return nil, domain.InternalServerError
+	}
+
+	return &domain.StoreTargetStatistics{
+		StoreId:                   store.Id,
+		StoreName:                 store.Name,
+		Year:                      year,
+		Month:                     month,
+		CurrentTargetAmount:       row.CurrentTargetAmount,
+		PreviousYear:              prevStart.Year(),
+		PreviousMonth:             int(prevStart.Month()),
+		PreviousMonthTargetAmount: row.PreviousMonthTargetAmount,
+		PreviousMonthSales:        row.PreviousMonthSales,
+		LastYearSameMonthSales:    row.LastYearSameMonthSales,
+		Last12MonthsFrom:          windowStart.Format("2006-01"),
+		Last12MonthsTo:            prevStart.Format("2006-01"),
+		Last12MonthsTotalSales:    row.Last12MonthsTotalSales,
+		Last12MonthsAvgSales:      row.Last12MonthsAvgSales,
+	}, nil
+}
 
 // storeTargetBaseQuery — do'kon target ekranining umumiy asosi: ro'yxat ham,
 // yig'ma summary ham AYNAN shu so'rovdan quriladi. Aks holda ekrandagi qatorlar
