@@ -1761,6 +1761,8 @@ func (h *EmployeeHandler) ExportStorePayrollExcel(c *gin.Context) {
 // @Description  total_active_store_employee_count (haqiqatan faol xodimlar), total_payroll_count (oylik hisobga kirganlar).
 // @Description  DIQQAT: total_store_plan_amount va total_store_sales_amount do'kon darajasidagi qiymatlar —
 // @Description  har bir do'kon bo'yicha BIR MARTA sanaladi, xodimlar soniga ko'paymaydi.
+// @Description  salary_percent — barcha do'konlar bo'yicha umumiy oylik ulushi: total_gross_salary_amount / total_store_sales_amount * 100.
+// @Description  Do'kon qatorlaridagi salary_percent o'rtachasi emas, jami jamiga bo'linadi; savdo 0 bo'lsa 0.
 // @Description  date berilsa yil/oy shundan olinadi; berilmasa year/month, ular ham bo'lmasa joriy oy.
 // @Tags         employees
 // @Security     BearerAuth

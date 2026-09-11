@@ -1596,6 +1596,11 @@ SELECT
     COALESCE(SUM(f.bonus_amount), 0)        AS total_bonus_amount,
     COALESCE(SUM(f.gross_salary_amount), 0) AS total_gross_salary_amount,
 
+    COALESCE(ROUND(
+        SUM(f.gross_salary_amount)
+        / NULLIF((SELECT SUM(store_sales_amount) FROM per_store), 0) * 100
+    , 2), 0) AS salary_percent,
+
     COALESCE(SUM(f.advance_card_amount + f.advance_cash_amount), 0) AS total_advance_amount,
     COALESCE(SUM(f.deduction_term_amount
                + f.deduction_recount_amount

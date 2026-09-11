@@ -430,6 +430,8 @@ type StorePayrollStatistics struct {
 	TotalBonusAmount       float64 `json:"total_bonus_amount"`
 	TotalGrossSalaryAmount float64 `json:"total_gross_salary_amount"`
 
+	SalaryPercent float64 `json:"salary_percent"`
+
 	// TotalAdvanceAmount — karta va naqd avans birga.
 	TotalAdvanceAmount float64 `json:"total_advance_amount"`
 	// TotalDeductionAmount — uchala ushlab qolish birga: muddat, qayta hisob, jarima.
