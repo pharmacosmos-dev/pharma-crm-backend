@@ -1018,6 +1018,9 @@ func (s *Services) GetEmployeeAttendanceDayList(ctx context.Context, params *dom
 // hisobga kirmaydi (natijada 0 soatgacha tushishi mumkin).
 // limit/offset DO'KONLAR soni bo'yicha sahifalanadi (har bir do'kon start_date/end_date
 // oralig'idagi barcha kunlari bilan birga qaytadi, natija yarim kesilmaydi).
+// Franshiza do'konlari (companies.is_franchise = true) bu hisobotga umuman
+// kirmaydi; kompaniyasi biriktirilmagan do'kon ham chiqmaydi, chunki uning
+// franshiza ekanini aniqlab bo'lmaydi (NULL IN (...) hech qachon rost emas).
 func (s *Services) GetStoreWorkingHours(ctx context.Context, params *domain.StoreWorkingHoursQueryParams) ([]domain.StoreWorkingHoursListItem, int64, error) {
 	startTimeInUTC := (*params.StartDate).ToUTC().GetString()
 	endTimeInUTC := domain.AddDefaultDuration(*params.StartDate, params.EndDate).ToUTC().GetString()
@@ -1032,6 +1035,7 @@ func (s *Services) GetStoreWorkingHours(ctx context.Context, params *domain.Stor
 		FROM stores s
 		WHERE (? = '' OR s.id::text = ?)
 		  AND (? = '' OR s.name ILIKE ?)
+		  AND s.company_id IN (SELECT id FROM companies WHERE is_franchise = false)
 	`,
 		params.StoreId,
 		params.StoreId,
@@ -1052,6 +1056,7 @@ func (s *Services) GetStoreWorkingHours(ctx context.Context, params *domain.Stor
 		FROM stores s
 		WHERE (? = '' OR s.id::text = ?)
 		  AND (? = '' OR s.name ILIKE ?)
+		  AND s.company_id IN (SELECT id FROM companies WHERE is_franchise = false)
 		ORDER BY s.name ASC
 		LIMIT ? OFFSET ?
 	`,

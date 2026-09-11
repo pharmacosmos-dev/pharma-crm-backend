@@ -595,7 +595,7 @@ func (h *StoreHandler) Delete(c *gin.Context) {
 
 // GetStoreWorkingHours godoc
 // @Summary      Store working hours (from attendance)
-// @Description  Do'kon(lar)ning xodimlar check-in/check-out voqealari asosida necha soat "ishlagani"ni qaytaradi (Toshkent kuni bo'yicha, start_date/end_date oralig'ida, har kun uchun alohida). Bir vaqtning o'zida bir nechta xodim ishlagan bo'lsa (masalan bir necha smena), ularning oraliqlari ustma-ust tushgan qismi ikki marta hisoblanmaydi. Aniq do'konga bog'langan foydalanuvchilar (user.store_id mavjud) uchun faqat o'z do'koni qaytadi, store_id filtri ular uchun e'tiborga olinmaydi.
+// @Description  Do'kon(lar)ning xodimlar check-in/check-out voqealari asosida necha soat "ishlagani"ni qaytaradi (Toshkent kuni bo'yicha, start_date/end_date oralig'ida, har kun uchun alohida). Bir vaqtning o'zida bir nechta xodim ishlagan bo'lsa (masalan bir necha smena), ularning oraliqlari ustma-ust tushgan qismi ikki marta hisoblanmaydi. Aniq do'konga bog'langan foydalanuvchilar (user.store_id mavjud) uchun faqat o'z do'koni qaytadi, store_id filtri ular uchun e'tiborga olinmaydi. Ro'yxatga faqat franshiza bo'lmagan kompaniyalar (companies.is_franchise = false) do'konlari kiradi.
 // @Tags         stores
 // @Security     BearerAuth
 // @Accept       json

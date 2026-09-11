@@ -23390,7 +23390,8 @@ paths:
         bo'lsa (masalan bir necha smena), ularning oraliqlari ustma-ust tushgan qismi
         ikki marta hisoblanmaydi. Aniq do'konga bog'langan foydalanuvchilar (user.store_id
         mavjud) uchun faqat o'z do'koni qaytadi, store_id filtri ular uchun e'tiborga
-        olinmaydi.
+        olinmaydi. Ro'yxatga faqat franshiza bo'lmagan kompaniyalar (companies.is_franchise
+        = false) do'konlari kiradi.
       parameters:
       - description: Store ID (faqat admin uchun filter sifatida ishlaydi, bo'sh bo'lsa
           barcha do'konlar)
