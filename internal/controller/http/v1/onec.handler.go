@@ -135,7 +135,7 @@ func (h *ProductOnecHandler) ListProductByStoreCode(c *gin.Context) {
 		Joins("JOIN products p ON sp.product_id = p.id").
 		Joins("JOIN stores s ON sp.store_id = s.id").
 		Joins("LEFT JOIN producers pr ON p.producer_id = pr.id").
-		Where("(sp.pack_quantity > 0 or sp.unit_quantity > 0)")
+		Where("sp.unit_quantity > 0")
 
 	if storeCode != "" {
 		store, err := h.service.GetStoreByField("store_code", storeCode)
