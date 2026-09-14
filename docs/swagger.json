@@ -8780,7 +8780,7 @@
                         "BearerAuth": []
                     }
                 ],
-                "description": "/employee/payroll/stores ro'yxatining yig'ma ko'rsatkichlari.\nRo'yxat bilan bir xil filtrlardan o'tadi (franshiza do'konlari bu yerda ham hisobga kirmaydi), lekin sahifalanmaydi: limit/offset ta'sir qilmaydi.\nUchta xodim sanog'i uchta boshqa narsa: total_employee_count (do'kon kartochkasidagi son),\ntotal_active_store_employee_count (haqiqatan faol xodimlar), total_payroll_count (oylik hisobga kirganlar).\nDIQQAT: total_store_plan_amount va total_store_sales_amount do'kon darajasidagi qiymatlar —\nhar bir do'kon bo'yicha BIR MARTA sanaladi, xodimlar soniga ko'paymaydi.\ndate berilsa yil/oy shundan olinadi; berilmasa year/month, ular ham bo'lmasa joriy oy.",
+                "description": "/employee/payroll/stores ro'yxatining yig'ma ko'rsatkichlari.\nRo'yxat bilan bir xil filtrlardan o'tadi (franshiza do'konlari bu yerda ham hisobga kirmaydi), lekin sahifalanmaydi: limit/offset ta'sir qilmaydi.\nUchta xodim sanog'i uchta boshqa narsa: total_employee_count (do'kon kartochkasidagi son),\ntotal_active_store_employee_count (haqiqatan faol xodimlar), total_payroll_count (oylik hisobga kirganlar).\nDIQQAT: total_store_plan_amount va total_store_sales_amount do'kon darajasidagi qiymatlar —\nhar bir do'kon bo'yicha BIR MARTA sanaladi, xodimlar soniga ko'paymaydi.\nsalary_percent — barcha do'konlar bo'yicha umumiy oylik ulushi: total_gross_salary_amount / total_store_sales_amount * 100.\nDo'kon qatorlaridagi salary_percent o'rtachasi emas, jami jamiga bo'linadi; savdo 0 bo'lsa 0.\ndate berilsa yil/oy shundan olinadi; berilmasa year/month, ular ham bo'lmasa joriy oy.",
                 "consumes": [
                     "application/json"
                 ],
@@ -22830,6 +22830,202 @@
                     },
                     "400": {
                         "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/product1c/sale/list": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Get sale list with 1C token. Employee role restrictions are not applied.\nIf store_code is provided, it is converted to store_id. start_date and end_date must be in RFC3339 format: 2026-09-01T00:00:00+05:00",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "1C Api"
+                ],
+                "summary": "Get sale list by 1C",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Limit",
+                        "name": "limit",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Offset",
+                        "name": "offset",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Store CODE",
+                        "name": "store_code",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Store ID",
+                        "name": "store_id",
+                        "in": "query"
+                    },
+                    {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        },
+                        "collectionFormat": "multi",
+                        "description": "Store IDs",
+                        "name": "store_ids",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Vendor ID",
+                        "name": "vendor_id",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Customer ID",
+                        "name": "customer_id",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Cashbox ID",
+                        "name": "cashbox_id",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Payment type ID",
+                        "name": "payment_type_id",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Search",
+                        "name": "search",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Start date, RFC3339",
+                        "name": "start_date",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "End date, RFC3339",
+                        "name": "end_date",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Total amount from",
+                        "name": "total_amount_from",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Total amount to",
+                        "name": "total_amount_to",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Sale type",
+                        "name": "sale_type",
+                        "in": "query"
+                    },
+                    {
+                        "type": "boolean",
+                        "description": "Is corporate",
+                        "name": "is_corporate",
+                        "in": "query"
+                    },
+                    {
+                        "type": "boolean",
+                        "description": "Cash",
+                        "name": "cash",
+                        "in": "query"
+                    },
+                    {
+                        "type": "boolean",
+                        "description": "Humo",
+                        "name": "humo",
+                        "in": "query"
+                    },
+                    {
+                        "type": "boolean",
+                        "description": "Uzcard",
+                        "name": "uzcard",
+                        "in": "query"
+                    },
+                    {
+                        "type": "boolean",
+                        "description": "Click",
+                        "name": "click",
+                        "in": "query"
+                    },
+                    {
+                        "type": "boolean",
+                        "description": "Payme",
+                        "name": "payme",
+                        "in": "query"
+                    },
+                    {
+                        "type": "boolean",
+                        "description": "Alif",
+                        "name": "alif",
+                        "in": "query"
+                    },
+                    {
+                        "type": "boolean",
+                        "description": "Uzum",
+                        "name": "uzum",
+                        "in": "query"
+                    },
+                    {
+                        "type": "boolean",
+                        "description": "Uzum tez kor",
+                        "name": "uzum_tez_kor",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
                         "schema": {
                             "$ref": "#/definitions/v1.Response"
                         }

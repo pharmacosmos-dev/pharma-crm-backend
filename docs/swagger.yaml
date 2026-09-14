@@ -8746,6 +8746,8 @@ paths:
         total_active_store_employee_count (haqiqatan faol xodimlar), total_payroll_count (oylik hisobga kirganlar).
         DIQQAT: total_store_plan_amount va total_store_sales_amount do'kon darajasidagi qiymatlar —
         har bir do'kon bo'yicha BIR MARTA sanaladi, xodimlar soniga ko'paymaydi.
+        salary_percent — barcha do'konlar bo'yicha umumiy oylik ulushi: total_gross_salary_amount / total_store_sales_amount * 100.
+        Do'kon qatorlaridagi salary_percent o'rtachasi emas, jami jamiga bo'linadi; savdo 0 bo'lsa 0.
         date berilsa yil/oy shundan olinadi; berilmasa year/month, ular ham bo'lmasa joriy oy.
       parameters:
       - description: Store ID
@@ -17459,6 +17461,137 @@ paths:
       security:
       - BearerAuth: []
       summary: Create and send return in one step (1C integration)
+      tags:
+      - 1C Api
+  /product1c/sale/list:
+    get:
+      consumes:
+      - application/json
+      description: |-
+        Get sale list with 1C token. Employee role restrictions are not applied.
+        If store_code is provided, it is converted to store_id. start_date and end_date must be in RFC3339 format: 2026-09-01T00:00:00+05:00
+      parameters:
+      - description: Limit
+        in: query
+        name: limit
+        type: integer
+      - description: Offset
+        in: query
+        name: offset
+        type: integer
+      - description: Store CODE
+        in: query
+        name: store_code
+        type: string
+      - description: Store ID
+        in: query
+        name: store_id
+        type: string
+      - collectionFormat: multi
+        description: Store IDs
+        in: query
+        items:
+          type: string
+        name: store_ids
+        type: array
+      - description: Vendor ID
+        in: query
+        name: vendor_id
+        type: string
+      - description: Customer ID
+        in: query
+        name: customer_id
+        type: string
+      - description: Cashbox ID
+        in: query
+        name: cashbox_id
+        type: string
+      - description: Payment type ID
+        in: query
+        name: payment_type_id
+        type: string
+      - description: Search
+        in: query
+        name: search
+        type: string
+      - description: Start date, RFC3339
+        in: query
+        name: start_date
+        type: string
+      - description: End date, RFC3339
+        in: query
+        name: end_date
+        type: string
+      - description: Total amount from
+        in: query
+        name: total_amount_from
+        type: integer
+      - description: Total amount to
+        in: query
+        name: total_amount_to
+        type: integer
+      - description: Sale type
+        in: query
+        name: sale_type
+        type: string
+      - description: Is corporate
+        in: query
+        name: is_corporate
+        type: boolean
+      - description: Cash
+        in: query
+        name: cash
+        type: boolean
+      - description: Humo
+        in: query
+        name: humo
+        type: boolean
+      - description: Uzcard
+        in: query
+        name: uzcard
+        type: boolean
+      - description: Click
+        in: query
+        name: click
+        type: boolean
+      - description: Payme
+        in: query
+        name: payme
+        type: boolean
+      - description: Alif
+        in: query
+        name: alif
+        type: boolean
+      - description: Uzum
+        in: query
+        name: uzum
+        type: boolean
+      - description: Uzum tez kor
+        in: query
+        name: uzum_tez_kor
+        type: boolean
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Get sale list by 1C
       tags:
       - 1C Api
   /product1c/token-asil-belgi:
