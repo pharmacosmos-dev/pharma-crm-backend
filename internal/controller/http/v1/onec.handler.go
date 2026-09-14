@@ -11,6 +11,7 @@ import (
 	"github.com/pharma-crm-backend/domain"
 	"github.com/pharma-crm-backend/domain/constants"
 	"github.com/pharma-crm-backend/pkg/etc"
+	"github.com/pharma-crm-backend/pkg/utils"
 	"gorm.io/gorm"
 )
 
@@ -39,6 +40,7 @@ func (h *ProductOnecHandler) ProductOnecRoutes(r *gin.RouterGroup) {
 		onec.POST("/transfer/create-and-send", h.CreateAndSendForOnec)
 		onec.POST("/return/create-and-send", h.CreateAndSendReturnForOnec)
 		onec.POST("/report/store-stats", h.StoreReportStats)
+		onec.GET("/sale/list", h.GetSales)
 	}
 	r.POST("/generate-token", h.GenerateOnecToken)
 }
@@ -763,7 +765,6 @@ func (h *ProductOnecHandler) StoreReportStats(c *gin.Context) {
 	ctx, cancel := context.WithTimeout(context.Background(), constants.ContextTimeoutForReports)
 	defer cancel()
 
-	// 1C do'kon kodi bilan ishlaydi — store_code kelsa store_id ga o'giriladi
 	if storeCode := c.Query("store_code"); storeCode != "" {
 		store, err := h.service.GetStoreByField("store_code", storeCode)
 		if err != nil {
@@ -778,7 +779,6 @@ func (h *ProductOnecHandler) StoreReportStats(c *gin.Context) {
 		params.StoreIds = nil
 	}
 
-	// 1C tizim tokeni bilan keladi — xodim roli bo'yicha cheklovlar qo'llanilmaydi
 	res, err := h.service.ReportByStoreStats(ctx, &params)
 	if err != nil {
 		handleServiceResponse(c, nil, err)
@@ -786,4 +786,77 @@ func (h *ProductOnecHandler) StoreReportStats(c *gin.Context) {
 	}
 
 	handleResponse(c, OK, res)
+}
+
+// GetSales godoc
+// @Summary Get sale list by 1C
+// @Description Get sale list with 1C token. Employee role restrictions are not applied.
+// @Description If store_code is provided, it is converted to store_id. start_date and end_date must be in RFC3339 format: 2026-09-01T00:00:00+05:00
+// @Tags        1C Api
+// @Security    BearerAuth
+// @Accept      json
+// @Produce     json
+// @Param   limit             query int      false "Limit"
+// @Param   offset            query int      false "Offset"
+// @Param   store_code        query string   false "Store CODE"
+// @Param   store_id          query string   false "Store ID"
+// @Param   store_ids         query []string false "Store IDs" collectionFormat(multi)
+// @Param   vendor_id         query string   false "Vendor ID"
+// @Param   customer_id       query string   false "Customer ID"
+// @Param   cashbox_id        query string   false "Cashbox ID"
+// @Param   payment_type_id   query string   false "Payment type ID"
+// @Param   search            query string   false "Search"
+// @Param   start_date        query string   false "Start date, RFC3339"
+// @Param   end_date          query string   false "End date, RFC3339"
+// @Param   total_amount_from query int      false "Total amount from"
+// @Param   total_amount_to   query int      false "Total amount to"
+// @Param   sale_type         query string   false "Sale type"
+// @Param   is_corporate      query bool     false "Is corporate"
+// @Param   cash              query bool     false "Cash"
+// @Param   humo              query bool     false "Humo"
+// @Param   uzcard            query bool     false "Uzcard"
+// @Param   click             query bool     false "Click"
+// @Param   payme             query bool     false "Payme"
+// @Param   alif              query bool     false "Alif"
+// @Param   uzum              query bool     false "Uzum"
+// @Param   uzum_tez_kor      query bool     false "Uzum tez kor"
+// @Success 200 {object} v1.Response
+// @Failure 400 {object} v1.Response
+// @Failure 404 {object} v1.Response
+// @Failure 500 {object} v1.Response
+// @Router /product1c/sale/list [GET]
+func (h *ProductOnecHandler) GetSales(c *gin.Context) {
+	var params domain.SaleQueryParams
+	if err := c.ShouldBindQuery(&params); err != nil {
+		h.log.Errorf("bind query error: %v", err)
+		handleServiceResponse(c, nil, domain.InvalidQueryError)
+		return
+	}
+
+	params.Limit, params.Offset = defaultLimitOffset(params.Limit, params.Offset)
+
+	ctx, cancel := context.WithTimeout(context.Background(), constants.ContextTimeoutForReports)
+	defer cancel()
+
+	if storeCode := c.Query("store_code"); storeCode != "" {
+		store, err := h.service.GetStoreByField("store_code", storeCode)
+		if err != nil {
+			handleServiceResponse(c, nil, err)
+			return
+		}
+		if store.Id == "" {
+			handleServiceResponse(c, nil, domain.NotFoundError)
+			return
+		}
+		params.StoreId = store.Id
+		params.StoreIds = nil
+	}
+
+	res, totalCount, err := h.service.GetSales(ctx, &params, &domain.EmployeeClaims{})
+	if err != nil {
+		handleServiceResponse(c, nil, err)
+		return
+	}
+
+	handleResponse(c, OK, utils.ListResponse(res, totalCount, params.Limit, params.Offset))
 }
