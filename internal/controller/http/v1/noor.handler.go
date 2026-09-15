@@ -130,10 +130,7 @@ func (h *NoorHandler) StoreList(c *gin.Context) {
 // @Failure 	500 {object} v1.IntegrationErrorResponse
 // @Router 		/noor/category/list [get]
 func (h *NoorHandler) CategoryList(c *gin.Context) {
-	var (
-		params domain.NoorQueryParam
-		res    []domain.NoorCategory
-	)
+	var params domain.NoorQueryParam
 	// bind query param
 	err := c.ShouldBindQuery(&params)
 	if err != nil {
@@ -141,54 +138,9 @@ func (h *NoorHandler) CategoryList(c *gin.Context) {
 		return
 	}
 
-	// get default product
-	params.Limit, params.Offset = defaultLimitOffset(params.Limit, params.Offset)
-
-	query := `
-	WITH RECURSIVE category_hierarchy AS (
-		-- Start with root categories (those with no parent)
-		SELECT
-			id,
-			name AS name_ru,
-			name_uz,
-            name_en,
-            name_kr,
-			category_id AS parent_id,
-			photo,
-			ARRAY[id] AS path
-		FROM categories
-		WHERE category_id IS NULL
-
-		UNION ALL
-
-		-- Recursively get children
-		SELECT
-			c.id,
-			c.name as name_ru,
-			c.name_uz,
-			c.name_en,
-			c.name_kr,
-			c.category_id AS parent_id,
-			c.photo,
-			ch.path || c.id
-		FROM categories c
-		INNER JOIN category_hierarchy ch ON c.category_id = ch.id
-	)
-	SELECT
-		id,
-		name_ru,
-		name_uz,
-		name_en,
-		name_kr,
-		parent_id,
-		photo
-	FROM category_hierarchy
-	ORDER BY path;
-	`
-	err = h.db.Raw(query).Scan(&res).Error
+	res, err := h.service.GetNoorCategories()
 	if err != nil {
-		h.log.Errorf("could not get categories for noor: %v", err)
-		handleResponseNoor(c, http.StatusInternalServerError, domain.InternalServerError)
+		handleResponseNoor(c, http.StatusInternalServerError, err)
 		return
 	}
 

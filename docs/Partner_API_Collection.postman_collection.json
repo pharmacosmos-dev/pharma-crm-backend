@@ -1,0 +1,136 @@
+{
+    "info": {
+        "_postman_id": "partner-api-collection-2026",
+        "name": "Pharma Partner API",
+        "description": "# Pharma Partner API\n\nRead-only catalog API: pharmacies, categories, products, stock and prices.\n\n## Authentication\nEvery request needs the token you received from us:\n\n`Authorization: Bearer <token>`\n\nPut the token into the `token` collection variable, the collection sends it with every request. Without a valid token the API returns `401 {\"message\": \"unauthorized\"}`.\n\n## Recommended order\n1. **Store List**: pharmacies, `id` is used as `shopId`\n2. **Category List**\n3. **Product List**: page through with `limit` / `offset`\n4. **Store Product List**: stock and price per pharmacy\n\n## Pagination\n`limit` (default 10) and `offset` (default 0). An empty array `[]` means there is no more data.\n\n## Images\n`photo` and `photos` contain file names. Download URL: `{{base_url}}/upload/<file name>`\n\n## Errors\nErrors are returned as `{\"message\": \"...\"}` with status 400, 401 or 500.",
+        "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+    },
+    "variable": [
+        {
+            "key": "base_url",
+            "value": "https://api.tayin.uz/v1",
+            "type": "string"
+        },
+        {
+            "key": "token",
+            "value": "<your-token>",
+            "type": "string"
+        },
+        {
+            "key": "shop_id",
+            "value": "",
+            "type": "string"
+        }
+    ],
+    "auth": {
+        "type": "bearer",
+        "bearer": [
+            {
+                "key": "token",
+                "value": "{{token}}",
+                "type": "string"
+            }
+        ]
+    },
+    "item": [
+        {
+            "name": "Store List",
+            "event": [
+                {
+                    "listen": "test",
+                    "script": {
+                        "exec": [
+                            "var stores = pm.response.json();",
+                            "if (Array.isArray(stores) && stores.length > 0) {",
+                            "    pm.collectionVariables.set('shop_id', stores[0].id);",
+                            "}"
+                        ],
+                        "type": "text/javascript"
+                    }
+                }
+            ],
+            "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                    "raw": "{{base_url}}/partner/store/list",
+                    "host": ["{{base_url}}"],
+                    "path": ["partner", "store", "list"]
+                },
+                "description": "Active pharmacies. Not paginated.\n\nFields: `id`, `name`, `phone`, `address`, `location` (`lat`, `long`), `work_hours`, `is_fullday`, `is_active`.\n\nThe test script saves the first pharmacy id into the `shop_id` variable."
+            },
+            "response": []
+        },
+        {
+            "name": "Category List",
+            "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                    "raw": "{{base_url}}/partner/category/list",
+                    "host": ["{{base_url}}"],
+                    "path": ["partner", "category", "list"]
+                },
+                "description": "All categories in one list, parents before children. Not paginated.\n\nFields: `id`, `name_uz`, `name_ru`, `name_en`, `name_kr`, `parent_id` (empty for root categories), `photo`."
+            },
+            "response": []
+        },
+        {
+            "name": "Product List",
+            "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                    "raw": "{{base_url}}/partner/product/list?limit=10&offset=0",
+                    "host": ["{{base_url}}"],
+                    "path": ["partner", "product", "list"],
+                    "query": [
+                        {
+                            "key": "limit",
+                            "value": "10",
+                            "description": "Page size, default 10"
+                        },
+                        {
+                            "key": "offset",
+                            "value": "0",
+                            "description": "Number of items to skip, default 0"
+                        }
+                    ]
+                },
+                "description": "Non-prescription products available for online orders.\n\nFields: `id`, `name`, `photos`, `description`, `description_uz`, `description_ru`, `description_kr`, `category_id`, `category_name`, `producer_id`, `producer_name`, `country_id`, `country_name`, `unit_type_id`, `unit_name`, `unit_code`, `unit_label`, `unit_per_pack`, `requires_prescription`, `expire_date` (`YYYY-MM-DD` or null)."
+            },
+            "response": []
+        },
+        {
+            "name": "Store Product List",
+            "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                    "raw": "{{base_url}}/partner/store-product/list?shopId={{shop_id}}&limit=10&offset=0",
+                    "host": ["{{base_url}}"],
+                    "path": ["partner", "store-product", "list"],
+                    "query": [
+                        {
+                            "key": "shopId",
+                            "value": "{{shop_id}}",
+                            "description": "Pharmacy id from Store List. All pharmacies if empty"
+                        },
+                        {
+                            "key": "limit",
+                            "value": "10",
+                            "description": "Page size, default 10"
+                        },
+                        {
+                            "key": "offset",
+                            "value": "0",
+                            "description": "Number of items to skip, default 0"
+                        }
+                    ]
+                },
+                "description": "Stock and price of products per pharmacy. Only products in stock are returned.\n\nFields: `shop_id`, `product_id`, `quantity`, `price` (integer, UZS)."
+            },
+            "response": []
+        }
+    ]
+}

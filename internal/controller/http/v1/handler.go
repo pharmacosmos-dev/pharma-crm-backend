@@ -69,6 +69,11 @@ func (h *Handler) InitRoutes(r *gin.Engine) {
 	basicAuth := middleware.ExternalBasicAuth(h.cfg)
 	external.Use(basicAuth.Middleware)
 
+	// Route Group for Partner catalog APIs
+	partnerApi := r.Group("/v1")
+	// Static Token Auth Middleware for Partner catalog APIs
+	partnerApi.Use(middleware.PartnerTokenAuth(h.cfg))
+
 	// Route Group for Partner APIs
 	partner := r.Group("/uzum")
 	// Auth Middleware for Partner
@@ -126,6 +131,8 @@ func (h *Handler) InitRoutes(r *gin.Engine) {
 		h.NewDeductionHandler(v1)
 		// handler for external apis
 		h.NewNoorHandler(external)
+		// handler for partner catalog apis
+		h.NewPartnerApiHandler(partnerApi)
 		// handler for partner auth apis
 		h.NewPartnerAuthHandler(r.Group(""))
 		// handler for uzum apis

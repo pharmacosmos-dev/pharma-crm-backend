@@ -1367,6 +1367,60 @@ func (s *Services) GetNoorStoreProducts(params *domain.NoorQueryParam) ([]domain
 	return res, nil
 }
 
+// GetNoorCategories returns the category tree flattened, parents before children.
+func (s *Services) GetNoorCategories() ([]domain.NoorCategory, error) {
+	var res []domain.NoorCategory
+
+	query := `
+	WITH RECURSIVE category_hierarchy AS (
+		-- Start with root categories (those with no parent)
+		SELECT
+			id,
+			name AS name_ru,
+			name_uz,
+            name_en,
+            name_kr,
+			category_id AS parent_id,
+			photo,
+			ARRAY[id] AS path
+		FROM categories
+		WHERE category_id IS NULL
+
+		UNION ALL
+
+		-- Recursively get children
+		SELECT
+			c.id,
+			c.name as name_ru,
+			c.name_uz,
+			c.name_en,
+			c.name_kr,
+			c.category_id AS parent_id,
+			c.photo,
+			ch.path || c.id
+		FROM categories c
+		INNER JOIN category_hierarchy ch ON c.category_id = ch.id
+	)
+	SELECT
+		id,
+		name_ru,
+		name_uz,
+		name_en,
+		name_kr,
+		parent_id,
+		photo
+	FROM category_hierarchy
+	ORDER BY path;
+	`
+	err := s.db.Raw(query).Scan(&res).Error
+	if err != nil {
+		s.log.Errorf("could not get categories for noor: %v", err)
+		return nil, domain.InternalServerError
+	}
+
+	return res, nil
+}
+
 func (s *Services) GetNoorStores() ([]domain.NoorStore, error) {
 	var res []domain.NoorStore
 

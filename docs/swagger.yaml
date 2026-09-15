@@ -13096,6 +13096,137 @@ paths:
       summary: Get Ostatok Data by Inventory by Import
       tags:
       - Ostatok
+  /partner/category/list:
+    get:
+      description: List all categories, parents before children. parent_id is empty
+        for root categories
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/domain.NoorCategory'
+            type: array
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/v1.IntegrationErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.IntegrationErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: List categories
+      tags:
+      - Partner API
+  /partner/product/list:
+    get:
+      description: List non-prescription products available for online orders
+      parameters:
+      - description: Limit (default 10)
+        in: query
+        name: limit
+        type: integer
+      - description: Offset
+        in: query
+        name: offset
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/domain.NoorProduct'
+            type: array
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.IntegrationErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/v1.IntegrationErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.IntegrationErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: List products
+      tags:
+      - Partner API
+  /partner/store-product/list:
+    get:
+      description: List stock quantity and price of products in stores
+      parameters:
+      - description: Store id from /partner/store/list, all stores if empty
+        in: query
+        name: shopId
+        type: string
+      - description: Limit (default 10)
+        in: query
+        name: limit
+        type: integer
+      - description: Offset
+        in: query
+        name: offset
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/domain.NoorStoreProduct'
+            type: array
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.IntegrationErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/v1.IntegrationErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.IntegrationErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: List store products
+      tags:
+      - Partner API
+  /partner/store/list:
+    get:
+      description: List active stores. Store id is used as shopId in /partner/store-product/list
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/domain.NoorStore'
+            type: array
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/v1.IntegrationErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.IntegrationErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: List stores
+      tags:
+      - Partner API
   /partners:
     get:
       consumes:
