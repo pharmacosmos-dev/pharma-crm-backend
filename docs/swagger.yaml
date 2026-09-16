@@ -15690,6 +15690,171 @@ paths:
       summary: Get product imports
       tags:
       - products
+  /product/inventory-movements:
+    get:
+      description: |-
+        Inventory'dagi har bir product uchun inventory yaratilgan vaqtgacha (imports.created_at) bo'lgan
+        harakatlar yig'indisi (import, sotuv, mijoz qaytarishi, transfer kirim/chiqim, vozvrat, oldingi inventory'lar),
+        hisoblangan qoldiq va inventory natijasi bilan farq. Barcha miqdorlar dona (unit).
+        difference = scanned_count - calculated_quantity; untracked_quantity = received_count - calculated_quantity.
+      parameters:
+      - description: Inventory ID
+        in: query
+        name: inventory_id
+        required: true
+        type: string
+      - description: Search by product name, barcode or material code
+        in: query
+        name: search
+        type: string
+      - description: Only counted products where scanned_count != calculated_quantity
+        in: query
+        name: only_diff
+        type: boolean
+      - description: Limit
+        in: query
+        name: limit
+        type: integer
+      - description: Offset
+        in: query
+        name: offset
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Get product movements before an inventory
+      tags:
+      - products
+  /product/inventory-movements-export:
+    get:
+      description: GetInventoryMovements natijasini barcha productlar bilan excelga
+        yuklaydi
+      parameters:
+      - description: Inventory ID
+        in: query
+        name: inventory_id
+        required: true
+        type: string
+      - description: Search by product name, barcode or material code
+        in: query
+        name: search
+        type: string
+      - description: Only counted products where scanned_count != calculated_quantity
+        in: query
+        name: only_diff
+        type: boolean
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Export product movements before an inventory to Excel
+      tags:
+      - products
+  /product/inventory-movements/history:
+    get:
+      description: |-
+        Bitta product bo'yicha inventory yaratilgan vaqtgacha bo'lgan harakatlar hujjatma-hujjat.
+        quantity ishorali (kirim +, chiqim -), balance - shu hujjatdan keyingi hisoblangan qoldiq (dona).
+        balance har doim butun tarix bo'yicha hisoblanadi, type filtri faqat ko'rsatiladigan qatorlarni kamaytiradi.
+      parameters:
+      - description: Inventory ID
+        in: query
+        name: inventory_id
+        required: true
+        type: string
+      - description: Product ID
+        in: query
+        name: product_id
+        required: true
+        type: string
+      - description: import || sale || client_return || transfer_in || transfer_out
+          || vozvrat || inventory
+        in: query
+        name: type
+        type: string
+      - description: asc (default) || desc
+        in: query
+        name: order
+        type: string
+      - description: Limit
+        in: query
+        name: limit
+        type: integer
+      - description: Offset
+        in: query
+        name: offset
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Get product movement history before an inventory
+      tags:
+      - products
   /product/is-marking:
     patch:
       consumes:

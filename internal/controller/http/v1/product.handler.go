@@ -94,6 +94,9 @@ func (h *ProductHandler) ProductRoutes(r *gin.RouterGroup) {
 		product.GET("/movement-units-before-first-inventory-export", h.ExportMovementUnitsBeforeFirstInventory)
 		product.GET("/movement-units-after-last-inventory", h.GetMovementUnitsAfterLastInventory)
 		product.GET("/movement-units-after-last-inventory-export", h.ExportMovementUnitsAfterLastInventory)
+		product.GET("/inventory-movements", h.GetInventoryMovements)
+		product.GET("/inventory-movements/history", h.GetInventoryMovementHistory)
+		product.GET("/inventory-movements-export", h.ExportInventoryMovements)
 		product.PUT("/update-ostatok/:store_product_id", h.UpdateOstatok)
 		product.POST("/barcode/upsert", h.CreateOrUpdateBarcodes)
 		product.GET("/:id/barcodes", h.GetProductBarcodes)
@@ -3772,6 +3775,237 @@ func (h *ProductHandler) ExportMovementUnitsAfterLastInventory(c *gin.Context) {
 	}
 
 	saveExcelToUploads(c, f, *h.log, "movement-units-after-last-inventory")
+}
+
+// bindInventoryMovementParams inventory-movements endpointlari uchun umumiy query params va huquq tekshiruvi
+func (h *ProductHandler) bindInventoryMovementParams(c *gin.Context, user *domain.EmployeeClaims) (*domain.InventoryMovementParam, bool) {
+	var params domain.InventoryMovementParam
+	if err := c.ShouldBindQuery(&params); err != nil {
+		handleServiceResponse(c, nil, domain.InvalidQueryError)
+		return nil, false
+	}
+
+	if err := uuid.Validate(params.InventoryId); err != nil {
+		handleServiceResponse(c, nil, domain.InvalidQueryError)
+		return nil, false
+	}
+
+	if params.Limit < 0 || params.Offset < 0 {
+		handleServiceResponse(c, nil, domain.InvalidQueryError)
+		return nil, false
+	}
+
+	if !helper.IsAdmin(user) {
+		if user.StoreId != "" {
+			params.StoreId = user.StoreId
+		}
+		params.CompanyId = user.CompanyId
+	}
+
+	return &params, true
+}
+
+// GetInventoryMovements godoc
+// @Summary Get product movements before an inventory
+// @Description Inventory'dagi har bir product uchun inventory yaratilgan vaqtgacha (imports.created_at) bo'lgan
+// @Description harakatlar yig'indisi (import, sotuv, mijoz qaytarishi, transfer kirim/chiqim, vozvrat, oldingi inventory'lar),
+// @Description hisoblangan qoldiq va inventory natijasi bilan farq. Barcha miqdorlar dona (unit).
+// @Description difference = scanned_count - calculated_quantity; untracked_quantity = received_count - calculated_quantity.
+// @Tags products
+// @Security BearerAuth
+// @Produce json
+// @Param inventory_id query string true "Inventory ID"
+// @Param search query string false "Search by product name, barcode or material code"
+// @Param only_diff query bool false "Only counted products where scanned_count != calculated_quantity"
+// @Param limit query int false "Limit"
+// @Param offset query int false "Offset"
+// @Success 200 {object} v1.Response
+// @Failure 400 {object} v1.Response
+// @Failure 403 {object} v1.Response
+// @Failure 404 {object} v1.Response
+// @Failure 500 {object} v1.Response
+// @Router /product/inventory-movements [GET]
+func (h *ProductHandler) GetInventoryMovements(c *gin.Context) {
+	user := h.service.GetSignedUser(c)
+	if user.UserId == "" {
+		handleServiceResponse(c, nil, domain.UnauthorizedError)
+		return
+	}
+
+	params, ok := h.bindInventoryMovementParams(c, user)
+	if !ok {
+		return
+	}
+
+	params.Limit, params.Offset = defaultLimitOffset(params.Limit, params.Offset)
+
+	ctx, cancel := context.WithTimeout(context.Background(), time.Minute*2)
+	defer cancel()
+
+	header, items, totalCount, err := h.service.GetInventoryMovements(ctx, params)
+	if err != nil {
+		handleServiceResponse(c, nil, err)
+		return
+	}
+
+	result := utils.ListResponse(items, totalCount, params.Limit, params.Offset)
+	result["inventory"] = header
+
+	handleResponse(c, OK, result)
+}
+
+// GetInventoryMovementHistory godoc
+// @Summary Get product movement history before an inventory
+// @Description Bitta product bo'yicha inventory yaratilgan vaqtgacha bo'lgan harakatlar hujjatma-hujjat.
+// @Description quantity ishorali (kirim +, chiqim -), balance - shu hujjatdan keyingi hisoblangan qoldiq (dona).
+// @Description balance har doim butun tarix bo'yicha hisoblanadi, type filtri faqat ko'rsatiladigan qatorlarni kamaytiradi.
+// @Tags products
+// @Security BearerAuth
+// @Produce json
+// @Param inventory_id query string true "Inventory ID"
+// @Param product_id query string true "Product ID"
+// @Param type query string false "import || sale || client_return || transfer_in || transfer_out || vozvrat || inventory"
+// @Param order query string false "asc (default) || desc"
+// @Param limit query int false "Limit"
+// @Param offset query int false "Offset"
+// @Success 200 {object} v1.Response
+// @Failure 400 {object} v1.Response
+// @Failure 403 {object} v1.Response
+// @Failure 404 {object} v1.Response
+// @Failure 500 {object} v1.Response
+// @Router /product/inventory-movements/history [GET]
+func (h *ProductHandler) GetInventoryMovementHistory(c *gin.Context) {
+	user := h.service.GetSignedUser(c)
+	if user.UserId == "" {
+		handleServiceResponse(c, nil, domain.UnauthorizedError)
+		return
+	}
+
+	params, ok := h.bindInventoryMovementParams(c, user)
+	if !ok {
+		return
+	}
+
+	if err := uuid.Validate(params.ProductId); err != nil {
+		handleServiceResponse(c, nil, domain.InvalidQueryError)
+		return
+	}
+
+	params.Limit, params.Offset = defaultLimitOffset(params.Limit, params.Offset)
+
+	ctx, cancel := context.WithTimeout(context.Background(), time.Minute*2)
+	defer cancel()
+
+	header, product, history, totalCount, err := h.service.GetInventoryMovementHistory(ctx, params)
+	if err != nil {
+		handleServiceResponse(c, nil, err)
+		return
+	}
+
+	result := utils.ListResponse(history, totalCount, params.Limit, params.Offset)
+	result["inventory"] = header
+	result["product"] = product
+
+	handleResponse(c, OK, result)
+}
+
+// ExportInventoryMovements godoc
+// @Summary Export product movements before an inventory to Excel
+// @Description GetInventoryMovements natijasini barcha productlar bilan excelga yuklaydi
+// @Tags products
+// @Security BearerAuth
+// @Produce json
+// @Param inventory_id query string true "Inventory ID"
+// @Param search query string false "Search by product name, barcode or material code"
+// @Param only_diff query bool false "Only counted products where scanned_count != calculated_quantity"
+// @Success 200 {object} v1.Response
+// @Failure 400 {object} v1.Response
+// @Failure 403 {object} v1.Response
+// @Failure 404 {object} v1.Response
+// @Failure 500 {object} v1.Response
+// @Router /product/inventory-movements-export [GET]
+func (h *ProductHandler) ExportInventoryMovements(c *gin.Context) {
+	user := h.service.GetSignedUser(c)
+	if user.UserId == "" {
+		handleServiceResponse(c, nil, domain.UnauthorizedError)
+		return
+	}
+
+	params, ok := h.bindInventoryMovementParams(c, user)
+	if !ok {
+		return
+	}
+
+	// export hamma productlarni oladi
+	params.Limit, params.Offset = 0, 0
+
+	ctx, cancel := context.WithTimeout(context.Background(), time.Minute*3)
+	defer cancel()
+
+	_, items, _, err := h.service.GetInventoryMovements(ctx, params)
+	if err != nil {
+		handleServiceResponse(c, nil, err)
+		return
+	}
+
+	f := excelize.NewFile()
+	sheetName := "List1"
+	f.SetSheetName("Sheet1", sheetName)
+
+	headers := []string{
+		"Товары ID", "Код", "Наименования", "Штрихкод", "№",
+		"Тек. кол-во (шт)", "Факт. кол-во (шт)", "Разница инв. (шт)",
+		"Импорт Кол-во", "Продано Кол-во", "Возврат От клиент Кол-во",
+		"Трансфер-In", "Трансфер-Out", "Возврат склад Кол-во",
+		"Инвентаризация +", "Инвентаризация -",
+		"Расчетный остаток", "Разница (факт - расчет)", "Неучтенное (тек - расчет)",
+		"Остаток после инв.", "Первое движение", "Последнее движение",
+	}
+
+	if err = setExcelHeaders(f, sheetName, headers); err != nil {
+		h.log.Errorf("Failed to create style: %v", err)
+		handleServiceResponse(c, nil, domain.InternalServerError)
+		return
+	}
+
+	tashkent := time.FixedZone("Asia/Tashkent", 5*60*60)
+	for i, item := range items {
+		row := strconv.Itoa(i + 2)
+		f.SetCellValue(sheetName, "A"+row, item.ProductId)
+		f.SetCellValue(sheetName, "B"+row, item.MaterialCode)
+		f.SetCellValue(sheetName, "C"+row, item.Name)
+		f.SetCellValue(sheetName, "D"+row, item.Barcode)
+		f.SetCellValue(sheetName, "E"+row, item.UnitPerPack)
+		f.SetCellValue(sheetName, "F"+row, item.Inventory.ReceivedCount)
+		f.SetCellValue(sheetName, "G"+row, item.Inventory.ScannedCount)
+		if item.Inventory.Difference != nil {
+			f.SetCellValue(sheetName, "H"+row, *item.Inventory.Difference)
+		}
+		f.SetCellValue(sheetName, "I"+row, item.Movements.ImportQuantity)
+		f.SetCellValue(sheetName, "J"+row, item.Movements.SoldQuantity)
+		f.SetCellValue(sheetName, "K"+row, item.Movements.ReturnedQuantity)
+		f.SetCellValue(sheetName, "L"+row, item.Movements.TransferInQuantity)
+		f.SetCellValue(sheetName, "M"+row, item.Movements.TransferOutQuantity)
+		f.SetCellValue(sheetName, "N"+row, item.Movements.VozvratQuantity)
+		f.SetCellValue(sheetName, "O"+row, item.Movements.InventoryPlusCount)
+		f.SetCellValue(sheetName, "P"+row, item.Movements.InventoryMinusCount)
+		f.SetCellValue(sheetName, "Q"+row, item.CalculatedQuantity)
+		if item.Difference != nil {
+			f.SetCellValue(sheetName, "R"+row, *item.Difference)
+		}
+		f.SetCellValue(sheetName, "S"+row, item.UntrackedQuantity)
+		if item.StockAfterInventory != nil {
+			f.SetCellValue(sheetName, "T"+row, *item.StockAfterInventory)
+		}
+		if item.FirstMovementAt != nil {
+			f.SetCellValue(sheetName, "U"+row, item.FirstMovementAt.In(tashkent).Format("2006-01-02 15:04:05"))
+		}
+		if item.LastMovementAt != nil {
+			f.SetCellValue(sheetName, "V"+row, item.LastMovementAt.In(tashkent).Format("2006-01-02 15:04:05"))
+		}
+	}
+
+	saveExcelToUploads(c, f, *h.log, "inventory-movements")
 }
 
 // UpdateOstatok godoc

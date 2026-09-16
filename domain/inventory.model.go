@@ -196,3 +196,85 @@ type InventoryHelper struct {
 	DocNum   string `gorm:"doc_num" json:"doc_num"`
 	Status   string `gorm:"status" json:"status"`
 }
+
+// InventoryMovementParam inventory'dagi productlarning inventory'gacha bo'lgan harakatlari uchun query params.
+// StoreId va CompanyId so'rovdan olinmaydi, handler foydalanuvchi huquqidan to'ldiradi.
+type InventoryMovementParam struct {
+	InventoryId string `form:"inventory_id"`
+	ProductId   string `form:"product_id"`
+	Search      string `form:"search"`
+	OnlyDiff    bool   `form:"only_diff"`
+	Type        string `form:"type"`
+	Order       string `form:"order"`
+	Limit       int    `form:"limit"`
+	Offset      int    `form:"offset"`
+	StoreId     string `form:"-"`
+	CompanyId   string `form:"-"`
+}
+
+// InventoryMovementHeader hisob-kitob qilinayotgan inventory.
+// CutoffAt = imports.created_at: received_count snapshot'i shu tranzaksiyada olinadi,
+// shu vaqtdan keyingi harakatlar hisobga kirmaydi.
+type InventoryMovementHeader struct {
+	Id            string     `gorm:"id" json:"id"`
+	PublicId      int        `gorm:"public_id" json:"public_id"`
+	Name          string     `gorm:"name" json:"name"`
+	InventoryType string     `gorm:"inventory_type" json:"type"`
+	Status        string     `gorm:"status" json:"status"`
+	StoreId       string     `gorm:"store_id" json:"store_id"`
+	StoreName     string     `gorm:"store_name" json:"store_name"`
+	CompanyId     string     `gorm:"company_id" json:"-"`
+	CutoffAt      *time.Time `gorm:"cutoff_at" json:"cutoff_at"`
+}
+
+// InventoryMovementItem bitta product bo'yicha inventory natijasi va inventory'gacha hisoblangan qoldiq.
+// Barcha miqdorlar dona (unit) hisobida.
+type InventoryMovementItem struct {
+	ProductId           string                  `json:"product_id"`
+	MaterialCode        int                     `json:"material_code"`
+	Name                string                  `json:"name"`
+	Barcode             string                  `json:"barcode"`
+	UnitPerPack         int                     `json:"unit_per_pack"`
+	Inventory           InventoryMovementCounts `json:"inventory"`
+	Movements           InventoryMovementTotals `json:"movements"`
+	CalculatedQuantity  float64                 `json:"calculated_quantity"`
+	Difference          *float64                `json:"difference"`
+	UntrackedQuantity   float64                 `json:"untracked_quantity"`
+	StockAfterInventory *float64                `json:"stock_after_inventory"`
+	FirstMovementAt     *time.Time              `json:"first_movement_at"`
+	LastMovementAt      *time.Time              `json:"last_movement_at"`
+}
+
+// InventoryMovementCounts inventory'ning o'zidagi sonlar (import_details yig'indisi).
+type InventoryMovementCounts struct {
+	ReceivedCount float64  `json:"received_count"`
+	ScannedCount  float64  `json:"scanned_count"`
+	Difference    *float64 `json:"difference"`
+	IsCounted     bool     `json:"is_counted"`
+}
+
+// InventoryMovementTotals inventory'gacha bo'lgan harakatlar yig'indisi (musbat sonlar).
+type InventoryMovementTotals struct {
+	ImportQuantity      float64 `gorm:"import_quantity" json:"import_quantity"`
+	SoldQuantity        float64 `gorm:"sold_quantity" json:"sold_quantity"`
+	ReturnedQuantity    float64 `gorm:"returned_quantity" json:"returned_quantity"`
+	TransferInQuantity  float64 `gorm:"transfer_in_quantity" json:"transfer_in_quantity"`
+	TransferOutQuantity float64 `gorm:"transfer_out_quantity" json:"transfer_out_quantity"`
+	VozvratQuantity     float64 `gorm:"vozvrat_quantity" json:"vozvrat_quantity"`
+	InventoryPlusCount  float64 `gorm:"inventory_plus_count" json:"inventory_plus_count"`
+	InventoryMinusCount float64 `gorm:"inventory_minus_count" json:"inventory_minus_count"`
+}
+
+// InventoryMovementHistoryItem bitta hujjat bo'yicha product harakati.
+// Quantity ishorali: kirim +, chiqim -. Balance - shu hujjatdan keyingi hisoblangan qoldiq.
+type InventoryMovementHistoryItem struct {
+	Type         string    `gorm:"type" json:"type"`
+	DocumentId   string    `gorm:"document_id" json:"document_id"`
+	PublicId     string    `gorm:"public_id" json:"public_id"`
+	Status       string    `gorm:"status" json:"status"`
+	Counterparty string    `gorm:"counterparty" json:"counterparty"`
+	MovementAt   time.Time `gorm:"movement_at" json:"movement_at"`
+	Quantity     float64   `gorm:"quantity" json:"quantity"`
+	Balance      float64   `gorm:"balance" json:"balance"`
+	TotalCount   int64     `gorm:"total_count" json:"-"`
+}
