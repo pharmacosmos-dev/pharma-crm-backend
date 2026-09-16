@@ -202,6 +202,9 @@ type inventoryMovementRow struct {
 	ScannedCount       float64    `gorm:"scanned_count"`
 	IsScanned          bool       `gorm:"is_scanned"`
 	SomeStockAfter     float64    `gorm:"some_stock_after"`
+	RetailPrice        float64    `gorm:"retail_price"`
+	ReceivedSum        float64    `gorm:"received_sum"`
+	ScannedSum         float64    `gorm:"scanned_sum"`
 	CalculatedQuantity float64    `gorm:"calculated_quantity"`
 	FirstMovementAt    *time.Time `gorm:"first_movement_at"`
 	LastMovementAt     *time.Time `gorm:"last_movement_at"`
@@ -306,7 +309,10 @@ func (s *Services) GetInventoryMovements(ctx context.Context, params *domain.Inv
 			SUM(CASE WHEN imd.scanned_count > 0 AND imd.store_product_id IS NOT NULL
 				THEN imd.scanned_count ELSE imd.received_count END) AS some_stock_after,
 			BOOL_OR(imd.scanned_count > 0)                        AS is_scanned,
-			BOOL_OR(imd.store_product_id IS NOT NULL)             AS in_store
+			BOOL_OR(imd.store_product_id IS NOT NULL)             AS in_store,
+			MAX(COALESCE(imd.retail_price_vat, 0))                AS retail_price,
+			SUM(COALESCE(imd.retail_price_vat, 0) * imd.received_count) AS received_amount,
+			SUM(COALESCE(imd.retail_price_vat, 0) * imd.scanned_count)  AS scanned_amount
 		FROM import_details imd
 		WHERE imd.import_id = @inventory_id
 		GROUP BY imd.product_id
@@ -321,7 +327,11 @@ func (s *Services) GetInventoryMovements(ctx context.Context, params *domain.Inv
 			inv.received_count,
 			inv.scanned_count,
 			inv.some_stock_after,
-			inv.is_scanned
+			inv.is_scanned,
+			inv.retail_price,
+			-- retail_price_vat 1 upakovka narxi, sonlar esa dona
+			COALESCE(inv.received_amount / NULLIF(p.unit_per_pack, 0), 0) AS received_sum,
+			COALESCE(inv.scanned_amount / NULLIF(p.unit_per_pack, 0), 0)  AS scanned_sum
 		FROM inv
 		JOIN products p ON p.id = inv.product_id
 		WHERE TRUE %s
@@ -358,6 +368,9 @@ func (s *Services) GetInventoryMovements(ctx context.Context, params *domain.Inv
 			pg.scanned_count,
 			pg.is_scanned,
 			pg.some_stock_after,
+			pg.retail_price,
+			pg.received_sum,
+			pg.scanned_sum,
 			COALESCE(a.import_quantity, 0)       AS import_quantity,
 			COALESCE(a.sold_quantity, 0)         AS sold_quantity,
 			COALESCE(a.returned_quantity, 0)     AS returned_quantity,
@@ -408,7 +421,10 @@ func buildInventoryMovementItem(header *domain.InventoryMovementHeader, isSome b
 			ReceivedCount: received,
 			ScannedCount:  scanned,
 			// SOME (qisman) inventory'da skanerlanmagan product umuman sanalmagan
-			IsCounted: !isSome || row.IsScanned,
+			IsCounted:   !isSome || row.IsScanned,
+			RetailPrice: utils.RoundTo(row.RetailPrice, 2),
+			ReceivedSum: utils.RoundTo(row.ReceivedSum, 2),
+			ScannedSum:  utils.RoundTo(row.ScannedSum, 2),
 		},
 		Movements:          row.InventoryMovementTotals,
 		CalculatedQuantity: calculated,
@@ -419,9 +435,20 @@ func buildInventoryMovementItem(header *domain.InventoryMovementHeader, isSome b
 
 	if item.Inventory.IsCounted {
 		inventoryDiff := utils.RoundTo(scanned-received, 4)
+		inventoryDiffSum := utils.RoundTo(item.Inventory.ScannedSum-item.Inventory.ReceivedSum, 2)
 		diff := utils.RoundTo(scanned-calculated, 4)
 		item.Inventory.Difference = &inventoryDiff
+		item.Inventory.DifferenceSum = &inventoryDiffSum
 		item.Difference = &diff
+
+		switch {
+		case inventoryDiff < 0:
+			item.Inventory.ShortageCount = -inventoryDiff
+			item.Inventory.ShortageSum = -inventoryDiffSum
+		case inventoryDiff > 0:
+			item.Inventory.SurplusCount = inventoryDiff
+			item.Inventory.SurplusSum = inventoryDiffSum
+		}
 	}
 
 	if header.Status == constants.GeneralStatusCompleted {

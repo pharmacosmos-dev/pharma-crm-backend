@@ -3811,6 +3811,7 @@ func (h *ProductHandler) bindInventoryMovementParams(c *gin.Context, user *domai
 // @Description harakatlar yig'indisi (import, sotuv, mijoz qaytarishi, transfer kirim/chiqim, vozvrat, oldingi inventory'lar),
 // @Description hisoblangan qoldiq va inventory natijasi bilan farq. Barcha miqdorlar dona (unit).
 // @Description difference = scanned_count - calculated_quantity; untracked_quantity = received_count - calculated_quantity.
+// @Description inventory.received_sum / scanned_sum / shortage_sum / surplus_sum - partiyalarning retail_price_vat narxi bilan summalar.
 // @Tags products
 // @Security BearerAuth
 // @Produce json
@@ -3955,6 +3956,8 @@ func (h *ProductHandler) ExportInventoryMovements(c *gin.Context) {
 	headers := []string{
 		"Товары ID", "Код", "Наименования", "Штрихкод", "№",
 		"Тек. кол-во (шт)", "Факт. кол-во (шт)", "Разница инв. (шт)",
+		"Розн. цена (упак)", "Тек. сумма", "Факт. сумма", "Разница инв. сумма",
+		"Недостача (шт)", "Недостача сумма", "Излишек (шт)", "Излишек сумма",
 		"Импорт Кол-во", "Продано Кол-во", "Возврат От клиент Кол-во",
 		"Трансфер-In", "Трансфер-Out", "Возврат склад Кол-во",
 		"Инвентаризация +", "Инвентаризация -",
@@ -3968,40 +3971,44 @@ func (h *ProductHandler) ExportInventoryMovements(c *gin.Context) {
 		return
 	}
 
+	// nil qiymatlar (sanalmagan product, confirm bo'lmagan inventory, harakati yo'q product) bo'sh katak bo'ladi
+	optionalFloat := func(v *float64) any {
+		if v == nil {
+			return nil
+		}
+		return *v
+	}
 	tashkent := time.FixedZone("Asia/Tashkent", 5*60*60)
+	optionalTime := func(v *time.Time) any {
+		if v == nil {
+			return nil
+		}
+		return v.In(tashkent).Format("2006-01-02 15:04:05")
+	}
+
 	for i, item := range items {
-		row := strconv.Itoa(i + 2)
-		f.SetCellValue(sheetName, "A"+row, item.ProductId)
-		f.SetCellValue(sheetName, "B"+row, item.MaterialCode)
-		f.SetCellValue(sheetName, "C"+row, item.Name)
-		f.SetCellValue(sheetName, "D"+row, item.Barcode)
-		f.SetCellValue(sheetName, "E"+row, item.UnitPerPack)
-		f.SetCellValue(sheetName, "F"+row, item.Inventory.ReceivedCount)
-		f.SetCellValue(sheetName, "G"+row, item.Inventory.ScannedCount)
-		if item.Inventory.Difference != nil {
-			f.SetCellValue(sheetName, "H"+row, *item.Inventory.Difference)
+		values := []any{
+			item.ProductId, item.MaterialCode, item.Name, item.Barcode, item.UnitPerPack,
+			item.Inventory.ReceivedCount, item.Inventory.ScannedCount, optionalFloat(item.Inventory.Difference),
+			item.Inventory.RetailPrice, item.Inventory.ReceivedSum, item.Inventory.ScannedSum, optionalFloat(item.Inventory.DifferenceSum),
+			item.Inventory.ShortageCount, item.Inventory.ShortageSum, item.Inventory.SurplusCount, item.Inventory.SurplusSum,
+			item.Movements.ImportQuantity, item.Movements.SoldQuantity, item.Movements.ReturnedQuantity,
+			item.Movements.TransferInQuantity, item.Movements.TransferOutQuantity, item.Movements.VozvratQuantity,
+			item.Movements.InventoryPlusCount, item.Movements.InventoryMinusCount,
+			item.CalculatedQuantity, optionalFloat(item.Difference), item.UntrackedQuantity,
+			optionalFloat(item.StockAfterInventory), optionalTime(item.FirstMovementAt), optionalTime(item.LastMovementAt),
 		}
-		f.SetCellValue(sheetName, "I"+row, item.Movements.ImportQuantity)
-		f.SetCellValue(sheetName, "J"+row, item.Movements.SoldQuantity)
-		f.SetCellValue(sheetName, "K"+row, item.Movements.ReturnedQuantity)
-		f.SetCellValue(sheetName, "L"+row, item.Movements.TransferInQuantity)
-		f.SetCellValue(sheetName, "M"+row, item.Movements.TransferOutQuantity)
-		f.SetCellValue(sheetName, "N"+row, item.Movements.VozvratQuantity)
-		f.SetCellValue(sheetName, "O"+row, item.Movements.InventoryPlusCount)
-		f.SetCellValue(sheetName, "P"+row, item.Movements.InventoryMinusCount)
-		f.SetCellValue(sheetName, "Q"+row, item.CalculatedQuantity)
-		if item.Difference != nil {
-			f.SetCellValue(sheetName, "R"+row, *item.Difference)
-		}
-		f.SetCellValue(sheetName, "S"+row, item.UntrackedQuantity)
-		if item.StockAfterInventory != nil {
-			f.SetCellValue(sheetName, "T"+row, *item.StockAfterInventory)
-		}
-		if item.FirstMovementAt != nil {
-			f.SetCellValue(sheetName, "U"+row, item.FirstMovementAt.In(tashkent).Format("2006-01-02 15:04:05"))
-		}
-		if item.LastMovementAt != nil {
-			f.SetCellValue(sheetName, "V"+row, item.LastMovementAt.In(tashkent).Format("2006-01-02 15:04:05"))
+		for j, value := range values {
+			if value == nil {
+				continue
+			}
+			cell, err := excelize.CoordinatesToCellName(j+1, i+2)
+			if err != nil {
+				h.log.Errorf("could not build excel cell name: %v", err)
+				handleServiceResponse(c, nil, domain.InternalServerError)
+				return
+			}
+			f.SetCellValue(sheetName, cell, value)
 		}
 	}
 

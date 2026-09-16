@@ -19515,7 +19515,7 @@
                         "BearerAuth": []
                     }
                 ],
-                "description": "Inventory'dagi har bir product uchun inventory yaratilgan vaqtgacha (imports.created_at) bo'lgan\nharakatlar yig'indisi (import, sotuv, mijoz qaytarishi, transfer kirim/chiqim, vozvrat, oldingi inventory'lar),\nhisoblangan qoldiq va inventory natijasi bilan farq. Barcha miqdorlar dona (unit).\ndifference = scanned_count - calculated_quantity; untracked_quantity = received_count - calculated_quantity.",
+                "description": "Inventory'dagi har bir product uchun inventory yaratilgan vaqtgacha (imports.created_at) bo'lgan\nharakatlar yig'indisi (import, sotuv, mijoz qaytarishi, transfer kirim/chiqim, vozvrat, oldingi inventory'lar),\nhisoblangan qoldiq va inventory natijasi bilan farq. Barcha miqdorlar dona (unit).\ndifference = scanned_count - calculated_quantity; untracked_quantity = received_count - calculated_quantity.\ninventory.received_sum / scanned_sum / shortage_sum / surplus_sum - partiyalarning retail_price_vat narxi bilan summalar.",
                 "produces": [
                     "application/json"
                 ],

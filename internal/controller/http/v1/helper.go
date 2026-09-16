@@ -39,7 +39,11 @@ func setExcelHeaders(f *excelize.File, sheet string, headers []string) error {
 		return err
 	}
 	for i, h := range headers {
-		col := string(rune('A'+i)) + "1"
+		// 26 dan ortiq ustun uchun ham to'g'ri nom (Z dan keyin AA, AB, ...)
+		col, err := excelize.CoordinatesToCellName(i+1, 1)
+		if err != nil {
+			return err
+		}
 		f.SetCellValue(sheet, col, h)
 		f.SetCellStyle(sheet, col, col, headerStyle)
 	}

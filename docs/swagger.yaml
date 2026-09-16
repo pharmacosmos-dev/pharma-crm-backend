@@ -15697,6 +15697,7 @@ paths:
         harakatlar yig'indisi (import, sotuv, mijoz qaytarishi, transfer kirim/chiqim, vozvrat, oldingi inventory'lar),
         hisoblangan qoldiq va inventory natijasi bilan farq. Barcha miqdorlar dona (unit).
         difference = scanned_count - calculated_quantity; untracked_quantity = received_count - calculated_quantity.
+        inventory.received_sum / scanned_sum / shortage_sum / surplus_sum - partiyalarning retail_price_vat narxi bilan summalar.
       parameters:
       - description: Inventory ID
         in: query

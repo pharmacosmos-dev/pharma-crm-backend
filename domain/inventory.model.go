@@ -245,12 +245,22 @@ type InventoryMovementItem struct {
 	LastMovementAt      *time.Time              `json:"last_movement_at"`
 }
 
-// InventoryMovementCounts inventory'ning o'zidagi sonlar (import_details yig'indisi).
+// InventoryMovementCounts inventory'ning o'zidagi sonlar va summalar (import_details yig'indisi).
+// Summalar inventory detail list'dagi kabi har bir partiyaning retail_price_vat narxi bilan hisoblanadi.
+// Kamomad/ortiqcha product bo'yicha sof farqdan olinadi: scanned < received - kamomad, scanned > received - ortiqcha.
 type InventoryMovementCounts struct {
 	ReceivedCount float64  `json:"received_count"`
 	ScannedCount  float64  `json:"scanned_count"`
 	Difference    *float64 `json:"difference"`
 	IsCounted     bool     `json:"is_counted"`
+	RetailPrice   float64  `json:"retail_price"`
+	ReceivedSum   float64  `json:"received_sum"`
+	ScannedSum    float64  `json:"scanned_sum"`
+	DifferenceSum *float64 `json:"difference_sum"`
+	ShortageCount float64  `json:"shortage_count"`
+	ShortageSum   float64  `json:"shortage_sum"`
+	SurplusCount  float64  `json:"surplus_count"`
+	SurplusSum    float64  `json:"surplus_sum"`
 }
 
 // InventoryMovementTotals inventory'gacha bo'lgan harakatlar yig'indisi (musbat sonlar).
