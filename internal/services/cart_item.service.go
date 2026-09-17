@@ -43,6 +43,12 @@ func (s *Services) CreateCartItem(ctx context.Context, req *domain.CartItemReque
 		return nil, domain.SaleIsClosedError
 	}
 
+	// block selling while the store's latest inventory is not completed
+	if err = s.checkLastInventoryCompleted(ctx, tx, sale.StoreId); err != nil {
+		_ = tx.Rollback()
+		return nil, err
+	}
+
 	// check if marking was already sold in a finished sale
 	if err = s.checkMarkingNotSold(ctx, tx, req.Marking); err != nil {
 		_ = tx.Rollback()
@@ -639,6 +645,12 @@ func (s *Services) UpdateCartItemQuantity(ctx context.Context, req *domain.CartI
 		return nil, domain.SaleIsClosedError
 	}
 
+	// block selling while the store's latest inventory is not finished
+	if err = s.checkLastInventoryCompleted(ctx, tx, sale.StoreId); err != nil {
+		_ = tx.Rollback()
+		return nil, err
+	}
+
 	// get store_product by id
 	storeProduct, err := s.GetStoreProductById(ctx, tx, req.StoreProductId)
 	if err != nil {
@@ -815,6 +827,31 @@ func (s *Services) checkEmployeeIsInStore(ctx context.Context, employeeId string
 	}
 
 	return nil
+}
+
+// checkLastInventoryCompleted: do'konning eng oxirgi pereuchyoti (imports.entry_type = 2)
+// completed yoki canceled bo'lmasa savdoga yo'l qo'yilmaydi.
+func (s *Services) checkLastInventoryCompleted(ctx context.Context, tx *gorm.DB, storeId string) error {
+	query := `
+	SELECT
+		status
+	FROM imports
+	WHERE store_id = ?
+		AND entry_type = ?
+	ORDER BY created_at DESC
+	LIMIT 1;`
+
+	var status string
+	result := tx.WithContext(ctx).Raw(query, storeId, constants.ProductMovementInventory).Scan(&status)
+	if result.Error != nil {
+		s.log.Errorf("could not check last inventory of store(%s): %v", storeId, result.Error)
+		return domain.InternalServerError
+	}
+	if result.RowsAffected == 0 || status == constants.GeneralStatusCompleted || status == constants.GeneralStatusCanceled {
+		return nil
+	}
+
+	return domain.ActiveInventoryError
 }
 
 func (s *Services) checkMarkingNotSold(ctx context.Context, tx *gorm.DB, marking string) error {

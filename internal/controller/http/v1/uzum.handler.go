@@ -2,6 +2,7 @@ package v1
 
 import (
 	"context"
+	"errors"
 	"net/http"
 	"strconv"
 
@@ -156,6 +157,12 @@ func (h *UzumHandler) CreateOrder(c *gin.Context) {
 		if notAddErr, ok := err.(*domain.NotAdditionError); ok {
 			c.JSON(http.StatusBadRequest, domain.UzumErrorList{
 				{Code: 400, Description: notAddErr.Data.(string)},
+			})
+			return
+		}
+		if errors.Is(err, domain.ActiveInventoryError) {
+			c.JSON(http.StatusConflict, domain.UzumErrorList{
+				{Code: 409, Description: "store inventory is not completed"},
 			})
 			return
 		}

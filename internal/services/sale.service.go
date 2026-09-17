@@ -212,6 +212,13 @@ func (s *Services) CreateOnlineSale(ctx context.Context, req *domain.OnlineSaleC
 		}
 	}()
 	var sale domain.Sale
+
+	// block online orders while the store's latest inventory is not completed
+	if err := s.checkLastInventoryCompleted(ctx, tx, req.StoreId); err != nil {
+		_ = tx.Rollback()
+		return &sale, err
+	}
+
 	// create new sale
 	err := tx.WithContext(ctx).Raw(`
 	INSERT INTO sales(

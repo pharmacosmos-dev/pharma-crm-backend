@@ -2,6 +2,7 @@ package v1
 
 import (
 	"context"
+	"errors"
 	"net/http"
 	"strconv"
 
@@ -176,6 +177,10 @@ func (h *NoorHandler) CreateOrder(c *gin.Context) {
 	if err != nil {
 		if notAddErr, ok := err.(*domain.NotAdditionError); ok {
 			handleResponseNoor(c, http.StatusConflict, notAddErr.Data)
+			return
+		}
+		if errors.Is(err, domain.ActiveInventoryError) {
+			handleResponseNoor(c, http.StatusConflict, err)
 			return
 		}
 		handleResponseNoor(c, http.StatusInternalServerError, err)
