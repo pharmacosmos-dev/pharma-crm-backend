@@ -1207,15 +1207,19 @@ func (h *EmployeeHandler) DeleteAttendanceFaceId(c *gin.Context) {
 
 // CleanupOldAttendanceFaceIds godoc
 // @Summary      Cleanup old attendance photos (admin)
-// @Description  keep_days'dan eski (Toshkent vaqti bo'yicha kun sanog'i) barcha check-in/check-out rasmlarining face_id_url maydonini NULL qiladi va tegishli fayllarni upload papkadan o'chiradi. Masalan keep_days=2 (standart) bo'lsa, faqat bugungi va kechagi kun rasmlari saqlanadi, undan oldingi barcha kunlar tozalanadi. Faqat admin huquqiga ega foydalanuvchilar chaqira oladi.
+// @Description  keep_days'dan eski (Toshkent vaqti bo'yicha kun sanog'i) check-in/check-out yozuvlarining face_id_url maydonini NULL qiladi va shu yozuvlar ko'rsatgan fayllarni upload papkadan o'chiradi. Masalan keep_days=2 (standart) bo'lsa, faqat bugungi va kechagi kun rasmlari saqlanadi, undan oldingi barcha kunlar tozalanadi.
+// @Description  Upload papkadagi face_id_url'ga tegishli bo'lmagan fayllarga tegilmaydi. Diskda topilmagan fayl yozuvi ham NULL qilinadi; o'chirib bo'lmagan fayl yoki xavfsiz bo'lmagan face_id_url yozuvi o'zgarmaydi.
+// @Description  selected_count, updated_count — yozuvlar soni; deleted_file_count, file_not_found_count, delete_error_count, still_in_use_file_count — unique fayllar soni; skipped_invalid_path_count — tegilmagan yozuvlar soni.
+// @Description  Bir vaqtda faqat bitta tozalash ishlaydi, parallel chaqiruv 409 oladi. Faqat admin huquqiga ega foydalanuvchilar chaqira oladi.
 // @Tags         employees
 // @Security     BearerAuth
 // @Produce      json
 // @Param        keep_days  query  int  false  "Nechta oxirgi kun saqlanishi kerak (standart 2)"
-// @Success      200  {object}  v1.Response
+// @Success      200  {object}  v1.Response{data=domain.AttendanceFaceIdCleanupResult}
 // @Failure      400  {object}  v1.Response
 // @Failure      401  {object}  v1.Response
 // @Failure      403  {object}  v1.Response
+// @Failure      409  {object}  v1.Response
 // @Failure      500  {object}  v1.Response
 // @Router       /employee/attendance-face-id/cleanup-old [delete]
 func (h *EmployeeHandler) CleanupOldAttendanceFaceIds(c *gin.Context) {
@@ -1243,23 +1247,13 @@ func (h *EmployeeHandler) CleanupOldAttendanceFaceIds(c *gin.Context) {
 	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
 	defer cancel()
 
-	fileNames, err := h.service.CleanupOldAttendanceFaceIds(ctx, keepDays)
+	result, err := h.service.CleanupOldAttendanceFaceIds(ctx, keepDays)
 	if err != nil {
 		handleServiceResponse(c, nil, err)
 		return
 	}
 
-	for _, fileName := range fileNames {
-		if fileName == "" {
-			continue
-		}
-		filePath := filepath.Join("./app/uploads", fileName)
-		if removeErr := os.Remove(filePath); removeErr != nil && !os.IsNotExist(removeErr) {
-			h.log.Errorf("could not delete attendance photo file: %v", removeErr)
-		}
-	}
-
-	handleResponse(c, OK, gin.H{"cleaned_count": len(fileNames)})
+	handleResponse(c, OK, result)
 }
 
 // AttendanceList godoc

@@ -101,6 +101,17 @@ type AttendanceLogListItem struct {
 	UpdatedAt     *time.Time `json:"updated_at"`
 }
 
+
+type AttendanceFaceIdCleanupResult struct {
+	SelectedCount int `json:"selected_count" example:"120"`
+	UpdatedCount int `json:"updated_count" example:"117"`
+	DeletedFileCount int `json:"deleted_file_count" example:"110"`
+	FileNotFoundCount int `json:"file_not_found_count" example:"5"`
+	DeleteErrorCount int `json:"delete_error_count" example:"0"`
+	SkippedInvalidPathCount int `json:"skipped_invalid_path_count" example:"3"`
+	StillInUseFileCount int `json:"still_in_use_file_count" example:"0"`
+}
+
 type EmployeeAttendanceDayQueryParams struct {
 	StoreId    string `form:"store_id"`
 	EmployeeId string `form:"employee_id"`

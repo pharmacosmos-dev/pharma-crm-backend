@@ -177,28 +177,6 @@ func (s *Services) ClearAttendanceLogFaceIdUrl(ctx context.Context, id string) (
 	return oldFaceIdUrl, nil
 }
 
-// CleanupOldAttendanceFaceIds — keepDays kundan eski (Toshkent vaqti bo'yicha kun sanog'i)
-// check-in/check-out rasmlarining face_id_url maydonini NULL qiladi va o'chirilgan fayl
-// nomlarini qaytaradi (handler shu fayllarni ./app/uploads papkadan o'chiradi).
-// Masalan keepDays=2 bo'lsa, bugungi va kechagi kun rasmlari saqlanib qoladi,
-// undan oldingi barcha kunlar (masalan, 1-avgust, 31-iyul, ...) tozalanadi.
-func (s *Services) CleanupOldAttendanceFaceIds(ctx context.Context, keepDays int) ([]string, error) {
-	var fileNames []string
-	err := s.db.WithContext(ctx).Raw(`
-		UPDATE attendance_logs
-		SET face_id_url = NULL
-		WHERE face_id_url IS NOT NULL
-		  AND (event_at + interval '5 hours')::date < (CURRENT_DATE - ?::int)
-		RETURNING face_id_url
-	`, keepDays-1).Scan(&fileNames).Error
-	if err != nil {
-		s.log.Errorf("could not cleanup old attendance face ids: %v", err)
-		return nil, domain.InternalServerError
-	}
-
-	return fileNames, nil
-}
-
 // GetAttendanceLogList — check-in/check-out yozuvlari ro'yxati, store_id, employee_id
 // va start_date/end_date (SaleStatistic bilan bir xil: end_date berilmasa start_date
 // kuni yakunigacha qamrab olinadi) filtrlari bilan.

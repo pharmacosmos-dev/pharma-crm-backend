@@ -79,6 +79,42 @@ definitions:
     required:
     - token
     type: object
+  domain.AttendanceFaceIdCleanupResult:
+    properties:
+      delete_error_count:
+        description: |-
+          Diskda bor, lekin o'chirib bo'lmagan fayllar. Trash'ga ko'chirishda xato bo'lsa
+          yozuvlar o'zgarmaydi (keyingi chaqiruvda qayta uriniladi); COMMIT'dan keyin
+          o'chirishda xato bo'lsa fayl trash'da qoladi va keyingi chaqiruvda o'chiriladi.
+        example: 0
+        type: integer
+      deleted_file_count:
+        description: Diskdan haqiqatan o'chirilgan fayllar.
+        example: 110
+        type: integer
+      file_not_found_count:
+        description: Bazada bor, diskda yo'q fayllar — yozuvlari baribir NULL qilinadi.
+        example: 5
+        type: integer
+      selected_count:
+        description: face_id_url'i bor va keep_days'dan eski yozuvlar.
+        example: 120
+        type: integer
+      skipped_invalid_path_count:
+        description: face_id_url xavfsiz fayl nomi bo'lmagani uchun tegilmagan (NULL
+          ham qilinmagan) yozuvlar.
+        example: 3
+        type: integer
+      still_in_use_file_count:
+        description: Saqlanib qolayotgan boshqa yozuv ham ko'rsatgani uchun diskda
+          qoldirilgan fayllar.
+        example: 0
+        type: integer
+      updated_count:
+        description: face_id_url'i NULL qilingan yozuvlar.
+        example: 117
+        type: integer
+    type: object
   domain.AutoOrderRequest:
     properties:
       auto_order_date:
@@ -7491,11 +7527,11 @@ paths:
       - employees
   /employee/attendance-face-id/cleanup-old:
     delete:
-      description: keep_days'dan eski (Toshkent vaqti bo'yicha kun sanog'i) barcha
-        check-in/check-out rasmlarining face_id_url maydonini NULL qiladi va tegishli
-        fayllarni upload papkadan o'chiradi. Masalan keep_days=2 (standart) bo'lsa,
-        faqat bugungi va kechagi kun rasmlari saqlanadi, undan oldingi barcha kunlar
-        tozalanadi. Faqat admin huquqiga ega foydalanuvchilar chaqira oladi.
+      description: |-
+        keep_days'dan eski (Toshkent vaqti bo'yicha kun sanog'i) check-in/check-out yozuvlarining face_id_url maydonini NULL qiladi va shu yozuvlar ko'rsatgan fayllarni upload papkadan o'chiradi. Masalan keep_days=2 (standart) bo'lsa, faqat bugungi va kechagi kun rasmlari saqlanadi, undan oldingi barcha kunlar tozalanadi.
+        Upload papkadagi face_id_url'ga tegishli bo'lmagan fayllarga tegilmaydi. Diskda topilmagan fayl yozuvi ham NULL qilinadi; o'chirib bo'lmagan fayl yoki xavfsiz bo'lmagan face_id_url yozuvi o'zgarmaydi.
+        selected_count, updated_count — yozuvlar soni; deleted_file_count, file_not_found_count, delete_error_count, still_in_use_file_count — unique fayllar soni; skipped_invalid_path_count — tegilmagan yozuvlar soni.
+        Bir vaqtda faqat bitta tozalash ishlaydi, parallel chaqiruv 409 oladi. Faqat admin huquqiga ega foydalanuvchilar chaqira oladi.
       parameters:
       - description: Nechta oxirgi kun saqlanishi kerak (standart 2)
         in: query
@@ -7507,7 +7543,12 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/v1.Response'
+            allOf:
+            - $ref: '#/definitions/v1.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/domain.AttendanceFaceIdCleanupResult'
+              type: object
         "400":
           description: Bad Request
           schema:
@@ -7518,6 +7559,10 @@ paths:
             $ref: '#/definitions/v1.Response'
         "403":
           description: Forbidden
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "409":
+          description: Conflict
           schema:
             $ref: '#/definitions/v1.Response'
         "500":
