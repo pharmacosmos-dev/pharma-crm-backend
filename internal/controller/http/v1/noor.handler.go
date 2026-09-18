@@ -23,7 +23,7 @@ func (h *Handler) NewNoorHandler(r *gin.RouterGroup) {
 func (h *NoorHandler) NoorRoutes(r *gin.RouterGroup) {
 	noor := r.Group("/noor")
 	noor.GET("/product/list", h.ProductList)
-	noor.GET("/store-product/list", h.StoreProductList)
+	// noor.GET("/store-product/list", h.StoreProductList)
 	noor.GET("/store/list", h.StoreList)
 	noor.GET("/category/list", h.CategoryList)
 	noor.POST("/order", h.CreateOrder)
