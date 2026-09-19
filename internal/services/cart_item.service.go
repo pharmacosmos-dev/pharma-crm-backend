@@ -854,6 +854,16 @@ func (s *Services) checkLastInventoryCompleted(ctx context.Context, tx *gorm.DB,
 	return domain.ActiveInventoryError
 }
 
+// checkMarkingNotSold: markirovka oxirgi marta qaysi holatda qolganini tekshiradi.
+// Vozvrat alohida sales qatori bo'lib, sale_number original savdo bilan bir xil qoladi:
+// sotuv — stage 9, vozvrat — stage 11 va uning completed_at'i kechroq. Shuning uchun shu
+// markirovka uchragan qatorlardan completed_at bo'yicha eng oxirgisi olinadi:
+//
+//	stage 11 — mahsulot qaytarilgan, markirovkani qayta sotsa bo'ladi;
+//	stage 9  — hali sotilgan holatda, eski logika: xato qaytariladi.
+//
+// Qisman vozvratda ham to'g'ri ishlaydi: vozvrat qatoriga faqat qaytarilgan cart_item'lar
+// markirovkasi bilan ko'chiriladi, qaytarilmagan markirovka esa stage 9 da qolaveradi.
 func (s *Services) checkMarkingNotSold(ctx context.Context, tx *gorm.DB, marking string) error {
 	if marking == "" {
 		return nil
@@ -861,28 +871,36 @@ func (s *Services) checkMarkingNotSold(ctx context.Context, tx *gorm.DB, marking
 
 	query := `
 	SELECT
-		s.sale_number
+		s.sale_number,
+		s.stage
 	FROM cart_items AS ci
 	JOIN sales AS s ON s.id = ci.sale_id
 	JOIN products AS p ON p.id = ci.product_id
 	WHERE ci.markings @> ARRAY[?]::text[]
-		AND s.stage = ?
+		AND s.stage IN (?, ?)
 		AND p.unit_per_pack = 1
+	ORDER BY s.completed_at DESC NULLS LAST, s.stage DESC
 	LIMIT 1;`
 
-	var saleNumber int
-	result := tx.WithContext(ctx).Raw(query, marking, constants.SaleStageFinished).Scan(&saleNumber)
+	var res struct {
+		SaleNumber int
+		Stage      int
+	}
+	result := tx.WithContext(ctx).
+		Raw(query, marking, constants.SaleStageFinished, constants.SaleStageReturnedFinish).
+		Scan(&res)
 	if result.Error != nil {
 		s.log.Errorf("could not check sold marking: %v", result.Error)
 		return domain.InternalServerError
 	}
-	if result.RowsAffected == 0 {
+	// hech qayerda uchramadi yoki oxirgi holati vozvrat — sotishga ruxsat
+	if result.RowsAffected == 0 || res.Stage == constants.SaleStageReturnedFinish {
 		return nil
 	}
 
 	return domain.NewError(
 		domain.MarkingAlreadySoldError.Code,
-		fmt.Sprintf("%s:%d", domain.MarkingAlreadySoldError.Message, saleNumber),
+		fmt.Sprintf("%s:%d", domain.MarkingAlreadySoldError.Message, res.SaleNumber),
 	)
 }
 

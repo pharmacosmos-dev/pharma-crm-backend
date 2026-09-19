@@ -21292,6 +21292,93 @@
                 }
             }
         },
+        "/product/reserved-products/list": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "1C yuborgan rezerv mahsulotlar ro'yxati, doim ORDER BY sort_index ASC (1C tartibi).\nis_active berilmasa aktiv va deaktiv qatorlar birga qaytadi.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "products"
+                ],
+                "summary": "Get reserved products list",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Nom yoki material_code bo'yicha qidiruv",
+                        "name": "search",
+                        "in": "query"
+                    },
+                    {
+                        "type": "boolean",
+                        "description": "true — hozirgi 1C ro'yxatidagilar, false — chiqib ketganlar",
+                        "name": "is_active",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Limit",
+                        "name": "limit",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Offset",
+                        "name": "offset",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/v1.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "type": "array",
+                                            "items": {
+                                                "$ref": "#/definitions/domain.ReservedProduct"
+                                            }
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    }
+                }
+            }
+        },
         "/product/revert-packaging": {
             "put": {
                 "security": [
@@ -23232,6 +23319,81 @@
                     },
                     "400": {
                         "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/product1c/reserved-products/import": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "1C har kuni ~05:00 da rezerv mahsulotlarning TO'LIQ ro'yxatini yuboradi.\nKelgan mahsulotlar is_active = true (yo'q bo'lsa qo'shiladi, bori yangilanadi),\nbugungi ro'yxatda bo'lmagan eski mahsulotlar is_active = false bo'ladi, yozuvlar o'chirilmaydi.\nindex — 1C tartibi, sort_index ustuniga yoziladi; ketma-ket bo'lishi shart emas.\nmaterial_code — yagona identifikator; requestda takrorlansa birinchisi olinadi.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "1C Api"
+                ],
+                "summary": "Import reserved products from 1C",
+                "parameters": [
+                    {
+                        "description": "1C ning kunlik to'liq ro'yxati",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/domain.ReservedProductImportRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/v1.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/domain.ReservedProductImportResult"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
                         "schema": {
                             "$ref": "#/definitions/v1.Response"
                         }
@@ -36575,37 +36737,30 @@
             "type": "object",
             "properties": {
                 "delete_error_count": {
-                    "description": "Diskda bor, lekin o'chirib bo'lmagan fayllar. Trash'ga ko'chirishda xato bo'lsa\nyozuvlar o'zgarmaydi (keyingi chaqiruvda qayta uriniladi); COMMIT'dan keyin\no'chirishda xato bo'lsa fayl trash'da qoladi va keyingi chaqiruvda o'chiriladi.",
                     "type": "integer",
                     "example": 0
                 },
                 "deleted_file_count": {
-                    "description": "Diskdan haqiqatan o'chirilgan fayllar.",
                     "type": "integer",
                     "example": 110
                 },
                 "file_not_found_count": {
-                    "description": "Bazada bor, diskda yo'q fayllar — yozuvlari baribir NULL qilinadi.",
                     "type": "integer",
                     "example": 5
                 },
                 "selected_count": {
-                    "description": "face_id_url'i bor va keep_days'dan eski yozuvlar.",
                     "type": "integer",
                     "example": 120
                 },
                 "skipped_invalid_path_count": {
-                    "description": "face_id_url xavfsiz fayl nomi bo'lmagani uchun tegilmagan (NULL ham qilinmagan) yozuvlar.",
                     "type": "integer",
                     "example": 3
                 },
                 "still_in_use_file_count": {
-                    "description": "Saqlanib qolayotgan boshqa yozuv ham ko'rsatgani uchun diskda qoldirilgan fayllar.",
                     "type": "integer",
                     "example": 0
                 },
                 "updated_count": {
-                    "description": "face_id_url'i NULL qilingan yozuvlar.",
                     "type": "integer",
                     "example": 117
                 }
@@ -37527,7 +37682,9 @@
                     "type": "string",
                     "enum": [
                         "day",
-                        "night"
+                        "night",
+                        "overnight",
+                        "middle"
                     ],
                     "example": "night"
                 },
@@ -39460,6 +39617,89 @@
                 "type": {
                     "type": "string",
                     "example": "retail_price|supply_price|expire_date"
+                }
+            }
+        },
+        "domain.ReservedProduct": {
+            "type": "object",
+            "properties": {
+                "created_at": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "is_active": {
+                    "type": "boolean"
+                },
+                "material_code": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "sort_index": {
+                    "type": "integer"
+                },
+                "updated_at": {
+                    "type": "string"
+                }
+            }
+        },
+        "domain.ReservedProductImportItem": {
+            "type": "object",
+            "properties": {
+                "index": {
+                    "type": "integer",
+                    "example": 1
+                },
+                "material_code": {
+                    "type": "string",
+                    "example": "MAT001"
+                },
+                "product_name": {
+                    "type": "string",
+                    "example": "Product A"
+                }
+            }
+        },
+        "domain.ReservedProductImportRequest": {
+            "type": "object",
+            "required": [
+                "products"
+            ],
+            "properties": {
+                "products": {
+                    "type": "array",
+                    "minItems": 1,
+                    "items": {
+                        "$ref": "#/definitions/domain.ReservedProductImportItem"
+                    }
+                }
+            }
+        },
+        "domain.ReservedProductImportResult": {
+            "type": "object",
+            "properties": {
+                "deactivated": {
+                    "type": "integer",
+                    "example": 2000
+                },
+                "inserted": {
+                    "type": "integer",
+                    "example": 100
+                },
+                "skipped_duplicate": {
+                    "type": "integer",
+                    "example": 0
+                },
+                "total_received": {
+                    "type": "integer",
+                    "example": 9000
+                },
+                "updated": {
+                    "type": "integer",
+                    "example": 8900
                 }
             }
         },

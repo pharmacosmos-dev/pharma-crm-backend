@@ -41,6 +41,7 @@ func (h *ProductOnecHandler) ProductOnecRoutes(r *gin.RouterGroup) {
 		onec.POST("/return/create-and-send", h.CreateAndSendReturnForOnec)
 		onec.POST("/report/store-stats", h.StoreReportStats)
 		onec.GET("/sale/list", h.GetSales)
+		onec.POST("/reserved-products/import", logger, h.ImportReservedProducts)
 	}
 	r.POST("/generate-token", h.GenerateOnecToken)
 }
@@ -859,4 +860,43 @@ func (h *ProductOnecHandler) GetSales(c *gin.Context) {
 	}
 
 	handleResponse(c, OK, utils.ListResponse(res, totalCount, params.Limit, params.Offset))
+}
+
+// ImportReservedProducts godoc
+// @Summary Import reserved products from 1C
+// @Description 1C har kuni ~05:00 da rezerv mahsulotlarning TO'LIQ ro'yxatini yuboradi.
+// @Description Kelgan mahsulotlar is_active = true (yo'q bo'lsa qo'shiladi, bori yangilanadi),
+// @Description bugungi ro'yxatda bo'lmagan eski mahsulotlar is_active = false bo'ladi, yozuvlar o'chirilmaydi.
+// @Description index — 1C tartibi, sort_index ustuniga yoziladi; ketma-ket bo'lishi shart emas.
+// @Description material_code — yagona identifikator; requestda takrorlansa birinchisi olinadi.
+// @Tags 	1C Api
+// @Security     BearerAuth
+// @Accept 	json
+// @Produce json
+// @Param 	body body domain.ReservedProductImportRequest true "1C ning kunlik to'liq ro'yxati"
+// @Success 200 {object} v1.Response{data=domain.ReservedProductImportResult}
+// @Failure 400 {object} v1.Response
+// @Failure 401 {object} v1.Response
+// @Failure 409 {object} v1.Response
+// @Failure 500 {object} v1.Response
+// @Router /product1c/reserved-products/import [POST]
+func (h *ProductOnecHandler) ImportReservedProducts(c *gin.Context) {
+	var body domain.ReservedProductImportRequest
+	// bind request body
+	if err := c.ShouldBindJSON(&body); err != nil {
+		h.log.Errorf("could not bind reserved products import request: %v", err)
+		handleServiceResponse(c, BadRequest, domain.InvalidRequestBodyError)
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), constants.ContextTimeoutForReports)
+	defer cancel()
+
+	res, err := h.service.ImportReservedProducts(ctx, &body)
+	if err != nil {
+		handleServiceResponse(c, nil, err)
+		return
+	}
+
+	handleResponse(c, OK, res)
 }

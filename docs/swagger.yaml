@@ -82,36 +82,24 @@ definitions:
   domain.AttendanceFaceIdCleanupResult:
     properties:
       delete_error_count:
-        description: |-
-          Diskda bor, lekin o'chirib bo'lmagan fayllar. Trash'ga ko'chirishda xato bo'lsa
-          yozuvlar o'zgarmaydi (keyingi chaqiruvda qayta uriniladi); COMMIT'dan keyin
-          o'chirishda xato bo'lsa fayl trash'da qoladi va keyingi chaqiruvda o'chiriladi.
         example: 0
         type: integer
       deleted_file_count:
-        description: Diskdan haqiqatan o'chirilgan fayllar.
         example: 110
         type: integer
       file_not_found_count:
-        description: Bazada bor, diskda yo'q fayllar — yozuvlari baribir NULL qilinadi.
         example: 5
         type: integer
       selected_count:
-        description: face_id_url'i bor va keep_days'dan eski yozuvlar.
         example: 120
         type: integer
       skipped_invalid_path_count:
-        description: face_id_url xavfsiz fayl nomi bo'lmagani uchun tegilmagan (NULL
-          ham qilinmagan) yozuvlar.
         example: 3
         type: integer
       still_in_use_file_count:
-        description: Saqlanib qolayotgan boshqa yozuv ham ko'rsatgani uchun diskda
-          qoldirilgan fayllar.
         example: 0
         type: integer
       updated_count:
-        description: face_id_url'i NULL qilingan yozuvlar.
         example: 117
         type: integer
     type: object
@@ -748,6 +736,8 @@ definitions:
         enum:
         - day
         - night
+        - overnight
+        - middle
         example: night
         type: string
       staff:
@@ -2029,6 +2019,63 @@ definitions:
       type:
         example: retail_price|supply_price|expire_date
         type: string
+    type: object
+  domain.ReservedProduct:
+    properties:
+      created_at:
+        type: string
+      id:
+        type: string
+      is_active:
+        type: boolean
+      material_code:
+        type: string
+      name:
+        type: string
+      sort_index:
+        type: integer
+      updated_at:
+        type: string
+    type: object
+  domain.ReservedProductImportItem:
+    properties:
+      index:
+        example: 1
+        type: integer
+      material_code:
+        example: MAT001
+        type: string
+      product_name:
+        example: Product A
+        type: string
+    type: object
+  domain.ReservedProductImportRequest:
+    properties:
+      products:
+        items:
+          $ref: '#/definitions/domain.ReservedProductImportItem'
+        minItems: 1
+        type: array
+    required:
+    - products
+    type: object
+  domain.ReservedProductImportResult:
+    properties:
+      deactivated:
+        example: 2000
+        type: integer
+      inserted:
+        example: 100
+        type: integer
+      skipped_duplicate:
+        example: 0
+        type: integer
+      total_received:
+        example: 9000
+        type: integer
+      updated:
+        example: 8900
+        type: integer
     type: object
   domain.ResetPasswordRequest:
     properties:
@@ -16882,6 +16929,61 @@ paths:
       summary: Get public product list with store info
       tags:
       - products
+  /product/reserved-products/list:
+    get:
+      consumes:
+      - application/json
+      description: |-
+        1C yuborgan rezerv mahsulotlar ro'yxati, doim ORDER BY sort_index ASC (1C tartibi).
+        is_active berilmasa aktiv va deaktiv qatorlar birga qaytadi.
+      parameters:
+      - description: Nom yoki material_code bo'yicha qidiruv
+        in: query
+        name: search
+        type: string
+      - description: true — hozirgi 1C ro'yxatidagilar, false — chiqib ketganlar
+        in: query
+        name: is_active
+        type: boolean
+      - description: Limit
+        in: query
+        name: limit
+        type: integer
+      - description: Offset
+        in: query
+        name: offset
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/v1.Response'
+            - properties:
+                data:
+                  items:
+                    $ref: '#/definitions/domain.ReservedProduct'
+                  type: array
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Get reserved products list
+      tags:
+      - products
   /product/revert-packaging:
     put:
       consumes:
@@ -17764,6 +17866,56 @@ paths:
       security:
       - BearerAuth: []
       summary: Update retail price by 1C
+      tags:
+      - 1C Api
+  /product1c/reserved-products/import:
+    post:
+      consumes:
+      - application/json
+      description: |-
+        1C har kuni ~05:00 da rezerv mahsulotlarning TO'LIQ ro'yxatini yuboradi.
+        Kelgan mahsulotlar is_active = true (yo'q bo'lsa qo'shiladi, bori yangilanadi),
+        bugungi ro'yxatda bo'lmagan eski mahsulotlar is_active = false bo'ladi, yozuvlar o'chirilmaydi.
+        index — 1C tartibi, sort_index ustuniga yoziladi; ketma-ket bo'lishi shart emas.
+        material_code — yagona identifikator; requestda takrorlansa birinchisi olinadi.
+      parameters:
+      - description: 1C ning kunlik to'liq ro'yxati
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/domain.ReservedProductImportRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/v1.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/domain.ReservedProductImportResult'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Import reserved products from 1C
       tags:
       - 1C Api
   /product1c/return/create-and-send:

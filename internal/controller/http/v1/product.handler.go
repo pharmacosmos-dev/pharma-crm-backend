@@ -108,6 +108,7 @@ func (h *ProductHandler) ProductRoutes(r *gin.RouterGroup) {
 		product.GET("/store-product-import-detail", h.ListStoreProductsWithImportDetail)
 		product.PATCH("/store-product/:id/unit-quantity", h.UpdateStoreProductUnitQuantity)
 		product.GET("/public-list", h.PublicList)
+		product.GET("/reserved-products/list", h.ListReservedProducts)
 	}
 }
 
@@ -4659,4 +4660,47 @@ func (h *ProductHandler) PublicList(c *gin.Context) {
 
 	result := utils.ListResponse(products, totalCount, params.Limit, params.Offset)
 	handleResponse(c, OK, result)
+}
+
+// ListReservedProducts godoc
+// @Summary Get reserved products list
+// @Description 1C yuborgan rezerv mahsulotlar ro'yxati, doim ORDER BY sort_index ASC (1C tartibi).
+// @Description is_active berilmasa aktiv va deaktiv qatorlar birga qaytadi.
+// @Tags products
+// @Security     BearerAuth
+// @Accept 	json
+// @Produce json
+// @Param 	search 		query string 	false "Nom yoki material_code bo'yicha qidiruv"
+// @Param 	is_active 	query bool 		false "true — hozirgi 1C ro'yxatidagilar, false — chiqib ketganlar"
+// @Param 	limit 		query int 		false "Limit"
+// @Param 	offset 		query int 		false "Offset"
+// @Success 200 {object} v1.Response{data=[]domain.ReservedProduct}
+// @Failure 400 {object} v1.Response
+// @Failure 401 {object} v1.Response
+// @Failure 500 {object} v1.Response
+// @Router /product/reserved-products/list [GET]
+func (h *ProductHandler) ListReservedProducts(c *gin.Context) {
+	user := h.service.GetSignedUser(c)
+	if user.UserId == "" {
+		handleServiceResponse(c, nil, domain.UnauthorizedError)
+		return
+	}
+
+	var params domain.ReservedProductQueryParams
+	if err := c.ShouldBindQuery(&params); err != nil {
+		handleServiceResponse(c, nil, domain.InvalidQueryError)
+		return
+	}
+	params.Limit, params.Offset = defaultLimitOffset(params.Limit, params.Offset)
+
+	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
+	defer cancel()
+
+	res, totalCount, err := h.service.GetReservedProducts(ctx, &params)
+	if err != nil {
+		handleServiceResponse(c, nil, err)
+		return
+	}
+
+	handleResponse(c, OK, utils.ListResponse(res, totalCount, params.Limit, params.Offset))
 }

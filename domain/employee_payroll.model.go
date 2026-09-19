@@ -107,7 +107,7 @@ type EmployeePayrollAdvanceRequest struct {
 	Salary            *float64 `json:"salary" binding:"omitempty,min=0"`
 	RoleType          *string  `json:"role_type" binding:"omitempty,max=55" example:"CASHIER"`
 	DailyWorkHours    *int     `json:"daily_work_hours" binding:"omitempty,oneof=4 7 8" example:"8"`
-	ShiftType         *string  `json:"shift_type" binding:"omitempty,oneof=day night" example:"night"`
+	ShiftType         *string  `json:"shift_type" binding:"omitempty,oneof=day night overnight middle" example:"night"`
 	AdvanceCardAmount *float64 `json:"advance_card_amount" binding:"omitempty,min=0"`
 	AdvanceCashAmount *float64 `json:"advance_cash_amount" binding:"omitempty,min=0"`
 }
