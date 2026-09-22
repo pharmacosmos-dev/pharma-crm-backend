@@ -20,7 +20,7 @@ if printf '%s' "$VERSION_OUTPUT" | grep -q "dirty"; then
   DIRTY_VERSION=$(printf '%s\n' "$VERSION_OUTPUT" | sed -nE 's/^([0-9]+).*/\1/p')
   PREVIOUS_VERSION=$(find /app/migrations -maxdepth 1 -type f -name '*.up.sql' \
     | sed -nE 's#^.*/0*([0-9]+)_.*\.up\.sql$#\1#p' \
-    | awk -v version="$DIRTY_VERSION" '$1 < version { candidate = $1 } END { print candidate }')
+    | awk -v version="$DIRTY_VERSION" '$1 < version && (!candidate || $1 > candidate) { candidate = $1 } END { print candidate }')
 
   if [ -z "$DIRTY_VERSION" ] || [ -z "$PREVIOUS_VERSION" ]; then
     echo "Could not safely recover dirty migration state: $VERSION_OUTPUT" >&2
