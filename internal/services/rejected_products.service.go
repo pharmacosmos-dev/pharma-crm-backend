@@ -116,6 +116,7 @@ func (s *Services) ListRejectedProducts(ctx context.Context, params *domain.Reje
 
 	return res, totalCount, nil
 }
+
 // CreateReservedDocument - creates a new reserved document
 func (s *Services) CreateReservedDocument(ctx context.Context, storeId string, req *domain.CreateReservedDocumentRequest, createdBy string) (*domain.Reserved, error) {
 	// Validate store_id
@@ -334,7 +335,7 @@ func (s *Services) updateReservedTotals(ctx context.Context, reservedId string) 
 		Model(&domain.Reserved{}).
 		Where("id = ?", reservedId).
 		Updates(map[string]interface{}{
-			"total_quantity":     totalQuantity,
+			"total_quantity":      totalQuantity,
 			"total_product_count": totalCount,
 		}).Error; err != nil {
 		s.log.Errorf("could not update reserved totals: %v", err)

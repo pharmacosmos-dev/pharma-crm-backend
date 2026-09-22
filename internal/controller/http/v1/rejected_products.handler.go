@@ -221,6 +221,7 @@ func (h *RejectedProductsHandler) ExportRejectedProducts(c *gin.Context) {
 	// save excel
 	saveExcelToUploads(c, f, *h.log, "rejected_products")
 }
+
 // godoc CreateReservedDocument
 // @Summary Create a reserved document
 // @Description Create a new reserved document
@@ -310,6 +311,7 @@ func (h *RejectedProductsHandler) AddReservedDetails(c *gin.Context) {
 
 	handleResponse(c, OK, detail)
 }
+
 // godoc InsertReservedDetailsDirect
 // @Summary Insert reserved details directly
 // @Description Insert product to reserved_details directly. Automatically creates new reserved document if status='done'
@@ -348,6 +350,7 @@ func (h *RejectedProductsHandler) InsertReservedDetailsDirect(c *gin.Context) {
 
 	handleResponse(c, OK, detail)
 }
+
 // godoc ListReservedDetails
 // @Summary List reserved details for store
 // @Description List reserved details and create/update reserved document if needed

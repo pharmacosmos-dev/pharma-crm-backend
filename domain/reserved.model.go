@@ -4,16 +4,16 @@ import "time"
 
 // Reserved - reserved document model
 type Reserved struct {
-	Id               string     `gorm:"id" json:"id"`
-	StoreId          string     `gorm:"store_id" json:"store_id"`
-	DocumentNumber   string     `gorm:"document_number" json:"document_number"`
-	CreatedBy        *string    `gorm:"created_by" json:"created_by"`
-	TotalQuantity    float64    `gorm:"total_quantity" json:"total_quantity"`
-	TotalProductCount int       `gorm:"total_product_count" json:"total_product_count"`
-	Status           string     `gorm:"status" json:"status"` // 'new', 'checking', 'done'
-	Comment          *string    `gorm:"comment" json:"comment"`
-	CreatedAt        *time.Time `gorm:"created_at" json:"created_at"`
-	UpdatedAt        *time.Time `gorm:"updated_at" json:"updated_at"`
+	Id                string     `gorm:"id" json:"id"`
+	StoreId           string     `gorm:"store_id" json:"store_id"`
+	DocumentNumber    string     `gorm:"document_number" json:"document_number"`
+	CreatedBy         *string    `gorm:"created_by" json:"created_by"`
+	TotalQuantity     float64    `gorm:"total_quantity" json:"total_quantity"`
+	TotalProductCount int        `gorm:"total_product_count" json:"total_product_count"`
+	Status            string     `gorm:"status" json:"status"` // 'new', 'checking', 'done'
+	Comment           *string    `gorm:"comment" json:"comment"`
+	CreatedAt         *time.Time `gorm:"created_at" json:"created_at"`
+	UpdatedAt         *time.Time `gorm:"updated_at" json:"updated_at"`
 }
 
 func (Reserved) TableName() string {
@@ -22,14 +22,14 @@ func (Reserved) TableName() string {
 
 // ReservedDetails - reserved document details
 type ReservedDetails struct {
-	Id        string     `gorm:"id" json:"id"`
-	ReservedId string    `gorm:"reserved_id" json:"reserved_id"`
-	ProductId string    `gorm:"product_id" json:"product_id"`
-	Quantity  float64   `gorm:"quantity" json:"quantity"`
-	CreatedBy *string   `gorm:"created_by" json:"created_by"`
-	UpdatedBy *string   `gorm:"updated_by" json:"updated_by"`
-	CreatedAt *time.Time `gorm:"created_at" json:"created_at"`
-	UpdatedAt *time.Time `gorm:"updated_at" json:"updated_at"`
+	Id         string     `gorm:"id" json:"id"`
+	ReservedId string     `gorm:"reserved_id" json:"reserved_id"`
+	ProductId  string     `gorm:"product_id" json:"product_id"`
+	Quantity   float64    `gorm:"quantity" json:"quantity"`
+	CreatedBy  *string    `gorm:"created_by" json:"created_by"`
+	UpdatedBy  *string    `gorm:"updated_by" json:"updated_by"`
+	CreatedAt  *time.Time `gorm:"created_at" json:"created_at"`
+	UpdatedAt  *time.Time `gorm:"updated_at" json:"updated_at"`
 }
 
 func (ReservedDetails) TableName() string {
@@ -38,8 +38,8 @@ func (ReservedDetails) TableName() string {
 
 // CreateReservedDocumentRequest - request to create reserved document
 type CreateReservedDocumentRequest struct {
-	DocumentNumber string `json:"document_number" binding:"required"`
-	Comment       *string `json:"comment"`
+	DocumentNumber string  `json:"document_number" binding:"required"`
+	Comment        *string `json:"comment"`
 }
 
 // AddReservedDetailsRequest - request to add/update reserved details
