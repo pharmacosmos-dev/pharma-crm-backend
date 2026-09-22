@@ -17,7 +17,6 @@ func (s *Services) ImportReservedProducts(
 	ctx context.Context, req *domain.ReservedProductImportRequest,
 ) (*domain.ReservedProductImportResult, error) {
 	const (
-		
 		maxItems = 100000
 		lockName = "reserved_products_import"
 	)
@@ -78,7 +77,7 @@ func (s *Services) ImportReservedProducts(
 		if !locked {
 			return domain.ConflictError
 		}
-	
+
 		const importSQL = `
 			WITH incoming AS (
 				SELECT * FROM unnest(?::int[], ?::text[], ?::text[]) AS t(sort_index, material_code, name)

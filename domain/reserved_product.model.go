@@ -65,11 +65,9 @@ type ReservedProductImportItem struct {
 	MaterialCode MaterialCode `json:"material_code" swaggertype:"string" example:"MAT001"`
 }
 
-
 type ReservedProductImportRequest struct {
 	Products []ReservedProductImportItem `json:"products" binding:"required,min=1"`
 }
-
 
 type ReservedProductImportResult struct {
 	TotalReceived    int `json:"total_received" example:"9000"`
