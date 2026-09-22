@@ -34,7 +34,7 @@ func (h *RejectedProductsHandler) RejectedProductsRoutes(r *gin.RouterGroup) {
 		// Reserved documents and details routes
 		rejectedProducts.POST("/reserved-document", h.CreateReservedDocument)
 		rejectedProducts.POST("/reserved-details/:reservedId", h.AddReservedDetails)
-		rejectedProducts.POST("/reserved-details/list", h.ListReservedDetails)
+		rejectedProducts.GET("/reserved-details/list", h.ListReservedDetails)
 		rejectedProducts.POST("/reserved-details", h.InsertReservedDetailsDirect)
 	}
 }
@@ -353,20 +353,19 @@ func (h *RejectedProductsHandler) InsertReservedDetailsDirect(c *gin.Context) {
 
 // godoc ListReservedDetails
 // @Summary List reserved details for store
-// @Description List reserved details and create/update reserved document if needed
+// @Description List reserved details. If reserved_id is omitted, returns details of the store's current new document.
 // @Tags rejected-products
 // @Security     BearerAuth
-// @Accept json
 // @Produce json
-// @Param body body domain.ListReservedDetailsRequest true "List reserved details request"
+// @Param reserved_id query string false "Reserved document ID"
 // @Success 200 {object} v1.Response{data=[]domain.ReservedDetailsWithProduct}
 // @Failure 400 {object} v1.Response
 // @Failure 500 {object} v1.Response
-// @Router /rejected-products/reserved-details/list [post]
+// @Router /rejected-products/reserved-details/list [get]
 func (h *RejectedProductsHandler) ListReservedDetails(c *gin.Context) {
-	var body domain.ListReservedDetailsRequest
+	var params domain.ListReservedDetailsRequest
 
-	if err := c.ShouldBindJSON(&body); err != nil {
+	if err := c.ShouldBindQuery(&params); err != nil {
 		h.log.Error(err)
 		handleResponse(c, BadRequest, err.Error())
 		return
@@ -386,7 +385,7 @@ func (h *RejectedProductsHandler) ListReservedDetails(c *gin.Context) {
 	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
 	defer cancel()
 
-	details, err := h.service.ListReservedDetails(ctx, user.StoreId, &body, user.UserId)
+	details, err := h.service.ListReservedDetails(ctx, user.StoreId, &params)
 	if err != nil {
 		handleServiceResponse(c, InternalError, err)
 		return

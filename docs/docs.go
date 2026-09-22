@@ -24160,16 +24160,13 @@ const docTemplate = `{
             }
         },
         "/rejected-products/reserved-details/list": {
-            "post": {
+            "get": {
                 "security": [
                     {
                         "BearerAuth": []
                     }
                 ],
-                "description": "List reserved details and create/update reserved document if needed",
-                "consumes": [
-                    "application/json"
-                ],
+                "description": "List reserved details. If reserved_id is omitted, returns details of the store's current new document.",
                 "produces": [
                     "application/json"
                 ],
@@ -24179,13 +24176,10 @@ const docTemplate = `{
                 "summary": "List reserved details for store",
                 "parameters": [
                     {
-                        "description": "List reserved details request",
-                        "name": "body",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/domain.ListReservedDetailsRequest"
-                        }
+                        "type": "string",
+                        "description": "Reserved document ID",
+                        "name": "reserved_id",
+                        "in": "query"
                     }
                 ],
                 "responses": {
@@ -38526,21 +38520,6 @@ const docTemplate = `{
                 "type": {
                     "description": "FULL || PARTIAL || IMPORT",
                     "type": "string"
-                }
-            }
-        },
-        "domain.ListReservedDetailsRequest": {
-            "type": "object",
-            "required": [
-                "product_id",
-                "quantity"
-            ],
-            "properties": {
-                "product_id": {
-                    "type": "string"
-                },
-                "quantity": {
-                    "type": "number"
                 }
             }
         },

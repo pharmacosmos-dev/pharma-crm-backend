@@ -1121,16 +1121,6 @@ definitions:
         description: FULL || PARTIAL || IMPORT
         type: string
     type: object
-  domain.ListReservedDetailsRequest:
-    properties:
-      product_id:
-        type: string
-      quantity:
-        type: number
-    required:
-    - product_id
-    - quantity
-    type: object
   domain.Login:
     properties:
       password:
@@ -18546,17 +18536,14 @@ paths:
       tags:
       - rejected-products
   /rejected-products/reserved-details/list:
-    post:
-      consumes:
-      - application/json
-      description: List reserved details and create/update reserved document if needed
+    get:
+      description: List reserved details. If reserved_id is omitted, returns details
+        of the store's current new document.
       parameters:
-      - description: List reserved details request
-        in: body
-        name: body
-        required: true
-        schema:
-          $ref: '#/definitions/domain.ListReservedDetailsRequest'
+      - description: Reserved document ID
+        in: query
+        name: reserved_id
+        type: string
       produces:
       - application/json
       responses:

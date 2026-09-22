@@ -198,97 +198,16 @@ func (s *Services) AddReservedDetails(ctx context.Context, reservedId string, re
 	return detail, nil
 }
 
-// ListReservedDetails - lists reserved details and creates/updates reserved document if needed
-// If reserved document doesn't exist for store_id, creates new one
-// If reserved document exists with status='new', uses it
-// If product already exists in reserved details, updates quantity
-func (s *Services) ListReservedDetails(ctx context.Context, storeId string, req *domain.ListReservedDetailsRequest, createdBy string) ([]domain.ReservedDetailsWithProduct, error) {
-	// Validate store_id
+// ListReservedDetails returns reserved details without changing documents or quantities.
+// Without reserved_id, it returns details from the store's current new document.
+func (s *Services) ListReservedDetails(ctx context.Context, storeId string, req *domain.ListReservedDetailsRequest) ([]domain.ReservedDetailsWithProduct, error) {
 	if storeId == "" {
 		s.log.Errorf("store_id is empty")
 		return nil, domain.NewError(400, "store_id is required")
 	}
 
-	// Check if store exists
-	var store domain.Store
-	if err := s.db.WithContext(ctx).Where("id = ?", storeId).First(&store).Error; err != nil {
-		s.log.Errorf("store not found: %v", err)
-		return nil, domain.NewError(404, "store not found")
-	}
-
-	// Check if reserved document exists for this store with status='new'
-	var reserved domain.Reserved
-
-	err := s.db.WithContext(ctx).
-		Where("store_id = ? AND status = ?", storeId, "new").
-		First(&reserved).Error
-
-	if err != nil {
-		// Reserved document with status='new' doesn't exist
-		// Check if there's any reserved document with status='done'
-		var doneReserved domain.Reserved
-		_ = s.db.WithContext(ctx).
-			Where("store_id = ? AND status = ?", storeId, "done").
-			First(&doneReserved).Error
-
-		// If status='done' exists OR no reserved document exists at all, create new one
-		docNum := fmt.Sprintf("RES-%d", time.Now().Unix())
-		newReserved := &domain.Reserved{
-			StoreId:        storeId,
-			DocumentNumber: docNum,
-			Status:         "new",
-			CreatedBy:      &createdBy,
-		}
-
-		if err := s.db.WithContext(ctx).Create(newReserved).Error; err != nil {
-			s.log.Errorf("could not create reserved document: %v", err)
-			return nil, domain.InternalServerError
-		}
-
-		reserved = *newReserved
-	}
-
-	// Check if product already exists in reserved_details
-	var existingDetail domain.ReservedDetails
-
-	detailErr := s.db.WithContext(ctx).
-		Where("reserved_id = ? AND product_id = ?", reserved.Id, req.ProductId).
-		First(&existingDetail).Error
-
-	if detailErr == nil {
-		// Product exists, update quantity by adding
-		existingDetail.Quantity += req.Quantity
-		existingDetail.UpdatedBy = &createdBy
-
-		if err := s.db.WithContext(ctx).Save(&existingDetail).Error; err != nil {
-			s.log.Errorf("could not update reserved detail: %v", err)
-			return nil, domain.InternalServerError
-		}
-	} else {
-		// Product doesn't exist, create new detail
-		detail := &domain.ReservedDetails{
-			ReservedId: reserved.Id,
-			ProductId:  req.ProductId,
-			Quantity:   req.Quantity,
-			CreatedBy:  &createdBy,
-			UpdatedBy:  &createdBy,
-		}
-
-		if err := s.db.WithContext(ctx).Create(detail).Error; err != nil {
-			s.log.Errorf("could not create reserved detail: %v", err)
-			return nil, domain.InternalServerError
-		}
-	}
-
-	// Update reserved document totals
-	if err := s.updateReservedTotals(ctx, reserved.Id); err != nil {
-		return nil, err
-	}
-
-	// Get all details with product info for this reserved document
 	var details []domain.ReservedDetailsWithProduct
-
-	err = s.db.WithContext(ctx).
+	query := s.db.WithContext(ctx).
 		Select(`
 			rd.id,
 			rd.reserved_id,
@@ -302,9 +221,17 @@ func (s *Services) ListReservedDetails(ctx context.Context, storeId string, req 
 			p.barcode AS product_code
 		`).
 		Table("reserved_details rd").
+		Joins("JOIN reserved r ON r.id = rd.reserved_id").
 		Joins("LEFT JOIN products p ON rd.product_id = p.id").
-		Where("rd.reserved_id = ?", reserved.Id).
-		Scan(&details).Error
+		Where("r.store_id = ?", storeId)
+
+	if req.ReservedId != "" {
+		query = query.Where("rd.reserved_id = ?", req.ReservedId)
+	} else {
+		query = query.Where("r.status = ?", "new").Order("r.created_at DESC, rd.created_at ASC")
+	}
+
+	err := query.Scan(&details).Error
 
 	if err != nil {
 		s.log.Errorf("could not get reserved details: %v", err)

@@ -55,10 +55,10 @@ type InsertReservedDetailsDirectRequest struct {
 	Quantity  float64 `json:"quantity" binding:"required,gt=0"`
 }
 
-// ListReservedDetailsRequest - request to list reserved details with product_id and quantity (store_id from token)
+// ListReservedDetailsRequest - query parameters for listing reserved details.
+// Store ID is read from the signed user's token.
 type ListReservedDetailsRequest struct {
-	ProductId string  `json:"product_id" binding:"required"`
-	Quantity  float64 `json:"quantity" binding:"required,gt=0"`
+	ReservedId string `form:"reserved_id" json:"reserved_id"`
 }
 
 // ReservedDetailsWithProduct - response model with product info
