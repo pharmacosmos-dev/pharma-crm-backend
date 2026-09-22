@@ -8,13 +8,14 @@ import (
 )
 
 type ReservedProduct struct {
-	Id           string     `json:"id" gorm:"column:id;primaryKey"`
-	SortIndex    int        `json:"sort_index" gorm:"column:sort_index"`
-	Name         string     `json:"name" gorm:"column:name"`
-	MaterialCode string     `json:"material_code" gorm:"column:material_code"`
-	IsActive     bool       `json:"is_active" gorm:"column:is_active"`
-	CreatedAt    *time.Time `json:"created_at" gorm:"column:created_at"`
-	UpdatedAt    *time.Time `json:"updated_at" gorm:"column:updated_at"`
+	Id                string     `json:"id" gorm:"column:id;primaryKey"`
+	SortIndex         int        `json:"sort_index" gorm:"column:sort_index"`
+	Name              string     `json:"name" gorm:"column:name"`
+	MaterialCode      string     `json:"material_code" gorm:"column:material_code"`
+	AvailableQuantity float64    `json:"available_quantity" gorm:"-"`
+	IsActive          bool       `json:"is_active" gorm:"column:is_active"`
+	CreatedAt         *time.Time `json:"created_at" gorm:"column:created_at"`
+	UpdatedAt         *time.Time `json:"updated_at" gorm:"column:updated_at"`
 }
 
 func (ReservedProduct) TableName() string {

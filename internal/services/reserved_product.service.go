@@ -138,7 +138,7 @@ func (s *Services) ImportReservedProducts(
 // region Get Reserved
 
 func (s *Services) GetReservedProducts(
-	ctx context.Context, params *domain.ReservedProductQueryParams,
+	ctx context.Context, params *domain.ReservedProductQueryParams, storeID string,
 ) ([]domain.ReservedProduct, int64, error) {
 
 	newQuery := func() *gorm.DB {
@@ -160,7 +160,6 @@ func (s *Services) GetReservedProducts(
 	}
 
 	var products []domain.ReservedProduct
-	
 	err := newQuery().
 		Order("sort_index ASC, material_code ASC").
 		Limit(params.Limit).
@@ -171,5 +170,65 @@ func (s *Services) GetReservedProducts(
 		return nil, 0, domain.InternalServerError
 	}
 
+	if storeID != "" && len(products) > 0 {
+		materialCodes := make([]string, 0, len(products))
+		seen := make(map[string]struct{}, len(products))
+		for _, product := range products {
+			code := strings.TrimSpace(product.MaterialCode)
+			if code == "" {
+				continue
+			}
+			if _, exists := seen[code]; exists {
+				continue
+			}
+			seen[code] = struct{}{}
+			materialCodes = append(materialCodes, code)
+		}
+
+		if len(materialCodes) > 0 {
+			stocks, err := s.getReservedProductStockMap(ctx, storeID, materialCodes)
+			if err != nil {
+				return nil, 0, err
+			}
+
+			for i := range products {
+				products[i].AvailableQuantity = stocks[strings.TrimSpace(products[i].MaterialCode)]
+			}
+		}
+	}
+
 	return products, totalCount, nil
+}
+
+func (s *Services) getReservedProductStockMap(
+	ctx context.Context, storeID string, materialCodes []string,
+) (map[string]float64, error) {
+	if storeID == "" || len(materialCodes) == 0 {
+		return map[string]float64{}, nil
+	}
+
+	var rows []struct {
+		MaterialCode      string  `gorm:"column:material_code"`
+		AvailableQuantity float64 `gorm:"column:available_quantity"`
+	}
+
+	err := s.db.WithContext(ctx).Raw(`
+		SELECT CAST(p.material_code AS TEXT) AS material_code,
+			COALESCE(SUM(sp.unit_quantity), 0) AS available_quantity
+		FROM products p
+		LEFT JOIN store_products sp ON sp.product_id = p.id AND sp.store_id = ?
+		WHERE CAST(p.material_code AS TEXT) = ANY(?)
+		GROUP BY CAST(p.material_code AS TEXT)
+	`, storeID, pq.Array(materialCodes)).Scan(&rows).Error
+	if err != nil {
+		s.log.Errorf("reserved products: could not load stock by material_code for store_id=%s: %v", storeID, err)
+		return nil, domain.InternalServerError
+	}
+
+	result := make(map[string]float64, len(rows))
+	for _, row := range rows {
+		result[strings.TrimSpace(row.MaterialCode)] = row.AvailableQuantity
+	}
+
+	return result, nil
 }

@@ -4696,7 +4696,7 @@ func (h *ProductHandler) ListReservedProducts(c *gin.Context) {
 	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
 	defer cancel()
 
-	res, totalCount, err := h.service.GetReservedProducts(ctx, &params)
+	res, totalCount, err := h.service.GetReservedProducts(ctx, &params, user.StoreId)
 	if err != nil {
 		handleServiceResponse(c, nil, err)
 		return
