@@ -1,0 +1,1 @@
+DROP INDEX CONCURRENTLY IF EXISTS idx_transfer_logs_transfer_detail_id;

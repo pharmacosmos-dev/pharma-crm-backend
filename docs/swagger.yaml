@@ -11,6 +11,16 @@ definitions:
       sale_id:
         type: string
     type: object
+  domain.AddReservedDetailsRequest:
+    properties:
+      product_id:
+        type: string
+      quantity:
+        type: number
+    required:
+    - product_id
+    - quantity
+    type: object
   domain.AddScanRequest:
     properties:
       barcode:
@@ -436,6 +446,15 @@ definitions:
     - store_ids
     - text
     - to_date
+    type: object
+  domain.CreateReservedDocumentRequest:
+    properties:
+      comment:
+        type: string
+      document_number:
+        type: string
+    required:
+    - document_number
     type: object
   domain.CustomerDashboard:
     properties:
@@ -1035,6 +1054,19 @@ definitions:
       scanned_count:
         type: integer
     type: object
+  domain.InsertReservedDetailsDirectRequest:
+    properties:
+      product_id:
+        type: string
+      quantity:
+        type: number
+      store_id:
+        type: string
+    required:
+    - product_id
+    - quantity
+    - store_id
+    type: object
   domain.InventoryAddProduct:
     properties:
       barcode:
@@ -1088,6 +1120,16 @@ definitions:
       type:
         description: FULL || PARTIAL || IMPORT
         type: string
+    type: object
+  domain.ListReservedDetailsRequest:
+    properties:
+      product_id:
+        type: string
+      quantity:
+        type: number
+    required:
+    - product_id
+    - quantity
     type: object
   domain.Login:
     properties:
@@ -2018,6 +2060,72 @@ definitions:
         type: string
       type:
         example: retail_price|supply_price|expire_date
+        type: string
+    type: object
+  domain.Reserved:
+    properties:
+      comment:
+        type: string
+      created_at:
+        type: string
+      created_by:
+        type: string
+      document_number:
+        type: string
+      id:
+        type: string
+      status:
+        description: '''new'', ''checking'', ''done'''
+        type: string
+      store_id:
+        type: string
+      total_product_count:
+        type: integer
+      total_quantity:
+        type: number
+      updated_at:
+        type: string
+    type: object
+  domain.ReservedDetails:
+    properties:
+      created_at:
+        type: string
+      created_by:
+        type: string
+      id:
+        type: string
+      product_id:
+        type: string
+      quantity:
+        type: number
+      reserved_id:
+        type: string
+      updated_at:
+        type: string
+      updated_by:
+        type: string
+    type: object
+  domain.ReservedDetailsWithProduct:
+    properties:
+      created_at:
+        type: string
+      created_by:
+        type: string
+      id:
+        type: string
+      product_code:
+        type: string
+      product_id:
+        type: string
+      product_name:
+        type: string
+      quantity:
+        type: number
+      reserved_id:
+        type: string
+      updated_at:
+        type: string
+      updated_by:
         type: string
     type: object
   domain.ReservedProduct:
@@ -18354,6 +18462,163 @@ paths:
       security:
       - BearerAuth: []
       summary: Get list of products
+      tags:
+      - rejected-products
+  /rejected-products/reserved-details:
+    post:
+      consumes:
+      - application/json
+      description: Insert product to reserved_details directly. Automatically creates
+        new reserved document if status='done'
+      parameters:
+      - description: Insert reserved details direct request
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/domain.InsertReservedDetailsDirectRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/v1.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/domain.ReservedDetailsWithProduct'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Insert reserved details directly
+      tags:
+      - rejected-products
+  /rejected-products/reserved-details/{reservedId}:
+    post:
+      consumes:
+      - application/json
+      description: Add product to reserved document or update quantity if already
+        exists
+      parameters:
+      - description: Reserved Document ID
+        in: path
+        name: reservedId
+        required: true
+        type: string
+      - description: Add reserved details request
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/domain.AddReservedDetailsRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/v1.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/domain.ReservedDetails'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Add or update reserved details
+      tags:
+      - rejected-products
+  /rejected-products/reserved-details/list:
+    post:
+      consumes:
+      - application/json
+      description: List reserved details and create/update reserved document if needed
+      parameters:
+      - description: List reserved details request
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/domain.ListReservedDetailsRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/v1.Response'
+            - properties:
+                data:
+                  items:
+                    $ref: '#/definitions/domain.ReservedDetailsWithProduct'
+                  type: array
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: List reserved details for store
+      tags:
+      - rejected-products
+  /rejected-products/reserved-document:
+    post:
+      consumes:
+      - application/json
+      description: Create a new reserved document
+      parameters:
+      - description: Create reserved document request
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/domain.CreateReservedDocumentRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/v1.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/domain.Reserved'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Create a reserved document
       tags:
       - rejected-products
   /reminder:
