@@ -1,4 +1,4 @@
-CREATE TABLE IF NOT EXISTS "reserveds" (
+CREATE TABLE IF NOT EXISTS "reserved" (
     "id" UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     "store_id" UUID NOT NULL REFERENCES stores("id") ON DELETE CASCADE,
     "document_number" VARCHAR(50) NOT NULL,
