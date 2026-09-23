@@ -61,6 +61,13 @@ func (s *Services) CreateCartItem(ctx context.Context, req *domain.CartItemReque
 		return nil, err
 	}
 	req.ProductId = storeProduct.ProductId
+
+	
+	if storeProduct.MaxPrice > 0 && storeProduct.RetailPrice > storeProduct.MaxPrice {
+		_ = tx.Rollback()
+		return nil, domain.RetailPriceAboveMaxPriceError
+	}
+
 	// Try to get existing cart item with lock
 	cart, err := s.GetCartItemBySaleIdAndSpIdWithLocking(ctx, tx, req.SaleId, req.StoreProductId)
 	if err != nil {

@@ -90,6 +90,10 @@ var (
 	ActiveInventoryError                 = NewError(http.StatusConflict, "active.inventory.exists")
 	AttendanceAlreadyCheckedInError      = NewError(http.StatusConflict, "attendance.already.checked_in")
 	MarkingAlreadySoldError              = NewError(http.StatusConflict, "marking.already.sold")
+	// RetailPriceAboveMaxPriceError - sotuv narxi referens narxdan (products.max_price)
+	// yuqori. Xabar boshqa kalitlardan farqli o'laroq rus tilida, chunki kassada
+	// shu matnning o'zi ko'rsatiladi.
+	RetailPriceAboveMaxPriceError = NewError(http.StatusConflict, "Цена выше референтной. Необходимо сделать переоценку")
 
 	// 202 – Accepted (so’rov qabul qilindi, tolov noaniq)
 	PaymePendingError = NewError(http.StatusAccepted, "payme.payment.pending")

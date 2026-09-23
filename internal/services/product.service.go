@@ -1010,6 +1010,7 @@ func (s *Services) GetStoreProductByIdAndStoreId(ctx context.Context, tx *gorm.D
 			"COALESCE(pbm.is_marking, false) AS is_marking",
 			"sp.expire_date",
 			"p.unit_per_pack",
+			"COALESCE(p.max_price, 0) AS max_price",
 		).
 		Table("store_products sp").
 		Joins("JOIN products p ON sp.product_id = p.id").

@@ -16,6 +16,9 @@ type StoreProduct struct {
 	SmallQuantity       int                 `gorm:"small_quantity" json:"small_quantity"`
 	RetailPrice         float64             `gorm:"retail_price" json:"retail_price"`
 	SupplyPrice         float64             `gorm:"supply_price" json:"supply_price"`
+	// MaxPrice - products.max_price (referens narx). Javobga chiqmaydi, faqat
+	// ichki tekshiruvlar uchun to'ldiriladi.
+	MaxPrice            float64             `gorm:"max_price" json:"-"`
 	BonusAmount         float64             `gorm:"bonus_amount" json:"bonus_amount"`
 	BonusPercent        int                 `gorm:"bonus_percent" json:"bonus_percent"`
 	Vat                 int                 `gorm:"vat" json:"vat"`
