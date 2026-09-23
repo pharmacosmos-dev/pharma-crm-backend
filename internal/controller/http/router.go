@@ -92,11 +92,11 @@ func NewRouter(option Options, hub *ws.Hub) {
 
 	// Swagger Route
 	url := ginSwagger.URL("swagger/doc.json")
-	option.Gin.GET("/swagger/docs/*any", ginSwagger.WrapHandler(swaggerFiles.Handler, url))
+	option.Gin.GET("/swagger/docs/*any", ginSwagger.WrapHandler(swaggerFiles.Handler, url, ginSwagger.PersistAuthorization(true)))
 
 	// Uzum Swagger Route
 	uzumUrl := ginSwagger.URL("uzum-docs/doc.json")
-	option.Gin.GET("/swagger/uzum-docs/*any", ginSwagger.WrapHandler(swaggerFiles.Handler, uzumUrl))
+	option.Gin.GET("/swagger/uzum-docs/*any", ginSwagger.WrapHandler(swaggerFiles.Handler, uzumUrl, ginSwagger.PersistAuthorization(true)))
 }
 
 func Ping(c *gin.Context) {
