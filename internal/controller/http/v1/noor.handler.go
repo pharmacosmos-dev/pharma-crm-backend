@@ -7,6 +7,7 @@ import (
 	"strconv"
 
 	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
 	"github.com/pharma-crm-backend/domain"
 	"github.com/pharma-crm-backend/domain/constants"
 )
@@ -24,6 +25,7 @@ func (h *NoorHandler) NoorRoutes(r *gin.RouterGroup) {
 	noor := r.Group("/noor")
 	noor.GET("/product/list", h.ProductList)
 	// noor.GET("/store-product/list", h.StoreProductList)
+	noor.GET("/store-product/quantity", h.StoreProductQuantity)
 	noor.GET("/store/list", h.StoreList)
 	noor.GET("/category/list", h.CategoryList)
 	noor.POST("/order", h.CreateOrder)
@@ -111,6 +113,45 @@ func (h *NoorHandler) StoreList(c *gin.Context) {
 	res, err := h.service.GetNoorStores()
 	if err != nil {
 		handleResponseNoor(c, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	handleResponseNoor(c, http.StatusOK, res)
+}
+
+// Store Product Quantity
+// @Summary 	Get one product quantity in a store
+// @Description Berilgan do'kondagi berilgan mahsulotning umumiy qoldig'i.
+// @Description Mahsulot topilmasa yoki qoldiq tugagan bo'lsa ham 200 va quantity: 0 qaytadi.
+// @Tags 		Noor API
+// @Security    BasicAuth
+// @Accept 		json
+// @Produce 	json
+// @Param		store_id    query   string   true  "Store ID"
+// @Param		product_id  query   string   true  "Product ID"
+// @Success 	200 {object} domain.NoorStoreProductQuantity
+// @Failure 	400 {object} v1.IntegrationErrorResponse
+// @Failure 	500 {object} v1.IntegrationErrorResponse
+// @Router 		/noor/store-product/quantity 	[GET]
+func (h *NoorHandler) StoreProductQuantity(c *gin.Context) {
+	storeId := c.Query("store_id")
+	productId := c.Query("product_id")
+
+	// Ikkalasi ham UUID ustun, validatsiyasiz noto'g'ri qiymat SQL darajasida
+	// 500 bo'lib qaytardi.
+	if _, err := uuid.Parse(storeId); err != nil {
+		handleResponseNoor(c, http.StatusBadRequest, "invalid store_id")
+		return
+	}
+
+	if _, err := uuid.Parse(productId); err != nil {
+		handleResponseNoor(c, http.StatusBadRequest, "invalid product_id")
+		return
+	}
+
+	res, err := h.service.GetNoorStoreProductQuantity(storeId, productId)
+	if err != nil {
+		handleResponseNoor(c, http.StatusInternalServerError, err)
 		return
 	}
 

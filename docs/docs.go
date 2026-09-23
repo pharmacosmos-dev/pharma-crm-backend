@@ -15515,6 +15515,62 @@ const docTemplate = `{
                 }
             }
         },
+        "/noor/store-product/quantity": {
+            "get": {
+                "security": [
+                    {
+                        "BasicAuth": []
+                    }
+                ],
+                "description": "Berilgan do'kondagi berilgan mahsulotning umumiy qoldig'i.\nMahsulot topilmasa yoki qoldiq tugagan bo'lsa ham 200 va quantity: 0 qaytadi.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Noor API"
+                ],
+                "summary": "Get one product quantity in a store",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Store ID",
+                        "name": "store_id",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Product ID",
+                        "name": "product_id",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/domain.NoorStoreProductQuantity"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v1.IntegrationErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v1.IntegrationErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/noor/store/list": {
             "get": {
                 "security": [
@@ -39604,6 +39660,20 @@ const docTemplate = `{
                 "price": {
                     "type": "integer"
                 },
+                "product_id": {
+                    "type": "string"
+                },
+                "quantity": {
+                    "type": "integer"
+                },
+                "shop_id": {
+                    "type": "string"
+                }
+            }
+        },
+        "domain.NoorStoreProductQuantity": {
+            "type": "object",
+            "properties": {
                 "product_id": {
                     "type": "string"
                 },

@@ -1367,6 +1367,30 @@ func (s *Services) GetNoorStoreProducts(params *domain.NoorQueryParam) ([]domain
 	return res, nil
 }
 
+
+func (s *Services) GetNoorStoreProductQuantity(storeId, productId string) (*domain.NoorStoreProductQuantity, error) {
+	res := domain.NoorStoreProductQuantity{
+		StoreId:   storeId,
+		ProductId: productId,
+	}
+
+
+	query := `
+	SELECT COALESCE(SUM(sp.unit_quantity / NULLIF(p.unit_per_pack / NULLIF(p.blister_count, 0), 0)), 0)::int AS quantity
+	FROM store_products sp
+	JOIN products p ON p.id = sp.product_id
+	WHERE sp.store_id = ?
+	  AND sp.product_id = ?
+	  AND sp.unit_quantity > 0;`
+
+	if err := s.db.Raw(query, storeId, productId).Scan(&res.Quantity).Error; err != nil {
+		s.log.Errorf("could not get store_product quantity for noor: %v", err)
+		return nil, domain.InternalServerError
+	}
+
+	return &res, nil
+}
+
 // GetNoorCategories returns the category tree flattened, parents before children.
 func (s *Services) GetNoorCategories() ([]domain.NoorCategory, error) {
 	var res []domain.NoorCategory
