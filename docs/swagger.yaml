@@ -11,16 +11,6 @@ definitions:
       sale_id:
         type: string
     type: object
-  domain.AddReservedDetailsRequest:
-    properties:
-      product_id:
-        type: string
-      quantity:
-        type: number
-    required:
-    - product_id
-    - quantity
-    type: object
   domain.AddScanRequest:
     properties:
       barcode:
@@ -446,15 +436,6 @@ definitions:
     - store_ids
     - text
     - to_date
-    type: object
-  domain.CreateReservedDocumentRequest:
-    properties:
-      comment:
-        type: string
-      document_number:
-        type: string
-    required:
-    - document_number
     type: object
   domain.CustomerDashboard:
     properties:
@@ -1053,19 +1034,6 @@ definitions:
     properties:
       scanned_count:
         type: integer
-    type: object
-  domain.InsertReservedDetailsDirectRequest:
-    properties:
-      product_id:
-        type: string
-      quantity:
-        type: number
-      store_id:
-        type: string
-    required:
-    - product_id
-    - quantity
-    - store_id
     type: object
   domain.InventoryAddProduct:
     properties:
@@ -2052,22 +2020,31 @@ definitions:
         example: retail_price|supply_price|expire_date
         type: string
     type: object
-  domain.Reserved:
+  domain.Reserve:
     properties:
       comment:
+        type: string
+      completed_at:
         type: string
       created_at:
         type: string
       created_by:
         type: string
-      document_number:
+      created_by_name:
+        type: string
+      details:
+        items:
+          $ref: '#/definitions/domain.ReserveDetail'
+        type: array
+      dok_number:
         type: string
       id:
         type: string
       status:
-        description: '''new'', ''checking'', ''done'''
         type: string
       store_id:
+        type: string
+      store_name:
         type: string
       total_product_count:
         type: integer
@@ -2075,35 +2052,26 @@ definitions:
         type: number
       updated_at:
         type: string
-    type: object
-  domain.ReservedDetails:
-    properties:
-      created_at:
-        type: string
-      created_by:
-        type: string
-      id:
-        type: string
-      product_id:
-        type: string
-      quantity:
-        type: number
-      reserved_id:
-        type: string
-      updated_at:
-        type: string
       updated_by:
         type: string
+      updated_by_name:
+        type: string
     type: object
-  domain.ReservedDetailsWithProduct:
+  domain.ReserveDetail:
     properties:
+      available_quantity:
+        type: number
+      barcode:
+        type: string
+      checked_quantity:
+        type: number
       created_at:
         type: string
       created_by:
         type: string
       id:
         type: string
-      product_code:
+      material_code:
         type: string
       product_id:
         type: string
@@ -2111,15 +2079,86 @@ definitions:
         type: string
       quantity:
         type: number
-      reserved_id:
+      reserve_id:
         type: string
+      reserved_product_id:
+        type: string
+      unit_per_pack:
+        type: integer
       updated_at:
         type: string
       updated_by:
         type: string
+      updated_by_name:
+        type: string
+    type: object
+  domain.ReserveDetailRequest:
+    properties:
+      product_id:
+        type: string
+      quantity:
+        minimum: 0
+        type: number
+      reserve_id:
+        type: string
+    required:
+    - product_id
+    - reserve_id
+    type: object
+  domain.ReserveDetailUpdateRequest:
+    properties:
+      checked_quantity:
+        type: number
+      quantity:
+        type: number
+    type: object
+  domain.ReserveItemRequest:
+    properties:
+      product_id:
+        type: string
+      quantity:
+        minimum: 0
+        type: number
+    required:
+    - product_id
+    type: object
+  domain.ReserveQuickDetailRequest:
+    properties:
+      product_id:
+        type: string
+      quantity:
+        type: number
+      store_id:
+        type: string
+    required:
+    - product_id
+    - quantity
+    type: object
+  domain.ReserveRequest:
+    properties:
+      comment:
+        type: string
+      dok_number:
+        type: string
+      items:
+        items:
+          $ref: '#/definitions/domain.ReserveItemRequest'
+        type: array
+      store_id:
+        type: string
+    type: object
+  domain.ReserveStatusRequest:
+    properties:
+      status:
+        example: checking
+        type: string
+    required:
+    - status
     type: object
   domain.ReservedProduct:
     properties:
+      available_quantity:
+        type: number
       created_at:
         type: string
       id:
@@ -2130,7 +2169,13 @@ definitions:
         type: string
       name:
         type: string
+      product_id:
+        description: 'products''dan material_code orqali topiladi: rezerv hujjati
+          shu product_id bilan yig''iladi.'
+        type: string
       sort_index:
+        type: integer
+      unit_per_pack:
         type: integer
       updated_at:
         type: string
@@ -17043,6 +17088,11 @@ paths:
         in: query
         name: is_active
         type: boolean
+      - description: available_quantity shu do'kon bo'yicha; bo'sh bo'lsa token'dagi
+          do'kon
+        in: query
+        name: store_id
+        type: string
       - description: Limit
         in: query
         name: limit
@@ -18452,160 +18502,6 @@ paths:
       security:
       - BearerAuth: []
       summary: Get list of products
-      tags:
-      - rejected-products
-  /rejected-products/reserved-details:
-    post:
-      consumes:
-      - application/json
-      description: Insert product to reserved_details directly. Automatically creates
-        new reserved document if status='done'
-      parameters:
-      - description: Insert reserved details direct request
-        in: body
-        name: body
-        required: true
-        schema:
-          $ref: '#/definitions/domain.InsertReservedDetailsDirectRequest'
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            allOf:
-            - $ref: '#/definitions/v1.Response'
-            - properties:
-                data:
-                  $ref: '#/definitions/domain.ReservedDetailsWithProduct'
-              type: object
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/v1.Response'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/v1.Response'
-      security:
-      - BearerAuth: []
-      summary: Insert reserved details directly
-      tags:
-      - rejected-products
-  /rejected-products/reserved-details/{reservedId}:
-    post:
-      consumes:
-      - application/json
-      description: Add product to reserved document or update quantity if already
-        exists
-      parameters:
-      - description: Reserved Document ID
-        in: path
-        name: reservedId
-        required: true
-        type: string
-      - description: Add reserved details request
-        in: body
-        name: body
-        required: true
-        schema:
-          $ref: '#/definitions/domain.AddReservedDetailsRequest'
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            allOf:
-            - $ref: '#/definitions/v1.Response'
-            - properties:
-                data:
-                  $ref: '#/definitions/domain.ReservedDetails'
-              type: object
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/v1.Response'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/v1.Response'
-      security:
-      - BearerAuth: []
-      summary: Add or update reserved details
-      tags:
-      - rejected-products
-  /rejected-products/reserved-details/list:
-    get:
-      description: List reserved details. If reserved_id is omitted, returns details
-        of the store's current new document.
-      parameters:
-      - description: Reserved document ID
-        in: query
-        name: reserved_id
-        type: string
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            allOf:
-            - $ref: '#/definitions/v1.Response'
-            - properties:
-                data:
-                  items:
-                    $ref: '#/definitions/domain.ReservedDetailsWithProduct'
-                  type: array
-              type: object
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/v1.Response'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/v1.Response'
-      security:
-      - BearerAuth: []
-      summary: List reserved details for store
-      tags:
-      - rejected-products
-  /rejected-products/reserved-document:
-    post:
-      consumes:
-      - application/json
-      description: Create a new reserved document
-      parameters:
-      - description: Create reserved document request
-        in: body
-        name: body
-        required: true
-        schema:
-          $ref: '#/definitions/domain.CreateReservedDocumentRequest'
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            allOf:
-            - $ref: '#/definitions/v1.Response'
-            - properties:
-                data:
-                  $ref: '#/definitions/domain.Reserved'
-              type: object
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/v1.Response'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/v1.Response'
-      security:
-      - BearerAuth: []
-      summary: Create a reserved document
       tags:
       - rejected-products
   /reminder:
@@ -20805,6 +20701,495 @@ paths:
       summary: add new retail price
       tags:
       - Repricing
+  /reserve:
+    post:
+      consumes:
+      - application/json
+      description: |-
+        Rezerv hujjati yaratadi. store_id bo'sh bo'lsa token'dagi do'kon olinadi,
+        dok_number bo'sh bo'lsa avtomatik beriladi (RZ-1000, RZ-1001, ...).
+        items berilsa qatorlar ham shu tranzaksiyada yoziladi; mahsulot topilmasa
+        butun hujjat yaratilmaydi (ROLLBACK).
+      parameters:
+      - description: Hujjat va qatorlari
+        in: body
+        name: input
+        required: true
+        schema:
+          $ref: '#/definitions/domain.ReserveRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            allOf:
+            - $ref: '#/definitions/v1.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/domain.Reserve'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Create reserve document
+      tags:
+      - reserves
+  /reserve-detail:
+    post:
+      consumes:
+      - application/json
+      description: |-
+        Hujjatga mahsulot qo'shadi; o'sha mahsulot allaqachon bo'lsa miqdori yangilanadi.
+        Hujjat 'done' bo'lsa o'zgartirishga yo'l qo'yilmaydi (409).
+      parameters:
+      - description: reserve_id, product_id, quantity
+        in: body
+        name: input
+        required: true
+        schema:
+          $ref: '#/definitions/domain.ReserveDetailRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            allOf:
+            - $ref: '#/definitions/v1.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/domain.ReserveDetail'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Add product to reserve document
+      tags:
+      - reserves
+  /reserve-detail/{id}:
+    delete:
+      consumes:
+      - application/json
+      description: Qatorni o'chiradi va hujjat jami miqdorlarini qayta hisoblaydi.
+      parameters:
+      - description: Reserve detail ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Delete reserve document detail
+      tags:
+      - reserves
+    put:
+      consumes:
+      - application/json
+      description: quantity va/yoki checked_quantity ni yangilaydi (faqat berilgan
+        maydon).
+      parameters:
+      - description: Reserve detail ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: quantity / checked_quantity
+        in: body
+        name: input
+        required: true
+        schema:
+          $ref: '#/definitions/domain.ReserveDetailUpdateRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/v1.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/domain.ReserveDetail'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Update reserve document detail
+      tags:
+      - reserves
+  /reserve-detail/list:
+    get:
+      consumes:
+      - application/json
+      description: Hujjat qatorlari. available_quantity — hujjat do'konidagi hozirgi
+        qoldiq.
+      parameters:
+      - description: Reserve ID
+        in: query
+        name: reserve_id
+        required: true
+        type: string
+      - description: Mahsulot nomi yoki material_code
+        in: query
+        name: search
+        type: string
+      - description: Limit
+        in: query
+        name: limit
+        type: integer
+      - description: Offset
+        in: query
+        name: offset
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/v1.Response'
+            - properties:
+                data:
+                  items:
+                    $ref: '#/definitions/domain.ReserveDetail'
+                  type: array
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: List reserve document details
+      tags:
+      - reserves
+  /reserve-detail/quick:
+    post:
+      consumes:
+      - application/json
+      description: |-
+        Bitta so'rov bilan qo'shish: do'konning ochiq hujjati (status != done) o'zi
+        topiladi, bo'lmasa yangisi ochiladi. Mahsulot hujjatda allaqachon bo'lsa
+        miqdor USTIGA QO'SHILADI (almashtirilmaydi — buning uchun PUT /reserve-detail/{id}).
+        store_id bo'sh bo'lsa token'dagi do'kon ishlatiladi. Javobdagi reserve_id —
+        qaysi hujjatga tushgani.
+      parameters:
+      - description: store_id (ixtiyoriy), product_id, quantity
+        in: body
+        name: input
+        required: true
+        schema:
+          $ref: '#/definitions/domain.ReserveQuickDetailRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            allOf:
+            - $ref: '#/definitions/v1.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/domain.ReserveDetail'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Quick add product to the store's open reserve document
+      tags:
+      - reserves
+  /reserve/{id}:
+    delete:
+      consumes:
+      - application/json
+      description: Faqat 'new' holatidagi hujjat o'chiriladi, qatorlari ham birga
+        ketadi.
+      parameters:
+      - description: Reserve ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Delete reserve document
+      tags:
+      - reserves
+    get:
+      consumes:
+      - application/json
+      description: Hujjat va uning barcha qatorlari (details).
+      parameters:
+      - description: Reserve ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/v1.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/domain.Reserve'
+              type: object
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Get reserve document
+      tags:
+      - reserves
+  /reserve/{id}/status:
+    patch:
+      consumes:
+      - application/json
+      description: new -> checking -> done. done bo'lgan hujjat qayta o'zgarmaydi
+        (409).
+      parameters:
+      - description: Reserve ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Yangi status
+        in: body
+        name: input
+        required: true
+        schema:
+          $ref: '#/definitions/domain.ReserveStatusRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/v1.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/domain.Reserve'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Update reserve status
+      tags:
+      - reserves
+  /reserve/list:
+    get:
+      consumes:
+      - application/json
+      description: Rezerv hujjatlari ro'yxati, created_at bo'yicha kamayish tartibida.
+      parameters:
+      - description: Do'kon (admin uchun; boshqalarda token'dagi do'kon)
+        in: query
+        name: store_id
+        type: string
+      - description: new | checking | done
+        in: query
+        name: status
+        type: string
+      - description: dok_number yoki izoh bo'yicha
+        in: query
+        name: search
+        type: string
+      - description: YYYY-MM-DD (Toshkent kuni)
+        in: query
+        name: start_date
+        type: string
+      - description: YYYY-MM-DD (Toshkent kuni)
+        in: query
+        name: end_date
+        type: string
+      - description: Limit
+        in: query
+        name: limit
+        type: integer
+      - description: Offset
+        in: query
+        name: offset
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/v1.Response'
+            - properties:
+                data:
+                  items:
+                    $ref: '#/definitions/domain.Reserve'
+                  type: array
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: List reserve documents
+      tags:
+      - reserves
   /return:
     post:
       consumes:

@@ -1,13 +1,4 @@
--- An earlier revision of this migration created `reserveds` and then failed.
--- Rename that partial table before retrying migration 258.
-DO $$
-BEGIN
-    IF to_regclass('public.reserveds') IS NOT NULL
-       AND to_regclass('public.reserved') IS NULL THEN
-        ALTER TABLE "reserveds" RENAME TO "reserved";
-    END IF;
-END $$;
-
+-- Jadvallarni bo'sh holda qaytaradi (ma'lumot tiklanmaydi).
 CREATE TABLE IF NOT EXISTS "reserved" (
     "id" UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     "store_id" UUID NOT NULL REFERENCES stores("id") ON DELETE CASCADE,

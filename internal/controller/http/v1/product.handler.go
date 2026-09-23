@@ -4672,6 +4672,7 @@ func (h *ProductHandler) PublicList(c *gin.Context) {
 // @Produce json
 // @Param 	search 		query string 	false "Nom yoki material_code bo'yicha qidiruv"
 // @Param 	is_active 	query bool 		false "true — hozirgi 1C ro'yxatidagilar, false — chiqib ketganlar"
+// @Param 	store_id 	query string 	false "available_quantity shu do'kon bo'yicha; bo'sh bo'lsa token'dagi do'kon"
 // @Param 	limit 		query int 		false "Limit"
 // @Param 	offset 		query int 		false "Offset"
 // @Success 200 {object} v1.Response{data=[]domain.ReservedProduct}
@@ -4696,7 +4697,13 @@ func (h *ProductHandler) ListReservedProducts(c *gin.Context) {
 	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
 	defer cancel()
 
-	res, totalCount, err := h.service.GetReservedProducts(ctx, &params, user.StoreId)
+	// Qoldiq so'ralgan do'kon bo'yicha; berilmasa token'dagi do'kon (adminda u bo'sh bo'lishi mumkin).
+	storeId := params.StoreId
+	if storeId == "" {
+		storeId = user.StoreId
+	}
+
+	res, totalCount, err := h.service.GetReservedProducts(ctx, &params, storeId)
 	if err != nil {
 		handleServiceResponse(c, nil, err)
 		return

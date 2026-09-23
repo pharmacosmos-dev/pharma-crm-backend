@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"strconv"
 	"strings"
 
 	"github.com/lib/pq"
@@ -169,7 +170,9 @@ func (s *Services) GetReservedProducts(
 		return nil, 0, domain.InternalServerError
 	}
 
-	if storeID != "" && len(products) > 0 {
+	// product_id va unit_per_pack ro'yxatning o'zidan kelishi kerak: rezerv hujjati
+	// (reserve_details.product_id) shu id bilan yig'iladi. storeID berilsa qoldiq ham qo'shiladi.
+	if len(products) > 0 {
 		materialCodes := make([]string, 0, len(products))
 		seen := make(map[string]struct{}, len(products))
 		for _, product := range products {
@@ -191,7 +194,13 @@ func (s *Services) GetReservedProducts(
 			}
 
 			for i := range products {
-				products[i].AvailableQuantity = stocks[strings.TrimSpace(products[i].MaterialCode)]
+				stock, ok := stocks[strings.TrimSpace(products[i].MaterialCode)]
+				if !ok {
+					continue
+				}
+				products[i].ProductId = stock.ProductId
+				products[i].UnitPerPack = stock.UnitPerPack
+				products[i].AvailableQuantity = stock.AvailableQuantity
 			}
 		}
 	}
@@ -199,34 +208,63 @@ func (s *Services) GetReservedProducts(
 	return products, totalCount, nil
 }
 
+// reservedProductStock — material_code bo'yicha topilgan CRM mahsuloti va do'kondagi qoldiq.
+type reservedProductStock struct {
+	ProductId         string
+	UnitPerPack       int
+	AvailableQuantity float64
+}
+
+// getReservedProductStockMap — reserved_products.material_code (text) va products.material_code
+// (int) taqqoslanadi. Taqqoslash int'da: text'ga CAST qilinsa products'dagi unique indeks
+// ishlamay, har so'rovda butun jadval skanerlanardi. Raqam bo'lmagan kod products'da baribir
+// uchramaydi — u tashlab ketiladi.
 func (s *Services) getReservedProductStockMap(
 	ctx context.Context, storeID string, materialCodes []string,
-) (map[string]float64, error) {
-	if storeID == "" || len(materialCodes) == 0 {
-		return map[string]float64{}, nil
+) (map[string]reservedProductStock, error) {
+	codes := make([]int64, 0, len(materialCodes))
+	for _, code := range materialCodes {
+		if parsed, err := strconv.ParseInt(strings.TrimSpace(code), 10, 64); err == nil {
+			codes = append(codes, parsed)
+		}
+	}
+	if len(codes) == 0 {
+		return map[string]reservedProductStock{}, nil
 	}
 
 	var rows []struct {
 		MaterialCode      string  `gorm:"column:material_code"`
+		ProductId         string  `gorm:"column:product_id"`
+		UnitPerPack       int     `gorm:"column:unit_per_pack"`
 		AvailableQuantity float64 `gorm:"column:available_quantity"`
 	}
 
+	// storeID bo'sh bo'lsa LEFT JOIN hech qanday qatorga tushmaydi: qoldiq 0 bo'ladi,
+	// lekin product_id va unit_per_pack baribir qaytadi.
 	err := s.db.WithContext(ctx).Raw(`
-		SELECT CAST(p.material_code AS TEXT) AS material_code,
+		SELECT
+			p.material_code::text              AS material_code,
+			p.id::text                         AS product_id,
+			COALESCE(p.unit_per_pack, 1)       AS unit_per_pack,
 			COALESCE(SUM(sp.unit_quantity), 0) AS available_quantity
 		FROM products p
-		LEFT JOIN store_products sp ON sp.product_id = p.id AND sp.store_id = ?
-		WHERE CAST(p.material_code AS TEXT) = ANY(?)
-		GROUP BY CAST(p.material_code AS TEXT)
-	`, storeID, pq.Array(materialCodes)).Scan(&rows).Error
+		LEFT JOIN store_products sp ON sp.product_id = p.id AND sp.store_id = NULLIF(?, '')::uuid
+		WHERE p.material_code = ANY(?::int[])
+			AND p.deleted_at IS NULL
+		GROUP BY p.id, p.material_code, p.unit_per_pack
+	`, storeID, pq.Array(codes)).Scan(&rows).Error
 	if err != nil {
 		s.log.Errorf("reserved products: could not load stock by material_code for store_id=%s: %v", storeID, err)
 		return nil, domain.InternalServerError
 	}
 
-	result := make(map[string]float64, len(rows))
+	result := make(map[string]reservedProductStock, len(rows))
 	for _, row := range rows {
-		result[strings.TrimSpace(row.MaterialCode)] = row.AvailableQuantity
+		result[strings.TrimSpace(row.MaterialCode)] = reservedProductStock{
+			ProductId:         row.ProductId,
+			UnitPerPack:       row.UnitPerPack,
+			AvailableQuantity: row.AvailableQuantity,
+		}
 	}
 
 	return result, nil

@@ -12,6 +12,9 @@ type ReservedProduct struct {
 	SortIndex         int        `json:"sort_index" gorm:"column:sort_index"`
 	Name              string     `json:"name" gorm:"column:name"`
 	MaterialCode      string     `json:"material_code" gorm:"column:material_code"`
+	// products'dan material_code orqali topiladi: rezerv hujjati shu product_id bilan yig'iladi.
+	ProductId         string     `json:"product_id" gorm:"-"`
+	UnitPerPack       int        `json:"unit_per_pack" gorm:"-"`
 	AvailableQuantity float64    `json:"available_quantity" gorm:"-"`
 	IsActive          bool       `json:"is_active" gorm:"column:is_active"`
 	CreatedAt         *time.Time `json:"created_at" gorm:"column:created_at"`
@@ -80,6 +83,7 @@ type ReservedProductImportResult struct {
 type ReservedProductQueryParams struct {
 	Search   string `form:"search"`    // name yoki material_code bo'yicha
 	IsActive *bool  `form:"is_active"` // berilmasa — hammasi
+	StoreId  string `form:"store_id"`  // qoldiq shu do'kon bo'yicha; bo'sh bo'lsa token'dagi do'kon
 	Limit    int    `form:"limit"`
 	Offset   int    `form:"offset"`
 }

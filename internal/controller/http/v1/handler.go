@@ -120,6 +120,7 @@ func (h *Handler) InitRoutes(r *gin.Engine) {
 		h.NewExpenseHandler(v1)
 		h.NewRepricingHandler(v1)
 		h.NewRejectedProductsHandler(v1)
+		h.NewReserveHandler(v1)
 		h.NewUzumTezkorProductHandler(v1)
 		h.NewLoyaltyCardHandler(v1)
 		h.NewLogHandler(v1)

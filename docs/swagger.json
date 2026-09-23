@@ -21324,6 +21324,12 @@
                         "in": "query"
                     },
                     {
+                        "type": "string",
+                        "description": "available_quantity shu do'kon bo'yicha; bo'sh bo'lsa token'dagi do'kon",
+                        "name": "store_id",
+                        "in": "query"
+                    },
+                    {
                         "type": "integer",
                         "description": "Limit",
                         "name": "limit",
@@ -24072,262 +24078,6 @@
                         "description": "OK",
                         "schema": {
                             "$ref": "#/definitions/v1.Response"
-                        }
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "$ref": "#/definitions/v1.Response"
-                        }
-                    },
-                    "500": {
-                        "description": "Internal Server Error",
-                        "schema": {
-                            "$ref": "#/definitions/v1.Response"
-                        }
-                    }
-                }
-            }
-        },
-        "/rejected-products/reserved-details": {
-            "post": {
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ],
-                "description": "Insert product to reserved_details directly. Automatically creates new reserved document if status='done'",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "rejected-products"
-                ],
-                "summary": "Insert reserved details directly",
-                "parameters": [
-                    {
-                        "description": "Insert reserved details direct request",
-                        "name": "body",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/domain.InsertReservedDetailsDirectRequest"
-                        }
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "allOf": [
-                                {
-                                    "$ref": "#/definitions/v1.Response"
-                                },
-                                {
-                                    "type": "object",
-                                    "properties": {
-                                        "data": {
-                                            "$ref": "#/definitions/domain.ReservedDetailsWithProduct"
-                                        }
-                                    }
-                                }
-                            ]
-                        }
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "$ref": "#/definitions/v1.Response"
-                        }
-                    },
-                    "500": {
-                        "description": "Internal Server Error",
-                        "schema": {
-                            "$ref": "#/definitions/v1.Response"
-                        }
-                    }
-                }
-            }
-        },
-        "/rejected-products/reserved-details/list": {
-            "get": {
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ],
-                "description": "List reserved details. If reserved_id is omitted, returns details of the store's current new document.",
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "rejected-products"
-                ],
-                "summary": "List reserved details for store",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Reserved document ID",
-                        "name": "reserved_id",
-                        "in": "query"
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "allOf": [
-                                {
-                                    "$ref": "#/definitions/v1.Response"
-                                },
-                                {
-                                    "type": "object",
-                                    "properties": {
-                                        "data": {
-                                            "type": "array",
-                                            "items": {
-                                                "$ref": "#/definitions/domain.ReservedDetailsWithProduct"
-                                            }
-                                        }
-                                    }
-                                }
-                            ]
-                        }
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "$ref": "#/definitions/v1.Response"
-                        }
-                    },
-                    "500": {
-                        "description": "Internal Server Error",
-                        "schema": {
-                            "$ref": "#/definitions/v1.Response"
-                        }
-                    }
-                }
-            }
-        },
-        "/rejected-products/reserved-details/{reservedId}": {
-            "post": {
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ],
-                "description": "Add product to reserved document or update quantity if already exists",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "rejected-products"
-                ],
-                "summary": "Add or update reserved details",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Reserved Document ID",
-                        "name": "reservedId",
-                        "in": "path",
-                        "required": true
-                    },
-                    {
-                        "description": "Add reserved details request",
-                        "name": "body",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/domain.AddReservedDetailsRequest"
-                        }
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "allOf": [
-                                {
-                                    "$ref": "#/definitions/v1.Response"
-                                },
-                                {
-                                    "type": "object",
-                                    "properties": {
-                                        "data": {
-                                            "$ref": "#/definitions/domain.ReservedDetails"
-                                        }
-                                    }
-                                }
-                            ]
-                        }
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "$ref": "#/definitions/v1.Response"
-                        }
-                    },
-                    "500": {
-                        "description": "Internal Server Error",
-                        "schema": {
-                            "$ref": "#/definitions/v1.Response"
-                        }
-                    }
-                }
-            }
-        },
-        "/rejected-products/reserved-document": {
-            "post": {
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ],
-                "description": "Create a new reserved document",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "rejected-products"
-                ],
-                "summary": "Create a reserved document",
-                "parameters": [
-                    {
-                        "description": "Create reserved document request",
-                        "name": "body",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/domain.CreateReservedDocumentRequest"
-                        }
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "allOf": [
-                                {
-                                    "$ref": "#/definitions/v1.Response"
-                                },
-                                {
-                                    "type": "object",
-                                    "properties": {
-                                        "data": {
-                                            "$ref": "#/definitions/domain.Reserved"
-                                        }
-                                    }
-                                }
-                            ]
                         }
                     },
                     "400": {
@@ -27744,6 +27494,779 @@
                     },
                     "400": {
                         "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/reserve": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Rezerv hujjati yaratadi. store_id bo'sh bo'lsa token'dagi do'kon olinadi,\ndok_number bo'sh bo'lsa avtomatik beriladi (RZ-1000, RZ-1001, ...).\nitems berilsa qatorlar ham shu tranzaksiyada yoziladi; mahsulot topilmasa\nbutun hujjat yaratilmaydi (ROLLBACK).",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "reserves"
+                ],
+                "summary": "Create reserve document",
+                "parameters": [
+                    {
+                        "description": "Hujjat va qatorlari",
+                        "name": "input",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/domain.ReserveRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/v1.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/domain.Reserve"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/reserve-detail": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Hujjatga mahsulot qo'shadi; o'sha mahsulot allaqachon bo'lsa miqdori yangilanadi.\nHujjat 'done' bo'lsa o'zgartirishga yo'l qo'yilmaydi (409).",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "reserves"
+                ],
+                "summary": "Add product to reserve document",
+                "parameters": [
+                    {
+                        "description": "reserve_id, product_id, quantity",
+                        "name": "input",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/domain.ReserveDetailRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/v1.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/domain.ReserveDetail"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/reserve-detail/list": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Hujjat qatorlari. available_quantity — hujjat do'konidagi hozirgi qoldiq.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "reserves"
+                ],
+                "summary": "List reserve document details",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Reserve ID",
+                        "name": "reserve_id",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Mahsulot nomi yoki material_code",
+                        "name": "search",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Limit",
+                        "name": "limit",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Offset",
+                        "name": "offset",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/v1.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "type": "array",
+                                            "items": {
+                                                "$ref": "#/definitions/domain.ReserveDetail"
+                                            }
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/reserve-detail/quick": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Bitta so'rov bilan qo'shish: do'konning ochiq hujjati (status != done) o'zi\ntopiladi, bo'lmasa yangisi ochiladi. Mahsulot hujjatda allaqachon bo'lsa\nmiqdor USTIGA QO'SHILADI (almashtirilmaydi — buning uchun PUT /reserve-detail/{id}).\nstore_id bo'sh bo'lsa token'dagi do'kon ishlatiladi. Javobdagi reserve_id —\nqaysi hujjatga tushgani.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "reserves"
+                ],
+                "summary": "Quick add product to the store's open reserve document",
+                "parameters": [
+                    {
+                        "description": "store_id (ixtiyoriy), product_id, quantity",
+                        "name": "input",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/domain.ReserveQuickDetailRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/v1.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/domain.ReserveDetail"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/reserve-detail/{id}": {
+            "put": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "quantity va/yoki checked_quantity ni yangilaydi (faqat berilgan maydon).",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "reserves"
+                ],
+                "summary": "Update reserve document detail",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Reserve detail ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "quantity / checked_quantity",
+                        "name": "input",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/domain.ReserveDetailUpdateRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/v1.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/domain.ReserveDetail"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Qatorni o'chiradi va hujjat jami miqdorlarini qayta hisoblaydi.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "reserves"
+                ],
+                "summary": "Delete reserve document detail",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Reserve detail ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/reserve/list": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Rezerv hujjatlari ro'yxati, created_at bo'yicha kamayish tartibida.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "reserves"
+                ],
+                "summary": "List reserve documents",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Do'kon (admin uchun; boshqalarda token'dagi do'kon)",
+                        "name": "store_id",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "new | checking | done",
+                        "name": "status",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "dok_number yoki izoh bo'yicha",
+                        "name": "search",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "YYYY-MM-DD (Toshkent kuni)",
+                        "name": "start_date",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "YYYY-MM-DD (Toshkent kuni)",
+                        "name": "end_date",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Limit",
+                        "name": "limit",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Offset",
+                        "name": "offset",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/v1.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "type": "array",
+                                            "items": {
+                                                "$ref": "#/definitions/domain.Reserve"
+                                            }
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/reserve/{id}": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Hujjat va uning barcha qatorlari (details).",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "reserves"
+                ],
+                "summary": "Get reserve document",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Reserve ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/v1.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/domain.Reserve"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Faqat 'new' holatidagi hujjat o'chiriladi, qatorlari ham birga ketadi.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "reserves"
+                ],
+                "summary": "Delete reserve document",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Reserve ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/reserve/{id}/status": {
+            "patch": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "new -\u003e checking -\u003e done. done bo'lgan hujjat qayta o'zgarmaydi (409).",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "reserves"
+                ],
+                "summary": "Update reserve status",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Reserve ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Yangi status",
+                        "name": "input",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/domain.ReserveStatusRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/v1.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/domain.Reserve"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
                         "schema": {
                             "$ref": "#/definitions/v1.Response"
                         }
@@ -36885,21 +37408,6 @@
                 }
             }
         },
-        "domain.AddReservedDetailsRequest": {
-            "type": "object",
-            "required": [
-                "product_id",
-                "quantity"
-            ],
-            "properties": {
-                "product_id": {
-                    "type": "string"
-                },
-                "quantity": {
-                    "type": "number"
-                }
-            }
-        },
         "domain.AddScanRequest": {
             "type": "object",
             "properties": {
@@ -37540,20 +38048,6 @@
                 "to_date": {
                     "type": "string",
                     "example": "2026-07-20T18:00:00+05:00"
-                }
-            }
-        },
-        "domain.CreateReservedDocumentRequest": {
-            "type": "object",
-            "required": [
-                "document_number"
-            ],
-            "properties": {
-                "comment": {
-                    "type": "string"
-                },
-                "document_number": {
-                    "type": "string"
                 }
             }
         },
@@ -38412,25 +38906,6 @@
             "properties": {
                 "scanned_count": {
                     "type": "integer"
-                }
-            }
-        },
-        "domain.InsertReservedDetailsDirectRequest": {
-            "type": "object",
-            "required": [
-                "product_id",
-                "quantity",
-                "store_id"
-            ],
-            "properties": {
-                "product_id": {
-                    "type": "string"
-                },
-                "quantity": {
-                    "type": "number"
-                },
-                "store_id": {
-                    "type": "string"
                 }
             }
         },
@@ -39924,10 +40399,13 @@
                 }
             }
         },
-        "domain.Reserved": {
+        "domain.Reserve": {
             "type": "object",
             "properties": {
                 "comment": {
+                    "type": "string"
+                },
+                "completed_at": {
                     "type": "string"
                 },
                 "created_at": {
@@ -39936,17 +40414,28 @@
                 "created_by": {
                     "type": "string"
                 },
-                "document_number": {
+                "created_by_name": {
+                    "type": "string"
+                },
+                "details": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/domain.ReserveDetail"
+                    }
+                },
+                "dok_number": {
                     "type": "string"
                 },
                 "id": {
                     "type": "string"
                 },
                 "status": {
-                    "description": "'new', 'checking', 'done'",
                     "type": "string"
                 },
                 "store_id": {
+                    "type": "string"
+                },
+                "store_name": {
                     "type": "string"
                 },
                 "total_product_count": {
@@ -39957,41 +40446,27 @@
                 },
                 "updated_at": {
                     "type": "string"
-                }
-            }
-        },
-        "domain.ReservedDetails": {
-            "type": "object",
-            "properties": {
-                "created_at": {
-                    "type": "string"
-                },
-                "created_by": {
-                    "type": "string"
-                },
-                "id": {
-                    "type": "string"
-                },
-                "product_id": {
-                    "type": "string"
-                },
-                "quantity": {
-                    "type": "number"
-                },
-                "reserved_id": {
-                    "type": "string"
-                },
-                "updated_at": {
-                    "type": "string"
                 },
                 "updated_by": {
                     "type": "string"
+                },
+                "updated_by_name": {
+                    "type": "string"
                 }
             }
         },
-        "domain.ReservedDetailsWithProduct": {
+        "domain.ReserveDetail": {
             "type": "object",
             "properties": {
+                "available_quantity": {
+                    "type": "number"
+                },
+                "barcode": {
+                    "type": "string"
+                },
+                "checked_quantity": {
+                    "type": "number"
+                },
                 "created_at": {
                     "type": "string"
                 },
@@ -40001,7 +40476,7 @@
                 "id": {
                     "type": "string"
                 },
-                "product_code": {
+                "material_code": {
                     "type": "string"
                 },
                 "product_id": {
@@ -40013,20 +40488,127 @@
                 "quantity": {
                     "type": "number"
                 },
-                "reserved_id": {
+                "reserve_id": {
                     "type": "string"
+                },
+                "reserved_product_id": {
+                    "type": "string"
+                },
+                "unit_per_pack": {
+                    "type": "integer"
                 },
                 "updated_at": {
                     "type": "string"
                 },
                 "updated_by": {
                     "type": "string"
+                },
+                "updated_by_name": {
+                    "type": "string"
+                }
+            }
+        },
+        "domain.ReserveDetailRequest": {
+            "type": "object",
+            "required": [
+                "product_id",
+                "reserve_id"
+            ],
+            "properties": {
+                "product_id": {
+                    "type": "string"
+                },
+                "quantity": {
+                    "type": "number",
+                    "minimum": 0
+                },
+                "reserve_id": {
+                    "type": "string"
+                }
+            }
+        },
+        "domain.ReserveDetailUpdateRequest": {
+            "type": "object",
+            "properties": {
+                "checked_quantity": {
+                    "type": "number"
+                },
+                "quantity": {
+                    "type": "number"
+                }
+            }
+        },
+        "domain.ReserveItemRequest": {
+            "type": "object",
+            "required": [
+                "product_id"
+            ],
+            "properties": {
+                "product_id": {
+                    "type": "string"
+                },
+                "quantity": {
+                    "type": "number",
+                    "minimum": 0
+                }
+            }
+        },
+        "domain.ReserveQuickDetailRequest": {
+            "type": "object",
+            "required": [
+                "product_id",
+                "quantity"
+            ],
+            "properties": {
+                "product_id": {
+                    "type": "string"
+                },
+                "quantity": {
+                    "type": "number"
+                },
+                "store_id": {
+                    "type": "string"
+                }
+            }
+        },
+        "domain.ReserveRequest": {
+            "type": "object",
+            "properties": {
+                "comment": {
+                    "type": "string"
+                },
+                "dok_number": {
+                    "type": "string"
+                },
+                "items": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/domain.ReserveItemRequest"
+                    }
+                },
+                "store_id": {
+                    "type": "string"
+                }
+            }
+        },
+        "domain.ReserveStatusRequest": {
+            "type": "object",
+            "required": [
+                "status"
+            ],
+            "properties": {
+                "status": {
+                    "type": "string",
+                    "example": "checking"
                 }
             }
         },
         "domain.ReservedProduct": {
             "type": "object",
             "properties": {
+                "available_quantity": {
+                    "type": "number"
+                },
                 "created_at": {
                     "type": "string"
                 },
@@ -40042,7 +40624,14 @@
                 "name": {
                     "type": "string"
                 },
+                "product_id": {
+                    "description": "products'dan material_code orqali topiladi: rezerv hujjati shu product_id bilan yig'iladi.",
+                    "type": "string"
+                },
                 "sort_index": {
+                    "type": "integer"
+                },
+                "unit_per_pack": {
                     "type": "integer"
                 },
                 "updated_at": {
