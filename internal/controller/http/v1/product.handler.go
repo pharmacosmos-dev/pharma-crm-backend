@@ -4666,6 +4666,9 @@ func (h *ProductHandler) PublicList(c *gin.Context) {
 // @Summary Get reserved products list
 // @Description 1C yuborgan rezerv mahsulotlar ro'yxati, doim ORDER BY sort_index ASC (1C tartibi).
 // @Description is_active berilmasa aktiv va deaktiv qatorlar birga qaytadi.
+// @Description Har qatorda product_id, unit_per_pack, do'kondagi qoldiq (available_quantity) va
+// @Description do'konning ochiq rezerv hujjatiga kiritilgan miqdor (reserved_quantity) qaytadi;
+// @Description hujjat done bo'lsa yoki umuman bo'lmasa reserved_quantity = 0.
 // @Tags products
 // @Security     BearerAuth
 // @Accept 	json

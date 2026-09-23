@@ -188,7 +188,14 @@ func (s *Services) GetReservedProducts(
 		}
 
 		if len(materialCodes) > 0 {
-			stocks, err := s.getReservedProductStockMap(ctx, storeID, materialCodes)
+			// Ochiq hujjat (status != done) bo'lsa, unga kiritilgan miqdorlar ham qo'shiladi.
+			// Hujjat done bo'lsa yoki umuman bo'lmasa — reserved_quantity 0 bo'lib qoladi.
+			openReserveId, err := s.getOpenReserveId(ctx, storeID)
+			if err != nil {
+				return nil, 0, err
+			}
+
+			stocks, err := s.getReservedProductStockMap(ctx, storeID, openReserveId, materialCodes)
 			if err != nil {
 				return nil, 0, err
 			}
@@ -201,6 +208,7 @@ func (s *Services) GetReservedProducts(
 				products[i].ProductId = stock.ProductId
 				products[i].UnitPerPack = stock.UnitPerPack
 				products[i].AvailableQuantity = stock.AvailableQuantity
+				products[i].ReservedQuantity = stock.ReservedQuantity
 			}
 		}
 	}
@@ -208,11 +216,13 @@ func (s *Services) GetReservedProducts(
 	return products, totalCount, nil
 }
 
-// reservedProductStock — material_code bo'yicha topilgan CRM mahsuloti va do'kondagi qoldiq.
+// reservedProductStock — material_code bo'yicha topilgan CRM mahsuloti, do'kondagi qoldiq
+// va ochiq rezerv hujjatiga kiritilgan miqdor.
 type reservedProductStock struct {
 	ProductId         string
 	UnitPerPack       int
 	AvailableQuantity float64
+	ReservedQuantity  float64
 }
 
 // getReservedProductStockMap — reserved_products.material_code (text) va products.material_code
@@ -220,7 +230,7 @@ type reservedProductStock struct {
 // ishlamay, har so'rovda butun jadval skanerlanardi. Raqam bo'lmagan kod products'da baribir
 // uchramaydi — u tashlab ketiladi.
 func (s *Services) getReservedProductStockMap(
-	ctx context.Context, storeID string, materialCodes []string,
+	ctx context.Context, storeID, openReserveId string, materialCodes []string,
 ) (map[string]reservedProductStock, error) {
 	codes := make([]int64, 0, len(materialCodes))
 	for _, code := range materialCodes {
@@ -237,22 +247,27 @@ func (s *Services) getReservedProductStockMap(
 		ProductId         string  `gorm:"column:product_id"`
 		UnitPerPack       int     `gorm:"column:unit_per_pack"`
 		AvailableQuantity float64 `gorm:"column:available_quantity"`
+		ReservedQuantity  float64 `gorm:"column:reserved_quantity"`
 	}
 
-	// storeID bo'sh bo'lsa LEFT JOIN hech qanday qatorga tushmaydi: qoldiq 0 bo'ladi,
-	// lekin product_id va unit_per_pack baribir qaytadi.
+	// storeID yoki openReserveId bo'sh bo'lsa mos LEFT JOIN hech qanday qatorga tushmaydi:
+	// qoldiq/kiritilgan miqdor 0 bo'ladi, lekin product_id va unit_per_pack baribir qaytadi.
+	// reserved_quantity'da MAX: (reserve_id, product_id) unique, ya'ni ko'pi bilan bitta qator —
+	// store_products bo'yicha ko'paygan satrlarda o'sha qiymat takrorlanadi, SUM buni qo'shib yuborardi.
 	err := s.db.WithContext(ctx).Raw(`
 		SELECT
 			p.material_code::text              AS material_code,
 			p.id::text                         AS product_id,
 			COALESCE(p.unit_per_pack, 1)       AS unit_per_pack,
-			COALESCE(SUM(sp.unit_quantity), 0) AS available_quantity
+			COALESCE(SUM(sp.unit_quantity), 0) AS available_quantity,
+			COALESCE(MAX(rd.quantity), 0)      AS reserved_quantity
 		FROM products p
-		LEFT JOIN store_products sp ON sp.product_id = p.id AND sp.store_id = NULLIF(?, '')::uuid
+		LEFT JOIN store_products sp  ON sp.product_id = p.id AND sp.store_id = NULLIF(?, '')::uuid
+		LEFT JOIN reserve_details rd ON rd.product_id = p.id AND rd.reserve_id = NULLIF(?, '')::uuid
 		WHERE p.material_code = ANY(?::int[])
 			AND p.deleted_at IS NULL
 		GROUP BY p.id, p.material_code, p.unit_per_pack
-	`, storeID, pq.Array(codes)).Scan(&rows).Error
+	`, storeID, openReserveId, pq.Array(codes)).Scan(&rows).Error
 	if err != nil {
 		s.log.Errorf("reserved products: could not load stock by material_code for store_id=%s: %v", storeID, err)
 		return nil, domain.InternalServerError
@@ -264,6 +279,7 @@ func (s *Services) getReservedProductStockMap(
 			ProductId:         row.ProductId,
 			UnitPerPack:       row.UnitPerPack,
 			AvailableQuantity: row.AvailableQuantity,
+			ReservedQuantity:  row.ReservedQuantity,
 		}
 	}
 

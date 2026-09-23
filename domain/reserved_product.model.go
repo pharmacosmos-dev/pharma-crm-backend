@@ -16,6 +16,9 @@ type ReservedProduct struct {
 	ProductId         string     `json:"product_id" gorm:"-"`
 	UnitPerPack       int        `json:"unit_per_pack" gorm:"-"`
 	AvailableQuantity float64    `json:"available_quantity" gorm:"-"`
+	// Do'konning ochiq rezerv hujjatiga (status != done) shu mahsulotdan qancha
+	// kiritilgani. Ochiq hujjat bo'lmasa yoki mahsulot kiritilmagan bo'lsa — 0.
+	ReservedQuantity float64 `json:"reserved_quantity" gorm:"-"`
 	IsActive          bool       `json:"is_active" gorm:"column:is_active"`
 	CreatedAt         *time.Time `json:"created_at" gorm:"column:created_at"`
 	UpdatedAt         *time.Time `json:"updated_at" gorm:"column:updated_at"`

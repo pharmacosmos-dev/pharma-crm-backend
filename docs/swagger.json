@@ -21299,7 +21299,7 @@
                         "BearerAuth": []
                     }
                 ],
-                "description": "1C yuborgan rezerv mahsulotlar ro'yxati, doim ORDER BY sort_index ASC (1C tartibi).\nis_active berilmasa aktiv va deaktiv qatorlar birga qaytadi.",
+                "description": "1C yuborgan rezerv mahsulotlar ro'yxati, doim ORDER BY sort_index ASC (1C tartibi).\nis_active berilmasa aktiv va deaktiv qatorlar birga qaytadi.\nHar qatorda product_id, unit_per_pack, do'kondagi qoldiq (available_quantity) va\ndo'konning ochiq rezerv hujjatiga kiritilgan miqdor (reserved_quantity) qaytadi;\nhujjat done bo'lsa yoki umuman bo'lmasa reserved_quantity = 0.",
                 "consumes": [
                     "application/json"
                 ],
@@ -40627,6 +40627,10 @@
                 "product_id": {
                     "description": "products'dan material_code orqali topiladi: rezerv hujjati shu product_id bilan yig'iladi.",
                     "type": "string"
+                },
+                "reserved_quantity": {
+                    "description": "Do'konning ochiq rezerv hujjatiga (status != done) shu mahsulotdan qancha\nkiritilgani. Ochiq hujjat bo'lmasa yoki mahsulot kiritilmagan bo'lsa — 0.",
+                    "type": "number"
                 },
                 "sort_index": {
                     "type": "integer"

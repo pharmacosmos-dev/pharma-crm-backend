@@ -564,6 +564,32 @@ func (s *Services) DeleteReserveDetail(ctx context.Context, id, userId string) e
 
 // region Helpers
 
+// getOpenReserveId — do'konning ochiq hujjati: eng oxirgi yaratilgani, status != done.
+// Ochiq hujjat bo'lmasa bo'sh satr qaytadi. QuickAddReserveDetail shu qoidani FOR UPDATE
+// bilan takrorlaydi — ikkalasi bir xil hujjatni ko'rsatishi shart.
+func (s *Services) getOpenReserveId(ctx context.Context, storeId string) (string, error) {
+	if storeId == "" {
+		return "", nil
+	}
+
+	var reserveId string
+	err := s.db.WithContext(ctx).Raw(`
+		SELECT id FROM reserves
+		WHERE store_id = ? AND status <> ?
+		ORDER BY created_at DESC
+		LIMIT 1
+	`, storeId, constants.GeneralStatusDone).Row().Scan(&reserveId)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return "", nil
+		}
+		s.log.Errorf("reserve: could not find open document of store %s: %v", storeId, err)
+		return "", domain.InternalServerError
+	}
+
+	return reserveId, nil
+}
+
 // lockReserveStatus — hujjatni FOR UPDATE bilan qulflab statusini o'qiydi: parallel
 // so'rovlar bir vaqtda statusni o'zgartirib yubormasligi uchun.
 func (s *Services) lockReserveStatus(ctx context.Context, tx *gorm.DB, id string) (string, error) {
