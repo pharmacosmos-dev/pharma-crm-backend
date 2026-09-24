@@ -49,7 +49,10 @@ func (s *Services) EmployeeHasRole(ctx context.Context, employeeId, roleName str
 }
 
 // get employee list data
-func (s *Services) GetEmployees(ctx context.Context, params *domain.EmployeeQueryParams) ([]domain.Employee, int64, error) {
+func (s *Services) GetEmployees(
+	ctx context.Context,
+	params *domain.EmployeeQueryParams,
+) ([]domain.Employee, int64, error) {
 	var (
 		res        []domain.Employee
 		totalCount int64
@@ -57,50 +60,142 @@ func (s *Services) GetEmployees(ctx context.Context, params *domain.EmployeeQuer
 
 	query := s.db.
 		Model(&domain.Employee{}).
-		Preload("Store").Preload("Roles").Where("status != ?", constants.GeneralStatusDeleted)
+		Preload("Store").
+		Preload("Roles").
+		Where(
+			"employees.status != ?",
+			constants.GeneralStatusDeleted,
+		)
+
 	if params.RoleId != "" {
 		query = query.
-			Joins("JOIN employee_roles ON employee_roles.employee_id = employees.id").
-			Where("role_id = ?", params.RoleId)
+			Joins(
+				"JOIN employee_roles ON employee_roles.employee_id = employees.id",
+			).
+			Where(
+				"employee_roles.role_id = ?",
+				params.RoleId,
+			)
 	}
+
 	if params.StoreId != "" {
-		query = query.Where("store_id = ?", params.StoreId)
+		query = query.Where(
+			"employees.store_id = ?",
+			params.StoreId,
+		)
 	}
+
 	if params.CompanyId != "" {
-		query = query.Where("company_id = ?", params.CompanyId)
+		query = query.Where(
+			"employees.company_id = ?",
+			params.CompanyId,
+		)
 	}
 
 	if params.Search != "" {
-		params.Search = fmt.Sprintf("%%%s%%", params.Search)
+		search := fmt.Sprintf("%%%s%%", params.Search)
 		query = query.Where(`
-		full_name ILIKE ? OR
-		phone LIKE ? OR 
-		CAST(public_id AS TEXT) LIKE ?`,
-			params.Search, params.Search, params.Search)
+			employees.full_name ILIKE ? OR
+			employees.phone LIKE ? OR
+			CAST(employees.public_id AS TEXT) LIKE ?
+		`,
+			search,
+			search,
+			search,
+		)
 	}
-	if params.Status != "" {
-		query = query.Where("status = ?", params.Status)
+
+	if params.Status != "" &&
+		(params.IsDismissed == nil || !*params.IsDismissed) {
+		query = query.Where(
+			"employees.status = ?",
+			params.Status,
+		)
 	}
-	// Berilmasa (nil) filtrlanmaydi — barcha xodimlar, shu jumladan bo'shatilganlar.
+
 	if params.IsDismissed != nil {
 		if *params.IsDismissed {
-			query = query.Where("status = ?", constants.GeneralStatusDismissed)
+			rankedEmployees := s.db.
+				Table("employees e").
+				Select(`
+					e.id,
+					e.store_id,
+					e.status,
+					st.employee_count,
+					ROW_NUMBER() OVER (
+						PARTITION BY e.store_id
+						ORDER BY
+							CASE
+								WHEN e.status = ? THEN 0
+								WHEN e.status = ? THEN 1
+							END,
+							e.updated_at DESC
+					) AS rn
+				`,
+					constants.GeneralStatusActive,
+					constants.GeneralStatusDismissed,
+				).
+				Joins(
+					"JOIN stores st ON st.id = e.store_id",
+				).
+				Where(
+					"e.status IN (?, ?)",
+					constants.GeneralStatusActive,
+					constants.GeneralStatusDismissed,
+				)
+
+			query = query.Where(`
+				employees.id IN (
+					SELECT ranked.id
+					FROM (?) AS ranked
+					WHERE
+						(
+							ranked.employee_count = 0
+							AND ranked.status = ?
+						)
+						OR
+						(
+							ranked.employee_count > 0
+							AND ranked.rn <= ranked.employee_count
+						)
+				)
+			`,
+				rankedEmployees,
+				constants.GeneralStatusActive,
+			)
+
 		} else {
-			query = query.Where("status != ?", constants.GeneralStatusDismissed)
+			query = query.Where(
+				"employees.status != ?",
+				constants.GeneralStatusDismissed,
+			)
 		}
 	}
 
-	err := query.WithContext(ctx).
+	if err := query.
+		WithContext(ctx).
 		Count(&totalCount).
-		Limit(params.Limit).
-		Offset(params.Offset).
-		Order("created_at DESC").
-		Find(&res).Error
-
-	if err != nil {
-		s.log.Errorf("could not employees: %v", err)
+		Error; err != nil {
+			s.log.Errorf(
+				"could not count employees: %v",
+				err,
+			)
 		return nil, 0, domain.InternalServerError
 	}
+
+	if err := query.
+		WithContext(ctx).
+		Limit(params.Limit).
+		Offset(params.Offset).
+		Order("employees.created_at DESC").
+		Find(&res).
+		Error; err != nil {
+			s.log.Errorf(
+				"could not employees: %v",
+				err,
+			)
+			return nil, 0, domain.InternalServerError
+		}
 
 	return res, totalCount, nil
 }
