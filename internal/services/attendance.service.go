@@ -59,7 +59,11 @@ func (s *Services) GetTodayLastAttendanceEventType(ctx context.Context, employee
 // bo'yicha oxirgi voqeaga qarab tekshiriladi: hech qanday voqea yo'q yoki oxirgisi
 // check-out bo'lsa faqat check-in, oxirgisi check-in bo'lsa faqat check-out qilish
 // mumkin — kechagi kun voqealari hisobga olinmaydi.
-func (s *Services) CreateAttendanceLog(ctx context.Context, employeeId, storeId, eventType, faceIdUrl string) (*domain.AttendanceLog, error) {
+//
+// createdBy — tokendagi user_id. Bu yo'lda xodim o'zi belgilaydi, ya'ni odatda
+// employee_id bilan bir xil bo'ladi; qo'lda kiritilgan yozuvlardan (created_by
+// boshqa odam) va cron yozganlaridan (created_by NULL) shu bilan ajratiladi.
+func (s *Services) CreateAttendanceLog(ctx context.Context, employeeId, storeId, eventType, faceIdUrl, createdBy string) (*domain.AttendanceLog, error) {
 	if eventType != domain.AttendanceEventCheckIn && eventType != domain.AttendanceEventCheckOut {
 		return nil, domain.InvalidEventTypeError
 	}
@@ -91,6 +95,11 @@ func (s *Services) CreateAttendanceLog(ctx context.Context, employeeId, storeId,
 		faceIdUrlPtr = &faceIdUrl
 	}
 
+	var createdByPtr *string
+	if createdBy != "" {
+		createdByPtr = &createdBy
+	}
+
 	log := domain.AttendanceLog{
 		Id:         uuid.New().String(),
 		StoreId:    storeIdPtr,
@@ -98,6 +107,7 @@ func (s *Services) CreateAttendanceLog(ctx context.Context, employeeId, storeId,
 		EventType:  eventType,
 		EventAt:    time.Now(),
 		FaceIdUrl:  faceIdUrlPtr,
+		CreatedBy:  createdByPtr,
 	}
 
 	if err := s.db.WithContext(ctx).Create(&log).Error; err != nil {
@@ -113,7 +123,10 @@ func (s *Services) CreateAttendanceLog(ctx context.Context, employeeId, storeId,
 // ishlamay qolgan hollar uchun). Xodimning store_id'si employees jadvalidan olinadi,
 // ketma-ketlik (check-in/check-out navbati) tekshiruvi qo'llanilmaydi — bu qo'lda
 // tuzatish uchun mo'ljallangan.
-func (s *Services) CreateManualAttendanceLog(ctx context.Context, employeeId, eventType string, eventAt time.Time) (*domain.AttendanceLog, error) {
+//
+// createdBy — tokendagi user_id, ya'ni yozuvni kiritgan admin (employee_id'dan
+// farq qilishi mumkin va shu bilan qo'lda kiritilgani ko'rinadi).
+func (s *Services) CreateManualAttendanceLog(ctx context.Context, employeeId, eventType string, eventAt time.Time, createdBy string) (*domain.AttendanceLog, error) {
 	if eventType != domain.AttendanceEventCheckIn && eventType != domain.AttendanceEventCheckOut {
 		return nil, domain.InvalidEventTypeError
 	}
@@ -132,12 +145,18 @@ func (s *Services) CreateManualAttendanceLog(ctx context.Context, employeeId, ev
 		storeIdPtr = &employee.StoreId
 	}
 
+	var createdByPtr *string
+	if createdBy != "" {
+		createdByPtr = &createdBy
+	}
+
 	log := domain.AttendanceLog{
 		Id:         uuid.New().String(),
 		StoreId:    storeIdPtr,
 		EmployeeId: employeeId,
 		EventType:  eventType,
 		EventAt:    eventAt,
+		CreatedBy:  createdByPtr,
 	}
 
 	if err := s.db.WithContext(ctx).Create(&log).Error; err != nil {
@@ -192,6 +211,8 @@ func (s *Services) GetAttendanceLogList(ctx context.Context, params *domain.Atte
 	query := s.db.WithContext(ctx).Table("attendance_logs al").
 		Joins("LEFT JOIN employees e ON e.id = al.employee_id").
 		Joins("LEFT JOIN stores s ON s.id = al.store_id").
+		Joins("LEFT JOIN employees cb ON cb.id = al.created_by").
+		Joins("LEFT JOIN employees ub ON ub.id = al.updated_by").
 		Where("al.event_at BETWEEN ? AND ?", startTimeInUTC, endTimeInUTC)
 
 	if params.StoreId != "" {
@@ -240,6 +261,10 @@ func (s *Services) GetAttendanceLogList(ctx context.Context, params *domain.Atte
 			al.event_at,
 			al.face_id_url,
 			al.is_auto_closed,
+			al.created_by,
+			COALESCE(cb.full_name, '') AS created_by_name,
+			al.updated_by,
+			COALESCE(ub.full_name, '') AS updated_by_name,
 			al.created_at,
 			al.updated_at
 		`).
@@ -271,22 +296,28 @@ func (s *Services) GetAttendanceLogList(ctx context.Context, params *domain.Atte
 //
 // Yangilangan yozuvni qaytaradi. Ketma-ketlik (check-in/check-out navbati)
 // tekshirilmaydi — bu qo'lda tuzatish uchun, CreateManualAttendanceLog'dagi
-// kabi.
+// kabi. updatedBy — tokendagi user_id, ya'ni vaqtni tuzatgan foydalanuvchi
+// (cron tuzatsa updated_by o'zgarmaydi, NULL holida qoladi).
 //
 // DIQQAT: employee_attendance_days bu yerda qayta hisoblanmaydi. U kunlik cron
 // bilan to'ladi va cron faqat KECHAGI kunni qamraydi, shuning uchun eskiroq
 // kunni tuzatgandan keyin o'sha kunning yig'indisi eski holicha qoladi.
 // Qarang: RecalculateAttendanceDay.
 func (s *Services) UpdateAttendanceLogEventAt(
-	ctx context.Context, id string, eventAt time.Time,
+	ctx context.Context, id string, eventAt time.Time, updatedBy string,
 ) (*domain.AttendanceLog, error) {
+	updates := map[string]any{
+		"event_at":   eventAt,
+		"updated_at": time.Now(),
+	}
+	if updatedBy != "" {
+		updates["updated_by"] = updatedBy
+	}
+
 	result := s.db.WithContext(ctx).
 		Model(&domain.AttendanceLog{}).
 		Where("id = ?", id).
-		Updates(map[string]any{
-			"event_at":   eventAt,
-			"updated_at": time.Now(),
-		})
+		Updates(updates)
 	if result.Error != nil {
 		s.log.Errorf("could not update attendance log event_at: %v", result.Error)
 		return nil, domain.InternalServerError

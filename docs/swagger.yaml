@@ -7661,12 +7661,9 @@ paths:
     post:
       consumes:
       - application/json
-      description: 'JWT tokendagi employee_id orqali xodimning check-in yoki check-out
-        voqeasini attendance_logs jadvaliga yozadi. event_type qat''iy "check-in"
-        yoki "check-out" bo''lishi kerak, aks holda xatolik qaytariladi. Faqat bugungi
-        kun (Toshkent vaqti) bo''yicha oxirgi voqeaga qarab tekshiriladi: hech qanday
-        voqea yo''q yoki oxirgisi check-out bo''lsa faqat check-in, oxirgisi check-in
-        bo''lsa faqat check-out yuborish mumkin.'
+      description: |-
+        JWT tokendagi employee_id orqali xodimning check-in yoki check-out voqeasini attendance_logs jadvaliga yozadi.
+        created_by ham tokendagi user_id bilan to'ldiriladi (bu yo'lda u employee_id bilan bir xil bo'ladi). event_type qat'iy "check-in" yoki "check-out" bo'lishi kerak, aks holda xatolik qaytariladi. Faqat bugungi kun (Toshkent vaqti) bo'yicha oxirgi voqeaga qarab tekshiriladi: hech qanday voqea yo'q yoki oxirgisi check-out bo'lsa faqat check-in, oxirgisi check-in bo'lsa faqat check-out yuborish mumkin.
       parameters:
       - description: Attendance data
         in: body
@@ -7840,6 +7837,7 @@ paths:
         yoki avtomatik yopish xato ishlagan hollar uchun.
         Faqat event_at o'zgaradi; xodim yoki voqea turini almashtirish uchun eskisini o'chirib,
         /employee/attendance-manual orqali yangisini yaratish kerak.
+        updated_by maydoniga tokendagi user_id yoziladi — vaqtni kim tuzatganini ko'rish uchun.
         DIQQAT: employee_attendance_days darhol qayta hisoblanmaydi — u kunlik cron bilan to'ladi
         va cron faqat kechagi kunni qamraydi. Eskiroq kunni tuzatgandan keyin o'sha kunning
         yig'indisi (ishlagan soat, kechikish) eski holicha qoladi.
@@ -7887,10 +7885,9 @@ paths:
     post:
       consumes:
       - application/json
-      description: Admin tomonidan berilgan employee_id, event_type va event_at bo'yicha
-        attendance_logs yozuvini qo'lda yaratadi. Face id orqali check-in/check-out
-        ishlamay qolgan hollarda ishlatiladi uchun. Faqat admin huquqiga ega foydalanuvchilar
-        chaqira oladi.
+      description: |-
+        Admin tomonidan berilgan employee_id, event_type va event_at bo'yicha attendance_logs yozuvini qo'lda yaratadi. Face id orqali check-in/check-out ishlamay qolgan hollarda ishlatiladi uchun. Faqat admin huquqiga ega foydalanuvchilar chaqira oladi.
+        created_by maydoniga tokendagi user_id yoziladi — keyinchalik yozuvni kim qo'lda kiritganini ko'rish uchun.
       parameters:
       - description: Manual attendance data
         in: body

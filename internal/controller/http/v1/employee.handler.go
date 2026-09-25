@@ -1026,7 +1026,8 @@ func (h *EmployeeHandler) SmenaBonus(c *gin.Context) {
 
 // CheckInOut godoc
 // @Summary      Employee attendance-face-id check-in / check-out
-// @Description  JWT tokendagi employee_id orqali xodimning check-in yoki check-out voqeasini attendance_logs jadvaliga yozadi. event_type qat'iy "check-in" yoki "check-out" bo'lishi kerak, aks holda xatolik qaytariladi. Faqat bugungi kun (Toshkent vaqti) bo'yicha oxirgi voqeaga qarab tekshiriladi: hech qanday voqea yo'q yoki oxirgisi check-out bo'lsa faqat check-in, oxirgisi check-in bo'lsa faqat check-out yuborish mumkin.
+// @Description  JWT tokendagi employee_id orqali xodimning check-in yoki check-out voqeasini attendance_logs jadvaliga yozadi.
+// @Description  created_by ham tokendagi user_id bilan to'ldiriladi (bu yo'lda u employee_id bilan bir xil bo'ladi). event_type qat'iy "check-in" yoki "check-out" bo'lishi kerak, aks holda xatolik qaytariladi. Faqat bugungi kun (Toshkent vaqti) bo'yicha oxirgi voqeaga qarab tekshiriladi: hech qanday voqea yo'q yoki oxirgisi check-out bo'lsa faqat check-in, oxirgisi check-in bo'lsa faqat check-out yuborish mumkin.
 // @Tags         employees
 // @Security     BearerAuth
 // @Accept       json
@@ -1054,7 +1055,7 @@ func (h *EmployeeHandler) CheckInOut(c *gin.Context) {
 	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
 	defer cancel()
 
-	result, err := h.service.CreateAttendanceLog(ctx, user.UserId, user.StoreId, body.EventType, body.FaceIdUrl)
+	result, err := h.service.CreateAttendanceLog(ctx, user.UserId, user.StoreId, body.EventType, body.FaceIdUrl, user.UserId)
 	if err != nil {
 		handleServiceResponse(c, nil, err)
 		return
@@ -1066,6 +1067,7 @@ func (h *EmployeeHandler) CheckInOut(c *gin.Context) {
 // CreateAttendanceLogManual godoc
 // @Summary      Manually create attendance check-in/check-out (admin)
 // @Description  Admin tomonidan berilgan employee_id, event_type va event_at bo'yicha attendance_logs yozuvini qo'lda yaratadi. Face id orqali check-in/check-out ishlamay qolgan hollarda ishlatiladi uchun. Faqat admin huquqiga ega foydalanuvchilar chaqira oladi.
+// @Description  created_by maydoniga tokendagi user_id yoziladi — keyinchalik yozuvni kim qo'lda kiritganini ko'rish uchun.
 // @Tags         employees
 // @Security     BearerAuth
 // @Accept       json
@@ -1099,7 +1101,7 @@ func (h *EmployeeHandler) CreateAttendanceLogManual(c *gin.Context) {
 	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
 	defer cancel()
 
-	result, err := h.service.CreateManualAttendanceLog(ctx, body.EmployeeId, body.EventType, body.EventAt)
+	result, err := h.service.CreateManualAttendanceLog(ctx, body.EmployeeId, body.EventType, body.EventAt, user.UserId)
 	if err != nil {
 		handleServiceResponse(c, nil, err)
 		return
@@ -1114,6 +1116,7 @@ func (h *EmployeeHandler) CreateAttendanceLogManual(c *gin.Context) {
 // @Description  yoki avtomatik yopish xato ishlagan hollar uchun.
 // @Description  Faqat event_at o'zgaradi; xodim yoki voqea turini almashtirish uchun eskisini o'chirib,
 // @Description  /employee/attendance-manual orqali yangisini yaratish kerak.
+// @Description  updated_by maydoniga tokendagi user_id yoziladi — vaqtni kim tuzatganini ko'rish uchun.
 // @Description  DIQQAT: employee_attendance_days darhol qayta hisoblanmaydi — u kunlik cron bilan to'ladi
 // @Description  va cron faqat kechagi kunni qamraydi. Eskiroq kunni tuzatgandan keyin o'sha kunning
 // @Description  yig'indisi (ishlagan soat, kechikish) eski holicha qoladi.
@@ -1151,7 +1154,7 @@ func (h *EmployeeHandler) UpdateAttendanceLog(c *gin.Context) {
 	ctx, cancel := context.WithTimeout(c.Request.Context(), constants.DefaultContextTimeout)
 	defer cancel()
 
-	res, err := h.service.UpdateAttendanceLogEventAt(ctx, id, body.EventAt)
+	res, err := h.service.UpdateAttendanceLogEventAt(ctx, id, body.EventAt, user.UserId)
 	if err != nil {
 		handleServiceResponse(c, nil, err)
 		return

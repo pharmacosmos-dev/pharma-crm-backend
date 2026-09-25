@@ -6939,7 +6939,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "JWT tokendagi employee_id orqali xodimning check-in yoki check-out voqeasini attendance_logs jadvaliga yozadi. event_type qat'iy \"check-in\" yoki \"check-out\" bo'lishi kerak, aks holda xatolik qaytariladi. Faqat bugungi kun (Toshkent vaqti) bo'yicha oxirgi voqeaga qarab tekshiriladi: hech qanday voqea yo'q yoki oxirgisi check-out bo'lsa faqat check-in, oxirgisi check-in bo'lsa faqat check-out yuborish mumkin.",
+                "description": "JWT tokendagi employee_id orqali xodimning check-in yoki check-out voqeasini attendance_logs jadvaliga yozadi.\ncreated_by ham tokendagi user_id bilan to'ldiriladi (bu yo'lda u employee_id bilan bir xil bo'ladi). event_type qat'iy \"check-in\" yoki \"check-out\" bo'lishi kerak, aks holda xatolik qaytariladi. Faqat bugungi kun (Toshkent vaqti) bo'yicha oxirgi voqeaga qarab tekshiriladi: hech qanday voqea yo'q yoki oxirgisi check-out bo'lsa faqat check-in, oxirgisi check-in bo'lsa faqat check-out yuborish mumkin.",
                 "consumes": [
                     "application/json"
                 ],
@@ -7135,7 +7135,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "attendance_logs yozuvining event_at vaqtini qo'lda tuzatadi — face-id noto'g'ri vaqt yozgan\nyoki avtomatik yopish xato ishlagan hollar uchun.\nFaqat event_at o'zgaradi; xodim yoki voqea turini almashtirish uchun eskisini o'chirib,\n/employee/attendance-manual orqali yangisini yaratish kerak.\nDIQQAT: employee_attendance_days darhol qayta hisoblanmaydi — u kunlik cron bilan to'ladi\nva cron faqat kechagi kunni qamraydi. Eskiroq kunni tuzatgandan keyin o'sha kunning\nyig'indisi (ishlagan soat, kechikish) eski holicha qoladi.",
+                "description": "attendance_logs yozuvining event_at vaqtini qo'lda tuzatadi — face-id noto'g'ri vaqt yozgan\nyoki avtomatik yopish xato ishlagan hollar uchun.\nFaqat event_at o'zgaradi; xodim yoki voqea turini almashtirish uchun eskisini o'chirib,\n/employee/attendance-manual orqali yangisini yaratish kerak.\nupdated_by maydoniga tokendagi user_id yoziladi — vaqtni kim tuzatganini ko'rish uchun.\nDIQQAT: employee_attendance_days darhol qayta hisoblanmaydi — u kunlik cron bilan to'ladi\nva cron faqat kechagi kunni qamraydi. Eskiroq kunni tuzatgandan keyin o'sha kunning\nyig'indisi (ishlagan soat, kechikish) eski holicha qoladi.",
                 "consumes": [
                     "application/json"
                 ],
@@ -7267,7 +7267,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Admin tomonidan berilgan employee_id, event_type va event_at bo'yicha attendance_logs yozuvini qo'lda yaratadi. Face id orqali check-in/check-out ishlamay qolgan hollarda ishlatiladi uchun. Faqat admin huquqiga ega foydalanuvchilar chaqira oladi.",
+                "description": "Admin tomonidan berilgan employee_id, event_type va event_at bo'yicha attendance_logs yozuvini qo'lda yaratadi. Face id orqali check-in/check-out ishlamay qolgan hollarda ishlatiladi uchun. Faqat admin huquqiga ega foydalanuvchilar chaqira oladi.\ncreated_by maydoniga tokendagi user_id yoziladi — keyinchalik yozuvni kim qo'lda kiritganini ko'rish uchun.",
                 "consumes": [
                     "application/json"
                 ],

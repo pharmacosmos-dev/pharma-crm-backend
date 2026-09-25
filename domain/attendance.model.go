@@ -8,6 +8,11 @@ const (
 )
 
 // AttendanceLog — xodimning check-in/check-out voqealari jurnali.
+//
+// created_by — yozuvni yaratgan foydalanuvchi (JWT user_id): face-id orqali
+// check-in qilinganda xodimning o'zi, qo'lda kiritilganda kiritgan admin,
+// cron (auto-close) yoki to'g'ridan-to'g'ri SQL yozganda esa NULL.
+// updated_by — event_at'ni oxirgi marta qo'lda tuzatgan foydalanuvchi.
 type AttendanceLog struct {
 	Id           string     `gorm:"column:id" json:"id"`
 	StoreId      *string    `gorm:"column:store_id" json:"store_id,omitempty"`
@@ -16,6 +21,8 @@ type AttendanceLog struct {
 	EventAt      time.Time  `gorm:"column:event_at" json:"event_at"`
 	FaceIdUrl    *string    `gorm:"column:face_id_url" json:"face_id_url,omitempty"`
 	IsAutoClosed bool       `gorm:"column:is_auto_closed" json:"is_auto_closed"`
+	CreatedBy    *string    `gorm:"column:created_by" json:"created_by,omitempty"`
+	UpdatedBy    *string    `gorm:"column:updated_by" json:"updated_by,omitempty"`
 	CreatedAt    *time.Time `gorm:"column:created_at" json:"created_at"`
 	UpdatedAt    *time.Time `gorm:"column:updated_at" json:"updated_at"`
 }
@@ -97,6 +104,10 @@ type AttendanceLogListItem struct {
 	EventAt       time.Time  `json:"event_at"`
 	FaceIdUrl     *string    `json:"face_id_url"`
 	IsAutoClosed  bool       `json:"is_auto_closed"`
+	CreatedBy     *string    `json:"created_by"`
+	CreatedByName string     `json:"created_by_name"`
+	UpdatedBy     *string    `json:"updated_by"`
+	UpdatedByName string     `json:"updated_by_name"`
 	CreatedAt     *time.Time `json:"created_at"`
 	UpdatedAt     *time.Time `json:"updated_at"`
 }
