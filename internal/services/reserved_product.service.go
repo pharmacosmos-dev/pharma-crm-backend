@@ -6,9 +6,11 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/lib/pq"
 	"github.com/pharma-crm-backend/domain"
+	"github.com/pharma-crm-backend/domain/constants"
 	"gorm.io/gorm"
 )
 
@@ -18,7 +20,7 @@ func (s *Services) ImportReservedProducts(
 	ctx context.Context, req *domain.ReservedProductImportRequest,
 ) (*domain.ReservedProductImportResult, error) {
 	const (
-		maxItems = 100000
+		maxItems = 30000 //100000
 		lockName = "reserved_products_import"
 	)
 
@@ -123,6 +125,15 @@ func (s *Services) ImportReservedProducts(
 		return nil, err
 	}
 
+	go func() {
+		statsCtx, cancel := context.WithTimeout(context.Background(), reservedProductSalesStatsTimeout)
+		defer cancel()
+
+		if err := s.RefreshReservedProductSalesStats(statsCtx); err != nil {
+			s.log.Errorf("reserved products: could not refresh sales stats after import: %v", err)
+		}
+	}()
+
 	result := &domain.ReservedProductImportResult{
 		TotalReceived:    len(req.Products),
 		Inserted:         counts.Inserted,
@@ -133,6 +144,70 @@ func (s *Services) ImportReservedProducts(
 	s.log.Infof("reserved products import: %+v", *result)
 
 	return result, nil
+}
+
+const (
+	reservedProductSalesWindowDays = 15
+	reservedProductSalesStatsTimeout = 5 * time.Minute
+)
+
+func (s *Services) RefreshReservedProductSalesStats(ctx context.Context) error {
+	query := `
+	WITH sold AS (
+		SELECT
+			p.material_code::text AS material_code,
+			COALESCE(SUM(ci.unit_quantity) FILTER (
+				WHERE s.completed_at >= (now() AT TIME ZONE 'UTC') - make_interval(days => ?)
+			), 0) AS last_window,
+			COALESCE(SUM(ci.unit_quantity) FILTER (
+				WHERE s.completed_at < (now() AT TIME ZONE 'UTC') - make_interval(days => ?)
+			), 0) AS prev_window
+		FROM sales s
+		JOIN cart_items ci ON ci.sale_id = s.id
+		-- cart_items.product_id eski yozuvlarda bo'sh bo'lishi mumkin, store_product orqali topiladi
+		LEFT JOIN store_products sp ON sp.id = ci.store_product_id
+		JOIN products p ON p.id = COALESCE(ci.product_id, sp.product_id)
+		WHERE s.stage = ?
+			AND s.sale_type = ?
+			AND s.completed_at >= (now() AT TIME ZONE 'UTC') - make_interval(days => ?)
+			AND p.material_code IS NOT NULL
+		GROUP BY p.material_code
+	),
+	calc AS (
+		SELECT
+			rp.id,
+			COALESCE(sold.last_window, 0) AS last_window,
+			COALESCE(sold.prev_window, 0) AS prev_window
+		FROM reserved_products rp
+		LEFT JOIN sold ON sold.material_code = rp.material_code
+	)
+	UPDATE reserved_products rp SET
+		sold_quantity_15d      = c.last_window,
+		sold_quantity_prev_15d = c.prev_window,
+		sold_change_percent    = CASE
+			WHEN c.prev_window > 0
+			THEN ROUND(((c.last_window - c.prev_window)::numeric / c.prev_window) * 100, 2)
+			ELSE NULL
+		END,
+		sold_calculated_at     = NOW()
+	FROM calc c
+	WHERE c.id = rp.id`
+
+	result := s.db.WithContext(ctx).Exec(query,
+		reservedProductSalesWindowDays,
+		reservedProductSalesWindowDays,
+		constants.SaleStageFinished,
+		constants.SaleTypeSale,
+		reservedProductSalesWindowDays*2,
+	)
+	if result.Error != nil {
+		s.log.Errorf("reserved products: could not calculate sales stats: %v", result.Error)
+		return domain.InternalServerError
+	}
+
+	s.log.Infof("reserved products sales stats refreshed: %d rows", result.RowsAffected)
+
+	return nil
 }
 
 // region Get Reserved

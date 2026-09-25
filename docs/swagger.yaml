@@ -2187,6 +2187,17 @@ definitions:
           Do'konning ochiq rezerv hujjatiga (status != done) shu mahsulotdan qancha
           kiritilgani. Ochiq hujjat bo'lmasa yoki mahsulot kiritilmagan bo'lsa — 0.
         type: number
+      sold_calculated_at:
+        type: string
+      sold_change_percent:
+        type: number
+      sold_quantity_15d:
+        description: |-
+          Savdo dinamikasi — har importda qayta hisoblanadi (barcha do'konlar bo'yicha).
+          SoldChangePercent oldingi 15 kunda savdo bo'lmagan bo'lsa null bo'ladi.
+        type: integer
+      sold_quantity_prev_15d:
+        type: integer
       sort_index:
         type: integer
       unit_per_pack:
@@ -17134,6 +17145,9 @@ paths:
         Har qatorda product_id, unit_per_pack, do'kondagi qoldiq (available_quantity) va
         do'konning ochiq rezerv hujjatiga kiritilgan miqdor (reserved_quantity) qaytadi;
         hujjat done bo'lsa yoki umuman bo'lmasa reserved_quantity = 0.
+        Shuningdek savdo dinamikasi: sold_quantity_15d (oxirgi 15 kun), sold_quantity_prev_15d
+        (undan oldingi 15 kun) va sold_change_percent (o'zgarish foizi, oldingi davrda savdo
+        bo'lmasa null). Ular 1C importida qayta hisoblanadi.
       parameters:
       - description: Nom yoki material_code bo'yicha qidiruv
         in: query
@@ -18081,6 +18095,8 @@ paths:
         bugungi ro'yxatda bo'lmagan eski mahsulotlar is_active = false bo'ladi, yozuvlar o'chirilmaydi.
         index — 1C tartibi, sort_index ustuniga yoziladi; ketma-ket bo'lishi shart emas.
         material_code — yagona identifikator; requestda takrorlansa birinchisi olinadi.
+        Importdan keyin har bir mahsulotning oxirgi 15 kunlik va undan oldingi 15 kunlik
+        sotuvi (sold_quantity_15d, sold_quantity_prev_15d, sold_change_percent) qayta hisoblanadi.
       parameters:
       - description: 1C ning kunlik to'liq ro'yxati
         in: body

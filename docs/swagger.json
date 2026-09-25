@@ -21355,7 +21355,7 @@
                         "BearerAuth": []
                     }
                 ],
-                "description": "1C yuborgan rezerv mahsulotlar ro'yxati, doim ORDER BY sort_index ASC (1C tartibi).\nis_active berilmasa aktiv va deaktiv qatorlar birga qaytadi.\nHar qatorda product_id, unit_per_pack, do'kondagi qoldiq (available_quantity) va\ndo'konning ochiq rezerv hujjatiga kiritilgan miqdor (reserved_quantity) qaytadi;\nhujjat done bo'lsa yoki umuman bo'lmasa reserved_quantity = 0.",
+                "description": "1C yuborgan rezerv mahsulotlar ro'yxati, doim ORDER BY sort_index ASC (1C tartibi).\nis_active berilmasa aktiv va deaktiv qatorlar birga qaytadi.\nHar qatorda product_id, unit_per_pack, do'kondagi qoldiq (available_quantity) va\ndo'konning ochiq rezerv hujjatiga kiritilgan miqdor (reserved_quantity) qaytadi;\nhujjat done bo'lsa yoki umuman bo'lmasa reserved_quantity = 0.\nShuningdek savdo dinamikasi: sold_quantity_15d (oxirgi 15 kun), sold_quantity_prev_15d\n(undan oldingi 15 kun) va sold_change_percent (o'zgarish foizi, oldingi davrda savdo\nbo'lmasa null). Ular 1C importida qayta hisoblanadi.",
                 "consumes": [
                     "application/json"
                 ],
@@ -23401,7 +23401,7 @@
                         "BearerAuth": []
                     }
                 ],
-                "description": "1C har kuni ~05:00 da rezerv mahsulotlarning TO'LIQ ro'yxatini yuboradi.\nKelgan mahsulotlar is_active = true (yo'q bo'lsa qo'shiladi, bori yangilanadi),\nbugungi ro'yxatda bo'lmagan eski mahsulotlar is_active = false bo'ladi, yozuvlar o'chirilmaydi.\nindex — 1C tartibi, sort_index ustuniga yoziladi; ketma-ket bo'lishi shart emas.\nmaterial_code — yagona identifikator; requestda takrorlansa birinchisi olinadi.",
+                "description": "1C har kuni ~05:00 da rezerv mahsulotlarning TO'LIQ ro'yxatini yuboradi.\nKelgan mahsulotlar is_active = true (yo'q bo'lsa qo'shiladi, bori yangilanadi),\nbugungi ro'yxatda bo'lmagan eski mahsulotlar is_active = false bo'ladi, yozuvlar o'chirilmaydi.\nindex — 1C tartibi, sort_index ustuniga yoziladi; ketma-ket bo'lishi shart emas.\nmaterial_code — yagona identifikator; requestda takrorlansa birinchisi olinadi.\nImportdan keyin har bir mahsulotning oxirgi 15 kunlik va undan oldingi 15 kunlik\nsotuvi (sold_quantity_15d, sold_quantity_prev_15d, sold_change_percent) qayta hisoblanadi.",
                 "consumes": [
                     "application/json"
                 ],
@@ -40701,6 +40701,19 @@
                 "reserved_quantity": {
                     "description": "Do'konning ochiq rezerv hujjatiga (status != done) shu mahsulotdan qancha\nkiritilgani. Ochiq hujjat bo'lmasa yoki mahsulot kiritilmagan bo'lsa — 0.",
                     "type": "number"
+                },
+                "sold_calculated_at": {
+                    "type": "string"
+                },
+                "sold_change_percent": {
+                    "type": "number"
+                },
+                "sold_quantity_15d": {
+                    "description": "Savdo dinamikasi — har importda qayta hisoblanadi (barcha do'konlar bo'yicha).\nSoldChangePercent oldingi 15 kunda savdo bo'lmagan bo'lsa null bo'ladi.",
+                    "type": "integer"
+                },
+                "sold_quantity_prev_15d": {
+                    "type": "integer"
                 },
                 "sort_index": {
                     "type": "integer"

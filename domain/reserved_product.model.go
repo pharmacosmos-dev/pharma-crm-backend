@@ -19,6 +19,12 @@ type ReservedProduct struct {
 	// Do'konning ochiq rezerv hujjatiga (status != done) shu mahsulotdan qancha
 	// kiritilgani. Ochiq hujjat bo'lmasa yoki mahsulot kiritilmagan bo'lsa — 0.
 	ReservedQuantity float64 `json:"reserved_quantity" gorm:"-"`
+	// Savdo dinamikasi — har importda qayta hisoblanadi (barcha do'konlar bo'yicha).
+	// SoldChangePercent oldingi 15 kunda savdo bo'lmagan bo'lsa null bo'ladi.
+	SoldQuantity15d     int64      `json:"sold_quantity_15d" gorm:"column:sold_quantity_15d"`
+	SoldQuantityPrev15d int64      `json:"sold_quantity_prev_15d" gorm:"column:sold_quantity_prev_15d"`
+	SoldChangePercent   *float64   `json:"sold_change_percent" gorm:"column:sold_change_percent"`
+	SoldCalculatedAt    *time.Time `json:"sold_calculated_at" gorm:"column:sold_calculated_at"`
 	IsActive          bool       `json:"is_active" gorm:"column:is_active"`
 	CreatedAt         *time.Time `json:"created_at" gorm:"column:created_at"`
 	UpdatedAt         *time.Time `json:"updated_at" gorm:"column:updated_at"`

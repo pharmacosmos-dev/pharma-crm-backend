@@ -4669,6 +4669,9 @@ func (h *ProductHandler) PublicList(c *gin.Context) {
 // @Description Har qatorda product_id, unit_per_pack, do'kondagi qoldiq (available_quantity) va
 // @Description do'konning ochiq rezerv hujjatiga kiritilgan miqdor (reserved_quantity) qaytadi;
 // @Description hujjat done bo'lsa yoki umuman bo'lmasa reserved_quantity = 0.
+// @Description Shuningdek savdo dinamikasi: sold_quantity_15d (oxirgi 15 kun), sold_quantity_prev_15d
+// @Description (undan oldingi 15 kun) va sold_change_percent (o'zgarish foizi, oldingi davrda savdo
+// @Description bo'lmasa null). Ular 1C importida qayta hisoblanadi.
 // @Tags products
 // @Security     BearerAuth
 // @Accept 	json
