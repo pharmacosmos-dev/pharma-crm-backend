@@ -869,8 +869,9 @@ func (h *ProductOnecHandler) GetSales(c *gin.Context) {
 // @Description bugungi ro'yxatda bo'lmagan eski mahsulotlar is_active = false bo'ladi, yozuvlar o'chirilmaydi.
 // @Description index — 1C tartibi, sort_index ustuniga yoziladi; ketma-ket bo'lishi shart emas.
 // @Description material_code — yagona identifikator; requestda takrorlansa birinchisi olinadi.
-// @Description Importdan keyin har bir mahsulotning oxirgi 15 kunlik va undan oldingi 15 kunlik
-// @Description sotuvi (sold_quantity_15d, sold_quantity_prev_15d, sold_change_percent) qayta hisoblanadi.
+// @Description Importdan keyin fonda barcha do'konlar bo'yicha 15 kunlik savdo dinamikasi
+// @Description (sold_quantity_15d, sold_quantity_prev_15d, sold_change_percent) qayta hisoblanadi —
+// @Description ro'yxat API'si uni tayyor o'qishi uchun.
 // @Tags 	1C Api
 // @Security     BearerAuth
 // @Accept 	json

@@ -4666,12 +4666,15 @@ func (h *ProductHandler) PublicList(c *gin.Context) {
 // @Summary Get reserved products list
 // @Description 1C yuborgan rezerv mahsulotlar ro'yxati, doim ORDER BY sort_index ASC (1C tartibi).
 // @Description is_active berilmasa aktiv va deaktiv qatorlar birga qaytadi.
-// @Description Har qatorda product_id, unit_per_pack, do'kondagi qoldiq (available_quantity) va
-// @Description do'konning ochiq rezerv hujjatiga kiritilgan miqdor (reserved_quantity) qaytadi;
-// @Description hujjat done bo'lsa yoki umuman bo'lmasa reserved_quantity = 0.
-// @Description Shuningdek savdo dinamikasi: sold_quantity_15d (oxirgi 15 kun), sold_quantity_prev_15d
-// @Description (undan oldingi 15 kun) va sold_change_percent (o'zgarish foizi, oldingi davrda savdo
-// @Description bo'lmasa null). Ular 1C importida qayta hisoblanadi.
+// @Description Ro'yxatga do'konning ochiq rezerv hujjatiga kiritilgan, lekin 1C ro'yxatida yo'q
+// @Description mahsulotlar ham qo'shiladi — ular source="manual" va sort_index=0 bilan boshida turadi.
+// @Description Har qatorda product_id, unit_per_pack, do'kondagi qoldiq (available_quantity),
+// @Description ochiq hujjatga kiritilgan miqdor (reserved_quantity) va o'sha qator id'si
+// @Description (reserve_detail_id) qaytadi; hujjat done bo'lsa yoki bo'lmasa — 0.
+// @Description Savdo dinamikasi (sold_quantity_15d, sold_quantity_prev_15d, sold_change_percent):
+// @Description store_id berilmasa — barcha do'konlar bo'yicha, 1C importida hisoblangan tayyor raqam;
+// @Description store_id berilsa — faqat o'sha do'kon bo'yicha o'sha zahoti hisoblanadi.
+// @Description Oldingi 15 kunda savdo bo'lmasa foiz null bo'ladi (0 emas).
 // @Tags products
 // @Security     BearerAuth
 // @Accept 	json

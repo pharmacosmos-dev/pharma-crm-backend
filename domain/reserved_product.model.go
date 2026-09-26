@@ -8,26 +8,23 @@ import (
 )
 
 type ReservedProduct struct {
-	Id                string     `json:"id" gorm:"column:id;primaryKey"`
-	SortIndex         int        `json:"sort_index" gorm:"column:sort_index"`
-	Name              string     `json:"name" gorm:"column:name"`
-	MaterialCode      string     `json:"material_code" gorm:"column:material_code"`
+	Id           string `json:"id" gorm:"column:id;primaryKey"`
+	SortIndex    int    `json:"sort_index" gorm:"column:sort_index"`
+	Name         string `json:"name" gorm:"column:name"`
+	MaterialCode string `json:"material_code" gorm:"column:material_code"`
 	// products'dan material_code orqali topiladi: rezerv hujjati shu product_id bilan yig'iladi.
-	ProductId         string     `json:"product_id" gorm:"-"`
-	UnitPerPack       int        `json:"unit_per_pack" gorm:"-"`
-	AvailableQuantity float64    `json:"available_quantity" gorm:"-"`
-	// Do'konning ochiq rezerv hujjatiga (status != done) shu mahsulotdan qancha
-	// kiritilgani. Ochiq hujjat bo'lmasa yoki mahsulot kiritilmagan bo'lsa — 0.
+	ProductId         string  `json:"product_id" gorm:"-"`
+	UnitPerPack       int     `json:"unit_per_pack" gorm:"-"`
+	AvailableQuantity float64 `json:"available_quantity" gorm:"-"`
 	ReservedQuantity float64 `json:"reserved_quantity" gorm:"-"`
-	// Savdo dinamikasi — har importda qayta hisoblanadi (barcha do'konlar bo'yicha).
-	// SoldChangePercent oldingi 15 kunda savdo bo'lmagan bo'lsa null bo'ladi.
+	ReserveDetailId  string  `json:"reserve_detail_id" gorm:"-"`
+	Source string `json:"source" gorm:"column:source"`
 	SoldQuantity15d     int64      `json:"sold_quantity_15d" gorm:"column:sold_quantity_15d"`
 	SoldQuantityPrev15d int64      `json:"sold_quantity_prev_15d" gorm:"column:sold_quantity_prev_15d"`
 	SoldChangePercent   *float64   `json:"sold_change_percent" gorm:"column:sold_change_percent"`
-	SoldCalculatedAt    *time.Time `json:"sold_calculated_at" gorm:"column:sold_calculated_at"`
-	IsActive          bool       `json:"is_active" gorm:"column:is_active"`
-	CreatedAt         *time.Time `json:"created_at" gorm:"column:created_at"`
-	UpdatedAt         *time.Time `json:"updated_at" gorm:"column:updated_at"`
+	IsActive            bool       `json:"is_active" gorm:"column:is_active"`
+	CreatedAt           *time.Time `json:"created_at" gorm:"column:created_at"`
+	UpdatedAt           *time.Time `json:"updated_at" gorm:"column:updated_at"`
 }
 
 func (ReservedProduct) TableName() string {

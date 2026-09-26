@@ -2182,24 +2182,32 @@ definitions:
         description: 'products''dan material_code orqali topiladi: rezerv hujjati
           shu product_id bilan yig''iladi.'
         type: string
+      reserve_detail_id:
+        type: string
       reserved_quantity:
         description: |-
           Do'konning ochiq rezerv hujjatiga (status != done) shu mahsulotdan qancha
-          kiritilgani. Ochiq hujjat bo'lmasa yoki mahsulot kiritilmagan bo'lsa — 0.
+          kiritilgani va o'sha qatorning id'si (PUT/DELETE /reserve-detail uchun).
+          Ochiq hujjat bo'lmasa yoki mahsulot kiritilmagan bo'lsa — 0 va bo'sh satr.
         type: number
-      sold_calculated_at:
-        type: string
       sold_change_percent:
         type: number
       sold_quantity_15d:
         description: |-
-          Savdo dinamikasi — har importda qayta hisoblanadi (barcha do'konlar bo'yicha).
-          SoldChangePercent oldingi 15 kunda savdo bo'lmagan bo'lsa null bo'ladi.
+          Savdo dinamikasi. store_id berilmasa — barcha do'konlar bo'yicha, 1C importida bir
+          marta hisoblanib ustunga yozilgan tayyor qiymat; store_id berilsa — o'sha do'kon
+          bo'yicha o'qish paytida hisoblanadi (savdo bo'lmasa 0).
+          SoldChangePercent oldingi 15 kunda savdo bo'lmagan bo'lsa null.
         type: integer
       sold_quantity_prev_15d:
         type: integer
       sort_index:
         type: integer
+      source:
+        description: |-
+          Qator manbasi: "1c" — 1C ro'yxatidan, "manual" — 1C ro'yxatida yo'q, lekin
+          do'konning ochiq hujjatiga qo'lda kiritilgan mahsulot.
+        type: string
       unit_per_pack:
         type: integer
       updated_at:
@@ -17139,12 +17147,15 @@ paths:
       description: |-
         1C yuborgan rezerv mahsulotlar ro'yxati, doim ORDER BY sort_index ASC (1C tartibi).
         is_active berilmasa aktiv va deaktiv qatorlar birga qaytadi.
-        Har qatorda product_id, unit_per_pack, do'kondagi qoldiq (available_quantity) va
-        do'konning ochiq rezerv hujjatiga kiritilgan miqdor (reserved_quantity) qaytadi;
-        hujjat done bo'lsa yoki umuman bo'lmasa reserved_quantity = 0.
-        Shuningdek savdo dinamikasi: sold_quantity_15d (oxirgi 15 kun), sold_quantity_prev_15d
-        (undan oldingi 15 kun) va sold_change_percent (o'zgarish foizi, oldingi davrda savdo
-        bo'lmasa null). Ular 1C importida qayta hisoblanadi.
+        Ro'yxatga do'konning ochiq rezerv hujjatiga kiritilgan, lekin 1C ro'yxatida yo'q
+        mahsulotlar ham qo'shiladi — ular source="manual" va sort_index=0 bilan boshida turadi.
+        Har qatorda product_id, unit_per_pack, do'kondagi qoldiq (available_quantity),
+        ochiq hujjatga kiritilgan miqdor (reserved_quantity) va o'sha qator id'si
+        (reserve_detail_id) qaytadi; hujjat done bo'lsa yoki bo'lmasa — 0.
+        Savdo dinamikasi (sold_quantity_15d, sold_quantity_prev_15d, sold_change_percent):
+        store_id berilmasa — barcha do'konlar bo'yicha, 1C importida hisoblangan tayyor raqam;
+        store_id berilsa — faqat o'sha do'kon bo'yicha o'sha zahoti hisoblanadi.
+        Oldingi 15 kunda savdo bo'lmasa foiz null bo'ladi (0 emas).
       parameters:
       - description: Nom yoki material_code bo'yicha qidiruv
         in: query
@@ -18092,8 +18103,9 @@ paths:
         bugungi ro'yxatda bo'lmagan eski mahsulotlar is_active = false bo'ladi, yozuvlar o'chirilmaydi.
         index — 1C tartibi, sort_index ustuniga yoziladi; ketma-ket bo'lishi shart emas.
         material_code — yagona identifikator; requestda takrorlansa birinchisi olinadi.
-        Importdan keyin har bir mahsulotning oxirgi 15 kunlik va undan oldingi 15 kunlik
-        sotuvi (sold_quantity_15d, sold_quantity_prev_15d, sold_change_percent) qayta hisoblanadi.
+        Importdan keyin fonda barcha do'konlar bo'yicha 15 kunlik savdo dinamikasi
+        (sold_quantity_15d, sold_quantity_prev_15d, sold_change_percent) qayta hisoblanadi —
+        ro'yxat API'si uni tayyor o'qishi uchun.
       parameters:
       - description: 1C ning kunlik to'liq ro'yxati
         in: body
