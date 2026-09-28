@@ -633,8 +633,8 @@ func (s *Services) DeleteReserveDetail(ctx context.Context, id, userId string) e
 }
 
 const (
-	// reserveEnoughStockQuantity — do'kondagi qoldiq shundan ko'p bo'lsa rezerv qabul
-	// qilinmaydi: mahsulot yetarli, buyurtma berish kerak emas.
+	// reserveEnoughStockQuantity — do'kondagi qoldiq shundan ko'p PACHKA bo'lsa rezerv
+	// qabul qilinmaydi: mahsulot yetarli, buyurtma berish kerak emas.
 	reserveEnoughStockQuantity = 5
 
 	// reserveLowStockMaxQuantity — qoldiq 1..5 oralig'ida bo'lsa hujjatdagi jami miqdor
@@ -644,20 +644,23 @@ const (
 	reserveLowStockMaxQuantity = 10
 )
 
-// checkQuickAddStockLimit — do'kondagi qoldiqqa qarab quick-add ga ruxsat beradi:
+// checkQuickAddStockLimit — do'kondagi qoldiqqa qarab quick-add ga ruxsat beradi.
+// Qoldiq PACHKA (upakovka) hisobida solishtiriladi: store_products.unit_quantity donada
+// yuritiladi, shuning uchun u products.unit_per_pack ga bo'linadi. Masalan 1 pachka 30 dona
+// bo'lsa: 30 dona = 1 pachka (ruxsat), 180 dona = 6 pachka (rad etiladi).
 //
-//	qoldiq > 5   — rad etiladi, mahsulot yetarli;
-//	qoldiq 1..5  — ruxsat, lekin hujjatdagi jami miqdor 10 dan oshmasligi kerak;
-//	qoldiq 0     — cheklovsiz, mahsulot umuman tugagan.
+//	pachka > 5   — rad etiladi, mahsulot yetarli;
+//	pachka 1..5  — ruxsat, lekin hujjatdagi jami miqdor 10 dan oshmasligi kerak;
+//	pachka 0     — cheklovsiz, mahsulot umuman tugagan.
 //
-// Qoldiq ro'yxatdagi available_quantity bilan bir xil manbadan olinadi (store_products
-// birliklari yig'indisi), shuning uchun xodim ekranda ko'rgan raqam bilan bir xil.
+// So'rovdagi va hujjatdagi miqdor ham pachkada tushuniladi, shuning uchun ular o'girilmaydi.
 func (s *Services) checkQuickAddStockLimit(
 	ctx context.Context, tx *gorm.DB, req *domain.ReserveQuickDetailRequest, reserveId string,
 ) error {
 	var row struct {
-		AvailableQuantity float64 `gorm:"column:available_quantity"`
-		CurrentQuantity   float64 `gorm:"column:current_quantity"`
+		AvailableUnits  float64 `gorm:"column:available_units"`
+		CurrentQuantity float64 `gorm:"column:current_quantity"`
+		UnitPerPack     int     `gorm:"column:unit_per_pack"`
 	}
 
 	query := `
@@ -665,33 +668,42 @@ func (s *Services) checkQuickAddStockLimit(
 			COALESCE((
 				SELECT SUM(sp.unit_quantity) FROM store_products sp
 				WHERE sp.store_id = ?::uuid AND sp.product_id = ?::uuid
-			), 0) AS available_quantity,
+			), 0) AS available_units,
 			COALESCE((
 				SELECT rd.quantity FROM reserve_details rd
 				WHERE rd.reserve_id = ?::uuid AND rd.product_id = ?::uuid
-			), 0) AS current_quantity`
+			), 0) AS current_quantity,
+			COALESCE(NULLIF((
+				SELECT p.unit_per_pack FROM products p WHERE p.id = ?::uuid
+			), 0), 1) AS unit_per_pack`
 
 	if err := tx.WithContext(ctx).
-		Raw(query, req.StoreId, req.ProductId, reserveId, req.ProductId).
+		Raw(query, req.StoreId, req.ProductId, reserveId, req.ProductId, req.ProductId).
 		Scan(&row).Error; err != nil {
 		s.log.Errorf("reserve: could not check stock limit for product %s: %v", req.ProductId, err)
 		return domain.InternalServerError
 	}
 
-	if row.AvailableQuantity > reserveEnoughStockQuantity {
+	unitPerPack := row.UnitPerPack
+	if unitPerPack <= 0 {
+		unitPerPack = 1
+	}
+	availablePacks := row.AvailableUnits / float64(unitPerPack)
+
+	if availablePacks > reserveEnoughStockQuantity {
 		return domain.NewError(http.StatusBadRequest, fmt.Sprintf(
-			"reserve.enough_in_stock: available=%.0f, threshold=%d",
-			row.AvailableQuantity, reserveEnoughStockQuantity))
+			"reserve.enough_in_stock: available_packs=%.2f, available_units=%.0f, unit_per_pack=%d, threshold=%d",
+			availablePacks, row.AvailableUnits, unitPerPack, reserveEnoughStockQuantity))
 	}
 
-	if row.AvailableQuantity <= 0 {
+	if availablePacks <= 0 {
 		return nil
 	}
 
 	if row.CurrentQuantity+req.Quantity > reserveLowStockMaxQuantity {
 		return domain.NewError(http.StatusBadRequest, fmt.Sprintf(
-			"reserve.quantity_limit: max=%d, current=%.0f, requested=%.0f",
-			reserveLowStockMaxQuantity, row.CurrentQuantity, req.Quantity))
+			"reserve.quantity_limit: max=%d, current=%.0f, requested=%.0f, available_packs=%.2f",
+			reserveLowStockMaxQuantity, row.CurrentQuantity, req.Quantity, availablePacks))
 	}
 
 	return nil
