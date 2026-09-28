@@ -8,6 +8,7 @@ type Reserve struct {
 	DokNumber         string          `json:"dok_number" gorm:"column:dok_number"`
 	StoreId           string          `json:"store_id" gorm:"column:store_id"`
 	StoreName         string          `json:"store_name" gorm:"column:store_name"`
+	StoreCode         int             `json:"store_code" gorm:"column:store_code"`
 	Status            string          `json:"status" gorm:"column:status"`
 	TotalQuantity     float64         `json:"total_quantity" gorm:"column:total_quantity"`
 	TotalProductCount int             `json:"total_product_count" gorm:"column:total_product_count"`

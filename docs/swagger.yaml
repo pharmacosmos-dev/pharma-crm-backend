@@ -2051,6 +2051,8 @@ definitions:
         type: string
       status:
         type: string
+      store_code:
+        type: integer
       store_id:
         type: string
       store_name:
@@ -2185,28 +2187,16 @@ definitions:
       reserve_detail_id:
         type: string
       reserved_quantity:
-        description: |-
-          Do'konning ochiq rezerv hujjatiga (status != done) shu mahsulotdan qancha
-          kiritilgani va o'sha qatorning id'si (PUT/DELETE /reserve-detail uchun).
-          Ochiq hujjat bo'lmasa yoki mahsulot kiritilmagan bo'lsa — 0 va bo'sh satr.
         type: number
       sold_change_percent:
         type: number
       sold_quantity_15d:
-        description: |-
-          Savdo dinamikasi. store_id berilmasa — barcha do'konlar bo'yicha, 1C importida bir
-          marta hisoblanib ustunga yozilgan tayyor qiymat; store_id berilsa — o'sha do'kon
-          bo'yicha o'qish paytida hisoblanadi (savdo bo'lmasa 0).
-          SoldChangePercent oldingi 15 kunda savdo bo'lmagan bo'lsa null.
         type: integer
       sold_quantity_prev_15d:
         type: integer
       sort_index:
         type: integer
       source:
-        description: |-
-          Qator manbasi: "1c" — 1C ro'yxatidan, "manual" — 1C ro'yxatida yo'q, lekin
-          do'konning ochiq hujjatiga qo'lda kiritilgan mahsulot.
         type: string
       unit_per_pack:
         type: integer
@@ -18091,6 +18081,56 @@ paths:
       security:
       - BearerAuth: []
       summary: Update retail price by 1C
+      tags:
+      - 1C Api
+  /product1c/reserve/get-complete:
+    post:
+      consumes:
+      - application/json
+      description: |-
+        store_code bo'yicha do'konning eng oxirgi 'new' holatidagi rezerv hujjatini
+        qatorlari (details) bilan qaytaradi va o'sha zahoti 'done' deb belgilaydi.
+        Hujjat bir marta beriladi: keyingi so'rovda u qaytmaydi.
+        done bo'lgach do'konda ochiq hujjat qolmaydi — ro'yxatdagi kiritilgan miqdorlar
+        0 dan boshlanadi va keyingi qo'shish yangi hujjat ochadi.
+        Tayyor hujjat bo'lmasa 404 qaytadi (xato emas, "hozircha yuboradigan narsa yo'q").
+      parameters:
+      - description: Store CODE
+        in: query
+        name: store_code
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/v1.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/domain.Reserve'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Get and complete store reserve document (1C)
       tags:
       - 1C Api
   /product1c/reserved-products/import:

@@ -23394,6 +23394,79 @@
                 }
             }
         },
+        "/product1c/reserve/get-complete": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "store_code bo'yicha do'konning eng oxirgi 'new' holatidagi rezerv hujjatini\nqatorlari (details) bilan qaytaradi va o'sha zahoti 'done' deb belgilaydi.\nHujjat bir marta beriladi: keyingi so'rovda u qaytmaydi.\ndone bo'lgach do'konda ochiq hujjat qolmaydi — ro'yxatdagi kiritilgan miqdorlar\n0 dan boshlanadi va keyingi qo'shish yangi hujjat ochadi.\nTayyor hujjat bo'lmasa 404 qaytadi (xato emas, \"hozircha yuboradigan narsa yo'q\").",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "1C Api"
+                ],
+                "summary": "Get and complete store reserve document (1C)",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Store CODE",
+                        "name": "store_code",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/v1.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/domain.Reserve"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    }
+                }
+            }
+        },
         "/product1c/reserved-products/import": {
             "post": {
                 "security": [
@@ -40502,6 +40575,9 @@
                 "status": {
                     "type": "string"
                 },
+                "store_code": {
+                    "type": "integer"
+                },
                 "store_id": {
                     "type": "string"
                 },
@@ -40702,14 +40778,12 @@
                     "type": "string"
                 },
                 "reserved_quantity": {
-                    "description": "Do'konning ochiq rezerv hujjatiga (status != done) shu mahsulotdan qancha\nkiritilgani va o'sha qatorning id'si (PUT/DELETE /reserve-detail uchun).\nOchiq hujjat bo'lmasa yoki mahsulot kiritilmagan bo'lsa — 0 va bo'sh satr.",
                     "type": "number"
                 },
                 "sold_change_percent": {
                     "type": "number"
                 },
                 "sold_quantity_15d": {
-                    "description": "Savdo dinamikasi. store_id berilmasa — barcha do'konlar bo'yicha, 1C importida bir\nmarta hisoblanib ustunga yozilgan tayyor qiymat; store_id berilsa — o'sha do'kon\nbo'yicha o'qish paytida hisoblanadi (savdo bo'lmasa 0).\nSoldChangePercent oldingi 15 kunda savdo bo'lmagan bo'lsa null.",
                     "type": "integer"
                 },
                 "sold_quantity_prev_15d": {
@@ -40719,7 +40793,6 @@
                     "type": "integer"
                 },
                 "source": {
-                    "description": "Qator manbasi: \"1c\" — 1C ro'yxatidan, \"manual\" — 1C ro'yxatida yo'q, lekin\ndo'konning ochiq hujjatiga qo'lda kiritilgan mahsulot.",
                     "type": "string"
                 },
                 "unit_per_pack": {

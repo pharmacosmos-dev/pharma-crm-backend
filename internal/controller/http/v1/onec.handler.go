@@ -42,6 +42,7 @@ func (h *ProductOnecHandler) ProductOnecRoutes(r *gin.RouterGroup) {
 		onec.POST("/report/store-stats", h.StoreReportStats)
 		onec.GET("/sale/list", h.GetSales)
 		onec.POST("/reserved-products/import", logger, h.ImportReservedProducts)
+		onec.POST("/reserve/get-complete", logger, h.GetCompleteReserve)
 	}
 	r.POST("/generate-token", h.GenerateOnecToken)
 }
@@ -896,6 +897,44 @@ func (h *ProductOnecHandler) ImportReservedProducts(c *gin.Context) {
 	defer cancel()
 
 	res, err := h.service.ImportReservedProducts(ctx, &body)
+	if err != nil {
+		handleServiceResponse(c, nil, err)
+		return
+	}
+
+	handleResponse(c, OK, res)
+}
+
+// GetAndCompleteReserve godoc
+// @Summary Get and complete store reserve document (1C)
+// @Description store_code bo'yicha do'konning eng oxirgi 'new' holatidagi rezerv hujjatini
+// @Description qatorlari (details) bilan qaytaradi va o'sha zahoti 'done' deb belgilaydi.
+// @Description Hujjat bir marta beriladi: keyingi so'rovda u qaytmaydi.
+// @Description done bo'lgach do'konda ochiq hujjat qolmaydi — ro'yxatdagi kiritilgan miqdorlar
+// @Description 0 dan boshlanadi va keyingi qo'shish yangi hujjat ochadi.
+// @Description Tayyor hujjat bo'lmasa 404 qaytadi (xato emas, "hozircha yuboradigan narsa yo'q").
+// @Tags 	1C Api
+// @Security     BearerAuth
+// @Accept 	json
+// @Produce json
+// @Param 	store_code query int true "Store CODE"
+// @Success 200 {object} v1.Response{data=domain.Reserve}
+// @Failure 400 {object} v1.Response
+// @Failure 401 {object} v1.Response
+// @Failure 404 {object} v1.Response
+// @Failure 500 {object} v1.Response
+// @Router /product1c/reserve/get-complete [POST]
+func (h *ProductOnecHandler) GetCompleteReserve(c *gin.Context) {
+	storeCode, err := strconv.Atoi(c.Query("store_code"))
+	if err != nil || storeCode <= 0 {
+		handleServiceResponse(c, BadRequest, domain.InvalidQueryError)
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
+	defer cancel()
+
+	res, err := h.service.TakeStoreReserveForOnec(ctx, storeCode)
 	if err != nil {
 		handleServiceResponse(c, nil, err)
 		return

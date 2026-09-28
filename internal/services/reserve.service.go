@@ -24,6 +24,7 @@ const reserveSelectSQL = `
 		r.dok_number,
 		r.store_id,
 		COALESCE(s.name, '')            AS store_name,
+		COALESCE(s.store_code, 0)       AS store_code,
 		r.status,
 		r.total_quantity,
 		r.total_product_count,
@@ -520,6 +521,71 @@ func (s *Services) QuickAddReserveDetail(
 	}
 
 	return s.getReserveDetailByProduct(ctx, reserveId, req.ProductId)
+}
+
+// region Onec
+
+func (s *Services) TakeStoreReserveForOnec(ctx context.Context, storeCode int) (*domain.Reserve, error) {
+	var reserve domain.Reserve
+
+	err := s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		var storeId string
+		if err := tx.Raw(`SELECT id FROM stores WHERE store_code = ?`, storeCode).Row().Scan(&storeId); err != nil {
+			if errors.Is(err, sql.ErrNoRows) {
+				return domain.NewError(http.StatusNotFound, "reserve.store_not_found")
+			}
+			s.log.Errorf("reserve: could not find store by code %d: %v", storeCode, err)
+			return domain.InternalServerError
+		}
+
+		var reserveId string
+		err := tx.Raw(`
+			SELECT id FROM reserves
+			WHERE store_id = ? AND status = ?
+			ORDER BY created_at DESC
+			LIMIT 1
+			FOR UPDATE
+		`, storeId, constants.GeneralStatusNew).Row().Scan(&reserveId)
+		if err != nil {
+			if errors.Is(err, sql.ErrNoRows) {
+				// Do'konda 1C uchun tayyor hujjat yo'q.
+				return domain.NotFoundError
+			}
+			s.log.Errorf("reserve: could not find new document of store %d: %v", storeCode, err)
+			return domain.InternalServerError
+		}
+
+		if err := tx.Exec(`
+			UPDATE reserves
+			SET status = ?, completed_at = NOW(), updated_at = NOW()
+			WHERE id = ?
+		`, constants.GeneralStatusDone, reserveId).Error; err != nil {
+			s.log.Errorf("reserve: could not complete document %s: %v", reserveId, err)
+			return domain.InternalServerError
+		}
+
+		// Hujjat va qatorlari yangilangan holatda (status = done) o'qiladi.
+		if err := tx.Raw(reserveSelectSQL+` WHERE r.id = ?`, reserveId).Scan(&reserve).Error; err != nil {
+			s.log.Errorf("reserve: could not read document %s: %v", reserveId, err)
+			return domain.InternalServerError
+		}
+
+		if err := tx.Raw(reserveDetailSelectSQL+` WHERE d.reserve_id = ? ORDER BY d.created_at ASC, d.id ASC`, reserveId).
+			Scan(&reserve.Details).Error; err != nil {
+			s.log.Errorf("reserve: could not read details of %s: %v", reserveId, err)
+			return domain.InternalServerError
+		}
+
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	s.log.Infof("reserve %s (store_code=%d) taken by 1C: %d products, %.2f total",
+		reserve.DokNumber, storeCode, reserve.TotalProductCount, reserve.TotalQuantity)
+
+	return &reserve, nil
 }
 
 // region Delete
