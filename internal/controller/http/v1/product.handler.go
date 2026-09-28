@@ -4674,10 +4674,9 @@ func (h *ProductHandler) PublicList(c *gin.Context) {
 // @Description has_history — mahsulotning harakat tarixi: false bo'lsa hech qanday kirim,
 // @Description transfer yoki sotuv bo'lmagan, ya'ni frontend uni yangi mahsulot deb belgilaydi.
 // @Description store_id berilsa o'sha do'kon bo'yicha, berilmasa barcha do'konlar bo'yicha.
-// @Description Savdo dinamikasi (sold_quantity_15d, sold_quantity_prev_15d, sold_change_percent):
-// @Description store_id berilmasa — barcha do'konlar bo'yicha, 1C importida hisoblangan tayyor raqam;
-// @Description store_id berilsa — faqat o'sha do'kon bo'yicha o'sha zahoti hisoblanadi.
-// @Description Oldingi 15 kunda savdo bo'lmasa foiz null bo'ladi (0 emas).
+// @Description Savdo dinamikasi (sold_quantity_15d, sold_quantity_prev_15d, sold_change_percent) —
+// @Description har doim BARCHA aptekalar bo'yicha, store_id ga bog'liq emas: 1C importida
+// @Description hisoblanib ustunlarga yoziladi. Oldingi 15 kunda savdo bo'lmasa foiz null (0 emas).
 // @Tags products
 // @Security     BearerAuth
 // @Accept 	json

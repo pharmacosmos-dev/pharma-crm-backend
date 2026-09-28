@@ -268,15 +268,9 @@ func (s *Services) GetReservedProducts(
 		return nil, 0, err
 	}
 
-	// Savdo dinamikasi faqat do'kon so'ralganda — sahifadagi mahsulotlar uchun bitta so'rov.
-	sales := map[string]reservedProductSales{}
-	if storeID != "" {
-		sales, err = s.getReservedProductSalesMap(ctx, storeID, materialCodes)
-		if err != nil {
-			return nil, 0, err
-		}
-	}
-
+	// Savdo dinamikasi (sold_*) store_id ga bog'liq emas: u barcha aptekalar bo'yicha
+	// ko'rsatkich va 1C importida hisoblanib reserved_products ustunlariga yozilgan —
+	// ro'yxat so'rovi uni shu ustunlardan o'qigan, ustidan yozilmaydi.
 	for i := range products {
 		code := strings.TrimSpace(products[i].MaterialCode)
 
@@ -287,15 +281,6 @@ func (s *Services) GetReservedProducts(
 			products[i].ReservedQuantity = stock.ReservedQuantity
 			products[i].ReserveDetailId = stock.ReserveDetailId
 			products[i].HasHistory = stock.HasHistory
-		}
-
-		// store_id berilmagan bo'lsa jadvaldagi umumiy raqamlar qoladi; berilgan bo'lsa
-		// o'sha do'kon raqamlari bilan almashtiriladi (do'konda savdo bo'lmasa — 0 va null).
-		if storeID != "" {
-			sale := sales[code]
-			products[i].SoldQuantity15d = sale.LastWindow
-			products[i].SoldQuantityPrev15d = sale.PrevWindow
-			products[i].SoldChangePercent = sale.ChangePercent
 		}
 	}
 
@@ -471,88 +456,3 @@ func (s *Services) getReservedProductStockMap(
 	return result, nil
 }
 
-// reservedProductSales — do'kon kesimidagi savdo dinamikasi.
-type reservedProductSales struct {
-	LastWindow    int64
-	PrevWindow    int64
-	ChangePercent *float64
-}
-
-// getReservedProductSalesMap — sahifadagi mahsulotlar uchun do'kondagi oxirgi 15 kunlik va
-// undan oldingi 15 kunlik sotuv (cart_items.unit_quantity yig'indisi). Faqat yakunlangan
-// sotuvlar (stage 9, sale_type SALE); vozvratlar ayirilmaydi.
-//
-// So'rov savdolardan boshlanadi — sales(completed_at, stage, store_id) indeksi bitta
-// do'konning 30 kunlik cheklarini beradi, cart_items esa sale_id indeksi bilan ulanadi.
-// Shuning uchun og'irlikni sahifadagi mahsulot soni emas, do'konning savdo hajmi belgilaydi.
-func (s *Services) getReservedProductSalesMap(
-	ctx context.Context, storeID string, materialCodes []string,
-) (map[string]reservedProductSales, error) {
-	codes := reservedProductIntCodes(materialCodes)
-	if len(codes) == 0 {
-		return map[string]reservedProductSales{}, nil
-	}
-
-	var rows []struct {
-		MaterialCode  string   `gorm:"column:material_code"`
-		LastWindow    int64    `gorm:"column:last_window"`
-		PrevWindow    int64    `gorm:"column:prev_window"`
-		ChangePercent *float64 `gorm:"column:change_percent"`
-	}
-
-	err := s.db.WithContext(ctx).Raw(`
-		WITH sold AS (
-			SELECT
-				p.material_code::text AS material_code,
-				COALESCE(SUM(ci.unit_quantity) FILTER (
-					WHERE s.completed_at >= (now() AT TIME ZONE 'UTC') - make_interval(days => ?)
-				), 0) AS last_window,
-				COALESCE(SUM(ci.unit_quantity) FILTER (
-					WHERE s.completed_at < (now() AT TIME ZONE 'UTC') - make_interval(days => ?)
-				), 0) AS prev_window
-			FROM sales s
-			JOIN cart_items ci ON ci.sale_id = s.id
-			-- cart_items.product_id eski yozuvlarda bo'sh bo'lishi mumkin, store_product orqali topiladi
-			LEFT JOIN store_products sp ON sp.id = ci.store_product_id
-			JOIN products p ON p.id = COALESCE(ci.product_id, sp.product_id)
-			WHERE s.store_id = ?::uuid
-				AND s.stage = ?
-				AND s.sale_type = ?
-				AND s.completed_at >= (now() AT TIME ZONE 'UTC') - make_interval(days => ?)
-				AND p.material_code = ANY(?::int[])
-			GROUP BY p.material_code
-		)
-		SELECT
-			material_code,
-			last_window,
-			prev_window,
-			CASE
-				WHEN prev_window > 0
-				THEN ROUND(((last_window - prev_window)::numeric / prev_window) * 100, 2)
-			END AS change_percent
-		FROM sold
-	`,
-		reservedProductSalesWindowDays,
-		reservedProductSalesWindowDays,
-		storeID,
-		constants.SaleStageFinished,
-		constants.SaleTypeSale,
-		reservedProductSalesWindowDays*2,
-		pq.Array(codes),
-	).Scan(&rows).Error
-	if err != nil {
-		s.log.Errorf("reserved products: could not load sales stats for store_id=%s: %v", storeID, err)
-		return nil, domain.InternalServerError
-	}
-
-	result := make(map[string]reservedProductSales, len(rows))
-	for _, row := range rows {
-		result[strings.TrimSpace(row.MaterialCode)] = reservedProductSales{
-			LastWindow:    row.LastWindow,
-			PrevWindow:    row.PrevWindow,
-			ChangePercent: row.ChangePercent,
-		}
-	}
-
-	return result, nil
-}

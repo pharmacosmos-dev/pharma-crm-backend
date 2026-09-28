@@ -23,6 +23,7 @@ type ReservedProduct struct {
 	// do'kon bo'yicha, berilmasa barcha do'konlar bo'yicha tekshiriladi.
 	HasHistory bool `json:"has_history" gorm:"-"`
 	Source string `json:"source" gorm:"column:source"`
+	// Savdo dinamikasi — har doim barcha aptekalar bo'yicha, store_id ga bog'liq emas.
 	SoldQuantity15d     int64      `json:"sold_quantity_15d" gorm:"column:sold_quantity_15d"`
 	SoldQuantityPrev15d int64      `json:"sold_quantity_prev_15d" gorm:"column:sold_quantity_prev_15d"`
 	SoldChangePercent   *float64   `json:"sold_change_percent" gorm:"column:sold_change_percent"`
