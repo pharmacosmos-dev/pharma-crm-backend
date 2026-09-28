@@ -2174,12 +2174,9 @@ definitions:
         type: string
       has_history:
         description: |-
-          Mahsulotning harakat tarixi. false bo'lsa mahsulot hali biror do'konga umuman
-          tushmagan (kirim, transfer, sotuv — hammasi store_products orqali o'tadi), ya'ni
-          frontend uni "yangi mahsulot" deb belgilashi kerak.
-          HasStoreHistory shu do'kon bo'yicha; store_id berilmasa HasHistory bilan bir xil.
-        type: boolean
-      has_store_history:
+          Mahsulotning harakat tarixi: false bo'lsa hech qanday kirim, transfer yoki sotuv
+          bo'lmagan — frontend uni "yangi mahsulot" deb belgilaydi. store_id berilsa o'sha
+          do'kon bo'yicha, berilmasa barcha do'konlar bo'yicha tekshiriladi.
         type: boolean
       id:
         type: string
@@ -17151,9 +17148,9 @@ paths:
         Har qatorda product_id, unit_per_pack, do'kondagi qoldiq (available_quantity),
         ochiq hujjatga kiritilgan miqdor (reserved_quantity) va o'sha qator id'si
         (reserve_detail_id) qaytadi; hujjat done bo'lsa yoki bo'lmasa — 0.
-        has_history — mahsulotning harakat tarixi: false bo'lsa u hali biror do'konga
-        umuman tushmagan (kirim/transfer/sotuv bo'lmagan), ya'ni frontend uni yangi mahsulot
-        deb belgilashi kerak. has_store_history — shu do'kon bo'yicha o'sha belgi.
+        has_history — mahsulotning harakat tarixi: false bo'lsa hech qanday kirim,
+        transfer yoki sotuv bo'lmagan, ya'ni frontend uni yangi mahsulot deb belgilaydi.
+        store_id berilsa o'sha do'kon bo'yicha, berilmasa barcha do'konlar bo'yicha.
         Savdo dinamikasi (sold_quantity_15d, sold_quantity_prev_15d, sold_change_percent):
         store_id berilmasa — barcha do'konlar bo'yicha, 1C importida hisoblangan tayyor raqam;
         store_id berilsa — faqat o'sha do'kon bo'yicha o'sha zahoti hisoblanadi.
