@@ -4671,6 +4671,9 @@ func (h *ProductHandler) PublicList(c *gin.Context) {
 // @Description Har qatorda product_id, unit_per_pack, do'kondagi qoldiq (available_quantity),
 // @Description ochiq hujjatga kiritilgan miqdor (reserved_quantity) va o'sha qator id'si
 // @Description (reserve_detail_id) qaytadi; hujjat done bo'lsa yoki bo'lmasa — 0.
+// @Description has_history — mahsulotning harakat tarixi: false bo'lsa u hali biror do'konga
+// @Description umuman tushmagan (kirim/transfer/sotuv bo'lmagan), ya'ni frontend uni yangi mahsulot
+// @Description deb belgilashi kerak. has_store_history — shu do'kon bo'yicha o'sha belgi.
 // @Description Savdo dinamikasi (sold_quantity_15d, sold_quantity_prev_15d, sold_change_percent):
 // @Description store_id berilmasa — barcha do'konlar bo'yicha, 1C importida hisoblangan tayyor raqam;
 // @Description store_id berilsa — faqat o'sha do'kon bo'yicha o'sha zahoti hisoblanadi.

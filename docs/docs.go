@@ -21362,7 +21362,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "1C yuborgan rezerv mahsulotlar ro'yxati, doim ORDER BY sort_index ASC (1C tartibi).\nis_active berilmasa aktiv va deaktiv qatorlar birga qaytadi.\nRo'yxatga do'konning ochiq rezerv hujjatiga kiritilgan, lekin 1C ro'yxatida yo'q\nmahsulotlar ham qo'shiladi — ular source=\"manual\" va sort_index=0 bilan boshida turadi.\nHar qatorda product_id, unit_per_pack, do'kondagi qoldiq (available_quantity),\nochiq hujjatga kiritilgan miqdor (reserved_quantity) va o'sha qator id'si\n(reserve_detail_id) qaytadi; hujjat done bo'lsa yoki bo'lmasa — 0.\nSavdo dinamikasi (sold_quantity_15d, sold_quantity_prev_15d, sold_change_percent):\nstore_id berilmasa — barcha do'konlar bo'yicha, 1C importida hisoblangan tayyor raqam;\nstore_id berilsa — faqat o'sha do'kon bo'yicha o'sha zahoti hisoblanadi.\nOldingi 15 kunda savdo bo'lmasa foiz null bo'ladi (0 emas).",
+                "description": "1C yuborgan rezerv mahsulotlar ro'yxati, doim ORDER BY sort_index ASC (1C tartibi).\nis_active berilmasa aktiv va deaktiv qatorlar birga qaytadi.\nRo'yxatga do'konning ochiq rezerv hujjatiga kiritilgan, lekin 1C ro'yxatida yo'q\nmahsulotlar ham qo'shiladi — ular source=\"manual\" va sort_index=0 bilan boshida turadi.\nHar qatorda product_id, unit_per_pack, do'kondagi qoldiq (available_quantity),\nochiq hujjatga kiritilgan miqdor (reserved_quantity) va o'sha qator id'si\n(reserve_detail_id) qaytadi; hujjat done bo'lsa yoki bo'lmasa — 0.\nhas_history — mahsulotning harakat tarixi: false bo'lsa u hali biror do'konga\numuman tushmagan (kirim/transfer/sotuv bo'lmagan), ya'ni frontend uni yangi mahsulot\ndeb belgilashi kerak. has_store_history — shu do'kon bo'yicha o'sha belgi.\nSavdo dinamikasi (sold_quantity_15d, sold_quantity_prev_15d, sold_change_percent):\nstore_id berilmasa — barcha do'konlar bo'yicha, 1C importida hisoblangan tayyor raqam;\nstore_id berilsa — faqat o'sha do'kon bo'yicha o'sha zahoti hisoblanadi.\nOldingi 15 kunda savdo bo'lmasa foiz null bo'ladi (0 emas).",
                 "consumes": [
                     "application/json"
                 ],
@@ -40764,6 +40764,13 @@ const docTemplate = `{
                 },
                 "created_at": {
                     "type": "string"
+                },
+                "has_history": {
+                    "description": "Mahsulotning harakat tarixi. false bo'lsa mahsulot hali biror do'konga umuman\ntushmagan (kirim, transfer, sotuv — hammasi store_products orqali o'tadi), ya'ni\nfrontend uni \"yangi mahsulot\" deb belgilashi kerak.\nHasStoreHistory shu do'kon bo'yicha; store_id berilmasa HasHistory bilan bir xil.",
+                    "type": "boolean"
+                },
+                "has_store_history": {
+                    "type": "boolean"
                 },
                 "id": {
                     "type": "string"

@@ -286,6 +286,8 @@ func (s *Services) GetReservedProducts(
 			products[i].AvailableQuantity = stock.AvailableQuantity
 			products[i].ReservedQuantity = stock.ReservedQuantity
 			products[i].ReserveDetailId = stock.ReserveDetailId
+			products[i].HasHistory = stock.HasHistory
+			products[i].HasStoreHistory = stock.HasStoreHistory
 		}
 
 		// store_id berilmagan bo'lsa jadvaldagi umumiy raqamlar qoladi; berilgan bo'lsa
@@ -387,14 +389,16 @@ func reservedProductIntCodes(materialCodes []string) []int64 {
 	return codes
 }
 
-// reservedProductStock — material_code bo'yicha topilgan CRM mahsuloti, do'kondagi qoldiq
-// va ochiq rezerv hujjatidagi qator.
+// reservedProductStock — material_code bo'yicha topilgan CRM mahsuloti, do'kondagi qoldiq,
+// ochiq rezerv hujjatidagi qator va mahsulotning harakat tarixi bor-yo'qligi.
 type reservedProductStock struct {
 	ProductId         string
 	UnitPerPack       int
 	AvailableQuantity float64
 	ReservedQuantity  float64
 	ReserveDetailId   string
+	HasHistory        bool
+	HasStoreHistory   bool
 }
 
 func (s *Services) getReservedProductStockMap(
@@ -412,8 +416,16 @@ func (s *Services) getReservedProductStockMap(
 		AvailableQuantity float64 `gorm:"column:available_quantity"`
 		ReservedQuantity  float64 `gorm:"column:reserved_quantity"`
 		ReserveDetailId   string  `gorm:"column:reserve_detail_id"`
+		HasHistory        bool    `gorm:"column:has_history"`
+		HasStoreHistory   bool    `gorm:"column:has_store_history"`
 	}
 
+	// has_history — mahsulot umuman biror do'konga tushganmi (store_products qatori bormi).
+	// Kirim (qabul qilingan import), transfer va sotuv — hammasi store_products orqali o'tadi,
+	// shuning uchun qator yo'q bo'lsa mahsulotning hech qanday harakati bo'lmagan. Tekshiruv
+	// idx_store_products_product_id orqali ketadi; import_details/transfer_details/cart_items
+	// bo'yicha to'g'ridan-to'g'ri qidirish esa indeks yo'qligi sababli jadval skani bo'lardi.
+	//
 	// storeID yoki openReserveId bo'sh bo'lsa mos LEFT JOIN hech qanday qatorga tushmaydi:
 	// qoldiq/kiritilgan miqdor 0 bo'ladi, lekin product_id va unit_per_pack baribir qaytadi.
 	// reserve_details bo'yicha MAX: (reserve_id, product_id) unique, ya'ni ko'pi bilan bitta
@@ -426,7 +438,9 @@ func (s *Services) getReservedProductStockMap(
 			COALESCE(p.unit_per_pack, 1)       AS unit_per_pack,
 			COALESCE(SUM(sp.unit_quantity), 0) AS available_quantity,
 			COALESCE(MAX(rd.quantity), 0)      AS reserved_quantity,
-			COALESCE(MAX(rd.id::text), '')     AS reserve_detail_id
+			COALESCE(MAX(rd.id::text), '')     AS reserve_detail_id,
+			COUNT(sp.id) > 0                   AS has_store_history,
+			EXISTS (SELECT 1 FROM store_products h WHERE h.product_id = p.id) AS has_history
 		FROM products p
 		LEFT JOIN store_products sp  ON sp.product_id = p.id AND sp.store_id = NULLIF(?, '')::uuid
 		LEFT JOIN reserve_details rd ON rd.product_id = p.id AND rd.reserve_id = NULLIF(?, '')::uuid
@@ -441,12 +455,20 @@ func (s *Services) getReservedProductStockMap(
 
 	result := make(map[string]reservedProductStock, len(rows))
 	for _, row := range rows {
+		// storeID bo'sh bo'lsa do'kon kesimi ma'nosiz — umumiy tarix bilan bir xil qaytadi.
+		hasStoreHistory := row.HasStoreHistory
+		if storeID == "" {
+			hasStoreHistory = row.HasHistory
+		}
+
 		result[strings.TrimSpace(row.MaterialCode)] = reservedProductStock{
 			ProductId:         row.ProductId,
 			UnitPerPack:       row.UnitPerPack,
 			AvailableQuantity: row.AvailableQuantity,
 			ReservedQuantity:  row.ReservedQuantity,
 			ReserveDetailId:   row.ReserveDetailId,
+			HasHistory:        row.HasHistory,
+			HasStoreHistory:   hasStoreHistory,
 		}
 	}
 

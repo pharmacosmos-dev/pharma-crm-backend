@@ -18,6 +18,12 @@ type ReservedProduct struct {
 	AvailableQuantity float64 `json:"available_quantity" gorm:"-"`
 	ReservedQuantity float64 `json:"reserved_quantity" gorm:"-"`
 	ReserveDetailId  string  `json:"reserve_detail_id" gorm:"-"`
+	// Mahsulotning harakat tarixi. false bo'lsa mahsulot hali biror do'konga umuman
+	// tushmagan (kirim, transfer, sotuv — hammasi store_products orqali o'tadi), ya'ni
+	// frontend uni "yangi mahsulot" deb belgilashi kerak.
+	// HasStoreHistory shu do'kon bo'yicha; store_id berilmasa HasHistory bilan bir xil.
+	HasHistory      bool `json:"has_history" gorm:"-"`
+	HasStoreHistory bool `json:"has_store_history" gorm:"-"`
 	Source string `json:"source" gorm:"column:source"`
 	SoldQuantity15d     int64      `json:"sold_quantity_15d" gorm:"column:sold_quantity_15d"`
 	SoldQuantityPrev15d int64      `json:"sold_quantity_prev_15d" gorm:"column:sold_quantity_prev_15d"`
