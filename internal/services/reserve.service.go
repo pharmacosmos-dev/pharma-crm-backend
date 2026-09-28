@@ -480,6 +480,10 @@ func (s *Services) QuickAddReserveDetail(
 			}
 		}
 
+		if err := s.checkQuickAddStockLimit(ctx, tx, req, reserveId); err != nil {
+			return err
+		}
+
 		addQuery := `
 			INSERT INTO reserve_details (
 				reserve_id, product_id, reserved_product_id, material_code, product_name, quantity, created_by, updated_by
@@ -626,6 +630,71 @@ func (s *Services) DeleteReserveDetail(ctx context.Context, id, userId string) e
 
 		return s.refreshReserveTotals(ctx, tx, reserveId, userId)
 	})
+}
+
+const (
+	// reserveEnoughStockQuantity — do'kondagi qoldiq shundan ko'p bo'lsa rezerv qabul
+	// qilinmaydi: mahsulot yetarli, buyurtma berish kerak emas.
+	reserveEnoughStockQuantity = 5
+
+	// reserveLowStockMaxQuantity — qoldiq 1..5 oralig'ida bo'lsa hujjatdagi jami miqdor
+	// shundan oshmaydi. Cheklov so'rovdagi miqdorga emas, hujjatdagi YIG'INDIGA qo'yiladi:
+	// quick-add miqdorni ustiga qo'shib borgani uchun aks holda bir necha marta
+	// chaqirib chetlab o'tish mumkin bo'lardi.
+	reserveLowStockMaxQuantity = 10
+)
+
+// checkQuickAddStockLimit — do'kondagi qoldiqqa qarab quick-add ga ruxsat beradi:
+//
+//	qoldiq > 5   — rad etiladi, mahsulot yetarli;
+//	qoldiq 1..5  — ruxsat, lekin hujjatdagi jami miqdor 10 dan oshmasligi kerak;
+//	qoldiq 0     — cheklovsiz, mahsulot umuman tugagan.
+//
+// Qoldiq ro'yxatdagi available_quantity bilan bir xil manbadan olinadi (store_products
+// birliklari yig'indisi), shuning uchun xodim ekranda ko'rgan raqam bilan bir xil.
+func (s *Services) checkQuickAddStockLimit(
+	ctx context.Context, tx *gorm.DB, req *domain.ReserveQuickDetailRequest, reserveId string,
+) error {
+	var row struct {
+		AvailableQuantity float64 `gorm:"column:available_quantity"`
+		CurrentQuantity   float64 `gorm:"column:current_quantity"`
+	}
+
+	query := `
+		SELECT
+			COALESCE((
+				SELECT SUM(sp.unit_quantity) FROM store_products sp
+				WHERE sp.store_id = ?::uuid AND sp.product_id = ?::uuid
+			), 0) AS available_quantity,
+			COALESCE((
+				SELECT rd.quantity FROM reserve_details rd
+				WHERE rd.reserve_id = ?::uuid AND rd.product_id = ?::uuid
+			), 0) AS current_quantity`
+
+	if err := tx.WithContext(ctx).
+		Raw(query, req.StoreId, req.ProductId, reserveId, req.ProductId).
+		Scan(&row).Error; err != nil {
+		s.log.Errorf("reserve: could not check stock limit for product %s: %v", req.ProductId, err)
+		return domain.InternalServerError
+	}
+
+	if row.AvailableQuantity > reserveEnoughStockQuantity {
+		return domain.NewError(http.StatusBadRequest, fmt.Sprintf(
+			"reserve.enough_in_stock: available=%.0f, threshold=%d",
+			row.AvailableQuantity, reserveEnoughStockQuantity))
+	}
+
+	if row.AvailableQuantity <= 0 {
+		return nil
+	}
+
+	if row.CurrentQuantity+req.Quantity > reserveLowStockMaxQuantity {
+		return domain.NewError(http.StatusBadRequest, fmt.Sprintf(
+			"reserve.quantity_limit: max=%d, current=%.0f, requested=%.0f",
+			reserveLowStockMaxQuantity, row.CurrentQuantity, req.Quantity))
+	}
+
+	return nil
 }
 
 // region Helpers
