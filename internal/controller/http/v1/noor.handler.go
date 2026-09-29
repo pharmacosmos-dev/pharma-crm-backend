@@ -25,8 +25,8 @@ func (h *Handler) NewNoorHandler(r *gin.RouterGroup) {
 func (h *NoorHandler) NoorRoutes(r *gin.RouterGroup) {
 	noor := r.Group("/noor")
 	noor.GET("/product/list", h.ProductList)
-	// noor.GET("/store-product/list", h.StoreProductList)
-	noor.POST("/store-product/quantity", h.StoreProductQuantity)
+	noor.GET("/store-product/list", h.StoreProductList)
+	noor.GET("/store-product/quantity", h.StoreProductQuantity)
 	noor.GET("/store/list", h.StoreList)
 	noor.GET("/category/list", h.CategoryList)
 	noor.POST("/order", h.CreateOrder)
@@ -136,7 +136,7 @@ const noorMaxProductIds = 500
 // @Success 	200 {object} []domain.NoorStoreProductQuantity
 // @Failure 	400 {object} v1.IntegrationErrorResponse
 // @Failure 	500 {object} v1.IntegrationErrorResponse
-// @Router 		/noor/store-product/quantity 	[POST]
+// @Router 		/noor/store-product/quantity 	[GET]
 func (h *NoorHandler) StoreProductQuantity(c *gin.Context) {
 	var body domain.NoorStoreProductQuantityRequest
 	if err := c.ShouldBindJSON(&body); err != nil {
