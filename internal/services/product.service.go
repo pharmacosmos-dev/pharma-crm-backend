@@ -47,7 +47,8 @@ func (s *Services) CreateProduct(ctx context.Context, req *domain.ProductRequest
 		photos,
 		unit_per_pack,
 		description,
-		status
+		status,
+		mnn_code
 	)
 	`
 	err := tx.WithContext(ctx).
@@ -63,6 +64,7 @@ func (s *Services) CreateProduct(ctx context.Context, req *domain.ProductRequest
 			req.UnitPerPack,
 			req.Description,
 			req.Status,
+			req.MnnCode,
 		).Scan(&res).Error
 	if err != nil {
 		_ = tx.Rollback()
@@ -146,6 +148,7 @@ func (s *Services) GetProductById(ctx context.Context, productId string, storeId
 	var tmpProduct struct {
 		Id           string            `gorm:"id"`
 		MaterialCode int               `gorm:"material_code"`
+		MnnCode      string            `gorm:"mnn_code"`
 		Name         string            `gorm:"name"`
 		Barcode      string            `gorm:"barcode"`
 		Photos       utils.StringArray `gorm:"type:text[]"`
@@ -199,6 +202,7 @@ func (s *Services) GetProductById(ctx context.Context, productId string, storeId
 		Select(
 			"p.id",
 			"p.material_code",
+			"p.mnn_code",
 			"p.name",
 			"p.photos",
 			"p.barcode",
@@ -246,6 +250,7 @@ func (s *Services) GetProductById(ctx context.Context, productId string, storeId
 	res := domain.Product{
 		Id:           tmpProduct.Id,
 		MaterialCode: tmpProduct.MaterialCode,
+		MnnCode:      tmpProduct.MnnCode,
 		Name:         tmpProduct.Name,
 		Barcode:      tmpProduct.Barcode,
 		Photos:       tmpProduct.Photos,
@@ -395,6 +400,7 @@ func (s *Services) GetProducts(ctx context.Context, params *domain.ProductQueryP
 	err := qb.Select(
 		"p.id",
 		"p.material_code",
+		"p.mnn_code",
 		"p.name",
 		"p.description",
 		"p.barcode",
@@ -803,31 +809,7 @@ func (s *Services) GetProductsForSearch(ctx context.Context, params *domain.Stor
 	}
 
 	// Base select fields
-	selectFields := []string{
-		"sp.id",
-		"sp.product_id",
-		"sp.store_id",
-		"sp.unit_quantity/p.unit_per_pack AS pack_quantity",
-		"sp.unit_quantity % p.unit_per_pack AS unit_quantity",
-		"sp.unit_quantity AS u_quantity",
-		"sp.small_quantity",
-		"sp.retail_price",
-		"sp.expire_date",
-		"DATE_PART('day', sp.expire_date::timestamp - NOW()) AS expire_day",
-		"sp.created_at",
-		"sp.updated_at",
-
-		"p.name",
-		"b.barcode",
-		"b.is_marking",
-		"p.unit_per_pack",
-		"p.requires_prescription",
-
-		"pr.name AS producer_name",
-		"pb.bonus_amount",
-		"pb.start_date AS bonus_start_date",
-		"pb.end_date AS bonus_end_date",
-	}
+	selectFields := storeProductSearchSelectFields()
 
 	// Similarity score faqat nom bo'yicha qidiruvda qo'shiladi
 	if params.Search != "" && searchType == "name/category" {
@@ -847,22 +829,7 @@ func (s *Services) GetProductsForSearch(ctx context.Context, params *domain.Stor
 		selectFields = append(selectFields, "pbr.barcode AS barcode")
 	}
 
-	qb := s.db.WithContext(ctx).
-		Select(strings.Join(selectFields, ", ")).
-		Table("store_products sp").
-		Joins("JOIN products p ON sp.product_id = p.id").
-		Joins(`
-			LEFT JOIN LATERAL (
-				SELECT pbb.barcode, pbb.is_marking
-				FROM product_barcodes pbb
-				WHERE pbb.product_id = p.id
-				ORDER BY pbb.created_at DESC
-				LIMIT 1
-			) b ON true
-		`).
-		Joins("LEFT JOIN producers pr ON p.producer_id = pr.id").
-		Joins("LEFT JOIN product_bonuses pb ON pb.product_id = p.id").
-		Where("sp.store_id = ? AND sp.unit_quantity > 0", params.StoreId)
+	qb := storeProductSearchJoins(s.db.WithContext(ctx).Select(strings.Join(selectFields, ", ")), params.StoreId)
 
 	if params.Search != "" {
 		switch searchType {
@@ -901,6 +868,61 @@ func (s *Services) GetProductsForSearch(ctx context.Context, params *domain.Stor
 		s.log.Errorf("could not search store_products: %v", err)
 		return nil, domain.InternalServerError
 	}
+	formatStoreProductSearchResults(res)
+
+	return res, nil
+}
+
+// storeProductSearchSelectFields GetProductsForSearch va GetStoreProductsByMnnCode uchun umumiy maydonlar
+func storeProductSearchSelectFields() []string {
+	return []string{
+		"sp.id",
+		"sp.product_id",
+		"sp.store_id",
+		"sp.unit_quantity/p.unit_per_pack AS pack_quantity",
+		"sp.unit_quantity % p.unit_per_pack AS unit_quantity",
+		"sp.unit_quantity AS u_quantity",
+		"sp.small_quantity",
+		"sp.retail_price",
+		"sp.expire_date",
+		"DATE_PART('day', sp.expire_date::timestamp - NOW()) AS expire_day",
+		"sp.created_at",
+		"sp.updated_at",
+
+		"p.name",
+		"p.mnn_code",
+		"b.barcode",
+		"b.is_marking",
+		"p.unit_per_pack",
+		"p.requires_prescription",
+
+		"pr.name AS producer_name",
+		"pb.bonus_amount",
+		"pb.start_date AS bonus_start_date",
+		"pb.end_date AS bonus_end_date",
+	}
+}
+
+// storeProductSearchJoins do'kondagi (qoldig'i bor) store_products ni mahsulot ma'lumotlari bilan bog'laydi
+func storeProductSearchJoins(db *gorm.DB, storeId string) *gorm.DB {
+	return db.Table("store_products sp").
+		Joins("JOIN products p ON sp.product_id = p.id").
+		Joins(`
+			LEFT JOIN LATERAL (
+				SELECT pbb.barcode, pbb.is_marking
+				FROM product_barcodes pbb
+				WHERE pbb.product_id = p.id
+				ORDER BY pbb.created_at DESC
+				LIMIT 1
+			) b ON true
+		`).
+		Joins("LEFT JOIN producers pr ON p.producer_id = pr.id").
+		Joins("LEFT JOIN product_bonuses pb ON pb.product_id = p.id").
+		Where("sp.store_id = ? AND sp.unit_quantity > 0", storeId)
+}
+
+// formatStoreProductSearchResults quantity ni formatlaydi va muddati o'tgan bonuslarni nolga tushiradi
+func formatStoreProductSearchResults(res []domain.StoreProductResponse) {
 	now := time.Now().Add(time.Hour * 5)
 	// quantity format
 	for i := range res {
@@ -920,6 +942,25 @@ func (s *Services) GetProductsForSearch(ctx context.Context, params *domain.Stor
 			}
 		}
 	}
+}
+
+// GetStoreProductsByMnnCode do'konda qoldig'i bor, mnn_code si teng bo'lgan mahsulotlar
+func (s *Services) GetStoreProductsByMnnCode(ctx context.Context, params *domain.StoreProductQueryParam) ([]domain.StoreProductResponse, error) {
+	selectFields := append(storeProductSearchSelectFields(), "NULL AS similarity_score")
+
+	var res []domain.StoreProductResponse
+	err := storeProductSearchJoins(s.db.WithContext(ctx).Select(strings.Join(selectFields, ", ")), params.StoreId).
+		Where("p.mnn_code = ?", params.MnnCode).
+		Order("p.name, sp.expire_date ASC").
+		Limit(params.Limit).
+		Offset(params.Offset).
+		Find(&res).Error
+	if err != nil {
+		s.log.Errorf("could not get store_products by mnn_code: %v", err)
+		return nil, domain.InternalServerError
+	}
+
+	formatStoreProductSearchResults(res)
 
 	return res, nil
 }

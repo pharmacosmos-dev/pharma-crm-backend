@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"unicode"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -239,6 +240,25 @@ func parseFloat(value string) float64 {
 // Parse a string to int if value like 2324,34
 func parseIntComma(value string) int {
 	i, err := strconv.Atoi(strings.ReplaceAll(value, ",", ""))
+	if err != nil {
+		return 0
+	}
+
+	return i
+}
+
+// parseMaterialCode Excel'dagi "11 333", "9 000", "11,333" kabi qiymatlarni 11333, 9000 ga aylantiradi.
+// Oddiy probeldan tashqari NBSP (U+00A0) va narrow NBSP (U+202F) ham olib tashlanadi.
+func parseMaterialCode(value string) int {
+	cleaned := strings.Map(func(r rune) rune {
+		if unicode.IsSpace(r) || r == ',' {
+			return -1
+		}
+		return r
+	}, value)
+	cleaned = strings.TrimSuffix(cleaned, ".0")
+
+	i, err := strconv.Atoi(cleaned)
 	if err != nil {
 		return 0
 	}

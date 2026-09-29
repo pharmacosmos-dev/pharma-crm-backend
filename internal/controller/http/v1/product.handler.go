@@ -11,6 +11,7 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 
@@ -47,6 +48,7 @@ func (h *ProductHandler) ProductRoutes(r *gin.RouterGroup) {
 		product.GET("/producer", h.GetProducerList)
 		product.GET("/similar/:id", h.SimilarProducts)
 		product.GET("/store/:id", h.GetProductsForSearch)
+		product.GET("/store/:id/mnn", h.GetStoreProductsByMnnCode)
 		product.GET("/import/:id", h.GetProductImports)
 		product.DELETE("/hard-delete", h.HardDelete)
 		product.DELETE("/soft-delete", h.SoftDelete)
@@ -496,6 +498,9 @@ func (h *ProductHandler) Update(c *gin.Context) {
 	if body.CategoryId != "" {
 		product["category_id"] = body.CategoryId
 	}
+	if body.MnnCode != "" {
+		product["mnn_code"] = body.MnnCode
+	}
 	product["updated_at"] = time.Now()
 	// match array
 	body.Photos = utils.StringArray(body.Photos)
@@ -627,6 +632,51 @@ func (h *ProductHandler) GetProductsForSearch(c *gin.Context) {
 	params.Limit, params.Offset = defaultLimitOffset(params.Limit, params.Offset)
 	// get store products list
 	res, err := h.service.GetProductsForSearch(ctx, &params)
+	if err != nil {
+		handleServiceResponse(c, nil, err)
+		return
+	}
+
+	handleResponse(c, OK, res)
+}
+
+// GetStoreProductsByMnnCode godoc
+// @Summary Get store products by mnn_code
+// @Description Do'konda qoldig'i bor, mnn_code si teng bo'lgan mahsulotlar
+// @Tags products
+// @Security     BearerAuth
+// @Accept json
+// @Produce json
+// @Param limit query int false "Limit"
+// @Param offset query int false "Offset"
+// @Param id path string true "Store ID"
+// @Param mnn_code query string true "MNN code"
+// @Success 200 {object} v1.Response
+// @Failure 400 {object} v1.Response
+// @Failure 500 {object} v1.Response
+// @Router /product/store/{id}/mnn [get]
+func (h *ProductHandler) GetStoreProductsByMnnCode(c *gin.Context) {
+	var (
+		params  domain.StoreProductQueryParam
+		storeId = c.Param("id")
+	)
+	// bind query params
+	if err := c.ShouldBindQuery(&params); err != nil {
+		handleServiceResponse(c, nil, domain.InvalidQueryError)
+		return
+	}
+	params.MnnCode = strings.TrimSpace(params.MnnCode)
+	if params.MnnCode == "" {
+		handleResponse(c, BadRequest, "mnn_code is required")
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
+	defer cancel()
+
+	params.StoreId = storeId
+	params.Limit, params.Offset = defaultLimitOffset(params.Limit, params.Offset)
+	res, err := h.service.GetStoreProductsByMnnCode(ctx, &params)
 	if err != nil {
 		handleServiceResponse(c, nil, err)
 		return

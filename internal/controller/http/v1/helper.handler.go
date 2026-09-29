@@ -57,6 +57,7 @@ func (h *HelperHandler) HelperRoutes(r *gin.RouterGroup) {
 		helper.POST("/upload-requires-prescription", h.UploadRequiresPrescription)
 		helper.POST("/upload-is-return", h.UploadIsReturn)
 		helper.POST("/upload-product-country", h.UploadProductCountry)
+		helper.POST("/upload-product-mnn-code", h.UploadProductMnnCode)
 		helper.POST("/upload-uzum-tezkor-price", h.UploadUzumTezkorPrice)
 		helper.POST("/check-online-price-by-ids", h.CheckOnlinePriceByIds)
 		helper.POST("/check-products-by-material-code", h.CheckProductsByMaterialCode)
@@ -3623,6 +3624,117 @@ func (h *HelperHandler) UploadProductCountry(c *gin.Context) {
 
 	handleResponse(c, OK, gin.H{
 		"updated": updated,
+	})
+}
+
+// UploadProductMnnCode godoc
+// @Summary Upload product mnn_code excel
+// @Description Excel ustunlari: 1) name, 2) material_code, 3) mnn_code. Birinchi qator sarlavha.
+// @Description material_code "11 333" / "9 000" ko'rinishida bo'lsa ham 11333 / 9000 deb qidiriladi.
+// @Tags helper
+// @Security BearerAuth
+// @Accept multipart/form-data
+// @Produce json
+// @Param file formData file true "Excel file (.xlsx) with name, material_code, mnn_code columns"
+// @Success 200 {object} v1.Response
+// @Failure 400 {object} v1.Response
+// @Failure 500 {object} v1.Response
+// @Router /helper/upload-product-mnn-code [POST]
+func (h *HelperHandler) UploadProductMnnCode(c *gin.Context) {
+	var file domain.File
+	if err := c.ShouldBind(&file); err != nil {
+		handleResponse(c, BadRequest, err.Error())
+		return
+	}
+
+	ext := filepath.Ext(file.File.Filename)
+	if ext != ".xlsx" && ext != ".xls" {
+		handleResponse(c, BadRequest, "Unsupported file format")
+		return
+	}
+
+	newFilename := uuid.New().String() + ext
+	savePath := filepath.Join("uploads", newFilename)
+
+	if err := c.SaveUploadedFile(file.File, savePath); err != nil {
+		handleResponse(c, InternalError, "Failed to save file")
+		return
+	}
+	defer os.Remove(savePath)
+
+	xlsx, err := excelize.OpenFile(savePath)
+	if err != nil {
+		handleResponse(c, BadRequest, "Failed to open Excel file")
+		return
+	}
+	defer xlsx.Close()
+
+	sheetName := xlsx.GetSheetName(0)
+	rows, err := xlsx.GetRows(sheetName)
+	if err != nil {
+		handleResponse(c, InternalError, "Failed to get rows")
+		return
+	}
+	if len(rows) < 2 {
+		handleResponse(c, BadRequest, "Excel file is empty")
+		return
+	}
+
+	var (
+		updated  int
+		notFound = []gin.H{}
+		skipped  = []gin.H{}
+	)
+
+	for i, row := range rows[1:] { // Skip header
+		rowNumber := i + 2
+		if len(row) < 3 {
+			skipped = append(skipped, gin.H{"row": rowNumber, "reason": "missing columns"})
+			continue
+		}
+
+		materialCode := parseMaterialCode(row[1])
+		mnnCode := strings.TrimSpace(row[2])
+		if materialCode == 0 || mnnCode == "" {
+			skipped = append(skipped, gin.H{
+				"row":           rowNumber,
+				"material_code": row[1],
+				"reason":        "empty or invalid material_code / mnn_code",
+			})
+			continue
+		}
+
+		result := h.db.Exec(`
+			UPDATE products
+			SET mnn_code = ?,
+			    updated_at = now()
+			WHERE material_code = ?
+		`, mnnCode, materialCode)
+		if result.Error != nil {
+			h.log.Warnf("Failed to update mnn_code for material_code %d: %v", materialCode, result.Error)
+			skipped = append(skipped, gin.H{
+				"row":           rowNumber,
+				"material_code": materialCode,
+				"reason":        result.Error.Error(),
+			})
+			continue
+		}
+
+		if result.RowsAffected == 0 {
+			notFound = append(notFound, gin.H{
+				"row":           rowNumber,
+				"name":          strings.TrimSpace(row[0]),
+				"material_code": materialCode,
+			})
+			continue
+		}
+		updated++
+	}
+
+	handleResponse(c, OK, gin.H{
+		"updated":   updated,
+		"not_found": notFound,
+		"skipped":   skipped,
 	})
 }
 

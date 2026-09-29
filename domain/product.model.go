@@ -30,6 +30,7 @@ type Product struct {
 	Status          string               `gorm:"status" json:"status"`
 	Manufacturer    string               `gorm:"manufacturer" json:"manufacturer"`
 	MaterialCode    int                  `gorm:"material_code" json:"material_code"`
+	MnnCode         string               `gorm:"mnn_code" json:"mnn_code"`
 	ExpireDate      string               `gorm:"expire_date" json:"expire_date"`
 	IsActive        bool                 `gorm:"is_active" json:"is_active"`
 	BonusPercent    float64              `gorm:"bonus_percent" json:"bonus_percent"`
@@ -58,6 +59,7 @@ type ProductRequest struct {
 	ShelfId      *string           `gorm:"shelf_id" json:"shelf_id"`
 	ProducerId   *string           `gorm:"producer_id" json:"producer_id"`
 	MaterialCode int               `gorm:"material_code" json:"material_code"`
+	MnnCode      string            `gorm:"mnn_code" json:"mnn_code"`
 	Name         string            `gorm:"name" json:"name"`
 	Barcode      string            `gorm:"barcode" json:"barcode"`
 	Photos       utils.StringArray `gorm:"type:text[]" json:"photos"`
@@ -96,6 +98,7 @@ type ProductUpdateRequest struct {
 	Photos      utils.StringArray `gorm:"type:text[]" json:"photos"`
 	UnitPerPack int               `gorm:"unit_per_pack" json:"unit_per_pack"`
 	CategoryId  string            `gorm:"category_id" json:"category_id"`
+	MnnCode     string            `gorm:"mnn_code" json:"mnn_code"`
 }
 
 // Product Upload request
@@ -213,6 +216,7 @@ type ProductData struct {
 	StorePhone   string            `gorm:"store_phone" json:"store_phone"`
 	StoreAddress string            `gorm:"store_address" json:"store_address"`
 	MaterialCode int               `gorm:"material_code" json:"material_code"`
+	MnnCode      string            `gorm:"mnn_code" json:"mnn_code"`
 	Name         string            `gorm:"name" json:"name"`
 	Photos       utils.StringArray `gorm:"type:text[]" json:"photos"`
 	Barcode      string            `gorm:"barcode" json:"barcode"`

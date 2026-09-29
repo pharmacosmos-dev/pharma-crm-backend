@@ -8079,6 +8079,12 @@
                         "in": "query"
                     },
                     {
+                        "type": "boolean",
+                        "description": "true — normadan ortiq ishlaganlar (avg_monthly_hours \u003c worked_hours); false — normani to'ldirmaganlar (avg_monthly_hours \u003e worked_hours). Filtrsiz ro'yxat uchun parametrni UMUMAN yubormang: bo'sh qiymat false deb o'qiladi",
+                        "name": "out_of_worked_hours",
+                        "in": "query"
+                    },
+                    {
                         "type": "integer",
                         "description": "Year",
                         "name": "year",
@@ -8166,6 +8172,12 @@
                         "type": "string",
                         "description": "employees.role_type (CASHIER, HEADOFCASHIER, ...)",
                         "name": "role_type",
+                        "in": "query"
+                    },
+                    {
+                        "type": "boolean",
+                        "description": "true — normadan ortiq ishlaganlar; false — normani to'ldirmaganlar. Filtrsiz fayl uchun parametrni umuman yubormang",
+                        "name": "out_of_worked_hours",
                         "in": "query"
                     },
                     {
@@ -11581,6 +11593,55 @@
                     {
                         "type": "file",
                         "description": "Excel file (.xlsx)",
+                        "name": "file",
+                        "in": "formData",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/helper/upload-product-mnn-code": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Excel ustunlari: 1) name, 2) material_code, 3) mnn_code. Birinchi qator sarlavha.\nmaterial_code \"11 333\" / \"9 000\" ko'rinishida bo'lsa ham 11333 / 9000 deb qidiriladi.",
+                "consumes": [
+                    "multipart/form-data"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "helper"
+                ],
+                "summary": "Upload product mnn_code excel",
+                "parameters": [
+                    {
+                        "type": "file",
+                        "description": "Excel file (.xlsx) with name, material_code, mnn_code columns",
                         "name": "file",
                         "in": "formData",
                         "required": true
@@ -21942,6 +22003,74 @@
                         "description": "Search",
                         "name": "search",
                         "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/product/store/{id}/mnn": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Do'konda qoldig'i bor, mnn_code si teng bo'lgan mahsulotlar",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "products"
+                ],
+                "summary": "Get store products by mnn_code",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Limit",
+                        "name": "limit",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Offset",
+                        "name": "offset",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Store ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "MNN code",
+                        "name": "mnn_code",
+                        "in": "query",
+                        "required": true
                     }
                 ],
                 "responses": {
@@ -40308,6 +40437,9 @@
                 "material_code": {
                     "type": "integer"
                 },
+                "mnn_code": {
+                    "type": "string"
+                },
                 "name": {
                     "type": "string"
                 },
@@ -40482,6 +40614,9 @@
                     "type": "string"
                 },
                 "description": {
+                    "type": "string"
+                },
+                "mnn_code": {
                     "type": "string"
                 },
                 "name": {

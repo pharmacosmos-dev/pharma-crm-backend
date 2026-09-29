@@ -1870,6 +1870,8 @@ definitions:
         type: string
       material_code:
         type: integer
+      mnn_code:
+        type: string
       name:
         type: string
       photos:
@@ -1991,6 +1993,8 @@ definitions:
       category_id:
         type: string
       description:
+        type: string
+      mnn_code:
         type: string
       name:
         type: string
@@ -8502,6 +8506,12 @@ paths:
         in: query
         name: role_type
         type: string
+      - description: 'true — normadan ortiq ishlaganlar (avg_monthly_hours < worked_hours);
+          false — normani to''ldirmaganlar (avg_monthly_hours > worked_hours). Filtrsiz
+          ro''yxat uchun parametrni UMUMAN yubormang: bo''sh qiymat false deb o''qiladi'
+        in: query
+        name: out_of_worked_hours
+        type: boolean
       - description: Year
         in: query
         name: year
@@ -8566,6 +8576,11 @@ paths:
         in: query
         name: role_type
         type: string
+      - description: true — normadan ortiq ishlaganlar; false — normani to'ldirmaganlar.
+          Filtrsiz fayl uchun parametrni umuman yubormang
+        in: query
+        name: out_of_worked_hours
+        type: boolean
       - description: Sana YYYY-MM-DD (year/month o'rniga)
         in: query
         name: date
@@ -10529,6 +10544,39 @@ paths:
       security:
       - BearerAuth: []
       summary: Upload Country update excel
+      tags:
+      - helper
+  /helper/upload-product-mnn-code:
+    post:
+      consumes:
+      - multipart/form-data
+      description: |-
+        Excel ustunlari: 1) name, 2) material_code, 3) mnn_code. Birinchi qator sarlavha.
+        material_code "11 333" / "9 000" ko'rinishida bo'lsa ham 11333 / 9000 deb qidiriladi.
+      parameters:
+      - description: Excel file (.xlsx) with name, material_code, mnn_code columns
+        in: formData
+        name: file
+        required: true
+        type: file
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Upload product mnn_code excel
       tags:
       - helper
   /helper/upload-product-producer:
@@ -17525,6 +17573,50 @@ paths:
       security:
       - BearerAuth: []
       summary: Get products by store
+      tags:
+      - products
+  /product/store/{id}/mnn:
+    get:
+      consumes:
+      - application/json
+      description: Do'konda qoldig'i bor, mnn_code si teng bo'lgan mahsulotlar
+      parameters:
+      - description: Limit
+        in: query
+        name: limit
+        type: integer
+      - description: Offset
+        in: query
+        name: offset
+        type: integer
+      - description: Store ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: MNN code
+        in: query
+        name: mnn_code
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Get store products by mnn_code
       tags:
       - products
   /product/store/barcode:

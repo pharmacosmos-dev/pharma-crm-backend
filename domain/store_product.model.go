@@ -66,6 +66,7 @@ type StoreProductResponse struct {
 	ID                  string     `gorm:"id" json:"id"`
 	ProductID           string     `gorm:"product_id" json:"product_id"`
 	ProductMaterialCode int        `gorm:"product_material_code" json:"product_material_code"`
+	MnnCode             string     `gorm:"mnn_code" json:"mnn_code"`
 	StoreID             string     `gorm:"store_id" json:"store_id"`
 	Quantity            string     `gorm:"quantity" json:"quantity"`
 	Barcode             string     `gorm:"barcode" json:"barcode"`
@@ -106,6 +107,7 @@ type StoreProductQueryParam struct {
 	Offset  int    `form:"offset"`
 	Search  string `form:"search"`
 	StoreId string `form:"store_id"`
+	MnnCode string `form:"mnn_code"`
 }
 
 // storeProductOnlineItem
