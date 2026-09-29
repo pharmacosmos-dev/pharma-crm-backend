@@ -5,6 +5,7 @@ import (
 	"errors"
 	"net/http"
 	"strconv"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -119,37 +120,68 @@ func (h *NoorHandler) StoreList(c *gin.Context) {
 	handleResponseNoor(c, http.StatusOK, res)
 }
 
+// Bitta so'rovda so'ralishi mumkin bo'lgan product_id soni.
+const noorMaxProductIds = 500
+
 // Store Product Quantity
-// @Summary 	Get one product quantity in a store
-// @Description Berilgan do'kondagi berilgan mahsulotning umumiy qoldig'i.
-// @Description Mahsulot topilmasa yoki qoldiq tugagan bo'lsa ham 200 va quantity: 0 qaytadi.
+// @Summary 	Get product quantities in a store
+// @Description Berilgan do'kondagi berilgan mahsulotlarning umumiy qoldig'i.
+// @Description product_id bir necha marta (?product_id=a&product_id=b) yoki vergul bilan (?product_id=a,b) yuboriladi.
+// @Description Javob har doim massiv. Mahsulot topilmasa yoki qoldiq tugagan bo'lsa ham qatori qaytadi, quantity: 0 bilan.
 // @Tags 		Noor API
 // @Security    BasicAuth
 // @Accept 		json
 // @Produce 	json
-// @Param		store_id    query   string   true  "Store ID"
-// @Param		product_id  query   string   true  "Product ID"
-// @Success 	200 {object} domain.NoorStoreProductQuantity
+// @Param		store_id    query   string    true  "Store ID"
+// @Param		product_id  query   []string  true  "Product ID lar, ko'pi bilan 500 ta"  collectionFormat(csv)
+// @Success 	200 {object} []domain.NoorStoreProductQuantity
 // @Failure 	400 {object} v1.IntegrationErrorResponse
 // @Failure 	500 {object} v1.IntegrationErrorResponse
 // @Router 		/noor/store-product/quantity 	[GET]
 func (h *NoorHandler) StoreProductQuantity(c *gin.Context) {
 	storeId := c.Query("store_id")
-	productId := c.Query("product_id")
-
-	// Ikkalasi ham UUID ustun, validatsiyasiz noto'g'ri qiymat SQL darajasida
-	// 500 bo'lib qaytardi.
 	if _, err := uuid.Parse(storeId); err != nil {
 		handleResponseNoor(c, http.StatusBadRequest, "invalid store_id")
 		return
 	}
 
-	if _, err := uuid.Parse(productId); err != nil {
-		handleResponseNoor(c, http.StatusBadRequest, "invalid product_id")
+	var (
+		productIds []string
+		seen       = map[string]struct{}{}
+	)
+
+	for _, param := range c.QueryArray("product_id") {
+		for _, productId := range strings.Split(param, ",") {
+			productId = strings.TrimSpace(productId)
+			if productId == "" {
+				continue
+			}
+
+			if _, err := uuid.Parse(productId); err != nil {
+				handleResponseNoor(c, http.StatusBadRequest, "invalid product_id: "+productId)
+				return
+			}
+
+			// Takrorlangan id javobda ikki marta chiqmasligi uchun.
+			if _, ok := seen[productId]; ok {
+				continue
+			}
+			seen[productId] = struct{}{}
+			productIds = append(productIds, productId)
+		}
+	}
+
+	if len(productIds) == 0 {
+		handleResponseNoor(c, http.StatusBadRequest, "product_id is required")
 		return
 	}
 
-	res, err := h.service.GetNoorStoreProductQuantity(storeId, productId)
+	if len(productIds) > noorMaxProductIds {
+		handleResponseNoor(c, http.StatusBadRequest, "too many product_id, max "+strconv.Itoa(noorMaxProductIds))
+		return
+	}
+
+	res, err := h.service.GetNoorStoreProductQuantities(storeId, productIds)
 	if err != nil {
 		handleResponseNoor(c, http.StatusInternalServerError, err)
 		return

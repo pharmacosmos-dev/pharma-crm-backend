@@ -15522,7 +15522,7 @@ const docTemplate = `{
                         "BasicAuth": []
                     }
                 ],
-                "description": "Berilgan do'kondagi berilgan mahsulotning umumiy qoldig'i.\nMahsulot topilmasa yoki qoldiq tugagan bo'lsa ham 200 va quantity: 0 qaytadi.",
+                "description": "Berilgan do'kondagi berilgan mahsulotlarning umumiy qoldig'i.\nproduct_id bir necha marta (?product_id=a\u0026product_id=b) yoki vergul bilan (?product_id=a,b) yuboriladi.\nJavob har doim massiv. Mahsulot topilmasa yoki qoldiq tugagan bo'lsa ham qatori qaytadi, quantity: 0 bilan.",
                 "consumes": [
                     "application/json"
                 ],
@@ -15532,7 +15532,7 @@ const docTemplate = `{
                 "tags": [
                     "Noor API"
                 ],
-                "summary": "Get one product quantity in a store",
+                "summary": "Get product quantities in a store",
                 "parameters": [
                     {
                         "type": "string",
@@ -15542,8 +15542,12 @@ const docTemplate = `{
                         "required": true
                     },
                     {
-                        "type": "string",
-                        "description": "Product ID",
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        },
+                        "collectionFormat": "csv",
+                        "description": "Product ID lar, ko'pi bilan 500 ta",
                         "name": "product_id",
                         "in": "query",
                         "required": true
@@ -15553,7 +15557,10 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/domain.NoorStoreProductQuantity"
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/domain.NoorStoreProductQuantity"
+                            }
                         }
                     },
                     "400": {

@@ -465,9 +465,9 @@ type NoorStoreProduct struct {
 
 
 type NoorStoreProductQuantity struct {
-	StoreId   string `json:"shop_id"`
-	ProductId string `json:"product_id"`
-	Quantity  int    `json:"quantity"`
+	StoreId   string `gorm:"store_id" json:"shop_id"`
+	ProductId string `gorm:"product_id" json:"product_id"`
+	Quantity  int    `gorm:"quantity" json:"quantity"`
 }
 
 // Store external API response structure

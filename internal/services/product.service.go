@@ -1369,27 +1369,37 @@ func (s *Services) GetNoorStoreProducts(params *domain.NoorQueryParam) ([]domain
 }
 
 
-func (s *Services) GetNoorStoreProductQuantity(storeId, productId string) (*domain.NoorStoreProductQuantity, error) {
-	res := domain.NoorStoreProductQuantity{
-		StoreId:   storeId,
-		ProductId: productId,
-	}
+func (s *Services) GetNoorStoreProductQuantities(storeId string, productIds []string) ([]domain.NoorStoreProductQuantity, error) {
+	var res []domain.NoorStoreProductQuantity
 
-
+	// unnest + LEFT JOIN — filtrlar JOIN shartida turadi, WHERE'da emas: WHERE'ga
+	// qo'yilsa qoldiqsiz mahsulotning qatori butunlay tushib qolardi.
+	// WITH ORDINALITY — javob so'rovdagi product_id tartibini saqlaydi.
 	query := `
-	SELECT COALESCE(SUM(sp.unit_quantity / NULLIF(p.unit_per_pack / NULLIF(p.blister_count, 0), 0)), 0)::int AS quantity
-	FROM store_products sp
-	JOIN products p ON p.id = sp.product_id
-	WHERE sp.store_id = ?
-	  AND sp.product_id = ?
-	  AND sp.unit_quantity > 0;`
+	SELECT
+		ids.product_id::text AS product_id,
+		COALESCE(SUM(sp.unit_quantity / NULLIF(p.unit_per_pack / NULLIF(p.blister_count, 0), 0)), 0)::int AS quantity
+	FROM unnest(string_to_array(?, ',')::uuid[]) WITH ORDINALITY AS ids(product_id, ord)
+	LEFT JOIN store_products sp
+		ON sp.product_id = ids.product_id
+		AND sp.store_id = ?
+		AND sp.unit_quantity > 0
+	LEFT JOIN products p ON p.id = sp.product_id
+	GROUP BY ids.ord, ids.product_id
+	ORDER BY ids.ord;`
 
-	if err := s.db.Raw(query, storeId, productId).Scan(&res.Quantity).Error; err != nil {
-		s.log.Errorf("could not get store_product quantity for noor: %v", err)
+	err := s.db.Raw(query, strings.Join(productIds, ","), storeId).Scan(&res).Error
+	if err != nil {
+		s.log.Errorf("could not get store_product quantities for noor: %v", err)
 		return nil, domain.InternalServerError
 	}
 
-	return &res, nil
+	// store_id so'rovdan keladi, SQL uni qaytarmaydi.
+	for i := range res {
+		res[i].StoreId = storeId
+	}
+
+	return res, nil
 }
 
 // GetNoorCategories returns the category tree flattened, parents before children.

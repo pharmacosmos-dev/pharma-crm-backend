@@ -13029,26 +13029,32 @@ paths:
       consumes:
       - application/json
       description: |-
-        Berilgan do'kondagi berilgan mahsulotning umumiy qoldig'i.
-        Mahsulot topilmasa yoki qoldiq tugagan bo'lsa ham 200 va quantity: 0 qaytadi.
+        Berilgan do'kondagi berilgan mahsulotlarning umumiy qoldig'i.
+        product_id bir necha marta (?product_id=a&product_id=b) yoki vergul bilan (?product_id=a,b) yuboriladi.
+        Javob har doim massiv. Mahsulot topilmasa yoki qoldiq tugagan bo'lsa ham qatori qaytadi, quantity: 0 bilan.
       parameters:
       - description: Store ID
         in: query
         name: store_id
         required: true
         type: string
-      - description: Product ID
+      - collectionFormat: csv
+        description: Product ID lar, ko'pi bilan 500 ta
         in: query
+        items:
+          type: string
         name: product_id
         required: true
-        type: string
+        type: array
       produces:
       - application/json
       responses:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/domain.NoorStoreProductQuantity'
+            items:
+              $ref: '#/definitions/domain.NoorStoreProductQuantity'
+            type: array
         "400":
           description: Bad Request
           schema:
@@ -13059,7 +13065,7 @@ paths:
             $ref: '#/definitions/v1.IntegrationErrorResponse'
       security:
       - BasicAuth: []
-      summary: Get one product quantity in a store
+      summary: Get product quantities in a store
       tags:
       - Noor API
   /noor/store/list:
