@@ -26,7 +26,7 @@ func (h *NoorHandler) NoorRoutes(r *gin.RouterGroup) {
 	noor := r.Group("/noor")
 	noor.GET("/product/list", h.ProductList)
 	// noor.GET("/store-product/list", h.StoreProductList)
-	noor.GET("/store-product/quantity", h.StoreProductQuantity)
+	noor.POST("/store-product/quantity", h.StoreProductQuantity)
 	noor.GET("/store/list", h.StoreList)
 	noor.GET("/category/list", h.CategoryList)
 	noor.POST("/order", h.CreateOrder)
@@ -126,62 +126,65 @@ const noorMaxProductIds = 500
 // Store Product Quantity
 // @Summary 	Get product quantities in a store
 // @Description Berilgan do'kondagi berilgan mahsulotlarning umumiy qoldig'i.
-// @Description product_id bir necha marta (?product_id=a&product_id=b) yoki vergul bilan (?product_id=a,b) yuboriladi.
+// @Description store_id va product_ids body'da yuboriladi.
 // @Description Javob har doim massiv. Mahsulot topilmasa yoki qoldiq tugagan bo'lsa ham qatori qaytadi, quantity: 0 bilan.
 // @Tags 		Noor API
 // @Security    BasicAuth
 // @Accept 		json
 // @Produce 	json
-// @Param		store_id    query   string    true  "Store ID"
-// @Param		product_id  query   []string  true  "Product ID lar, ko'pi bilan 500 ta"  collectionFormat(csv)
+// @Param 		body body domain.NoorStoreProductQuantityRequest true "store_id va product_ids (ko'pi bilan 500 ta)"
 // @Success 	200 {object} []domain.NoorStoreProductQuantity
 // @Failure 	400 {object} v1.IntegrationErrorResponse
 // @Failure 	500 {object} v1.IntegrationErrorResponse
-// @Router 		/noor/store-product/quantity 	[GET]
+// @Router 		/noor/store-product/quantity 	[POST]
 func (h *NoorHandler) StoreProductQuantity(c *gin.Context) {
-	storeId := c.Query("store_id")
-	if _, err := uuid.Parse(storeId); err != nil {
+	var body domain.NoorStoreProductQuantityRequest
+	if err := c.ShouldBindJSON(&body); err != nil {
+		h.log.Errorf("could not bind noor store_product quantity request body: %v", err)
+		handleResponseNoor(c, http.StatusBadRequest, "invalid request body")
+		return
+	}
+
+	if _, err := uuid.Parse(body.StoreId); err != nil {
 		handleResponseNoor(c, http.StatusBadRequest, "invalid store_id")
 		return
 	}
 
 	var (
-		productIds []string
-		seen       = map[string]struct{}{}
+		productIds = make([]string, 0, len(body.ProductIds))
+		seen       = make(map[string]struct{}, len(body.ProductIds))
 	)
 
-	for _, param := range c.QueryArray("product_id") {
-		for _, productId := range strings.Split(param, ",") {
-			productId = strings.TrimSpace(productId)
-			if productId == "" {
-				continue
-			}
-
-			if _, err := uuid.Parse(productId); err != nil {
-				handleResponseNoor(c, http.StatusBadRequest, "invalid product_id: "+productId)
-				return
-			}
-
-			// Takrorlangan id javobda ikki marta chiqmasligi uchun.
-			if _, ok := seen[productId]; ok {
-				continue
-			}
-			seen[productId] = struct{}{}
-			productIds = append(productIds, productId)
+	for _, productId := range body.ProductIds {
+		productId = strings.TrimSpace(productId)
+		if productId == "" {
+			continue
 		}
+
+		if _, err := uuid.Parse(productId); err != nil {
+			handleResponseNoor(c, http.StatusBadRequest, "invalid product_id: "+productId)
+			return
+		}
+
+		// Takrorlangan id javobda ikki marta chiqmasligi uchun.
+		if _, ok := seen[productId]; ok {
+			continue
+		}
+		seen[productId] = struct{}{}
+		productIds = append(productIds, productId)
 	}
 
 	if len(productIds) == 0 {
-		handleResponseNoor(c, http.StatusBadRequest, "product_id is required")
+		handleResponseNoor(c, http.StatusBadRequest, "product_ids is required")
 		return
 	}
 
 	if len(productIds) > noorMaxProductIds {
-		handleResponseNoor(c, http.StatusBadRequest, "too many product_id, max "+strconv.Itoa(noorMaxProductIds))
+		handleResponseNoor(c, http.StatusBadRequest, "too many product_ids, max "+strconv.Itoa(noorMaxProductIds))
 		return
 	}
 
-	res, err := h.service.GetNoorStoreProductQuantities(storeId, productIds)
+	res, err := h.service.GetNoorStoreProductQuantities(body.StoreId, productIds)
 	if err != nil {
 		handleResponseNoor(c, http.StatusInternalServerError, err)
 		return

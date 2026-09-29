@@ -15516,13 +15516,13 @@ const docTemplate = `{
             }
         },
         "/noor/store-product/quantity": {
-            "get": {
+            "post": {
                 "security": [
                     {
                         "BasicAuth": []
                     }
                 ],
-                "description": "Berilgan do'kondagi berilgan mahsulotlarning umumiy qoldig'i.\nproduct_id bir necha marta (?product_id=a\u0026product_id=b) yoki vergul bilan (?product_id=a,b) yuboriladi.\nJavob har doim massiv. Mahsulot topilmasa yoki qoldiq tugagan bo'lsa ham qatori qaytadi, quantity: 0 bilan.",
+                "description": "Berilgan do'kondagi berilgan mahsulotlarning umumiy qoldig'i.\nstore_id va product_ids body'da yuboriladi.\nJavob har doim massiv. Mahsulot topilmasa yoki qoldiq tugagan bo'lsa ham qatori qaytadi, quantity: 0 bilan.",
                 "consumes": [
                     "application/json"
                 ],
@@ -15535,22 +15535,13 @@ const docTemplate = `{
                 "summary": "Get product quantities in a store",
                 "parameters": [
                     {
-                        "type": "string",
-                        "description": "Store ID",
-                        "name": "store_id",
-                        "in": "query",
-                        "required": true
-                    },
-                    {
-                        "type": "array",
-                        "items": {
-                            "type": "string"
-                        },
-                        "collectionFormat": "csv",
-                        "description": "Product ID lar, ko'pi bilan 500 ta",
-                        "name": "product_id",
-                        "in": "query",
-                        "required": true
+                        "description": "store_id va product_ids (ko'pi bilan 500 ta)",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/domain.NoorStoreProductQuantityRequest"
+                        }
                     }
                 ],
                 "responses": {
@@ -39761,6 +39752,24 @@ const docTemplate = `{
                     "type": "integer"
                 },
                 "shop_id": {
+                    "type": "string"
+                }
+            }
+        },
+        "domain.NoorStoreProductQuantityRequest": {
+            "type": "object",
+            "required": [
+                "product_ids",
+                "store_id"
+            ],
+            "properties": {
+                "product_ids": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "store_id": {
                     "type": "string"
                 }
             }

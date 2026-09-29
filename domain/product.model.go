@@ -464,6 +464,12 @@ type NoorStoreProduct struct {
 }
 
 
+// noor store-product quantity request body
+type NoorStoreProductQuantityRequest struct {
+	StoreId    string   `json:"store_id" binding:"required"`
+	ProductIds []string `json:"product_ids" binding:"required"`
+}
+
 type NoorStoreProductQuantity struct {
 	StoreId   string `gorm:"store_id" json:"shop_id"`
 	ProductId string `gorm:"product_id" json:"product_id"`

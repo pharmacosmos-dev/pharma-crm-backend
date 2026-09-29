@@ -1503,6 +1503,18 @@ definitions:
       shop_id:
         type: string
     type: object
+  domain.NoorStoreProductQuantityRequest:
+    properties:
+      product_ids:
+        items:
+          type: string
+        type: array
+      store_id:
+        type: string
+    required:
+    - product_ids
+    - store_id
+    type: object
   domain.OAuthClient:
     properties:
       allowed_scopes:
@@ -13025,27 +13037,20 @@ paths:
       tags:
       - Noor API
   /noor/store-product/quantity:
-    get:
+    post:
       consumes:
       - application/json
       description: |-
         Berilgan do'kondagi berilgan mahsulotlarning umumiy qoldig'i.
-        product_id bir necha marta (?product_id=a&product_id=b) yoki vergul bilan (?product_id=a,b) yuboriladi.
+        store_id va product_ids body'da yuboriladi.
         Javob har doim massiv. Mahsulot topilmasa yoki qoldiq tugagan bo'lsa ham qatori qaytadi, quantity: 0 bilan.
       parameters:
-      - description: Store ID
-        in: query
-        name: store_id
+      - description: store_id va product_ids (ko'pi bilan 500 ta)
+        in: body
+        name: body
         required: true
-        type: string
-      - collectionFormat: csv
-        description: Product ID lar, ko'pi bilan 500 ta
-        in: query
-        items:
-          type: string
-        name: product_id
-        required: true
-        type: array
+        schema:
+          $ref: '#/definitions/domain.NoorStoreProductQuantityRequest'
       produces:
       - application/json
       responses:
