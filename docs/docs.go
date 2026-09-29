@@ -21362,7 +21362,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "1C yuborgan rezerv mahsulotlar ro'yxati, doim ORDER BY sort_index ASC (1C tartibi).\nis_active berilmasa aktiv va deaktiv qatorlar birga qaytadi.\nRo'yxatga do'konning ochiq rezerv hujjatiga kiritilgan, lekin 1C ro'yxatida yo'q\nmahsulotlar ham qo'shiladi — ular source=\"manual\" va sort_index=0 bilan boshida turadi.\nHar qatorda product_id, unit_per_pack, do'kondagi qoldiq (available_quantity),\nochiq hujjatga kiritilgan miqdor (reserved_quantity) va o'sha qator id'si\n(reserve_detail_id) qaytadi; hujjat done bo'lsa yoki bo'lmasa — 0.\nhas_history — mahsulotning harakat tarixi: false bo'lsa hech qanday kirim,\ntransfer yoki sotuv bo'lmagan, ya'ni frontend uni yangi mahsulot deb belgilaydi.\nstore_id berilsa o'sha do'kon bo'yicha, berilmasa barcha do'konlar bo'yicha.\nSavdo dinamikasi (sold_quantity_15d, sold_quantity_prev_15d, sold_change_percent):\nstore_id berilmasa — barcha do'konlar bo'yicha, 1C importida hisoblangan tayyor raqam;\nstore_id berilsa — faqat o'sha do'kon bo'yicha o'sha zahoti hisoblanadi.\nOldingi 15 kunda savdo bo'lmasa foiz null bo'ladi (0 emas).",
+                "description": "1C yuborgan rezerv mahsulotlar ro'yxati, doim ORDER BY sort_index ASC (1C tartibi).\nis_active berilmasa aktiv va deaktiv qatorlar birga qaytadi.\nRo'yxatga do'konning ochiq rezerv hujjatiga kiritilgan, lekin 1C ro'yxatida yo'q\nmahsulotlar ham qo'shiladi — ular source=\"manual\" va sort_index=0 bilan boshida turadi.\nHar qatorda product_id, unit_per_pack, do'kondagi qoldiq (available_quantity),\nochiq hujjatga kiritilgan miqdor (reserved_quantity) va o'sha qator id'si\n(reserve_detail_id) qaytadi; hujjat done bo'lsa yoki bo'lmasa — 0.\nhas_history — mahsulotning harakat tarixi: false bo'lsa hech qanday kirim,\ntransfer yoki sotuv bo'lmagan, ya'ni frontend uni yangi mahsulot deb belgilaydi.\nstore_id berilsa o'sha do'kon bo'yicha, berilmasa barcha do'konlar bo'yicha.\nSavdo dinamikasi (sold_quantity_15d, sold_quantity_prev_15d, sold_change_percent) —\nhar doim BARCHA aptekalar bo'yicha, store_id ga bog'liq emas: 1C importida\nhisoblanib ustunlarga yoziladi. Oldingi 15 kunda savdo bo'lmasa foiz null (0 emas).",
                 "consumes": [
                     "application/json"
                 ],
@@ -40795,6 +40795,7 @@ const docTemplate = `{
                     "type": "number"
                 },
                 "sold_quantity_15d": {
+                    "description": "Savdo dinamikasi — har doim barcha aptekalar bo'yicha, store_id ga bog'liq emas.",
                     "type": "integer"
                 },
                 "sold_quantity_prev_15d": {

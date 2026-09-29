@@ -2197,6 +2197,8 @@ definitions:
       sold_change_percent:
         type: number
       sold_quantity_15d:
+        description: Savdo dinamikasi — har doim barcha aptekalar bo'yicha, store_id
+          ga bog'liq emas.
         type: integer
       sold_quantity_prev_15d:
         type: integer
@@ -17151,10 +17153,9 @@ paths:
         has_history — mahsulotning harakat tarixi: false bo'lsa hech qanday kirim,
         transfer yoki sotuv bo'lmagan, ya'ni frontend uni yangi mahsulot deb belgilaydi.
         store_id berilsa o'sha do'kon bo'yicha, berilmasa barcha do'konlar bo'yicha.
-        Savdo dinamikasi (sold_quantity_15d, sold_quantity_prev_15d, sold_change_percent):
-        store_id berilmasa — barcha do'konlar bo'yicha, 1C importida hisoblangan tayyor raqam;
-        store_id berilsa — faqat o'sha do'kon bo'yicha o'sha zahoti hisoblanadi.
-        Oldingi 15 kunda savdo bo'lmasa foiz null bo'ladi (0 emas).
+        Savdo dinamikasi (sold_quantity_15d, sold_quantity_prev_15d, sold_change_percent) —
+        har doim BARCHA aptekalar bo'yicha, store_id ga bog'liq emas: 1C importida
+        hisoblanib ustunlarga yoziladi. Oldingi 15 kunda savdo bo'lmasa foiz null (0 emas).
       parameters:
       - description: Nom yoki material_code bo'yicha qidiruv
         in: query
