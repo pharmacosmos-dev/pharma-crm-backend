@@ -810,6 +810,17 @@ func (s *Services) GetProductsForSearch(ctx context.Context, params *domain.Stor
 
 	// Base select fields
 	selectFields := storeProductSearchSelectFields()
+	// shu do'konda qoldig'i bor, mnn_code si bir xil mahsulotlar 2 ta va undan ko'p bo'lsa true
+	selectFields = append(selectFields, `(
+		COALESCE(p.mnn_code, '') <> '' AND (
+			SELECT COUNT(DISTINCT sp2.product_id)
+			FROM store_products sp2
+			JOIN products p2 ON p2.id = sp2.product_id
+			WHERE sp2.store_id = sp.store_id
+			  AND sp2.unit_quantity > 0
+			  AND p2.mnn_code = p.mnn_code
+		) >= 2
+	) AS has_mnn_analogs`)
 
 	// Similarity score faqat nom bo'yicha qidiruvda qo'shiladi
 	if params.Search != "" && searchType == "name/category" {

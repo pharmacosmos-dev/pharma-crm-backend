@@ -67,6 +67,7 @@ type StoreProductResponse struct {
 	ProductID           string     `gorm:"product_id" json:"product_id"`
 	ProductMaterialCode int        `gorm:"product_material_code" json:"product_material_code"`
 	MnnCode             string     `gorm:"mnn_code" json:"mnn_code"`
+	HasMnnAnalogs       bool       `gorm:"has_mnn_analogs" json:"has_mnn_analogs"`
 	StoreID             string     `gorm:"store_id" json:"store_id"`
 	Quantity            string     `gorm:"quantity" json:"quantity"`
 	Barcode             string     `gorm:"barcode" json:"barcode"`
