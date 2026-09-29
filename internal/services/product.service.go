@@ -1372,23 +1372,28 @@ func (s *Services) GetNoorStoreProducts(params *domain.NoorQueryParam) ([]domain
 func (s *Services) GetNoorStoreProductQuantities(storeId string, productIds []string) ([]domain.NoorStoreProductQuantity, error) {
 	var res []domain.NoorStoreProductQuantity
 
-	// unnest + LEFT JOIN — filtrlar JOIN shartida turadi, WHERE'da emas: WHERE'ga
-	// qo'yilsa qoldiqsiz mahsulotning qatori butunlay tushib qolardi.
-	// WITH ORDINALITY — javob so'rovdagi product_id tartibini saqlaydi.
 	query := `
 	SELECT
 		ids.product_id::text AS product_id,
-		COALESCE(SUM(sp.unit_quantity / NULLIF(p.unit_per_pack / NULLIF(p.blister_count, 0), 0)), 0)::int AS quantity
+		COALESCE(SUM(sp.unit_quantity / NULLIF(p.unit_per_pack / NULLIF(p.blister_count, 0), 0)), 0)::int AS quantity,
+		ROUND(opp.retail_price)::int AS price
 	FROM unnest(string_to_array(?, ',')::uuid[]) WITH ORDINALITY AS ids(product_id, ord)
+	JOIN LATERAL (
+		SELECT retail_price
+		FROM online_products_price
+		WHERE product_id = ids.product_id AND type = ?
+		ORDER BY created_at DESC
+		LIMIT 1
+	) opp ON TRUE
 	LEFT JOIN store_products sp
 		ON sp.product_id = ids.product_id
 		AND sp.store_id = ?
 		AND sp.unit_quantity > 0
 	LEFT JOIN products p ON p.id = sp.product_id
-	GROUP BY ids.ord, ids.product_id
+	GROUP BY ids.ord, ids.product_id, opp.retail_price
 	ORDER BY ids.ord;`
 
-	err := s.db.Raw(query, strings.Join(productIds, ","), storeId).Scan(&res).Error
+	err := s.db.Raw(query, strings.Join(productIds, ","), constants.ServiceTypeUzum, storeId).Scan(&res).Error
 	if err != nil {
 		s.log.Errorf("could not get store_product quantities for noor: %v", err)
 		return nil, domain.InternalServerError

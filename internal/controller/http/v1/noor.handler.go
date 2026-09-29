@@ -127,7 +127,8 @@ const noorMaxProductIds = 500
 // @Summary 	Get product quantities in a store
 // @Description Berilgan do'kondagi berilgan mahsulotlarning umumiy qoldig'i.
 // @Description store_id va product_ids body'da yuboriladi.
-// @Description Javob har doim massiv. Mahsulot topilmasa yoki qoldiq tugagan bo'lsa ham qatori qaytadi, quantity: 0 bilan.
+// @Description Javob har doim massiv. Qoldiq tugagan bo'lsa ham qatori qaytadi, quantity: 0 bilan.
+// @Description price online_products_price'dan olinadi. Narxi kiritilmagan mahsulot javobga tushmaydi.
 // @Tags 		Noor API
 // @Security    BasicAuth
 // @Accept 		json
@@ -190,7 +191,9 @@ func (h *NoorHandler) StoreProductQuantity(c *gin.Context) {
 		return
 	}
 
-	handleResponseNoor(c, http.StatusOK, res)
+	// Narxi yo'q mahsulotlar filtrlanadi, ya'ni javob bo'sh bo'lishi mumkin:
+	// emptyIfNil bo'sh javobni null emas, [] qilib qaytaradi.
+	handleResponseNoor(c, http.StatusOK, emptyIfNil(res))
 }
 
 // Category List godoc

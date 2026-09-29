@@ -474,6 +474,7 @@ type NoorStoreProductQuantity struct {
 	StoreId   string `gorm:"store_id" json:"shop_id"`
 	ProductId string `gorm:"product_id" json:"product_id"`
 	Quantity  int    `gorm:"quantity" json:"quantity"`
+	Price     int    `gorm:"price" json:"price"`
 }
 
 // Store external API response structure

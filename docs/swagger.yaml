@@ -1496,6 +1496,8 @@ definitions:
     type: object
   domain.NoorStoreProductQuantity:
     properties:
+      price:
+        type: integer
       product_id:
         type: string
       quantity:
@@ -13037,13 +13039,14 @@ paths:
       tags:
       - Noor API
   /noor/store-product/quantity:
-    post:
+    get:
       consumes:
       - application/json
       description: |-
         Berilgan do'kondagi berilgan mahsulotlarning umumiy qoldig'i.
         store_id va product_ids body'da yuboriladi.
-        Javob har doim massiv. Mahsulot topilmasa yoki qoldiq tugagan bo'lsa ham qatori qaytadi, quantity: 0 bilan.
+        Javob har doim massiv. Qoldiq tugagan bo'lsa ham qatori qaytadi, quantity: 0 bilan.
+        price online_products_price'dan olinadi. Narxi kiritilmagan mahsulot javobga tushmaydi.
       parameters:
       - description: store_id va product_ids (ko'pi bilan 500 ta)
         in: body

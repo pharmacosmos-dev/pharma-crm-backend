@@ -15516,13 +15516,13 @@ const docTemplate = `{
             }
         },
         "/noor/store-product/quantity": {
-            "post": {
+            "get": {
                 "security": [
                     {
                         "BasicAuth": []
                     }
                 ],
-                "description": "Berilgan do'kondagi berilgan mahsulotlarning umumiy qoldig'i.\nstore_id va product_ids body'da yuboriladi.\nJavob har doim massiv. Mahsulot topilmasa yoki qoldiq tugagan bo'lsa ham qatori qaytadi, quantity: 0 bilan.",
+                "description": "Berilgan do'kondagi berilgan mahsulotlarning umumiy qoldig'i.\nstore_id va product_ids body'da yuboriladi.\nJavob har doim massiv. Qoldiq tugagan bo'lsa ham qatori qaytadi, quantity: 0 bilan.\nprice online_products_price'dan olinadi. Narxi kiritilmagan mahsulot javobga tushmaydi.",
                 "consumes": [
                     "application/json"
                 ],
@@ -39745,6 +39745,9 @@ const docTemplate = `{
         "domain.NoorStoreProductQuantity": {
             "type": "object",
             "properties": {
+                "price": {
+                    "type": "integer"
+                },
                 "product_id": {
                     "type": "string"
                 },
