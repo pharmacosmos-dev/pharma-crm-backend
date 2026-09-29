@@ -123,9 +123,7 @@ type payrollReadFilter struct {
 	Search     string
 	Roles      []string
 	RoleType string
-	// OnlyWorked — faqat davomati bor xodimlar (worked_hours > 0). Cron barcha
-	// faol xodimlarga qator yozadi, shu jumladan oy davomida umuman ishlamaganlarga
-	// ham — ro'yxatda ular nol qatorlar bo'lib turmasligi uchun.
+	OutOfWorkedHours *bool
 	OnlyWorked bool
 	Limit      int // 0 = cheklovsiz
 	Offset     int
@@ -170,6 +168,12 @@ func payrollSearchPattern(value string) string {
 // davomida bironta smenaga chiqmaganlarga ham — ular hisobotni nol qatorlar
 // bilan to'ldirib yubormasligi uchun bu yerda chiqarib tashlanadi.
 //
+// out_of_worked_hours berilsa ro'yxat oylik normaga nisbatan toraytiriladi:
+// true → normadan ortiq ishlaganlar, false → normani to'ldirmaganlar. Aynan
+// normaga ishlagan xodim (worked_hours = avg_monthly_hours) hech qaysi tomonga
+// kirmaydi. Bu filtr GetPayrollStatistics'ga o'tmaydi — parametr yuborilganda
+// yig'ma raqamlar ro'yxatdagi qatorlarni tasvirlamasligini yodda tutish kerak.
+//
 // So'ralgan oy uchun cron hali ishlamagan bo'lsa natija bo'sh bo'ladi.
 func (s *Services) GetEmployeePayrolls(
 	ctx context.Context, params *domain.EmployeePayrollQueryParams,
@@ -181,14 +185,15 @@ func (s *Services) GetEmployeePayrolls(
 	}
 
 	page, err := s.selectPayrolls(ctx, period, payrollReadFilter{
-		CompanyId:  params.CompanyId,
-		StoreId:    params.StoreId,
-		Search:     params.Search,
-		RoleType:   params.RoleType,
-		Roles:      payrollSalesRoles,
-		OnlyWorked: true,
-		Limit:      params.Limit,
-		Offset:     params.Offset,
+		CompanyId:        params.CompanyId,
+		StoreId:          params.StoreId,
+		Search:           params.Search,
+		RoleType:         params.RoleType,
+		OutOfWorkedHours: params.OutOfWorkedHours,
+		Roles:            payrollSalesRoles,
+		OnlyWorked:       true,
+		Limit:            params.Limit,
+		Offset:           params.Offset,
 	})
 	if err != nil {
 		return nil, 0, period, err
@@ -918,6 +923,7 @@ func payrollSelectArgs(period domain.PayrollPeriod, filter payrollReadFilter) ma
 		"company_id":  nullIfEmpty(filter.CompanyId),
 		"role_type":   nullIfEmpty(filter.RoleType),
 		"search":      nullIfEmpty(payrollSearchPattern(filter.Search)),
+		"out_of_worked_hours": filter.OutOfWorkedHours,
 		// Bo'sh massiv NULL bo'lib ketadi → o'sha shart tekshirilmaydi.
 		"roles":       pq.StringArray(filter.Roles),
 		"only_worked": filter.OnlyWorked,
@@ -987,7 +993,7 @@ func (s *Services) GetPayrollStatistics(
 		s.log.Errorf("payroll: could not get statistics: %v", err)
 		return nil, period, domain.InternalServerError
 	}
-
+    
 	return &stats, period, nil
 }
 
@@ -1426,7 +1432,12 @@ WHERE p.year = @year
   AND (CAST(@role_type AS text)   IS NULL OR e.role_type   = CAST(@role_type AS text))
 	AND (CAST(@search AS text)      IS NULL OR p.full_name ILIKE CAST(@search AS text))
   AND (CAST(@roles AS text[])     IS NULL OR p.role_names && CAST(@roles AS text[]))
-  AND (NOT CAST(@only_worked AS boolean) OR p.worked_hours > 0)`
+  AND (NOT CAST(@only_worked AS boolean) OR p.worked_hours > 0)
+  AND (CAST(@out_of_worked_hours AS boolean) IS NULL
+       OR (CAST(@out_of_worked_hours AS boolean)
+           AND p.avg_monthly_hours < p.worked_hours)
+       OR (NOT CAST(@out_of_worked_hours AS boolean)
+           AND p.avg_monthly_hours > p.worked_hours))`
 
 // payrollStatisticsQuery — hisobotning yig'ma ko'rsatkichlari.
 //

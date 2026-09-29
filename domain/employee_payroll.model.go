@@ -223,8 +223,9 @@ type EmployeePayrollQueryParams struct {
 	Search     string `form:"search"`
 	Status     string `form:"status"`
 	RoleType string `form:"role_type"`
-	Year     int    `form:"year"`
-	Month    int    `form:"month"`
+	OutOfWorkedHours *bool `form:"out_of_worked_hours"`
+	Year             int   `form:"year"`
+	Month            int   `form:"month"`
 
 	Date   string `form:"date"`
 	Limit  int    `form:"limit"`
