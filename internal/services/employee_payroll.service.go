@@ -52,6 +52,11 @@ import (
 //	  qolganlar          → individual_sales_amount (o'z savdosi)
 //	  ikkala rol ham bo'lsa — "Заведующий" ustun turadi
 //
+//	QQSsiz BAZA (employees.kpi_bez_nds = true) — yuqoridagidan ustun:
+//	  role_type = head_pharmacist → store_sales_amount      * 1.12
+//	  role_type = pharmacist      → individual_sales_amount * 1.12
+//	  boshqa role_type            → oddiy BAZA (o'zgarishsiz)
+//
 // employee_plan_amount (employee_targets) hisobga kirmaydi — u faqat ko'rsatish
 // uchun saqlanadi.
 //
@@ -93,6 +98,15 @@ import (
 // employees.daily_work_hours'i 0 bo'lganda (kiritilmagan) shu ishlatiladi:
 // avg_monthly_hours = oydagi ish kuni * COALESCE(daily_work_hours, 8).
 const payrollWorkDayHours = 8
+
+// payrollNdsMultiplier — QQS (НДС) koeffitsiyenti. employees.kpi_bez_nds = true
+// bo'lgan pharmacist/head_pharmacist'ning KPI bazasi shunga ko'paytiriladi:
+//
+//	pharmacist      → individual_sales * 1.12 * kpi_percent / 100
+//	head_pharmacist → store_sales      * 1.12 * kpi_percent / 100
+//
+// kpi_bez_nds = false yoki boshqa role_type bo'lsa eski qoida o'zgarmaydi.
+const payrollNdsMultiplier = 1.12
 
 // storeRef — sahifalangan do'kon ro'yxati uchun minimal ma'lumot.
 //
@@ -374,7 +388,10 @@ func (s *Services) recalculatePayrollMonth(
 		"status":         constants.GeneralStatusActive,
 		"draft":          domain.EmployeePayrollStatusDraft,
 		"work_day_hours": payrollWorkDayHours,
-		"zav_role":       constants.RoleNameZavStore,
+		"zav_role":        constants.RoleNameZavStore,
+		"head_pharmacist": domain.RoleTypeHeadPharmacist,
+		"pharmacist":      domain.RoleTypePharmacist,
+		"nds_multiplier":  payrollNdsMultiplier,
 	})
 	if tx.Error != nil {
 		return 0, fmt.Errorf("upsert payrolls: %w", tx.Error)
@@ -406,12 +423,15 @@ func (s *Services) recalculatePayrollMonth(
 //
 //	actual_salary = ROUND(salary * worked_hours / avg_monthly_hours, 2)
 //	kpi_base      = zav bo'lsa store_sales, aks holda individual_sales
+//	                (kpi_bez_nds = true: head_pharmacist → store_sales * 1.12,
+//	                 pharmacist → individual_sales * 1.12)
 //	kpi_amount    = ROUND(kpi_base * kpi_percent / 100, 2)
 //	gross         = actual_salary + kpi_amount + bonus
 //	net           = gross − (avanslar + ushlab qolishlar)
 //
-// Kerakli hamma qiymat payroll qatorining o'zida snapshot qilingan, shuning
-// uchun boshqa jadvaldan o'qilmaydi.
+// Summalar payroll qatoridagi snapshot'dan olinadi. Faqat kpi_bez_nds va
+// role_type employees'dan o'qiladi (so'rovda berilmagan bo'lsa) — ular
+// payroll qatorida saqlanmaydi.
 //
 // NULL kelgan maydon o'zgarmaydi: COALESCE mavjud qiymatga tushadi.
 func (s *Services) UpdateEmployeePayrollAdvance(
@@ -460,11 +480,21 @@ func (s *Services) UpdateEmployeePayrollAdvance(
 							 THEN r.month_work_days * CAST(@daily_hours AS numeric)
 							 ELSE r.avg_monthly_hours
 						END AS avg_monthly_hours,
-						ROUND(CASE WHEN CAST(@zav_role AS text) = ANY(r.role_names)
+						-- QQSsiz KPI: bayroq/role_type shu so'rovda berilgan bo'lsa
+						-- o'sha, aks holda xodim kartochkasidagi qiymat olinadi.
+						ROUND(CASE
+								WHEN COALESCE(CAST(@kpi_bez_nds AS boolean), e.kpi_bez_nds, FALSE)
+								 AND COALESCE(CAST(@role_type AS varchar), e.role_type) = CAST(@head_pharmacist AS text)
+								THEN r.store_sales_amount * CAST(@nds_multiplier AS numeric)
+								WHEN COALESCE(CAST(@kpi_bez_nds AS boolean), e.kpi_bez_nds, FALSE)
+								 AND COALESCE(CAST(@role_type AS varchar), e.role_type) = CAST(@pharmacist AS text)
+								THEN r.individual_sales_amount * CAST(@nds_multiplier AS numeric)
+								WHEN CAST(@zav_role AS text) = ANY(r.role_names)
 								THEN r.store_sales_amount
 								ELSE r.individual_sales_amount
 							END * COALESCE(CAST(@kpi AS numeric), r.kpi_percent) / 100.0, 2) AS kpi_amount
 					FROM employee_payrolls r
+					LEFT JOIN employees e ON e.id = r.employee_id
 					WHERE r.id = CAST(@id AS uuid)
 				) x
 			) y
@@ -478,7 +508,8 @@ func (s *Services) UpdateEmployeePayrollAdvance(
 	const employeeQuery = `
 		UPDATE employees
 		SET kpi_percent      = COALESCE(CAST(@kpi AS numeric), kpi_percent),
-			salary           = COALESCE(CAST(@salary AS numeric), salary),
+			kpi_bez_nds      = COALESCE(CAST(@kpi_bez_nds AS boolean), kpi_bez_nds),
+			salary          = COALESCE(CAST(@salary AS numeric), salary),
 			daily_work_hours = COALESCE(CAST(@daily_hours AS numeric), daily_work_hours),
 			shift_type       = COALESCE(CAST(@shift_type AS varchar), shift_type),
 			role_type        = COALESCE(CAST(@role_type AS varchar), role_type),
@@ -539,8 +570,13 @@ func (s *Services) UpdateEmployeePayrollAdvance(
 			"cash":        req.AdvanceCashAmount,
 			"kpi":         req.KpiPercent,
 			"salary":      req.Salary,
-			"daily_hours": req.DailyWorkHours,
-			"zav_role":    constants.RoleNameZavStore,
+			"daily_hours":     req.DailyWorkHours,
+			"zav_role":        constants.RoleNameZavStore,
+			"kpi_bez_nds":     req.KpiBezNds,
+			"role_type":       req.RoleType,
+			"head_pharmacist": domain.RoleTypeHeadPharmacist,
+			"pharmacist":      domain.RoleTypePharmacist,
+			"nds_multiplier":  payrollNdsMultiplier,
 		}).Scan(&res)
 		if result.Error != nil {
 			s.log.Errorf("payroll: could not update payroll row: %v", result.Error)
@@ -575,6 +611,7 @@ func (s *Services) UpdateEmployeePayrollAdvance(
 		if err := tx.Exec(employeeQuery, map[string]any{
 			"employee_id": res.EmployeeId,
 			"kpi":         req.KpiPercent,
+			"kpi_bez_nds": req.KpiBezNds,
 			"salary":      req.Salary,
 			"daily_hours": req.DailyWorkHours,
 			"shift_type":  req.ShiftType,
@@ -768,6 +805,7 @@ func (s *Services) GetEmployeePayrollManagement(
 			COALESCE(e.staff, '')            AS staff,
 			p.store_name,
 			e.kpi_percent,
+			COALESCE(e.kpi_bez_nds, FALSE)   AS kpi_bez_nds,
 			COALESCE(e.salary, 0)            AS salary,
 			COALESCE(e.daily_work_hours, 0)  AS daily_work_hours,
 			e.shift_type,
@@ -1247,6 +1285,9 @@ base AS (
         -- Xodim kartochkasidagi shaxsiy KPI foizi. 0 bo'lsa "kiritilmagan"
         -- degani va reja pog'onasi ishlatiladi (qarang: kpi_rate).
         COALESCE(e.kpi_percent, 0)              AS employee_kpi_percent,
+        -- QQSsiz KPI bayrog'i va rol kodi — faqat kpi_amount bazasi uchun.
+        COALESCE(e.kpi_bez_nds, FALSE)          AS kpi_bez_nds,
+        COALESCE(e.role_type, '')               AS role_type,
         COALESCE(att.worked_hours, 0)            AS worked_hours,
         COALESCE(es.individual_sales_amount, 0)  AS individual_sales_amount,
         COALESCE(bon.bonus_amount, 0)            AS bonus_amount,
@@ -1314,9 +1355,16 @@ kpi_rate AS (
 ),
 final AS (
     SELECT r.*,
-           -- Baza rolga qarab: zav do'kon aylanmasidan, qolganlar o'z
-           -- savdosidan oladi. Xodimda ikkala rol ham bo'lsa zav ustun turadi.
-           ROUND(CASE WHEN @zav_role = ANY(r.role_names)
+           -- QQSsiz KPI (kpi_bez_nds = true): baza role_type'dan olinadi va
+           -- 1.12 ga ko'paytiriladi — head_pharmacist do'kon aylanmasidan,
+           -- pharmacist o'z savdosidan. Qolgan hamma holatda eski qoida:
+           -- zav do'kon aylanmasidan, qolganlar o'z savdosidan oladi.
+           -- Xodimda ikkala rol ham bo'lsa zav ustun turadi.
+           ROUND(CASE WHEN r.kpi_bez_nds AND r.role_type = CAST(@head_pharmacist AS text)
+                      THEN r.store_sales_amount * CAST(@nds_multiplier AS numeric)
+                      WHEN r.kpi_bez_nds AND r.role_type = CAST(@pharmacist AS text)
+                      THEN r.individual_sales_amount * CAST(@nds_multiplier AS numeric)
+                      WHEN @zav_role = ANY(r.role_names)
                       THEN r.store_sales_amount
                       ELSE r.individual_sales_amount
                  END * r.kpi_percent / 100.0, 2) AS kpi_amount
@@ -1410,7 +1458,8 @@ SELECT
     p.employee_plan_amount, p.expected_plan_amount, p.plan_achievement_percent,
     p.month_work_days, p.elapsed_work_days,
     p.plan_kpi_percent, p.employee_kpi_percent, p.kpi_percent,
-    p.kpi_amount, p.bonus_amount, p.gross_salary_amount,
+    p.kpi_amount, COALESCE(e.kpi_bez_nds, FALSE) AS kpi_bez_nds,
+    p.bonus_amount, p.gross_salary_amount,
     p.advance_card_amount, p.advance_cash_amount,
     p.deduction_term_amount, p.deduction_recount_amount, p.deduction_fine_amount,
     p.net_pay_amount, p.status, p.year, p.month, p.completed_at, p.calculated_at,

@@ -104,6 +104,7 @@ type EmployeePayrollAdvanceRequest struct {
 	Passport          *string  `json:"passport" binding:"omitempty,max=50" example:"AA1234567"`
 	Staff             *string  `json:"staff" binding:"omitempty,max=100" example:"shtat"`
 	KpiPercent        *float64 `json:"kpi_percent" binding:"omitempty,min=0"`
+	KpiBezNds         *bool    `json:"kpi_bez_nds" example:"false"`
 	Salary            *float64 `json:"salary" binding:"omitempty,min=0"`
 	RoleType          *string  `json:"role_type" binding:"omitempty,max=55" example:"CASHIER"`
 	DailyWorkHours    *int     `json:"daily_work_hours" binding:"omitempty,oneof=4 7 8" example:"8"`
@@ -114,7 +115,7 @@ type EmployeePayrollAdvanceRequest struct {
 
 // IsEmpty — hech qanday maydon berilmaganini bildiradi.
 func (r EmployeePayrollAdvanceRequest) IsEmpty() bool {
-	return r.KpiPercent == nil && r.Salary == nil && r.DailyWorkHours == nil &&
+	return r.KpiPercent == nil && r.KpiBezNds == nil && r.Salary == nil && r.DailyWorkHours == nil &&
 		r.ShiftType == nil && r.RoleType == nil &&
 		r.FirstName == nil && r.LastName == nil &&
 		r.Phone == nil && r.HireDate == nil && r.BirthDate == nil &&
@@ -124,7 +125,7 @@ func (r EmployeePayrollAdvanceRequest) IsEmpty() bool {
 
 // TouchesEmployee — employees jadvali ham yangilanishi kerakligini bildiradi.
 func (r EmployeePayrollAdvanceRequest) TouchesEmployee() bool {
-	return r.KpiPercent != nil || r.Salary != nil ||
+	return r.KpiPercent != nil || r.KpiBezNds != nil || r.Salary != nil ||
 		r.DailyWorkHours != nil || r.ShiftType != nil || r.RoleType != nil ||
 		r.FirstName != nil || r.LastName != nil ||
 		r.Phone != nil || r.HireDate != nil || r.BirthDate != nil ||
@@ -207,6 +208,7 @@ type EmployeePayrollAdvanceRow struct {
 
 	// KpiPercent employee_payrolls'dan olinadi — shu oyda AMALDA ishlatilgan foiz.
 	KpiPercent      float64 `json:"kpi_percent"`
+	KpiBezNds       bool    `json:"kpi_bez_nds"`
 	Salary          float64 `json:"salary"`
 	DailyWorkHours  float64 `json:"daily_work_hours"`
 	ShiftType       *string `json:"shift_type"`
@@ -337,6 +339,9 @@ type EmployeePayrollRow struct {
 	EmployeeKpiPercent float64 `json:"employee_kpi_percent"` // xodim kartochkasidagi foiz, 0 = kiritilmagan
 	KpiPercent         float64 `json:"kpi_percent"`          // AMALDAGI foiz — kpi_amount shundan hisoblangan
 	KpiAmount          float64 `json:"kpi_amount"`
+	// KpiBezNds — employees'dan jonli olinadi (role_type kabi). true bo'lsa
+	// pharmacist/head_pharmacist'ning KPI bazasi 1.12 ga ko'paytirilgan.
+	KpiBezNds bool `json:"kpi_bez_nds"`
 
 	BonusAmount       float64 `json:"bonus_amount"`
 	GrossSalaryAmount float64 `json:"gross_salary_amount"`

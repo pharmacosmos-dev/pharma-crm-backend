@@ -1586,6 +1586,7 @@ func (h *EmployeeHandler) RecalculatePayroll(c *gin.Context) {
 // @Description  Ro'yxatga faqat faol xodimlar kiradi: is_active, status = "active" va roli "Кассир" yoki "Заведующий".
 // @Description  KPI pog'onasi DO'KON bo'yicha: expected_plan = store_plan × (o'tgan ish kuni / oydagi ish kuni), achievement = store_sales / expected_plan × 100 — bu qiymatlar bitta do'kondagi hamma xodimda bir xil.
 // @Description  KPI summasi esa shaxsiy: kpi_amount = individual_sales × kpi_percent. Do'kon rejani bajarmasa kpi_percent = 0 va hech kim KPI olmaydi.
+// @Description  kpi_bez_nds = true bo'lsa: pharmacist → individual_sales × 1.12 × kpi_percent, head_pharmacist → store_sales × 1.12 × kpi_percent. false bo'lsa eski qoida.
 // @Description  year/month berilmasa joriy oy olinadi.
 // @Tags         employees
 // @Security     BearerAuth
@@ -2081,6 +2082,7 @@ func (h *EmployeeHandler) EmployeePayrollManagementList(c *gin.Context) {
 // @Summary      Update payroll salary, KPI and advance amounts
 // @Description  kpi_percent, salary, daily_work_hours, shift_type, role_type, first_name, last_name, phone, hire_date, pasport_number, staff, advance_card_amount va advance_cash_amount maydonlarini payroll id bo'yicha yangilaydi.
 // @Description  Hammasi ixtiyoriy — berilgani yoziladi, berilmagani eski qiymatida qoladi.
+// @Description  kpi_bez_nds (bool) faqat employees'ga yoziladi, lekin shu qatorning kpi_amount'i darhol qayta hisoblanadi (pharmacist/head_pharmacist uchun baza × 1.12).
 // @Description  kpi_percent/salary ikkala jadvalga; daily_work_hours (4, 7, 8), shift_type, role_type, ism-familiya, phone, hire_date, pasport_number va staff faqat employees'ga; avanslar esa faqat shu oyning payroll qatoriga yoziladi.
 // @Description  pasport_number employees.passport ustuniga yoziladi; staff — xodimning shtat holati, erkin matn.
 // @Description  role_type xodim kartochkasida saqlanadi va keyingi oylarga ham amal qiladi — payroll hisob-kitobiga ta'sir qilmaydi.
