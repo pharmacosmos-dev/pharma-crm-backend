@@ -53,8 +53,8 @@ import (
 //	  ikkala rol ham bo'lsa — "Заведующий" ustun turadi
 //
 //	QQSsiz BAZA (employees.kpi_bez_nds = true) — yuqoridagidan ustun:
-//	  role_type = head_pharmacist → store_sales_amount      * 1.12
-//	  role_type = pharmacist      → individual_sales_amount * 1.12
+//	  role_type = head_pharmacist → store_sales_amount      / 1.12
+//	  role_type = pharmacist      → individual_sales_amount / 1.12
 //	  boshqa role_type            → oddiy BAZA (o'zgarishsiz)
 //
 // employee_plan_amount (employee_targets) hisobga kirmaydi — u faqat ko'rsatish
@@ -99,14 +99,14 @@ import (
 // avg_monthly_hours = oydagi ish kuni * COALESCE(daily_work_hours, 8).
 const payrollWorkDayHours = 8
 
-// payrollNdsMultiplier — QQS (НДС) koeffitsiyenti. employees.kpi_bez_nds = true
-// bo'lgan pharmacist/head_pharmacist'ning KPI bazasi shunga ko'paytiriladi:
+// payrollNdsDivisor — QQS (НДС) koeffitsiyenti. employees.kpi_bez_nds = true
+// bo'lgan pharmacist/head_pharmacist'ning KPI bazasi shunga BO'LINADI (QQS chiqariladi):
 //
-//	pharmacist      → individual_sales * 1.12 * kpi_percent / 100
-//	head_pharmacist → store_sales      * 1.12 * kpi_percent / 100
+//	pharmacist      → individual_sales / 1.12 * kpi_percent / 100
+//	head_pharmacist → store_sales      / 1.12 * kpi_percent / 100
 //
 // kpi_bez_nds = false yoki boshqa role_type bo'lsa eski qoida o'zgarmaydi.
-const payrollNdsMultiplier = 1.12
+const payrollNdsDivisor = 1.12
 
 // storeRef — sahifalangan do'kon ro'yxati uchun minimal ma'lumot.
 //
@@ -259,6 +259,11 @@ func (s *Services) GetMyPayroll(
 // cron hali qamramagan xodimlarni ham sanaydi.
 //
 // Franshiza do'konlari ro'yxatga umuman kirmaydi (qarang: paginateStores).
+//
+// out_of_worked_hours berilsa (GetEmployeePayrolls bilan bir xil ma'noda):
+// ro'yxatda faqat shunday xodimi bor do'konlar qoladi va ularning yig'indisi
+// ham faqat o'sha xodimlardan chiqadi. employee_count/active_store_employee_count
+// esa avvalgidek do'konning umumiy soni bo'lib qoladi.
 func (s *Services) GetStorePayrolls(
 	ctx context.Context, params *domain.EmployeePayrollQueryParams,
 ) ([]domain.StorePayroll, int64, domain.PayrollPeriod, error) {
@@ -268,7 +273,7 @@ func (s *Services) GetStorePayrolls(
 		return nil, 0, period, domain.BadRequestError
 	}
 
-	stores, totalCount, err := s.paginateStores(ctx, params)
+	stores, totalCount, err := s.paginateStores(ctx, period, params)
 	if err != nil {
 		return nil, 0, period, err
 	}
@@ -278,10 +283,11 @@ func (s *Services) GetStorePayrolls(
 
 	var totals []domain.StorePayroll
 	err = s.db.WithContext(ctx).Raw(storePayrollTotalsQuery, map[string]any{
-		"year":      period.Year,
-		"month":     period.Month,
-		"store_ids": pq.StringArray(storeIdsOf(stores)),
-		"roles":     pq.StringArray(payrollSalesRoles),
+		"year":                period.Year,
+		"month":               period.Month,
+		"store_ids":           pq.StringArray(storeIdsOf(stores)),
+		"roles":               pq.StringArray(payrollSalesRoles),
+		"out_of_worked_hours": params.OutOfWorkedHours,
 	}).Scan(&totals).Error
 	if err != nil {
 		s.log.Errorf("payroll: could not get store totals: %v", err)
@@ -391,7 +397,7 @@ func (s *Services) recalculatePayrollMonth(
 		"zav_role":        constants.RoleNameZavStore,
 		"head_pharmacist": domain.RoleTypeHeadPharmacist,
 		"pharmacist":      domain.RoleTypePharmacist,
-		"nds_multiplier":  payrollNdsMultiplier,
+		"nds_divisor":     payrollNdsDivisor,
 	})
 	if tx.Error != nil {
 		return 0, fmt.Errorf("upsert payrolls: %w", tx.Error)
@@ -423,8 +429,8 @@ func (s *Services) recalculatePayrollMonth(
 //
 //	actual_salary = ROUND(salary * worked_hours / avg_monthly_hours, 2)
 //	kpi_base      = zav bo'lsa store_sales, aks holda individual_sales
-//	                (kpi_bez_nds = true: head_pharmacist → store_sales * 1.12,
-//	                 pharmacist → individual_sales * 1.12)
+//	                (kpi_bez_nds = true: head_pharmacist → store_sales / 1.12,
+//	                 pharmacist → individual_sales / 1.12)
 //	kpi_amount    = ROUND(kpi_base * kpi_percent / 100, 2)
 //	gross         = actual_salary + kpi_amount + bonus
 //	net           = gross − (avanslar + ushlab qolishlar)
@@ -485,10 +491,10 @@ func (s *Services) UpdateEmployeePayrollAdvance(
 						ROUND(CASE
 								WHEN COALESCE(CAST(@kpi_bez_nds AS boolean), e.kpi_bez_nds, FALSE)
 								 AND COALESCE(CAST(@role_type AS varchar), e.role_type) = CAST(@head_pharmacist AS text)
-								THEN r.store_sales_amount * CAST(@nds_multiplier AS numeric)
+								THEN r.store_sales_amount / CAST(@nds_divisor AS numeric)
 								WHEN COALESCE(CAST(@kpi_bez_nds AS boolean), e.kpi_bez_nds, FALSE)
 								 AND COALESCE(CAST(@role_type AS varchar), e.role_type) = CAST(@pharmacist AS text)
-								THEN r.individual_sales_amount * CAST(@nds_multiplier AS numeric)
+								THEN r.individual_sales_amount / CAST(@nds_divisor AS numeric)
 								WHEN CAST(@zav_role AS text) = ANY(r.role_names)
 								THEN r.store_sales_amount
 								ELSE r.individual_sales_amount
@@ -576,7 +582,7 @@ func (s *Services) UpdateEmployeePayrollAdvance(
 			"role_type":       req.RoleType,
 			"head_pharmacist": domain.RoleTypeHeadPharmacist,
 			"pharmacist":      domain.RoleTypePharmacist,
-			"nds_multiplier":  payrollNdsMultiplier,
+			"nds_divisor":     payrollNdsDivisor,
 		}).Scan(&res)
 		if result.Error != nil {
 			s.log.Errorf("payroll: could not update payroll row: %v", result.Error)
@@ -1049,7 +1055,7 @@ func payrollRowsOf(page []employeePayrollPageRow) []domain.EmployeePayrollRow {
 // Kompaniyasi biriktirilmagan do'kon franshiza emas deb qaraladi — javobdagi
 // is_franchise maydoni va tartiblash ham shu COALESCE qoidasiga tayanadi.
 func (s *Services) paginateStores(
-	ctx context.Context, params *domain.EmployeePayrollQueryParams,
+	ctx context.Context, period domain.PayrollPeriod, params *domain.EmployeePayrollQueryParams,
 ) ([]storeRef, int64, error) {
 	newQuery := func() *gorm.DB {
 		q := s.db.WithContext(ctx).
@@ -1063,6 +1069,23 @@ func (s *Services) paginateStores(
 		}
 		if params.StoreId != "" {
 			q = q.Where("stores.id = ?", params.StoreId)
+		}
+		// Normaga nisbatan filtr: faqat shunday xodimi bor do'konlar. Doira
+		// storePayrollTotalsQuery bilan bir xil (rol mos, davomati bor).
+		if params.OutOfWorkedHours != nil {
+			q = q.Where(`EXISTS (
+				SELECT 1
+				FROM employee_payrolls p
+				WHERE p.store_id = stores.id
+				  AND p.year = ?
+				  AND p.month = ?
+				  AND p.role_names && CAST(? AS text[])
+				  AND p.worked_hours > 0
+				  AND CASE WHEN CAST(? AS boolean)
+				           THEN p.avg_monthly_hours < p.worked_hours
+				           ELSE p.avg_monthly_hours > p.worked_hours
+				      END)`,
+				period.Year, period.Month, pq.StringArray(payrollSalesRoles), *params.OutOfWorkedHours)
 		}
 		return q
 	}
@@ -1356,14 +1379,14 @@ kpi_rate AS (
 final AS (
     SELECT r.*,
            -- QQSsiz KPI (kpi_bez_nds = true): baza role_type'dan olinadi va
-           -- 1.12 ga ko'paytiriladi — head_pharmacist do'kon aylanmasidan,
+           -- 1.12 ga bo'linadi (QQS chiqariladi) — head_pharmacist do'kon aylanmasidan,
            -- pharmacist o'z savdosidan. Qolgan hamma holatda eski qoida:
            -- zav do'kon aylanmasidan, qolganlar o'z savdosidan oladi.
            -- Xodimda ikkala rol ham bo'lsa zav ustun turadi.
            ROUND(CASE WHEN r.kpi_bez_nds AND r.role_type = CAST(@head_pharmacist AS text)
-                      THEN r.store_sales_amount * CAST(@nds_multiplier AS numeric)
+                      THEN r.store_sales_amount / CAST(@nds_divisor AS numeric)
                       WHEN r.kpi_bez_nds AND r.role_type = CAST(@pharmacist AS text)
-                      THEN r.individual_sales_amount * CAST(@nds_multiplier AS numeric)
+                      THEN r.individual_sales_amount / CAST(@nds_divisor AS numeric)
                       WHEN @zav_role = ANY(r.role_names)
                       THEN r.store_sales_amount
                       ELSE r.individual_sales_amount
@@ -1481,7 +1504,13 @@ WHERE p.year = @year
   AND (CAST(@role_type AS text)   IS NULL OR e.role_type   = CAST(@role_type AS text))
 	AND (CAST(@search AS text)      IS NULL OR p.full_name ILIKE CAST(@search AS text))
   AND (CAST(@roles AS text[])     IS NULL OR p.role_names && CAST(@roles AS text[]))
-  AND (NOT CAST(@only_worked AS boolean) OR p.worked_hours > 0)
+  AND (NOT CAST(@only_worked AS boolean) OR p.worked_hours > 0)` + payrollOutOfWorkedHoursSQL
+
+// payrollOutOfWorkedHoursSQL — oylik normaga nisbatan filtr (p = employee_payrolls).
+// NULL → filtrsiz, true → normadan ortiq ishlaganlar, false → normani
+// to'ldirmaganlar. Xodimlar va do'konlar ro'yxati AYNAN shu shartni ishlatadi,
+// shuning uchun do'kon summasi xodimlar ro'yxatini qo'shib chiqqanga teng.
+const payrollOutOfWorkedHoursSQL = `
   AND (CAST(@out_of_worked_hours AS boolean) IS NULL
        OR (CAST(@out_of_worked_hours AS boolean)
            AND p.avg_monthly_hours < p.worked_hours)
@@ -1585,7 +1614,7 @@ WHERE p.year = @year
   -- ro'yxatida ko'rinadigan qatorlardan chiqadi, shuning uchun ro'yxatni qo'lda
   -- qo'shib chiqqanda do'kon summasi bilan mos keladi.
   AND p.role_names && CAST(@roles AS text[])
-  AND p.worked_hours > 0
+  AND p.worked_hours > 0` + payrollOutOfWorkedHoursSQL + `
 GROUP BY p.store_id`
 
 // storePayrollStatisticsQuery — do'konlar ro'yxatining yig'ma ko'rsatkichlari.

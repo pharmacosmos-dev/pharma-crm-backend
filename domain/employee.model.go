@@ -58,7 +58,7 @@ type Employee struct {
 	ShiftType       *string          `gorm:"column:shift_type" json:"shift_type"`
 	KpiPercent      float64          `gorm:"kpi_percent" json:"kpi_percent"`
 	// KpiBezNds — KPI bazasi QQSsiz (НДС) deb qaraladi: true bo'lsa payroll'da
-	// pharmacist/head_pharmacist uchun baza 1.12 ga ko'paytiriladi.
+	// pharmacist/head_pharmacist uchun baza 1.12 ga bo'linadi (QQS chiqariladi).
 	KpiBezNds       bool             `gorm:"column:kpi_bez_nds" json:"kpi_bez_nds"`
 	ExperienceYears float64          `gorm:"experience_years" json:"experience_years"`
 	RoleType        string           `gorm:"role_type" json:"role_type"`

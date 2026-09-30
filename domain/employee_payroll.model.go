@@ -340,7 +340,7 @@ type EmployeePayrollRow struct {
 	KpiPercent         float64 `json:"kpi_percent"`          // AMALDAGI foiz — kpi_amount shundan hisoblangan
 	KpiAmount          float64 `json:"kpi_amount"`
 	// KpiBezNds — employees'dan jonli olinadi (role_type kabi). true bo'lsa
-	// pharmacist/head_pharmacist'ning KPI bazasi 1.12 ga ko'paytirilgan.
+	// pharmacist/head_pharmacist'ning KPI bazasi 1.12 ga bo'lingan (QQSsiz).
 	KpiBezNds bool `json:"kpi_bez_nds"`
 
 	BonusAmount       float64 `json:"bonus_amount"`

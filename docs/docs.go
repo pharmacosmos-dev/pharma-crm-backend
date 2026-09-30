@@ -8055,7 +8055,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Xodimlarning oylik ko'rsatkichlari (ishlagan soati, oylik, KPI, bonus, avans, ushlab qolishlar).\nRo'yxatga faqat faol xodimlar kiradi: is_active, status = \"active\" va roli \"Кассир\" yoki \"Заведующий\".\nKPI pog'onasi DO'KON bo'yicha: expected_plan = store_plan × (o'tgan ish kuni / oydagi ish kuni), achievement = store_sales / expected_plan × 100 — bu qiymatlar bitta do'kondagi hamma xodimda bir xil.\nKPI summasi esa shaxsiy: kpi_amount = individual_sales × kpi_percent. Do'kon rejani bajarmasa kpi_percent = 0 va hech kim KPI olmaydi.\nkpi_bez_nds = true bo'lsa: pharmacist → individual_sales × 1.12 × kpi_percent, head_pharmacist → store_sales × 1.12 × kpi_percent. false bo'lsa eski qoida.\nyear/month berilmasa joriy oy olinadi.",
+                "description": "Xodimlarning oylik ko'rsatkichlari (ishlagan soati, oylik, KPI, bonus, avans, ushlab qolishlar).\nRo'yxatga faqat faol xodimlar kiradi: is_active, status = \"active\" va roli \"Кассир\" yoki \"Заведующий\".\nKPI pog'onasi DO'KON bo'yicha: expected_plan = store_plan × (o'tgan ish kuni / oydagi ish kuni), achievement = store_sales / expected_plan × 100 — bu qiymatlar bitta do'kondagi hamma xodimda bir xil.\nKPI summasi esa shaxsiy: kpi_amount = individual_sales × kpi_percent. Do'kon rejani bajarmasa kpi_percent = 0 va hech kim KPI olmaydi.\nkpi_bez_nds = true bo'lsa: pharmacist → individual_sales ÷ 1.12 × kpi_percent, head_pharmacist → store_sales ÷ 1.12 × kpi_percent. false bo'lsa eski qoida.\nyear/month berilmasa joriy oy olinadi.",
                 "consumes": [
                     "application/json"
                 ],
@@ -8698,6 +8698,12 @@ const docTemplate = `{
                         "in": "query"
                     },
                     {
+                        "type": "boolean",
+                        "description": "true — faqat normadan ortiq ishlagan (avg_monthly_hours \u003c worked_hours) xodimi bor do'konlar, yig'indi ham faqat o'sha xodimlardan; false — normani to'ldirmaganlar bo'yicha. Filtrsiz ro'yxat uchun parametrni UMUMAN yubormang",
+                        "name": "out_of_worked_hours",
+                        "in": "query"
+                    },
+                    {
                         "type": "integer",
                         "description": "Limit (do'konlar soni)",
                         "name": "limit",
@@ -8761,6 +8767,12 @@ const docTemplate = `{
                         "type": "string",
                         "description": "Store ID",
                         "name": "store_id",
+                        "in": "query"
+                    },
+                    {
+                        "type": "boolean",
+                        "description": "true — normadan ortiq ishlagan xodimi bor do'konlar (yig'indi faqat shulardan); false — normani to'ldirmaganlar. Filtrsiz fayl uchun parametrni umuman yubormang",
+                        "name": "out_of_worked_hours",
                         "in": "query"
                     },
                     {
@@ -8889,7 +8901,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "kpi_percent, salary, daily_work_hours, shift_type, role_type, first_name, last_name, phone, hire_date, pasport_number, staff, advance_card_amount va advance_cash_amount maydonlarini payroll id bo'yicha yangilaydi.\nHammasi ixtiyoriy — berilgani yoziladi, berilmagani eski qiymatida qoladi.\nkpi_bez_nds (bool) faqat employees'ga yoziladi, lekin shu qatorning kpi_amount'i darhol qayta hisoblanadi (pharmacist/head_pharmacist uchun baza × 1.12).\nkpi_percent/salary ikkala jadvalga; daily_work_hours (4, 7, 8), shift_type, role_type, ism-familiya, phone, hire_date, pasport_number va staff faqat employees'ga; avanslar esa faqat shu oyning payroll qatoriga yoziladi.\npasport_number employees.passport ustuniga yoziladi; staff — xodimning shtat holati, erkin matn.\nrole_type xodim kartochkasida saqlanadi va keyingi oylarga ham amal qiladi — payroll hisob-kitobiga ta'sir qilmaydi.\nactual_salary_amount, kpi_amount, gross_salary_amount va net_pay_amount shu yerda qayta hisoblanadi — cron kutilmaydi.",
+                "description": "kpi_percent, salary, daily_work_hours, shift_type, role_type, first_name, last_name, phone, hire_date, pasport_number, staff, advance_card_amount va advance_cash_amount maydonlarini payroll id bo'yicha yangilaydi.\nHammasi ixtiyoriy — berilgani yoziladi, berilmagani eski qiymatida qoladi.\nkpi_bez_nds (bool) faqat employees'ga yoziladi, lekin shu qatorning kpi_amount'i darhol qayta hisoblanadi (pharmacist/head_pharmacist uchun baza ÷ 1.12).\nkpi_percent/salary ikkala jadvalga; daily_work_hours (4, 7, 8), shift_type, role_type, ism-familiya, phone, hire_date, pasport_number va staff faqat employees'ga; avanslar esa faqat shu oyning payroll qatoriga yoziladi.\npasport_number employees.passport ustuniga yoziladi; staff — xodimning shtat holati, erkin matn.\nrole_type xodim kartochkasida saqlanadi va keyingi oylarga ham amal qiladi — payroll hisob-kitobiga ta'sir qilmaydi.\nactual_salary_amount, kpi_amount, gross_salary_amount va net_pay_amount shu yerda qayta hisoblanadi — cron kutilmaydi.",
                 "consumes": [
                     "application/json"
                 ],
