@@ -6786,7 +6786,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Create a new employee in the system.",
+                "description": "Create a new employee in the system.\nstore_id berilsa, do'konning name, location, address, company_id, phone, coordinates va terminal_id maydonlari to'ldirilgan bo'lishi shart, aks holda 400 \"Store ma'lumotlari to'liq emas: ...\" qaytadi. Do'kon topilmasa 404.",
                 "consumes": [
                     "application/json"
                 ],
@@ -6829,6 +6829,12 @@ const docTemplate = `{
                     },
                     "403": {
                         "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
                         "schema": {
                             "$ref": "#/definitions/v1.Response"
                         }

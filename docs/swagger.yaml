@@ -7367,7 +7367,9 @@ paths:
     post:
       consumes:
       - application/json
-      description: Create a new employee in the system.
+      description: |-
+        Create a new employee in the system.
+        store_id berilsa, do'konning name, location, address, company_id, phone, coordinates va terminal_id maydonlari to'ldirilgan bo'lishi shart, aks holda 400 "Store ma'lumotlari to'liq emas: ..." qaytadi. Do'kon topilmasa 404.
       parameters:
       - description: Employee data
         in: body
@@ -7392,6 +7394,10 @@ paths:
             $ref: '#/definitions/v1.Response'
         "403":
           description: Forbidden
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "404":
+          description: Not Found
           schema:
             $ref: '#/definitions/v1.Response'
         "500":

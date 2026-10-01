@@ -111,8 +111,59 @@ func (h *EmployeeHandler) isPhoneTaken(c *gin.Context, phone, excludeId string) 
 	return count > 0, nil
 }
 
+// storeMissingFields — xodim biriktiriladigan do'konning to'ldirilmagan majburiy
+// maydonlarini qaytaradi. Bo'sh/probelli satr va bo'sh terminal_id massivi ham
+// to'ldirilmagan hisoblanadi. Do'kon topilmasa (yoki o'chirilgan bo'lsa) found=false.
+func (h *EmployeeHandler) storeMissingFields(c *gin.Context, storeId string) (missing []string, found bool, err error) {
+	var rows []struct {
+		Name        bool
+		Location    bool
+		Address     bool
+		CompanyId   bool
+		Phone       bool
+		Coordinates bool
+		TerminalId  bool
+	}
+	err = h.db.WithContext(c.Request.Context()).Raw(`
+		SELECT
+			NULLIF(TRIM(s.name), '')     IS NULL AS name,
+			NULLIF(TRIM(s.location), '') IS NULL AS location,
+			NULLIF(TRIM(s.address), '')  IS NULL AS address,
+			s.company_id                 IS NULL AS company_id,
+			NULLIF(TRIM(s.phone), '')    IS NULL AS phone,
+			s.coordinates                IS NULL AS coordinates,
+			NOT EXISTS (
+				SELECT 1 FROM unnest(s.terminal_id) AS t(id) WHERE TRIM(t.id) <> ''
+			) AS terminal_id
+		FROM stores s
+		WHERE s.id = ? AND s.deleted_at IS NULL`, storeId).Scan(&rows).Error
+	if err != nil || len(rows) == 0 {
+		return nil, false, err
+	}
+
+	r := rows[0]
+	for _, f := range []struct {
+		name  string
+		empty bool
+	}{
+		{"name", r.Name},
+		{"location", r.Location},
+		{"address", r.Address},
+		{"company_id", r.CompanyId},
+		{"phone", r.Phone},
+		{"coordinates", r.Coordinates},
+		{"terminal_id", r.TerminalId},
+	} {
+		if f.empty {
+			missing = append(missing, f.name)
+		}
+	}
+	return missing, true, nil
+}
+
 // @Summary      Create employee
 // @Description  Create a new employee in the system.
+// @Description  store_id berilsa, do'konning name, location, address, company_id, phone, coordinates va terminal_id maydonlari to'ldirilgan bo'lishi shart, aks holda 400 "Store ma'lumotlari to'liq emas: ..." qaytadi. Do'kon topilmasa 404.
 // @Tags         employees
 // @Accept       json
 // @Produce      json
@@ -122,6 +173,7 @@ func (h *EmployeeHandler) isPhoneTaken(c *gin.Context, phone, excludeId string) 
 // @Failure      400  {object}  v1.Response
 // @Failure      401  {object}  v1.Response
 // @Failure      403  {object}  v1.Response
+// @Failure      404  {object}  v1.Response
 // @Failure      500  {object}  v1.Response
 // @Router       /employee [post]
 func (h *EmployeeHandler) Create(c *gin.Context) {
@@ -149,6 +201,28 @@ func (h *EmployeeHandler) Create(c *gin.Context) {
 	if taken {
 		handleServiceResponse(c, nil, domain.DuplicatePhoneError)
 		return
+	}
+
+	// biriktirilayotgan do'kon ma'lumotlari to'liq bo'lishi shart
+	if body.StoreId != nil && *body.StoreId != "" {
+		if _, err := uuid.Parse(*body.StoreId); err != nil {
+			handleResponse(c, BadRequest, "Invalid store_id")
+			return
+		}
+		missing, found, err := h.storeMissingFields(c, *body.StoreId)
+		if err != nil {
+			h.log.Errorf("ERROR on checking employee store fields: %v", err)
+			handleResponse(c, InternalError, "Can't check store")
+			return
+		}
+		if !found {
+			handleResponse(c, NotFound, "Store not found")
+			return
+		}
+		if len(missing) > 0 {
+			handleResponse(c, BadRequest, "Store ma'lumotlari to'liq emas: "+strings.Join(missing, ", "))
+			return
+		}
 	}
 
 	hashedPassword, err := etc.Encrypt(*body.Password, h.cfg.HashKey)
