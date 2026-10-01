@@ -15,6 +15,7 @@ var inactiveDismissRoleTypes = []string{
 	domain.RoleTypePharmacist,
 	domain.RoleTypeHeadPharmacistIntern,
 	domain.RoleTypePharmacyAssistant,
+	domain.RoleTypeIntern,
 }
 
 // inactiveEmployeeCandidatesSQL — inactiveDismissRoleTypes'dagi, cutoff'dan oldin

@@ -1337,7 +1337,7 @@ func (h *EmployeeHandler) CleanupOldAttendanceFaceIds(c *gin.Context) {
 // DismissInactiveEmployees godoc
 // @Summary      Dismiss employees without face-id attendance (admin)
 // @Description  Oxirgi days kun (hozirgi vaqtdan days*24 soat orqaga, standart 5) ichida birorta ham attendance_logs yozuvi bo'lmagan aktiv xodimlarni "dismissed" (Уволен) qiladi.
-// @Description  Faqat role_type head_pharmacist, pharmacist, head_pharmacist_intern yoki pharmacy_assistant bo'lgan xodimlar tekshiriladi. Boshqa rollarga va oxirgi days kun ichida yaratilgan xodimlarga tegilmaydi.
+// @Description  Faqat role_type head_pharmacist, pharmacist, head_pharmacist_intern, pharmacy_assistant yoki intern bo'lgan xodimlar tekshiriladi. Boshqa rollarga va oxirgi days kun ichida yaratilgan xodimlarga tegilmaydi.
 // @Description  dry_run=true bo'lsa hech narsa o'zgarmaydi, faqat ishdan bo'shatiladigan xodimlar ro'yxati qaytadi. Faqat admin chaqira oladi.
 // @Tags         employees
 // @Security     BearerAuth
