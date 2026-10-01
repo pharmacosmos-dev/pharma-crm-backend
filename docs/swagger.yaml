@@ -1038,6 +1038,37 @@ definitions:
       scanned_count:
         type: integer
     type: object
+  domain.InactiveDismissedEmployee:
+    properties:
+      full_name:
+        type: string
+      id:
+        type: string
+      last_event_at:
+        type: string
+      phone:
+        type: string
+      role_type:
+        type: string
+      store_id:
+        type: string
+    type: object
+  domain.InactiveEmployeeDismissResult:
+    properties:
+      days:
+        example: 5
+        type: integer
+      dismissed_count:
+        example: 3
+        type: integer
+      dry_run:
+        example: false
+        type: boolean
+      employees:
+        items:
+          $ref: '#/definitions/domain.InactiveDismissedEmployee'
+        type: array
+    type: object
   domain.InventoryAddProduct:
     properties:
       barcode:
@@ -8199,6 +8230,54 @@ paths:
       summary: Delete employees
       tags:
       - employees
+  /employee/dismiss-inactive:
+    post:
+      description: |-
+        Oxirgi days kun (hozirgi vaqtdan days*24 soat orqaga, standart 5) ichida birorta ham attendance_logs yozuvi bo'lmagan aktiv xodimlarni "dismissed" (Уволен) qiladi.
+        Faqat role_type head_pharmacist, pharmacist, head_pharmacist_intern yoki pharmacy_assistant bo'lgan xodimlar tekshiriladi. Boshqa rollarga va oxirgi days kun ichida yaratilgan xodimlarga tegilmaydi.
+        dry_run=true bo'lsa hech narsa o'zgarmaydi, faqat ishdan bo'shatiladigan xodimlar ro'yxati qaytadi. Faqat admin chaqira oladi.
+      parameters:
+      - description: Necha kun ichida attendance bo'lmasa (standart 5)
+        in: query
+        name: days
+        type: integer
+      - description: true — faqat ro'yxatni qaytaradi, status o'zgarmaydi
+        in: query
+        name: dry_run
+        type: boolean
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/v1.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/domain.InactiveEmployeeDismissResult'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Dismiss employees without face-id attendance (admin)
+      tags:
+      - employees
   /employee/export-excel:
     get:
       consumes:
@@ -8709,6 +8788,10 @@ paths:
         in: query
         name: shift_type
         type: string
+      - description: employees.staff (temporary yoki permanent)
+        in: query
+        name: staff
+        type: string
       - description: Ism yoki telefon bo'yicha qidiruv
         in: query
         name: search
@@ -8788,6 +8871,10 @@ paths:
       - description: employees.shift_type (day yoki night)
         in: query
         name: shift_type
+        type: string
+      - description: employees.staff (temporary yoki permanent)
+        in: query
+        name: staff
         type: string
       - description: Ism yoki telefon bo'yicha qidiruv
         in: query

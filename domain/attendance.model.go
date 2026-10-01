@@ -113,6 +113,25 @@ type AttendanceLogListItem struct {
 }
 
 
+// InactiveEmployeeDismissResult — oxirgi Days kun ichida birorta ham attendance
+// yozuvi bo'lmagani uchun "dismissed" (Уволен) qilingan xodimlar. DryRun=true
+// bo'lsa hech narsa o'zgarmaydi, Employees faqat nomzodlarni ko'rsatadi.
+type InactiveEmployeeDismissResult struct {
+	Days           int                         `json:"days" example:"5"`
+	DryRun         bool                        `json:"dry_run" example:"false"`
+	DismissedCount int                         `json:"dismissed_count" example:"3"`
+	Employees      []InactiveDismissedEmployee `json:"employees"`
+}
+
+type InactiveDismissedEmployee struct {
+	Id          string     `json:"id"`
+	FullName    string     `json:"full_name"`
+	Phone       string     `json:"phone"`
+	RoleType    string     `json:"role_type"`
+	StoreId     *string    `json:"store_id"`
+	LastEventAt *time.Time `json:"last_event_at"`
+}
+
 type AttendanceFaceIdCleanupResult struct {
 	SelectedCount int `json:"selected_count" example:"120"`
 	UpdatedCount int `json:"updated_count" example:"117"`

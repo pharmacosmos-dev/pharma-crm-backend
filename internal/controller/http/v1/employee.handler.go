@@ -43,6 +43,7 @@ func (h *EmployeeHandler) EmployeeRoutes(r *gin.RouterGroup) {
 		employee.PUT("/reset-password", h.ResetPassword)
 		employee.PUT("/info", h.UpdateEmployeeinfo)
 		employee.PUT("/:id/status", h.UpdateEmployeeStatus)
+		employee.POST("/dismiss-inactive", h.DismissInactiveEmployees)
 		employee.PUT("/block", h.BlockEmployee)
 		employee.PUT("/unblock", h.UnBlockEmployee)
 		employee.GET("/bonus", h.SmenaBonus)
@@ -1259,6 +1260,66 @@ func (h *EmployeeHandler) CleanupOldAttendanceFaceIds(c *gin.Context) {
 	handleResponse(c, OK, result)
 }
 
+// DismissInactiveEmployees godoc
+// @Summary      Dismiss employees without face-id attendance (admin)
+// @Description  Oxirgi days kun (hozirgi vaqtdan days*24 soat orqaga, standart 5) ichida birorta ham attendance_logs yozuvi bo'lmagan aktiv xodimlarni "dismissed" (Уволен) qiladi.
+// @Description  Faqat role_type head_pharmacist, pharmacist, head_pharmacist_intern yoki pharmacy_assistant bo'lgan xodimlar tekshiriladi. Boshqa rollarga va oxirgi days kun ichida yaratilgan xodimlarga tegilmaydi.
+// @Description  dry_run=true bo'lsa hech narsa o'zgarmaydi, faqat ishdan bo'shatiladigan xodimlar ro'yxati qaytadi. Faqat admin chaqira oladi.
+// @Tags         employees
+// @Security     BearerAuth
+// @Produce      json
+// @Param        days     query  int   false  "Necha kun ichida attendance bo'lmasa (standart 5)"
+// @Param        dry_run  query  bool  false  "true — faqat ro'yxatni qaytaradi, status o'zgarmaydi"
+// @Success      200  {object}  v1.Response{data=domain.InactiveEmployeeDismissResult}
+// @Failure      400  {object}  v1.Response
+// @Failure      401  {object}  v1.Response
+// @Failure      403  {object}  v1.Response
+// @Failure      500  {object}  v1.Response
+// @Router       /employee/dismiss-inactive [post]
+func (h *EmployeeHandler) DismissInactiveEmployees(c *gin.Context) {
+	user := h.service.GetSignedUser(c)
+	if user.UserId == "" {
+		handleServiceResponse(c, nil, domain.UnauthorizedError)
+		return
+	}
+
+	if !helper.IsAdmin(user) {
+		handleResponse(c, FORBIDDEN, "Only admin can dismiss inactive employees")
+		return
+	}
+
+	days := 5
+	if raw := c.Query("days"); raw != "" {
+		parsed, err := strconv.Atoi(raw)
+		if err != nil || parsed < 1 {
+			handleResponse(c, BadRequest, "Invalid days")
+			return
+		}
+		days = parsed
+	}
+
+	dryRun := false
+	if raw := c.Query("dry_run"); raw != "" {
+		parsed, err := strconv.ParseBool(raw)
+		if err != nil {
+			handleResponse(c, BadRequest, "Invalid dry_run")
+			return
+		}
+		dryRun = parsed
+	}
+
+	ctx, cancel := context.WithTimeout(c.Request.Context(), constants.DefaultContextTimeout)
+	defer cancel()
+
+	result, err := h.service.DismissInactiveEmployees(ctx, days, dryRun, user.UserId)
+	if err != nil {
+		handleServiceResponse(c, nil, err)
+		return
+	}
+
+	handleResponse(c, OK, result)
+}
+
 // AttendanceList godoc
 // @Summary      Attendance check-in / check-out list
 // @Description  Xodimlarning check-in/check-out yozuvlari ro'yxati. start_date va end_date SaleStatistic bilan bir xil ishlaydi: end_date berilmasa start_date kuni yakunigacha (23:59) qamrab olinadi, ya'ni faqat start_date sifatida bugungi kun berilsa faqat bugungi kun qaytadi. Aniq do'konga bog'langan foydalanuvchilar (user.store_id mavjud) uchun ro'yxat bo'sh qaytariladi; faqat store_id'siz foydalanuvchilar uchun ma'lumot qaytadi.
@@ -1966,6 +2027,7 @@ func (h *EmployeeHandler) PayrollStatistics(c *gin.Context) {
 // @Param        employee_id  query  string  false  "Employee ID"
 // @Param        role_type    query  string  false  "employees.role_type (CASHIER, HEADOFCASHIER, ...)"
 // @Param        shift_type   query  string  false  "employees.shift_type (day yoki night)"
+// @Param        staff        query  string  false  "employees.staff (temporary yoki permanent)"
 // @Param        search       query  string  false  "Ism yoki telefon bo'yicha qidiruv"
 // @Param        date         query  string  false  "Sana YYYY-MM-DD (year/month o'rniga)"
 // @Param        year         query  int     false  "Year (default: joriy)"
@@ -2027,6 +2089,7 @@ func (h *EmployeeHandler) PayrollManagementStatistics(c *gin.Context) {
 // @Param        employee_id  query  string  false  "Employee ID"
 // @Param        role_type    query  string  false  "employees.role_type (CASHIER, HEADOFCASHIER, ...)"
 // @Param        shift_type   query  string  false  "employees.shift_type (day yoki night)"
+// @Param        staff        query  string  false  "employees.staff (temporary yoki permanent)"
 // @Param        search       query  string  false  "Ism yoki telefon bo'yicha qidiruv"
 // @Param        date         query  string  false  "Sana YYYY-MM-DD (year/month o'rniga)"
 // @Param        year         query  int     false  "Year (default: joriy)"

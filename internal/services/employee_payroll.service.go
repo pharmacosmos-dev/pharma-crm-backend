@@ -665,6 +665,7 @@ const payrollManagementFilterSQL = `
 	  -- olinadi: ular tahrirlanganda filtr darhol yangi qiymatga qaraydi.
 	  AND (CAST(@role_type AS text)   IS NULL OR e.role_type   = CAST(@role_type AS text))
 	  AND (CAST(@shift_type AS text)  IS NULL OR e.shift_type  = CAST(@shift_type AS text))
+	  AND (CAST(@staff AS text)       IS NULL OR e.staff       = CAST(@staff AS text))
 	  AND (CAST(@search AS text)      IS NULL OR p.full_name ILIKE CAST(@search AS text)
 											  OR e.phone     ILIKE CAST(@search AS text))
 	  AND p.role_names && CAST(@roles AS text[])
@@ -697,6 +698,7 @@ func payrollManagementArgs(
 		"company_id":  nullIfEmpty(params.CompanyId),
 		"role_type":   nullIfEmpty(params.RoleType),
 		"shift_type":  nullIfEmpty(params.ShiftType),
+		"staff":       nullIfEmpty(params.Staff),
 		"search":      nullIfEmpty(search),
 		"roles":       pq.StringArray(payrollSalesRoles),
 		"dismissed":   constants.GeneralStatusDismissed,

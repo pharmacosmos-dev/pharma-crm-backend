@@ -145,6 +145,7 @@ type EmployeePayrollAdvanceQueryParams struct {
 	EmployeeId string `form:"employee_id"`
 	RoleType   string `form:"role_type"`
 	ShiftType  string `form:"shift_type"`
+	Staff      string `form:"staff" binding:"omitempty,oneof=temporary permanent"`
 	Search     string `form:"search"`
 	Year       int    `form:"year"`
 	Month      int    `form:"month"`

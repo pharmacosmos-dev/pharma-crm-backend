@@ -7692,6 +7692,81 @@ const docTemplate = `{
                 }
             }
         },
+        "/employee/dismiss-inactive": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Oxirgi days kun (hozirgi vaqtdan days*24 soat orqaga, standart 5) ichida birorta ham attendance_logs yozuvi bo'lmagan aktiv xodimlarni \"dismissed\" (Уволен) qiladi.\nFaqat role_type head_pharmacist, pharmacist, head_pharmacist_intern yoki pharmacy_assistant bo'lgan xodimlar tekshiriladi. Boshqa rollarga va oxirgi days kun ichida yaratilgan xodimlarga tegilmaydi.\ndry_run=true bo'lsa hech narsa o'zgarmaydi, faqat ishdan bo'shatiladigan xodimlar ro'yxati qaytadi. Faqat admin chaqira oladi.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "employees"
+                ],
+                "summary": "Dismiss employees without face-id attendance (admin)",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Necha kun ichida attendance bo'lmasa (standart 5)",
+                        "name": "days",
+                        "in": "query"
+                    },
+                    {
+                        "type": "boolean",
+                        "description": "true — faqat ro'yxatni qaytaradi, status o'zgarmaydi",
+                        "name": "dry_run",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/v1.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/domain.InactiveEmployeeDismissResult"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    }
+                }
+            }
+        },
         "/employee/export-excel": {
             "get": {
                 "security": [
@@ -8363,6 +8438,12 @@ const docTemplate = `{
                     },
                     {
                         "type": "string",
+                        "description": "employees.staff (temporary yoki permanent)",
+                        "name": "staff",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
                         "description": "Ism yoki telefon bo'yicha qidiruv",
                         "name": "search",
                         "in": "query"
@@ -8467,6 +8548,12 @@ const docTemplate = `{
                         "type": "string",
                         "description": "employees.shift_type (day yoki night)",
                         "name": "shift_type",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "employees.staff (temporary yoki permanent)",
+                        "name": "staff",
                         "in": "query"
                     },
                     {
@@ -39185,6 +39272,52 @@ const docTemplate = `{
             "properties": {
                 "scanned_count": {
                     "type": "integer"
+                }
+            }
+        },
+        "domain.InactiveDismissedEmployee": {
+            "type": "object",
+            "properties": {
+                "full_name": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "last_event_at": {
+                    "type": "string"
+                },
+                "phone": {
+                    "type": "string"
+                },
+                "role_type": {
+                    "type": "string"
+                },
+                "store_id": {
+                    "type": "string"
+                }
+            }
+        },
+        "domain.InactiveEmployeeDismissResult": {
+            "type": "object",
+            "properties": {
+                "days": {
+                    "type": "integer",
+                    "example": 5
+                },
+                "dismissed_count": {
+                    "type": "integer",
+                    "example": 3
+                },
+                "dry_run": {
+                    "type": "boolean",
+                    "example": false
+                },
+                "employees": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/domain.InactiveDismissedEmployee"
+                    }
                 }
             }
         },
