@@ -942,6 +942,11 @@ func (s *Services) GetEmployeeAttendanceDayList(ctx context.Context, params *dom
 		query = query.Where("ead.employee_id = ?", params.EmployeeId)
 	}
 
+	if params.CompanyId != "" {
+		countQuery = countQuery.Where("e.company_id = ?", params.CompanyId)
+		query = query.Where("e.company_id = ?", params.CompanyId)
+	}
+
 	if params.Search != "" {
 		countQuery = countQuery.Where("(e.full_name ILIKE ? OR e.phone ILIKE ?)", "%"+params.Search+"%", "%"+params.Search+"%")
 		query = query.Where("(e.full_name ILIKE ? OR e.phone ILIKE ?)", "%"+params.Search+"%", "%"+params.Search+"%")

@@ -1579,12 +1579,12 @@ func (h *EmployeeHandler) EmployeeAttendanceDayList(c *gin.Context) {
 		return
 	}
 
+	// Admin bo'lmasa faqat o'z kompaniyasi va o'z do'konini ko'radi
 	if !helper.IsAdmin(user) {
-		if user.StoreId == "" {
-			handleResponse(c, BadRequest, "store_id not found for user")
-			return
+		params.CompanyId = user.CompanyId
+		if user.StoreId != "" {
+			params.StoreId = user.StoreId
 		}
-		params.StoreId = user.StoreId
 	}
 
 	params.Limit, params.Offset = defaultLimitOffset(params.Limit, params.Offset)

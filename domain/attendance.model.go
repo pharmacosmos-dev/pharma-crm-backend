@@ -150,6 +150,7 @@ type EmployeeAttendanceDayQueryParams struct {
 	EndDate    string `form:"end_date"`
 	Limit      int    `form:"limit"`
 	Offset     int    `form:"offset"`
+	CompanyId  string `form:"-"`
 }
 
 // EmployeeAttendanceDayListItem — GET list javobi uchun, xodim va do'kon nomi bilan birga.
