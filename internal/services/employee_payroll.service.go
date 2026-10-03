@@ -131,16 +131,16 @@ type employeePayrollPageRow struct {
 
 // payrollReadFilter — o'qish so'rovining doirasi. Bo'sh maydon = filtrlamaslik.
 type payrollReadFilter struct {
-	EmployeeId string
-	CompanyId  string
-	StoreId    string
-	Search     string
-	Roles      []string
-	RoleType string
+	EmployeeId       string
+	CompanyId        string
+	StoreId          string
+	Search           string
+	Roles            []string
+	RoleType         string
 	OutOfWorkedHours *bool
-	OnlyWorked bool
-	Limit      int // 0 = cheklovsiz
-	Offset     int
+	OnlyWorked       bool
+	Limit            int // 0 = cheklovsiz
+	Offset           int
 }
 
 // payrollSalesRoles — savdo nuqtasida ishlaydigan rollar. Xodimlar hisoboti
@@ -288,6 +288,7 @@ func (s *Services) GetStorePayrolls(
 		"store_ids":           pq.StringArray(storeIdsOf(stores)),
 		"roles":               pq.StringArray(payrollSalesRoles),
 		"out_of_worked_hours": params.OutOfWorkedHours,
+		"work_day_hours":      payrollWorkDayHours,
 	}).Scan(&totals).Error
 	if err != nil {
 		s.log.Errorf("payroll: could not get store totals: %v", err)
@@ -388,12 +389,12 @@ func (s *Services) recalculatePayrollMonth(
 	ctx context.Context, year, month int, calcDate time.Time,
 ) (int64, error) {
 	tx := s.db.WithContext(ctx).Exec(payrollUpsertQuery, map[string]any{
-		"year":           year,
-		"month":          month,
-		"calc_date":      calcDate.Format(constants.TimeOnlyDateFormat),
-		"status":         constants.GeneralStatusActive,
-		"draft":          domain.EmployeePayrollStatusDraft,
-		"work_day_hours": payrollWorkDayHours,
+		"year":            year,
+		"month":           month,
+		"calc_date":       calcDate.Format(constants.TimeOnlyDateFormat),
+		"status":          constants.GeneralStatusActive,
+		"draft":           domain.EmployeePayrollStatusDraft,
+		"work_day_hours":  payrollWorkDayHours,
 		"zav_role":        constants.RoleNameZavStore,
 		"head_pharmacist": domain.RoleTypeHeadPharmacist,
 		"pharmacist":      domain.RoleTypePharmacist,
@@ -571,11 +572,11 @@ func (s *Services) UpdateEmployeePayrollAdvance(
 
 	err := s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		result := tx.Raw(payrollQuery, map[string]any{
-			"id":          id,
-			"card":        req.AdvanceCardAmount,
-			"cash":        req.AdvanceCashAmount,
-			"kpi":         req.KpiPercent,
-			"salary":      req.Salary,
+			"id":              id,
+			"card":            req.AdvanceCardAmount,
+			"cash":            req.AdvanceCashAmount,
+			"kpi":             req.KpiPercent,
+			"salary":          req.Salary,
 			"daily_hours":     req.DailyWorkHours,
 			"zav_role":        constants.RoleNameZavStore,
 			"kpi_bez_nds":     req.KpiBezNds,
@@ -962,13 +963,13 @@ func (s *Services) selectPayrolls(
 // Limit/offset bu yerda yo'q: ular faqat ro'yxatga tegishli.
 func payrollSelectArgs(period domain.PayrollPeriod, filter payrollReadFilter) map[string]any {
 	return map[string]any{
-		"year":        period.Year,
-		"month":       period.Month,
-		"employee_id": nullIfEmpty(filter.EmployeeId),
-		"store_id":    nullIfEmpty(filter.StoreId),
-		"company_id":  nullIfEmpty(filter.CompanyId),
-		"role_type":   nullIfEmpty(filter.RoleType),
-		"search":      nullIfEmpty(payrollSearchPattern(filter.Search)),
+		"year":                period.Year,
+		"month":               period.Month,
+		"employee_id":         nullIfEmpty(filter.EmployeeId),
+		"store_id":            nullIfEmpty(filter.StoreId),
+		"company_id":          nullIfEmpty(filter.CompanyId),
+		"role_type":           nullIfEmpty(filter.RoleType),
+		"search":              nullIfEmpty(payrollSearchPattern(filter.Search)),
 		"out_of_worked_hours": filter.OutOfWorkedHours,
 		// Bo'sh massiv NULL bo'lib ketadi → o'sha shart tekshirilmaydi.
 		"roles":       pq.StringArray(filter.Roles),
@@ -993,12 +994,13 @@ func (s *Services) GetStorePayrollStatistics(
 
 	var stats domain.StorePayrollStatistics
 	err = s.db.WithContext(ctx).Raw(storePayrollStatisticsQuery, map[string]any{
-		"year":       period.Year,
-		"month":      period.Month,
-		"company_id": nullIfEmpty(params.CompanyId),
-		"store_id":   nullIfEmpty(params.StoreId),
-		"status":     constants.GeneralStatusActive,
-		"roles":      pq.StringArray(payrollSalesRoles),
+		"year":           period.Year,
+		"month":          period.Month,
+		"company_id":     nullIfEmpty(params.CompanyId),
+		"store_id":       nullIfEmpty(params.StoreId),
+		"status":         constants.GeneralStatusActive,
+		"roles":          pq.StringArray(payrollSalesRoles),
+		"work_day_hours": payrollWorkDayHours,
 	}).Scan(&stats).Error
 	if err != nil {
 		s.log.Errorf("payroll: could not get store statistics: %v", err)
@@ -1039,7 +1041,7 @@ func (s *Services) GetPayrollStatistics(
 		s.log.Errorf("payroll: could not get statistics: %v", err)
 		return nil, period, domain.InternalServerError
 	}
-    
+
 	return &stats, period, nil
 }
 
@@ -1582,10 +1584,14 @@ SELECT
     -- jadvallaridan olinadi — cron hali qamramaganlar ham o'sha yerda sanaladi.
     COUNT(*)::int                  AS payroll_count,
     SUM(p.worked_hours)            AS worked_hours,
-    -- Do'konning umumiy norma soati: har bir xodimning oylik normasi qo'shiladi.
-    -- worked_hours bilan yonma-yon turadi, shuning uchun ikkalasi ham AYNAN bir
-    -- xil qatorlar bo'yicha yig'iladi — aks holda ularni solishtirib bo'lmasdi.
-    SUM(p.avg_monthly_hours)       AS avg_monthly_hours,
+    -- Do'konning umumiy norma soati shtat bo'yicha: ish kunlari × kunlik smena
+    -- default'i × stores.employee_count. Shtat kiritilmagan (0) bo'lsa — eski
+    -- qoida: har bir xodimning oylik normasi qo'shiladi.
+    -- Xodim qatoridagi avg_monthly_hours va actual_salary bunga TEGMAYDI.
+    CASE WHEN COALESCE(s.employee_count, 0) > 0
+         THEN MAX(p.month_work_days) * CAST(@work_day_hours AS numeric) * s.employee_count
+         ELSE SUM(p.avg_monthly_hours)
+    END                            AS avg_monthly_hours,
     SUM(p.salary_rate_amount)      AS salary_rate_amount,
     SUM(p.actual_salary_amount)    AS actual_salary_amount,
     SUM(p.individual_sales_amount) AS individual_sales_amount,
@@ -1609,6 +1615,7 @@ SELECT
       + p.deduction_fine_amount)   AS total_deduction,
     SUM(p.net_pay_amount)          AS net_pay_amount
 FROM employee_payrolls p
+JOIN stores s ON s.id = p.store_id
 WHERE p.year = @year
   AND p.month = @month
   AND p.store_id = ANY(CAST(@store_ids AS uuid[]))
@@ -1617,7 +1624,7 @@ WHERE p.year = @year
   -- qo'shib chiqqanda do'kon summasi bilan mos keladi.
   AND p.role_names && CAST(@roles AS text[])
   AND p.worked_hours > 0` + payrollOutOfWorkedHoursSQL + `
-GROUP BY p.store_id`
+GROUP BY p.store_id, s.employee_count`
 
 // storePayrollStatisticsQuery — do'konlar ro'yxatining yig'ma ko'rsatkichlari.
 //
@@ -1661,11 +1668,18 @@ payrolls_f AS (
       AND p.worked_hours > 0
 ),
 per_store AS (
-    SELECT store_id,
-           MAX(store_plan_amount)  AS store_plan_amount,
-           MAX(store_sales_amount) AS store_sales_amount
-    FROM payrolls_f
-    GROUP BY store_id
+    SELECT pf.store_id,
+           MAX(pf.store_plan_amount)  AS store_plan_amount,
+           MAX(pf.store_sales_amount) AS store_sales_amount,
+           -- Do'kon norma soati — storePayrollTotalsQuery bilan bir xil qoida:
+           -- shtat kiritilgan bo'lsa undan, aks holda xodimlar normasi yig'indisi.
+           CASE WHEN sf.employee_count > 0
+                THEN MAX(pf.month_work_days) * CAST(@work_day_hours AS numeric) * sf.employee_count
+                ELSE SUM(pf.avg_monthly_hours)
+           END AS avg_monthly_hours
+    FROM payrolls_f pf
+    JOIN stores_f sf ON sf.id = pf.store_id
+    GROUP BY pf.store_id, sf.employee_count
 )
 SELECT
     (SELECT COUNT(*) FROM stores_f)::bigint                             AS total_stores_count,
@@ -1674,7 +1688,7 @@ SELECT
     (SELECT COUNT(*) FROM payrolls_f)::bigint                           AS total_payroll_count,
 
     COALESCE(SUM(f.worked_hours), 0)      AS total_worked_hours,
-    COALESCE(SUM(f.avg_monthly_hours), 0) AS total_avg_monthly_hours,
+    COALESCE((SELECT SUM(avg_monthly_hours) FROM per_store), 0) AS total_avg_monthly_hours,
 
     COALESCE(SUM(f.salary_rate_amount), 0)      AS total_salary_rate_amount,
     COALESCE(SUM(f.actual_salary_amount), 0)    AS total_actual_salary_amount,
