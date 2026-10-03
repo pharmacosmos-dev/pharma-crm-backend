@@ -650,10 +650,12 @@ const (
 // bo'lsa: 30 dona = 1 pachka (ruxsat), 180 dona = 6 pachka (rad etiladi).
 //
 //	pachka > 5   — rad etiladi, mahsulot yetarli;
-//	pachka 1..5  — ruxsat, lekin hujjatdagi jami miqdor 10 dan oshmasligi kerak;
+//	pachka 1..5  — oxirgi 1 oyda shu do'konda sotilmagan bo'lsa rad etiladi (qoldiq yetarli);
+//	               sotilgan bo'lsa ruxsat, lekin hujjatdagi jami miqdor 10 dan oshmasligi kerak;
 //	pachka 0     — cheklovsiz, mahsulot umuman tugagan.
 //
 // So'rovdagi va hujjatdagi miqdor ham pachkada tushuniladi, shuning uchun ular o'girilmaydi.
+// sales.completed_at UTC wall-clock da yoziladi, shuning uchun chegara AT TIME ZONE 'UTC'.
 func (s *Services) checkQuickAddStockLimit(
 	ctx context.Context, tx *gorm.DB, req *domain.ReserveQuickDetailRequest, reserveId string,
 ) error {
@@ -661,6 +663,7 @@ func (s *Services) checkQuickAddStockLimit(
 		AvailableUnits  float64 `gorm:"column:available_units"`
 		CurrentQuantity float64 `gorm:"column:current_quantity"`
 		UnitPerPack     int     `gorm:"column:unit_per_pack"`
+		SoldLastMonth   bool    `gorm:"column:sold_last_month"`
 	}
 
 	query := `
@@ -675,10 +678,19 @@ func (s *Services) checkQuickAddStockLimit(
 			), 0) AS current_quantity,
 			COALESCE(NULLIF((
 				SELECT p.unit_per_pack FROM products p WHERE p.id = ?::uuid
-			), 0), 1) AS unit_per_pack`
+			), 0), 1) AS unit_per_pack,
+			EXISTS (
+				SELECT 1 FROM cart_items ci
+				JOIN store_products sp ON sp.id = ci.store_product_id
+				JOIN sales sl ON sl.id = ci.sale_id
+				WHERE sl.store_id = ?::uuid AND sp.product_id = ?::uuid
+				  AND sl.stage IN (?)
+				  AND sl.completed_at >= (NOW() - INTERVAL '1 month') AT TIME ZONE 'UTC'
+			) AS sold_last_month`
 
 	if err := tx.WithContext(ctx).
-		Raw(query, req.StoreId, req.ProductId, reserveId, req.ProductId, req.ProductId).
+		Raw(query, req.StoreId, req.ProductId, reserveId, req.ProductId, req.ProductId,
+			req.StoreId, req.ProductId, constants.FinishedSaleStages).
 		Scan(&row).Error; err != nil {
 		s.log.Errorf("reserve: could not check stock limit for product %s: %v", req.ProductId, err)
 		return domain.InternalServerError
@@ -698,6 +710,12 @@ func (s *Services) checkQuickAddStockLimit(
 
 	if availablePacks <= 0 {
 		return nil
+	}
+
+	if !row.SoldLastMonth {
+		return domain.NewError(http.StatusBadRequest, fmt.Sprintf(
+			"reserve.no_sales_last_month: sizda yetarli bor va oxirgi 1 oyda hech qanday savdo qilmagansiz, available_packs=%.2f, available_units=%.0f",
+			availablePacks, row.AvailableUnits))
 	}
 
 	if row.CurrentQuantity+req.Quantity > reserveLowStockMaxQuantity {
