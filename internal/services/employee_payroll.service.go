@@ -108,6 +108,15 @@ const payrollWorkDayHours = 8
 // kpi_bez_nds = false yoki boshqa role_type bo'lsa eski qoida o'zgarmaydi.
 const payrollNdsDivisor = 1.12
 
+// payrollOvertimeRateCap — normadan ORTIQ ishlangan soatlar uchun oylik stavka chegarasi.
+// worked_hours > avg_monthly_hours bo'lsa:
+//
+//	actual_salary = oklad + (worked_hours − avg_monthly_hours) × MIN(oklad, chegara) / avg_monthly_hours
+//
+// Masalan oklad 4 mln, norma 208, ishlagan 220: 4 mln + 12 × 3 mln / 208.
+// salary_rate_amount va employees.salary o'zgarmaydi.
+const payrollOvertimeRateCap = 3_000_000
+
 // storeRef — sahifalangan do'kon ro'yxati uchun minimal ma'lumot.
 //
 // Ikkala son ham employees/stores jadvallaridan keladi, payroll yig'indisidan
@@ -389,16 +398,17 @@ func (s *Services) recalculatePayrollMonth(
 	ctx context.Context, year, month int, calcDate time.Time,
 ) (int64, error) {
 	tx := s.db.WithContext(ctx).Exec(payrollUpsertQuery, map[string]any{
-		"year":            year,
-		"month":           month,
-		"calc_date":       calcDate.Format(constants.TimeOnlyDateFormat),
-		"status":          constants.GeneralStatusActive,
-		"draft":           domain.EmployeePayrollStatusDraft,
-		"work_day_hours":  payrollWorkDayHours,
-		"zav_role":        constants.RoleNameZavStore,
-		"head_pharmacist": domain.RoleTypeHeadPharmacist,
-		"pharmacist":      domain.RoleTypePharmacist,
-		"nds_divisor":     payrollNdsDivisor,
+		"year":              year,
+		"month":             month,
+		"calc_date":         calcDate.Format(constants.TimeOnlyDateFormat),
+		"status":            constants.GeneralStatusActive,
+		"draft":             domain.EmployeePayrollStatusDraft,
+		"work_day_hours":    payrollWorkDayHours,
+		"zav_role":          constants.RoleNameZavStore,
+		"head_pharmacist":   domain.RoleTypeHeadPharmacist,
+		"pharmacist":        domain.RoleTypePharmacist,
+		"nds_divisor":       payrollNdsDivisor,
+		"overtime_rate_cap": payrollOvertimeRateCap,
 	})
 	if tx.Error != nil {
 		return 0, fmt.Errorf("upsert payrolls: %w", tx.Error)
@@ -469,9 +479,16 @@ func (s *Services) UpdateEmployeePayrollAdvance(
 			FROM (
 				SELECT
 					x.*,
-					-- actual_salary yangi normadan hisoblanadi
-					COALESCE(ROUND(x.salary * (x.worked_hours
-						/ NULLIF(x.avg_monthly_hours, 0)), 2), 0) AS actual_salary
+					-- actual_salary yangi normadan hisoblanadi. Cron bilan bir xil:
+					-- normadan ortiq soatlar LEAST(oklad, chegara) soatbayidan.
+					COALESCE(ROUND(CASE
+						WHEN x.worked_hours > x.avg_monthly_hours
+						THEN x.salary
+							+ (x.worked_hours - x.avg_monthly_hours)
+							  * LEAST(x.salary, CAST(@overtime_rate_cap AS numeric))
+							  / NULLIF(x.avg_monthly_hours, 0)
+						ELSE x.salary * (x.worked_hours / NULLIF(x.avg_monthly_hours, 0))
+					END, 2), 0) AS actual_salary
 				FROM (
 					SELECT
 						r.id,
@@ -572,18 +589,19 @@ func (s *Services) UpdateEmployeePayrollAdvance(
 
 	err := s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		result := tx.Raw(payrollQuery, map[string]any{
-			"id":              id,
-			"card":            req.AdvanceCardAmount,
-			"cash":            req.AdvanceCashAmount,
-			"kpi":             req.KpiPercent,
-			"salary":          req.Salary,
-			"daily_hours":     req.DailyWorkHours,
-			"zav_role":        constants.RoleNameZavStore,
-			"kpi_bez_nds":     req.KpiBezNds,
-			"role_type":       req.RoleType,
-			"head_pharmacist": domain.RoleTypeHeadPharmacist,
-			"pharmacist":      domain.RoleTypePharmacist,
-			"nds_divisor":     payrollNdsDivisor,
+			"id":                id,
+			"card":              req.AdvanceCardAmount,
+			"cash":              req.AdvanceCashAmount,
+			"kpi":               req.KpiPercent,
+			"salary":            req.Salary,
+			"daily_hours":       req.DailyWorkHours,
+			"zav_role":          constants.RoleNameZavStore,
+			"kpi_bez_nds":       req.KpiBezNds,
+			"role_type":         req.RoleType,
+			"head_pharmacist":   domain.RoleTypeHeadPharmacist,
+			"pharmacist":        domain.RoleTypePharmacist,
+			"nds_divisor":       payrollNdsDivisor,
+			"overtime_rate_cap": payrollOvertimeRateCap,
 		}).Scan(&res)
 		if result.Error != nil {
 			s.log.Errorf("payroll: could not update payroll row: %v", result.Error)
@@ -1343,8 +1361,17 @@ base AS (
 ),
 calc AS (
     SELECT b.*,
-           -- avg_monthly_hours = 0 bo'lsa nolga bo'lish o'rniga 0 qaytadi
-           COALESCE(ROUND(b.salary_rate_amount * (b.worked_hours / NULLIF(b.avg_monthly_hours, 0)), 2), 0) AS actual_salary_amount,
+           -- Norma ichidagi soatlar o'z okladidan, normadan ORTIQ soatlar esa
+           -- oklad bilan chegara (qarang: payrollOvertimeRateCap) dan kichigining
+           -- soatbayidan hisoblanadi. avg_monthly_hours = 0 bo'lsa 0 qaytadi.
+           COALESCE(ROUND(CASE
+               WHEN b.worked_hours > b.avg_monthly_hours
+               THEN b.salary_rate_amount
+                    + (b.worked_hours - b.avg_monthly_hours)
+                      * LEAST(b.salary_rate_amount, CAST(@overtime_rate_cap AS numeric))
+                      / NULLIF(b.avg_monthly_hours, 0)
+               ELSE b.salary_rate_amount * (b.worked_hours / NULLIF(b.avg_monthly_hours, 0))
+           END, 2), 0) AS actual_salary_amount,
            -- DO'KON rejasi o'tgan KALENDAR kunlariga proporsional kesiladi:
            -- oy 31 kun, kecha 30-sana bo'lsa → reja * 30 / 31.
            -- Ish kuni emas, ketma-ket kun — buxgalteriya shu tartibda hisoblaydi.
