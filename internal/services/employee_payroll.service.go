@@ -29,7 +29,7 @@ import (
 //	expected_plan = store_targets.amount * (o'tgan kun / oydagi kun)
 //	achievement   = store_sales / expected_plan * 100
 //	kpi_percent   = 0%    (achievement < 80)
-//	                0.8%  (80 <= achievement < 90)
+//	                0.6%  (80 <= achievement < 90)
 //	                1.0%  (90 <= achievement < 100)
 //	                1.4%  (achievement >= 100)
 //	kpi_amount    = KPI bazasi * kpi_percent / 100
@@ -1390,7 +1390,7 @@ kpi_tier AS (
            CAST(CASE
                WHEN k.plan_achievement_percent >= 100 THEN 1.4
                WHEN k.plan_achievement_percent >= 90  THEN 1.0
-               WHEN k.plan_achievement_percent >= 80  THEN 0.8
+               WHEN k.plan_achievement_percent >= 80  THEN 0.6
                ELSE 0
            END AS numeric) AS plan_kpi_percent
     FROM kpi k
