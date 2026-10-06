@@ -637,12 +637,29 @@ const (
 	// qabul qilinmaydi: mahsulot yetarli, buyurtma berish kerak emas.
 	reserveEnoughStockQuantity = 5
 
-	// reserveLowStockMaxQuantity — qoldiq 1..5 oralig'ida bo'lsa hujjatdagi jami miqdor
-	// shundan oshmaydi. Cheklov so'rovdagi miqdorga emas, hujjatdagi YIG'INDIGA qo'yiladi:
-	// quick-add miqdorni ustiga qo'shib borgani uchun aks holda bir necha marta
-	// chaqirib chetlab o'tish mumkin bo'lardi.
-	reserveLowStockMaxQuantity = 10
+	// Narx bo'yicha miqdor chegarasi. Qimmat dorini ko'p rezerv qilib qo'yish mumkin emas.
+	// Cheklov so'rovdagi miqdorga emas, hujjatdagi YIG'INDIGA qo'yiladi: quick-add miqdorni
+	// ustiga qo'shib borgani uchun aks holda bir necha marta chaqirib chetlab o'tish mumkin.
+	reserveQuickPriceTierCheap  = 100000.0 // shu narxgacha — 10 ta
+	reserveQuickPriceTierMedium = 200000.0 // 100 000 dan 200 000 gacha — 5 ta
+	reserveQuickMaxCheap        = 10
+	reserveQuickMaxMedium       = 5
+	reserveQuickMaxExpensive    = 2
 )
+
+// reserveQuickAddMaxQuantity — mahsulot narxiga qarab hujjatga kiritish mumkin bo'lgan
+// maksimal miqdor. Narx topilmasa (hech qayerda qoldiq bo'lmagan yangi mahsulot) eng
+// yumshoq chegara — 10 ta — qo'llanadi.
+func reserveQuickAddMaxQuantity(retailPrice float64) float64 {
+	switch {
+	case retailPrice >= reserveQuickPriceTierMedium:
+		return reserveQuickMaxExpensive
+	case retailPrice > reserveQuickPriceTierCheap:
+		return reserveQuickMaxMedium
+	default:
+		return reserveQuickMaxCheap
+	}
+}
 
 // checkQuickAddStockLimit — do'kondagi qoldiqqa qarab quick-add ga ruxsat beradi.
 // Qoldiq PACHKA (upakovka) hisobida solishtiriladi: store_products.unit_quantity donada
@@ -651,8 +668,11 @@ const (
 //
 //	pachka > 5   — rad etiladi, mahsulot yetarli;
 //	pachka 1..5  — oxirgi 1 oyda shu do'konda sotilmagan bo'lsa rad etiladi (qoldiq yetarli);
-//	               sotilgan bo'lsa ruxsat, lekin hujjatdagi jami miqdor 10 dan oshmasligi kerak;
-//	pachka 0     — cheklovsiz, mahsulot umuman tugagan.
+//	pachka 0     — qoldiq yo'q, rezerv qilish mumkin (savdo tekshiruvi qo'llanmaydi).
+//
+// Narx chegarasi (10 / 5 / 2) esa YUQORIDAGI holatlarning hammasida ishlaydi — qoldiq
+// bor-yo'qligidan, sotilgan-sotilmaganidan va unit_per_pack qiymatidan qat'i nazar.
+// Shu sababli bo'linmaydigan (unit_per_pack = 1) dorilar ham cheksiz emas.
 //
 // So'rovdagi va hujjatdagi miqdor ham pachkada tushuniladi, shuning uchun ular o'girilmaydi.
 // sales.completed_at UTC wall-clock da yoziladi, shuning uchun chegara AT TIME ZONE 'UTC'.
@@ -664,6 +684,7 @@ func (s *Services) checkQuickAddStockLimit(
 		CurrentQuantity float64 `gorm:"column:current_quantity"`
 		UnitPerPack     int     `gorm:"column:unit_per_pack"`
 		SoldLastMonth   bool    `gorm:"column:sold_last_month"`
+		RetailPrice     float64 `gorm:"column:retail_price"`
 	}
 
 	query := `
@@ -686,11 +707,21 @@ func (s *Services) checkQuickAddStockLimit(
 				WHERE sl.store_id = ?::uuid AND sp.product_id = ?::uuid
 				  AND sl.stage IN (?)
 				  AND sl.completed_at >= (NOW() - INTERVAL '1 month') AT TIME ZONE 'UTC'
-			) AS sold_last_month`
+			) AS sold_last_month,
+			-- Narx shu do'kondagi qoldiqdan olinadi; do'konda qoldiq bo'lmasa boshqa
+			-- do'konlardagi narx, u ham bo'lmasa 0 (eng yumshoq chegara).
+			COALESCE(
+				(SELECT MAX(sp.retail_price) FROM store_products sp
+					WHERE sp.store_id = ?::uuid AND sp.product_id = ?::uuid),
+				(SELECT MAX(sp.retail_price) FROM store_products sp
+					WHERE sp.product_id = ?::uuid),
+				0
+			) AS retail_price`
 
 	if err := tx.WithContext(ctx).
 		Raw(query, req.StoreId, req.ProductId, reserveId, req.ProductId, req.ProductId,
-			req.StoreId, req.ProductId, constants.FinishedSaleStages).
+			req.StoreId, req.ProductId, constants.FinishedSaleStages,
+			req.StoreId, req.ProductId, req.ProductId).
 		Scan(&row).Error; err != nil {
 		s.log.Errorf("reserve: could not check stock limit for product %s: %v", req.ProductId, err)
 		return domain.InternalServerError
@@ -708,20 +739,20 @@ func (s *Services) checkQuickAddStockLimit(
 			availablePacks, row.AvailableUnits, unitPerPack, reserveEnoughStockQuantity))
 	}
 
-	if availablePacks <= 0 {
-		return nil
-	}
-
-	if !row.SoldLastMonth {
+	// Savdo tekshiruvi faqat qoldiq bor mahsulotga tegishli: qoldiq yo'q bo'lsa
+	// "sizda yetarli bor" deyishning ma'nosi yo'q.
+	if availablePacks > 0 && !row.SoldLastMonth {
 		return domain.NewError(http.StatusBadRequest, fmt.Sprintf(
 			"reserve.no_sales_last_month: sizda yetarli bor va oxirgi 1 oyda hech qanday savdo qilmagansiz, available_packs=%.2f, available_units=%.0f",
 			availablePacks, row.AvailableUnits))
 	}
 
-	if row.CurrentQuantity+req.Quantity > reserveLowStockMaxQuantity {
+	// Narx chegarasi har qanday holatda: qoldiq 0 bo'lsa ham, unit_per_pack = 1 bo'lsa ham.
+	maxQuantity := reserveQuickAddMaxQuantity(row.RetailPrice)
+	if row.CurrentQuantity+req.Quantity > maxQuantity {
 		return domain.NewError(http.StatusBadRequest, fmt.Sprintf(
-			"reserve.quantity_limit: max=%d, current=%.0f, requested=%.0f, available_packs=%.2f",
-			reserveLowStockMaxQuantity, row.CurrentQuantity, req.Quantity, availablePacks))
+			"reserve.quantity_limit: max=%.0f, current=%.0f, requested=%.0f, retail_price=%.0f, available_packs=%.2f",
+			maxQuantity, row.CurrentQuantity, req.Quantity, row.RetailPrice, availablePacks))
 	}
 
 	return nil

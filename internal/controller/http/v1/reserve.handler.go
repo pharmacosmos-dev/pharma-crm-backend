@@ -294,6 +294,10 @@ func (h *ReserveHandler) CreateDetail(c *gin.Context) {
 // @Description  miqdor USTIGA QO'SHILADI (almashtirilmaydi — buning uchun PUT /reserve-detail/{id}).
 // @Description  store_id bo'sh bo'lsa token'dagi do'kon ishlatiladi. Javobdagi reserve_id —
 // @Description  qaysi hujjatga tushgani.
+// @Description  Cheklovlar: qoldiq 5 pachkadan ko'p bo'lsa rad etiladi; qoldiq bor, lekin
+// @Description  oxirgi 1 oyda sotilmagan bo'lsa ham rad etiladi; narx bo'yicha hujjatdagi jami
+// @Description  miqdor — 100 000 gacha 10 ta, 100 000–200 000 oralig'ida 5 ta, 200 000 va
+// @Description  undan yuqorida 2 ta. Narx chegarasi qoldiq va unit_per_pack dan qat'i nazar ishlaydi.
 // @Tags         reserves
 // @Security     BearerAuth
 // @Accept       json

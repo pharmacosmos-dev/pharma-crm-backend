@@ -28126,7 +28126,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Bitta so'rov bilan qo'shish: do'konning ochiq hujjati (status != done) o'zi\ntopiladi, bo'lmasa yangisi ochiladi. Mahsulot hujjatda allaqachon bo'lsa\nmiqdor USTIGA QO'SHILADI (almashtirilmaydi — buning uchun PUT /reserve-detail/{id}).\nstore_id bo'sh bo'lsa token'dagi do'kon ishlatiladi. Javobdagi reserve_id —\nqaysi hujjatga tushgani.",
+                "description": "Bitta so'rov bilan qo'shish: do'konning ochiq hujjati (status != done) o'zi\ntopiladi, bo'lmasa yangisi ochiladi. Mahsulot hujjatda allaqachon bo'lsa\nmiqdor USTIGA QO'SHILADI (almashtirilmaydi — buning uchun PUT /reserve-detail/{id}).\nstore_id bo'sh bo'lsa token'dagi do'kon ishlatiladi. Javobdagi reserve_id —\nqaysi hujjatga tushgani.\nCheklovlar: qoldiq 5 pachkadan ko'p bo'lsa rad etiladi; qoldiq bor, lekin\noxirgi 1 oyda sotilmagan bo'lsa ham rad etiladi; narx bo'yicha hujjatdagi jami\nmiqdor — 100 000 gacha 10 ta, 100 000–200 000 oralig'ida 5 ta, 200 000 va\nundan yuqorida 2 ta. Narx chegarasi qoldiq va unit_per_pack dan qat'i nazar ishlaydi.",
                 "consumes": [
                     "application/json"
                 ],
