@@ -60,8 +60,8 @@ import (
 // employee_plan_amount (employee_targets) hisobga kirmaydi — u faqat ko'rsatish
 // uchun saqlanadi.
 //
-// store_sales `sales` jadvalidan olinadi (stage = 9, sale_type = 'SALE',
-// qaytarilmagan), oy boshidan calc_date'gacha — ya'ni do'konning haqiqiy
+// store_sales `sales` jadvalidan olinadi (stage IN (9, 11), completed_at bo'yicha,
+// qaytarishlar ayirilgan sof summa), oy boshidan calc_date'gacha — ya'ni do'konning haqiqiy
 // aylanmasi, xodimlarga biriktirilgan-biriktirilmaganidan qat'i nazar.
 //
 // Qolgan formulalar:
@@ -1255,17 +1255,24 @@ bonus_agg AS (
 -- do'kon va xodim kesimida ikkiga bo'linadi: do'kon summasi KPI uchun, xodim
 -- summasi ko'rsatish uchun.
 --
--- Filtr UpdateStoreTargetSales'dagi bilan bir xil: yakunlangan (stage = 9),
--- qaytarish operatsiyasi bo'lmagan (sale_type = 'SALE'), qaytarilmagan sotuvlar.
+-- Filtr GetSalesStats'dagi bilan bir xil: yakunlangan sotuv (stage = 9) va
+-- yakunlangan qaytarish (stage = 11, total_amount manfiy) completed_at bo'yicha.
+-- Ya'ni sof savdo: qisman qaytarishda asl chek butunlay emas, faqat qaytarilgan
+-- qism ayiriladi. Ilgari is_returned = true cheklar to'liq chiqarib tashlanardi.
+--
+-- Qaytarish cheki qaytarishni rasmiylashtirgan kassir nomiga yoziladi; summa
+-- parent_id orqali asl sotuvchi (va asl do'kon) hisobidan ayiriladi.
 sales_agg AS (
-    SELECT sl.store_id, sl.employee_id, SUM(sl.total_amount) AS amount
-    FROM sales sl, workdays w
-    WHERE sl.stage = 9
-      AND sl.sale_type = 'SALE'
-      AND sl.is_returned IS NOT TRUE
-      AND sl.created_at >= w.from_ts
-      AND sl.created_at <  w.to_ts
-    GROUP BY sl.store_id, sl.employee_id
+    SELECT CASE WHEN p.id IS NOT NULL THEN p.store_id    ELSE sl.store_id    END AS store_id,
+           CASE WHEN p.id IS NOT NULL THEN p.employee_id ELSE sl.employee_id END AS employee_id,
+           SUM(sl.total_amount) AS amount
+    FROM sales sl
+    CROSS JOIN workdays w
+    LEFT JOIN sales p ON p.id = sl.parent_id AND sl.sale_type = 'RETURN'
+    WHERE sl.stage IN (9, 11)
+      AND sl.completed_at >= w.from_ts
+      AND sl.completed_at <  w.to_ts
+    GROUP BY 1, 2
 ),
 -- Do'kon aylanmasi: xodimga biriktirilmagan sotuv ham kiradi.
 store_sales_agg AS (
