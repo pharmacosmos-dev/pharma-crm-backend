@@ -143,10 +143,10 @@ func (s *Services) GetStores(ctx context.Context, params *domain.StoreQueryParam
 func (s *Services) storeEmployeeCountQuery(ctx context.Context, params *domain.StoreEmployeeCountQueryParams) *gorm.DB {
 	qb := s.db.WithContext(ctx).
 		Model(&domain.Store{}).
-		// Xodim doirasi oylik hisoboti (payrollManagementFilterSQL) bilan AYNAN
-		// bir xil bo'lishi shart: ikkala ekran bir xil son ko'rsatishi kerak.
-		// Shu sababli status va rol filtri bu yerda ham qo'llanadi — savdo bilan
-		// bog'liq bo'lmagan xodimlar (menejer, buxgalter) sanoqqa kirmaydi.
+		// Rol filtri oylik tahrirlash ro'yxati (payrollManagementFilterSQL) bilan
+		// bir xil — savdo bilan bog'liq bo'lmagan xodimlar (menejer, buxgalter)
+		// sanoqqa kirmaydi. Farqi: bu yerda faqat aktiv xodimlar sanaladi, oylik
+		// ro'yxatida esa ishdan bo'shatilganlar ham ko'rinadi.
 		Joins(`
 			LEFT JOIN (
 				SELECT

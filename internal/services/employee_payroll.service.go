@@ -674,6 +674,10 @@ func (s *Services) UpdateEmployeePayrollAdvance(
 //
 // Ro'yxat ham, statistika ham AYNAN shu shartdan foydalanadi: aks holda ekrandagi
 // qatorlar bilan yuqoridagi yig'ma raqamlar bir-biriga mos kelmay qolardi.
+//
+// Ishdan bo'shatilgan (dismissed) xodimlar ham kiradi: ularga oxirgi oylik/avans
+// kiritilishi mumkin. Payroll qatori faqat aktiv xodimga yaratilgani uchun ular
+// faqat ishlagan oylarida ko'rinadi.
 const payrollManagementFilterSQL = `
 	WHERE p.year = @year
 	  AND p.month = @month
@@ -688,7 +692,6 @@ const payrollManagementFilterSQL = `
 	  AND (CAST(@search AS text)      IS NULL OR p.full_name ILIKE CAST(@search AS text)
 											  OR e.phone     ILIKE CAST(@search AS text))
 	  AND p.role_names && CAST(@roles AS text[])
-	  AND COALESCE(e.status, '') <> CAST(@dismissed AS text)
 	  AND e.deleted_at IS NULL
 	  AND EXISTS (
 		  SELECT 1
@@ -720,7 +723,6 @@ func payrollManagementArgs(
 		"staff":       nullIfEmpty(params.Staff),
 		"search":      nullIfEmpty(search),
 		"roles":       pq.StringArray(payrollSalesRoles),
-		"dismissed":   constants.GeneralStatusDismissed,
 	}
 }
 
