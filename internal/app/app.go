@@ -142,5 +142,13 @@ func RegisterCronJobs(service *services.Services) (*cron.Cron, error) {
 		service.UpdateEmployeeAttendanceDays()
 	})
 
+	// TEST: har 5 daqiqada. Prod uchun kunlik jadvalga qaytarish kerak, masalan
+	// "00 04 * * *" (09:00 Toshkent). Inkassatorlarga store_ids bo'yicha oxirgi
+	// 10 kunlik naqd savdo hisobotini incasso bot orqali Telegram'ga yuboradi.
+	c.AddFunc("*/5 * * * *", func() {
+		log.Println("Starting send incasso cash report...")
+		service.SendIncassoCashReport()
+	})
+
 	return c, nil
 }

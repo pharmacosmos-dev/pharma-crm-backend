@@ -30,6 +30,8 @@ type (
 	Telegram struct {
 		BotToken  string `yaml:"bot_token" env:"TELEGRAM_BOT_TOKEN"`
 		ChannelID string `yaml:"channel_id" env:"TELEGRAM_CHANNEL_ID"`
+		// Incasso — naqd savdo hisobotini inkassatorlarga yuboruvchi bot (oluvchilar: services/incasso_report.service.go)
+		IncassoBotToken   string `yaml:"incasso_bot_token" env:"TELEGRAM_INCASSO_BOT_TOKEN"`
 	}
 	// Token Secret Key -.
 	Secret struct {
@@ -89,6 +91,7 @@ func Load() Config {
 
 	c.Telegram.BotToken = cast.ToString(GetOrReturnDefaultValue("TELEGRAM_BOT_TOKEN", ""))
 	c.Telegram.ChannelID = cast.ToString(GetOrReturnDefaultValue("TELEGRAM_CHANNEL_ID", ""))
+	c.Telegram.IncassoBotToken = cast.ToString(GetOrReturnDefaultValue("TELEGRAM_INCASSO_BOT_TOKEN", ""))
 
 	c.PG.DbHost = cast.ToString(GetOrReturnDefaultValue("PG_HOST", "localhost"))
 	c.PG.DbPort = cast.ToString(GetOrReturnDefaultValue("PG_PORT", "5432"))
