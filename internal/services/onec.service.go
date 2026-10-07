@@ -48,7 +48,7 @@ func (s *Services) CreateImportFromOnec(ctx context.Context, req *domain.CreateO
 	importId, err := s.createNewImportOnImportingOnec(ctx, tx, &domain.ImportRequest{
 		StoreID:        store.Id,
 		DocumentNumber: req.Dok.DocumentNumber,
-		IsBlocked:      req.Apteka.Franshise,
+		IsBlocked:      req.Apteka.Franshise || req.Apteka.StoreCode == 2866,
 	})
 	if err != nil {
 		_ = tx.Rollback()
