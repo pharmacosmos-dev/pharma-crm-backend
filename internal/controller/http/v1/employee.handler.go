@@ -2186,9 +2186,7 @@ func (h *EmployeeHandler) UpdateEmployeePayrollManagement(c *gin.Context) {
 		handleServiceResponse(c, BadRequest, domain.InvalidRequestBodyError)
 		return
 	}
-	// Telefon berilgan bo'lsa formati /employee [post] va /employee/{id} [put]
-	// bilan AYNAN bir xil qoidada tekshiriladi — login shu raqam bo'yicha
-	// ishlaydi. Bandligi esa xizmat qatlamida, transaksiya ichida ko'riladi.
+	
 	if body.Phone != nil && !utils.IsValidPhone(*body.Phone) {
 		handleResponse(c, BadRequest, "Invalid phone number, Format: 998901234567")
 		return

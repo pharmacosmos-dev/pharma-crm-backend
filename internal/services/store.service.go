@@ -314,6 +314,11 @@ func (s *Services) GetAllStoreMapInfo(ctx context.Context, params *domain.StoreM
 			stores.updated_at,
 
 			ST_AsText(stores.coordinates) AS coordinates,
+			CASE
+				WHEN stores.location ~ '^\s*-?\d+(\.\d+)?\s*,\s*-?\d+(\.\d+)?\s*$'
+				THEN 'POINT(' || TRIM(SPLIT_PART(stores.location, ',', 2)) || ' '
+				              || TRIM(SPLIT_PART(stores.location, ',', 1)) || ')'
+			END AS location,
 
 			COALESCE(attendance.is_open, false) AS is_open
 		`).
@@ -431,6 +436,13 @@ func (s *Services) GetStoreByIdMapInfo(ctx context.Context, storeId string) (*do
 			stores.updated_at,
 
 			ST_AsText(stores.coordinates) AS coordinates,
+
+			-- stores.location "lat,long" matn; Point.Scan uchun POINT(long lat) ga aylantiriladi
+			CASE
+				WHEN stores.location ~ '^\s*-?\d+(\.\d+)?\s*,\s*-?\d+(\.\d+)?\s*$'
+				THEN 'POINT(' || TRIM(SPLIT_PART(stores.location, ',', 2)) || ' '
+				              || TRIM(SPLIT_PART(stores.location, ',', 1)) || ')'
+			END AS location,
 
 			COALESCE(sales.sales_amount, 0) AS sales_amount,
 			COALESCE(sales.sales_count, 0) AS sales_count,

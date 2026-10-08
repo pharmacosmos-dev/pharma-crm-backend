@@ -454,8 +454,7 @@ func (s *Services) recalculatePayrollMonth(
 func (s *Services) UpdateEmployeePayrollAdvance(
 	ctx context.Context, id, updatedBy string, req *domain.EmployeePayrollAdvanceRequest,
 ) (*domain.EmployeePayroll, error) {
-	// Yangi qiymatlar ichki SELECT'da BIR MARTA hisoblanadi, keyin SET ularga
-	// murojaat qiladi — shunda uzun ifodalar takrorlanmaydi.
+
 	const payrollQuery = `
 		UPDATE employee_payrolls p
 		SET employee_kpi_percent = n.kpi_percent,
