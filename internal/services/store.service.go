@@ -313,7 +313,14 @@ func (s *Services) GetAllStoreMapInfo(ctx context.Context, params *domain.StoreM
 			stores.created_at,
 			stores.updated_at,
 
-			ST_AsText(stores.coordinates) AS coordinates,
+			COALESCE(
+				ST_AsText(stores.coordinates),
+				CASE
+					WHEN stores.location ~ '^\s*-?\d+(\.\d+)?\s*,\s*-?\d+(\.\d+)?\s*$'
+					THEN 'POINT(' || TRIM(SPLIT_PART(stores.location, ',', 2)) || ' '
+					              || TRIM(SPLIT_PART(stores.location, ',', 1)) || ')'
+				END
+			) AS coordinates,
 			CASE
 				WHEN stores.location ~ '^\s*-?\d+(\.\d+)?\s*,\s*-?\d+(\.\d+)?\s*$'
 				THEN 'POINT(' || TRIM(SPLIT_PART(stores.location, ',', 2)) || ' '
@@ -354,7 +361,7 @@ func (s *Services) GetAllStoreMapInfo(ctx context.Context, params *domain.StoreM
 		`, constants.GeneralStatusActive, constants.RoleNameCashier, constants.RoleNameZavStore).
 		Where("stores.deleted_at IS NULL").
 		Where("stores.is_active = TRUE").
-		Where("stores.coordinates IS NOT NULL")
+		Where(`(stores.coordinates IS NOT NULL OR stores.location ~ '^\s*-?\d+(\.\d+)?\s*,\s*-?\d+(\.\d+)?\s*$')`)
 
 	if params.Search != "" {
 		searchPattern := fmt.Sprintf("%%%s%%", params.Search)
@@ -435,7 +442,14 @@ func (s *Services) GetStoreByIdMapInfo(ctx context.Context, storeId string) (*do
 			stores.created_at,
 			stores.updated_at,
 
-			ST_AsText(stores.coordinates) AS coordinates,
+			COALESCE(
+				ST_AsText(stores.coordinates),
+				CASE
+					WHEN stores.location ~ '^\s*-?\d+(\.\d+)?\s*,\s*-?\d+(\.\d+)?\s*$'
+					THEN 'POINT(' || TRIM(SPLIT_PART(stores.location, ',', 2)) || ' '
+					              || TRIM(SPLIT_PART(stores.location, ',', 1)) || ')'
+				END
+			) AS coordinates,
 
 			-- stores.location "lat,long" matn; Point.Scan uchun POINT(long lat) ga aylantiriladi
 			CASE

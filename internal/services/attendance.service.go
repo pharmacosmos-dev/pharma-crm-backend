@@ -361,7 +361,8 @@ func (s *Services) DeleteAttendanceLog(ctx context.Context, id string) error {
 // Doira GetAllStoreMapInfo'dagi is_open bilan AYNAN bir xil bo'lishi shart,
 // aks holda xarita va statistika turli raqam ko'rsatadi:
 //
-//	do'konlar — deleted_at IS NULL, is_active = TRUE, coordinates IS NOT NULL
+//	do'konlar — deleted_at IS NULL, is_active = TRUE, coordinates yoki
+//	            "lat,long" formatidagi location bor
 //	xodimlar  — deleted_at IS NULL, is_active = TRUE, status = 'active',
 //	            roli "Кассир" yoki "Заведующий" (employee_roles → roles.name) va
 //	            attendance_logs'da kamida bitta yozuvi bor (face-id'dan o'tgan)
@@ -432,7 +433,9 @@ func (s *Services) GetAttendanceStats(
 		    WHERE deleted_at IS NULL
 		      AND is_active = TRUE
 		      -- xaritada ko'rinadigan do'konlar: koordinatasizlari sanoqqa kirmaydi
-		      AND coordinates IS NOT NULL
+		      -- (regex'da "?" o'rniga {0,1} — "?" bu yerda parametr belgisi)
+		      AND (coordinates IS NOT NULL
+		           OR location ~ '^\s*-{0,1}\d+(\.\d+){0,1}\s*,\s*-{0,1}\d+(\.\d+){0,1}\s*$')
 		      AND %s
 		),
 		scope_employees AS (
