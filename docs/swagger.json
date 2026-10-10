@@ -21519,7 +21519,7 @@
                         "BearerAuth": []
                     }
                 ],
-                "description": "1C yuborgan rezerv mahsulotlar ro'yxati, doim ORDER BY sort_index ASC (1C tartibi).\nis_active berilmasa aktiv va deaktiv qatorlar birga qaytadi.\nRo'yxatga do'konning ochiq rezerv hujjatiga kiritilgan, lekin 1C ro'yxatida yo'q\nmahsulotlar ham qo'shiladi — ular source=\"manual\" va sort_index=0 bilan boshida turadi.\nHar qatorda product_id, unit_per_pack, do'kondagi qoldiq (available_quantity),\nochiq hujjatga kiritilgan miqdor (reserved_quantity) va o'sha qator id'si\n(reserve_detail_id) qaytadi; hujjat done bo'lsa yoki bo'lmasa — 0.\nhas_history — mahsulotning harakat tarixi: false bo'lsa hech qanday kirim,\ntransfer yoki sotuv bo'lmagan, ya'ni frontend uni yangi mahsulot deb belgilaydi.\nstore_id berilsa o'sha do'kon bo'yicha, berilmasa barcha do'konlar bo'yicha.\nSavdo dinamikasi (sold_quantity_15d, sold_quantity_prev_15d, sold_change_percent) —\nhar doim BARCHA aptekalar bo'yicha, store_id ga bog'liq emas: 1C importida\nhisoblanib ustunlarga yoziladi. Oldingi 15 kunda savdo bo'lmasa foiz null (0 emas).",
+                "description": "1C yuborgan rezerv mahsulotlar ro'yxati, default ORDER BY sort_index ASC (1C tartibi);\ntop_selling=true bo'lsa sold_quantity_15d DESC (eng ko'p sotilgan birinchi), teng bo'lsa sort_index ASC.\nis_active berilmasa aktiv va deaktiv qatorlar birga qaytadi.\nRo'yxatga do'konning ochiq rezerv hujjatiga kiritilgan, lekin 1C ro'yxatida yo'q\nmahsulotlar ham qo'shiladi — ular source=\"manual\" va sort_index=0 bilan boshida turadi (top_selling=true da sold_quantity_15d=0 bo'lgani uchun oxirida).\nHar qatorda product_id, unit_per_pack, do'kondagi qoldiq (available_quantity),\nochiq hujjatga kiritilgan miqdor (reserved_quantity) va o'sha qator id'si\n(reserve_detail_id) qaytadi; hujjat done bo'lsa yoki bo'lmasa — 0.\nhas_history — mahsulotning harakat tarixi: false bo'lsa hech qanday kirim,\ntransfer yoki sotuv bo'lmagan, ya'ni frontend uni yangi mahsulot deb belgilaydi.\nstore_id berilsa o'sha do'kon bo'yicha, berilmasa barcha do'konlar bo'yicha.\nSavdo dinamikasi (sold_quantity_15d, sold_quantity_prev_15d, sold_change_percent) —\nhar doim BARCHA aptekalar bo'yicha, store_id ga bog'liq emas: 1C importida\nhisoblanib ustunlarga yoziladi. Oldingi 15 kunda savdo bo'lmasa foiz null (0 emas).",
                 "consumes": [
                     "application/json"
                 ],
@@ -21541,6 +21541,12 @@
                         "type": "boolean",
                         "description": "true — hozirgi 1C ro'yxatidagilar, false — chiqib ketganlar",
                         "name": "is_active",
+                        "in": "query"
+                    },
+                    {
+                        "type": "boolean",
+                        "description": "true — eng ko'p sotilgan (sold_quantity_15d DESC) bo'yicha tartiblash, false/berilmasa — sort_index (1C tartibi)",
+                        "name": "top_selling",
                         "in": "query"
                     },
                     {
