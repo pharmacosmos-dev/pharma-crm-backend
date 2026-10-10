@@ -724,6 +724,26 @@ func (h *InventoryHandler) InventoryDetailExport(c *gin.Context) {
 		return
 	}
 
+	// franchise store bo'lsa supply_price ham yuklanadi
+	isFranchise, err := h.service.IsInventoryStoreFranchise(ctx, params.StoreId, params.InventoryId)
+	if err != nil {
+		handleServiceResponse(c, InternalError, err)
+		return
+	}
+
+	var supplyPrices map[string]float64
+	if isFranchise {
+		productIds := make([]string, 0, len(res))
+		for _, imp := range res {
+			productIds = append(productIds, imp.ProductId)
+		}
+		supplyPrices, err = h.service.InventoryDetailSupplyPrices(ctx, params.InventoryId, productIds)
+		if err != nil {
+			handleServiceResponse(c, InternalError, err)
+			return
+		}
+	}
+
 	// Excel fayl yaratish
 	f := excelize.NewFile()
 	sheetName := "List1"
@@ -731,6 +751,9 @@ func (h *InventoryHandler) InventoryDetailExport(c *gin.Context) {
 
 	// Headerlar
 	headers := []string{"Код", "Наименования", "УП", "Програм Кол-во", "Програм Кол-во", "Програм Сумма", "Факт Кол-во", "Факт Кол-во", "Факт Сумма", "Разница Кол-во", "Разница Кол-во", "Разница Сумма"}
+	if isFranchise {
+		headers = append(headers, "Цена поставки")
+	}
 
 	err = setExcelHeaders(f, sheetName, headers)
 	if err != nil {
@@ -754,6 +777,9 @@ func (h *InventoryHandler) InventoryDetailExport(c *gin.Context) {
 		f.SetCellValue(sheetName, "J"+row, imp.DifferenceQuantity)
 		f.SetCellValue(sheetName, "K"+row, fmt.Sprintf("%d(%d/%d)", int(imp.DifferenceQuantity), int(imp.DifferenceUnit), int(imp.UnitPerPack)))
 		f.SetCellValue(sheetName, "L"+row, imp.DifferenceSum)
+		if isFranchise {
+			f.SetCellValue(sheetName, "M"+row, supplyPrices[imp.ProductId])
+		}
 	}
 
 	saveExcelToUploads(c, f, *h.log, "inventory_details")

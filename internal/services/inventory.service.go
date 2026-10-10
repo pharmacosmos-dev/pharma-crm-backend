@@ -566,6 +566,57 @@ func (s *Services) InventoryDetailList(ctx context.Context, params *domain.Inven
 	return res, totalSumData, totalCount, nil
 }
 
+// check the store's company is franchise (store_id, or the inventory's store if store_id is empty)
+func (s *Services) IsInventoryStoreFranchise(ctx context.Context, storeId, inventoryId string) (bool, error) {
+	var isFranchise []bool
+	err := s.db.WithContext(ctx).Raw(`
+	SELECT c.is_franchise
+	FROM stores st
+		JOIN companies c ON c.id = st.company_id
+	WHERE st.id = COALESCE(NULLIF(?, '')::uuid, (SELECT store_id FROM imports WHERE id = ?))
+	`, storeId, inventoryId).Scan(&isFranchise).Error
+	if err != nil {
+		s.log.Errorf("could not get store is_franchise for inventory export: %v", err)
+		return false, domain.InternalServerError
+	}
+	if len(isFranchise) == 0 {
+		return false, nil
+	}
+
+	return isFranchise[0], nil
+}
+
+// get supply prices of inventory products (product_id -> supply_price)
+func (s *Services) InventoryDetailSupplyPrices(ctx context.Context, inventoryId string, productIds []string) (map[string]float64, error) {
+	res := make(map[string]float64, len(productIds))
+	if len(productIds) == 0 {
+		return res, nil
+	}
+
+	var rows []struct {
+		ProductId   string  `gorm:"product_id"`
+		SupplyPrice float64 `gorm:"supply_price"`
+	}
+	err := s.db.WithContext(ctx).Raw(`
+	SELECT
+		imd.product_id,
+		MAX(imd.supply_price_vat) AS supply_price
+	FROM import_details imd
+	WHERE imd.import_id = ? AND imd.product_id IN ?
+	GROUP BY imd.product_id
+	`, inventoryId, productIds).Scan(&rows).Error
+	if err != nil {
+		s.log.Errorf("could not get inventory detail supply prices: %v", err)
+		return res, domain.InternalServerError
+	}
+
+	for _, row := range rows {
+		res[row.ProductId] = row.SupplyPrice
+	}
+
+	return res, nil
+}
+
 func (s *Services) InventoryDetailTotalStats(ctx context.Context, params *domain.InventoryParam) (*domain.InventoryDetailTotalStats, error) {
 	var res domain.InventoryDetailTotalStats
 
