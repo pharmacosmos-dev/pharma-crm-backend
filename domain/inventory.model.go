@@ -92,6 +92,15 @@ type InventoryDetail struct {
 	TotalCount         int64      `gorm:"total_count" json:"-"`
 }
 
+// InventoryDetailSupply supply price and sums of inventory product (franchise export)
+type InventoryDetailSupply struct {
+	ProductId           string  `gorm:"product_id" json:"product_id"`
+	SupplyPrice         float64 `gorm:"supply_price" json:"supply_price"`
+	CurrentSupplySum    float64 `gorm:"current_supply_sum" json:"current_supply_sum"`
+	FactSupplySum       float64 `gorm:"fact_supply_sum" json:"fact_supply_sum"`
+	DifferenceSupplySum float64 `gorm:"difference_supply_sum" json:"difference_supply_sum"`
+}
+
 // InventoryDetailRequest structure
 type InventoryDetailRequest struct {
 	InventoryId string `gorm:"inventory_id" json:"inventory_id"`

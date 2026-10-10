@@ -731,7 +731,7 @@ func (h *InventoryHandler) InventoryDetailExport(c *gin.Context) {
 		return
 	}
 
-	var supplyPrices map[string]float64
+	var supplyPrices map[string]domain.InventoryDetailSupply
 	if isFranchise {
 		productIds := make([]string, 0, len(res))
 		for _, imp := range res {
@@ -752,7 +752,7 @@ func (h *InventoryHandler) InventoryDetailExport(c *gin.Context) {
 	// Headerlar
 	headers := []string{"Код", "Наименования", "УП", "Програм Кол-во", "Програм Кол-во", "Програм Сумма", "Факт Кол-во", "Факт Кол-во", "Факт Сумма", "Разница Кол-во", "Разница Кол-во", "Разница Сумма"}
 	if isFranchise {
-		headers = append(headers, "Цена поставки")
+		headers = append(headers, "Цена поставки", "Програм Сумма поставки", "Факт Сумма поставки", "Разница Сумма поставки")
 	}
 
 	err = setExcelHeaders(f, sheetName, headers)
@@ -778,7 +778,11 @@ func (h *InventoryHandler) InventoryDetailExport(c *gin.Context) {
 		f.SetCellValue(sheetName, "K"+row, fmt.Sprintf("%d(%d/%d)", int(imp.DifferenceQuantity), int(imp.DifferenceUnit), int(imp.UnitPerPack)))
 		f.SetCellValue(sheetName, "L"+row, imp.DifferenceSum)
 		if isFranchise {
-			f.SetCellValue(sheetName, "M"+row, supplyPrices[imp.ProductId])
+			supply := supplyPrices[imp.ProductId]
+			f.SetCellValue(sheetName, "M"+row, supply.SupplyPrice)
+			f.SetCellValue(sheetName, "N"+row, supply.CurrentSupplySum)
+			f.SetCellValue(sheetName, "O"+row, supply.FactSupplySum)
+			f.SetCellValue(sheetName, "P"+row, supply.DifferenceSupplySum)
 		}
 	}
 

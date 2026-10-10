@@ -586,22 +586,23 @@ func (s *Services) IsInventoryStoreFranchise(ctx context.Context, storeId, inven
 	return isFranchise[0], nil
 }
 
-// get supply prices of inventory products (product_id -> supply_price)
-func (s *Services) InventoryDetailSupplyPrices(ctx context.Context, inventoryId string, productIds []string) (map[string]float64, error) {
-	res := make(map[string]float64, len(productIds))
+// get supply price and supply sums of inventory products (product_id -> supply data)
+func (s *Services) InventoryDetailSupplyPrices(ctx context.Context, inventoryId string, productIds []string) (map[string]domain.InventoryDetailSupply, error) {
+	res := make(map[string]domain.InventoryDetailSupply, len(productIds))
 	if len(productIds) == 0 {
 		return res, nil
 	}
 
-	var rows []struct {
-		ProductId   string  `gorm:"product_id"`
-		SupplyPrice float64 `gorm:"supply_price"`
-	}
+	var rows []domain.InventoryDetailSupply
 	err := s.db.WithContext(ctx).Raw(`
 	SELECT
 		imd.product_id,
-		MAX(imd.supply_price_vat) AS supply_price
+		MAX(imd.supply_price_vat) AS supply_price,
+		ROUND(SUM(imd.supply_price_vat * (imd.received_count/p.unit_per_pack)), 2) AS current_supply_sum,
+		ROUND(SUM(imd.supply_price_vat * (imd.scanned_count/p.unit_per_pack)), 2) AS fact_supply_sum,
+		ROUND(SUM(imd.supply_price_vat * ((imd.scanned_count - imd.received_count)/p.unit_per_pack)), 2) AS difference_supply_sum
 	FROM import_details imd
+		JOIN products p ON imd.product_id = p.id
 	WHERE imd.import_id = ? AND imd.product_id IN ?
 	GROUP BY imd.product_id
 	`, inventoryId, productIds).Scan(&rows).Error
@@ -611,7 +612,7 @@ func (s *Services) InventoryDetailSupplyPrices(ctx context.Context, inventoryId 
 	}
 
 	for _, row := range rows {
-		res[row.ProductId] = row.SupplyPrice
+		res[row.ProductId] = row
 	}
 
 	return res, nil
