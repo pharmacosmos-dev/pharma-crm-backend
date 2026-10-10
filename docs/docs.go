@@ -21551,6 +21551,12 @@ const docTemplate = `{
                         "in": "query"
                     },
                     {
+                        "type": "boolean",
+                        "description": "false — faqat tarixi yo'q (yangi) mahsulotlar, true — faqat tarixi borlar; store_id bo'lsa o'sha do'kon bo'yicha, bo'lmasa barcha do'konlar",
+                        "name": "has_history",
+                        "in": "query"
+                    },
+                    {
                         "type": "string",
                         "description": "available_quantity shu do'kon bo'yicha; bo'sh bo'lsa token'dagi do'kon",
                         "name": "store_id",

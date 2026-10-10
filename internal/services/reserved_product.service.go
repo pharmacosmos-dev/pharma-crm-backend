@@ -224,7 +224,7 @@ func (s *Services) GetReservedProducts(
 		return nil, 0, err
 	}
 
-	unionSQL, unionArgs := reservedProductListSQL(params, openReserveId)
+	unionSQL, unionArgs := reservedProductListSQL(params, openReserveId, storeID)
 
 	var totalCount int64
 	if err := s.db.WithContext(ctx).
@@ -235,7 +235,12 @@ func (s *Services) GetReservedProducts(
 	}
 
 	listArgs := append(append([]any{}, unionArgs...), params.Limit, params.Offset)
-	listSQL := `SELECT * FROM (` + unionSQL + `) t ORDER BY t.sort_index ASC, t.material_code ASC LIMIT ? OFFSET ?`
+	// top_selling=true bo'lsa eng ko'p sotilgan birinchi (barcha aptekalar bo'yicha), aks holda 1C tartibi
+	orderBy := `t.sort_index ASC, t.material_code ASC`
+	if params.TopSelling {
+		orderBy = `t.sold_quantity_15d DESC, ` + orderBy
+	}
+	listSQL := `SELECT * FROM (` + unionSQL + `) t ORDER BY ` + orderBy + ` LIMIT ? OFFSET ?`
 
 	var products []domain.ReservedProduct
 	if err := s.db.WithContext(ctx).Raw(listSQL, listArgs...).Scan(&products).Error; err != nil {
@@ -290,7 +295,7 @@ func (s *Services) GetReservedProducts(
 // reservedProductListSQL — ro'yxatning UNION so'rovi va parametrlari.
 // Ikkinchi qism (qo'lda kiritilganlar) faqat ochiq hujjat bo'lganda qo'shiladi;
 // is_active=false so'ralganda ham qo'shilmaydi — ular "ro'yxatdan chiqqan" emas.
-func reservedProductListSQL(params *domain.ReservedProductQueryParams, openReserveId string) (string, []any) {
+func reservedProductListSQL(params *domain.ReservedProductQueryParams, openReserveId, storeID string) (string, []any) {
 	where := []string{"1 = 1"}
 	args := []any{}
 
@@ -301,6 +306,11 @@ func reservedProductListSQL(params *domain.ReservedProductQueryParams, openReser
 	if params.Search != "" {
 		where = append(where, "(rp.name ILIKE ? OR rp.material_code ILIKE ?)")
 		args = append(args, "%"+params.Search+"%", "%"+params.Search+"%")
+	}
+	if params.HasHistory != nil {
+		cond, condArgs := reservedProductHistoryFilter("rp.material_code", storeID, *params.HasHistory)
+		where = append(where, cond)
+		args = append(args, condArgs...)
 	}
 
 	// sold_* — importda hisoblangan, barcha do'konlar bo'yicha umumiy raqamlar.
@@ -335,6 +345,11 @@ func reservedProductListSQL(params *domain.ReservedProductQueryParams, openReser
 		manualWhere = append(manualWhere, "(rd.product_name ILIKE ? OR rd.material_code ILIKE ?)")
 		args = append(args, "%"+params.Search+"%", "%"+params.Search+"%")
 	}
+	if params.HasHistory != nil {
+		cond, condArgs := reservedProductHistoryFilter("rd.material_code", storeID, *params.HasHistory)
+		manualWhere = append(manualWhere, cond)
+		args = append(args, condArgs...)
+	}
 
 	// Qo'lda kiritilganlar 1C ro'yxatida yo'q, ya'ni umumiy sold_* raqamlari ham yo'q:
 	// store_id berilsa ular do'kon bo'yicha hisoblab to'ldiriladi.
@@ -356,6 +371,35 @@ func reservedProductListSQL(params *domain.ReservedProductQueryParams, openReser
 		WHERE ` + strings.Join(manualWhere, " AND ")
 
 	return query, args
+}
+
+// reservedProductHistoryFilter — has_history bo'yicha filtr, getReservedProductStockMap dagi
+// has_history bilan bir xil qoida: material_code bo'yicha topilgan (o'chirilmagan) mahsulotning
+// store_products qatori bormi. store_id berilsa o'sha do'kon bo'yicha, berilmasa barcha do'konlar.
+// Kod int'ga CASE orqali o'giriladi: raqam bo'lmagan kod xato bermaydi, NULL bo'lib hech narsaga
+// tushmaydi (ya'ni tarixi yo'q). Taqqoslash int'da — products.material_code indeksi ishlaydi.
+func reservedProductHistoryFilter(codeColumn, storeID string, hasHistory bool) (string, []any) {
+	cond := `EXISTS (
+			SELECT 1
+			FROM products hp
+			JOIN store_products hsp ON hsp.product_id = hp.id
+			WHERE hp.material_code = CASE WHEN btrim(` + codeColumn + `) ~ '^[0-9]{1,9}$'
+				THEN btrim(` + codeColumn + `)::int END
+				AND hp.deleted_at IS NULL`
+	args := []any{}
+	if storeID != "" {
+		cond += `
+				AND hsp.store_id = ?::uuid`
+		args = append(args, storeID)
+	}
+	cond += `
+		)`
+
+	if !hasHistory {
+		cond = "NOT " + cond
+	}
+
+	return cond, args
 }
 
 // reservedProductIntCodes — reserved_products.material_code (text) products.material_code

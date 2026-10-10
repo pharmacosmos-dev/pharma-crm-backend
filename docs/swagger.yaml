@@ -17337,6 +17337,11 @@ paths:
         in: query
         name: is_active
         type: boolean
+      - description: false — faqat tarixi yo'q (yangi) mahsulotlar, true — faqat tarixi
+          borlar; store_id bo'lsa o'sha do'kon bo'yicha, bo'lmasa barcha do'konlar
+        in: query
+        name: has_history
+        type: boolean
       - description: available_quantity shu do'kon bo'yicha; bo'sh bo'lsa token'dagi
           do'kon
         in: query

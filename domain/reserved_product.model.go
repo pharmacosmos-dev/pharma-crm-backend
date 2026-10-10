@@ -92,9 +92,11 @@ type ReservedProductImportResult struct {
 }
 
 type ReservedProductQueryParams struct {
-	Search   string `form:"search"`    // name yoki material_code bo'yicha
-	IsActive *bool  `form:"is_active"` // berilmasa — hammasi
-	StoreId  string `form:"store_id"`  // qoldiq shu do'kon bo'yicha; bo'sh bo'lsa token'dagi do'kon
-	Limit    int    `form:"limit"`
-	Offset   int    `form:"offset"`
+	Search     string `form:"search"`      // name yoki material_code bo'yicha
+	IsActive   *bool  `form:"is_active"`   // berilmasa — hammasi
+	HasHistory *bool  `form:"has_history"` // berilmasa — hammasi; store_id bo'lsa o'sha do'kon bo'yicha
+	TopSelling bool   `form:"top_selling"` // true — sold_quantity_15d DESC, aks holda sort_index ASC
+	StoreId    string `form:"store_id"`    // qoldiq shu do'kon bo'yicha; bo'sh bo'lsa token'dagi do'kon
+	Limit      int    `form:"limit"`
+	Offset     int    `form:"offset"`
 }
