@@ -378,6 +378,7 @@ type AddDiscountCard struct {
 // noor online order request
 type OnlineOrderRequest struct {
 	ShopId        string                  `json:"shop_id" binding:"required,uuid"`
+	ExternalId    string                  `json:"external_id"`
 	Products      []OnlineCartItemRequest `json:"product_ids" binding:"required,dive"`
 	ClientInfo    NoorClientInfo          `json:"client_info" binding:"required"`
 	DeliveryTime  string                  `json:"delivery_time"`

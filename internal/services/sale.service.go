@@ -169,6 +169,13 @@ func (s *Services) CreateReturnSale(ctx context.Context, req *domain.SaleReturnR
 }
 
 func (s *Services) CreateNoorSale(ctx context.Context, req *domain.OnlineOrderRequest) (int, error) {
+	// idempotency: return the first order if noor resends the same external_id
+	if saleNumber, found, err := s.getNoorSaleNumberByExternalId(ctx, req.ExternalId); err != nil {
+		return 0, err
+	} else if found {
+		return saleNumber, nil
+	}
+
 	// create sale id
 	saleId := uuid.New().String()
 
@@ -189,6 +196,7 @@ func (s *Services) CreateNoorSale(ctx context.Context, req *domain.OnlineOrderRe
 		Id:            saleId,
 		StoreId:       req.ShopId,
 		CustomerId:    customer.Id,
+		VendorOrderId: req.ExternalId,
 		ServiceType:   constants.ServiceTypeNoor,
 		ClientComment: req.ClientComment,
 		Items:         cartItems,
@@ -200,6 +208,30 @@ func (s *Services) CreateNoorSale(ctx context.Context, req *domain.OnlineOrderRe
 	go s.NotifyOnlineOrder(req.ShopId, res.SaleNumber)
 
 	return res.SaleNumber, nil
+}
+
+// get sale_number of noor order by external_id (stored in sales.vendor_order_id)
+func (s *Services) getNoorSaleNumberByExternalId(ctx context.Context, externalId string) (int, bool, error) {
+	if externalId == "" {
+		return 0, false, nil
+	}
+
+	var saleNumbers []int
+	err := s.db.WithContext(ctx).
+		Table("sales").
+		Where("vendor_order_id = ? AND service_type = ?", externalId, constants.ServiceTypeNoor).
+		Order("created_at").
+		Limit(1).
+		Pluck("sale_number", &saleNumbers).Error
+	if err != nil {
+		s.log.Errorf("could not get noor sale by external_id %s: %v", externalId, err)
+		return 0, false, domain.InternalServerError
+	}
+	if len(saleNumbers) == 0 {
+		return 0, false, nil
+	}
+
+	return saleNumbers[0], true, nil
 }
 
 // create sale for online order
