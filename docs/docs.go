@@ -40343,6 +40343,9 @@ const docTemplate = `{
                 "destination": {
                     "$ref": "#/definitions/domain.Point"
                 },
+                "external_id": {
+                    "type": "string"
+                },
                 "product_ids": {
                     "type": "array",
                     "items": {
