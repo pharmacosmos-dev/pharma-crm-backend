@@ -3371,10 +3371,22 @@ func (h *HelperHandler) UploadRequiresPrescription(c *gin.Context) {
 	}
 	defer xlsx.Close()
 
-	sheetName := xlsx.GetSheetName(0) // Assuming first sheet
-	rows, err := xlsx.GetRows(sheetName)
-	if err != nil {
-		handleResponse(c, InternalError, "Failed to get rows")
+	// Faylda bir nechta list bo'lishi mumkin: A1 = "material_code" bo'lgan listni olamiz
+	var rows [][]string
+	for _, sheetName := range xlsx.GetSheetList() {
+		sheetRows, err := xlsx.GetRows(sheetName)
+		if err != nil {
+			handleResponse(c, InternalError, "Failed to get rows")
+			return
+		}
+		if len(sheetRows) > 0 && len(sheetRows[0]) > 0 &&
+			strings.EqualFold(strings.TrimSpace(sheetRows[0][0]), "material_code") {
+			rows = sheetRows
+			break
+		}
+	}
+	if rows == nil {
+		handleResponse(c, BadRequest, "Sheet with \"material_code\" in A1 not found")
 		return
 	}
 
