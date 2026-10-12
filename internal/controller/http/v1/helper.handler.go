@@ -3333,7 +3333,7 @@ func parseLatitudeLongitude(value string) (latitude, longitude float64, location
 
 // UploadRequiresPrescription godoc
 // @Summary Upload requires prescription update excel
-// @Description Update requires_prescription from excel
+// @Description Update requires_prescription from excel (A: material_code, B: Да/Нет)
 // @Tags helper
 // @Security BearerAuth
 // @Accept multipart/form-data
@@ -3378,12 +3378,13 @@ func (h *HelperHandler) UploadRequiresPrescription(c *gin.Context) {
 		return
 	}
 
-	var materialCodes []int
+	// A ustun: material_code, B ustun: Да / Нет
+	var materialCodes, trueCodes, falseCodes []int
 	skipped := 0
 	total := len(rows)
 
 	for _, row := range rows {
-		if len(row) < 1 {
+		if len(row) < 2 {
 			skipped++
 			continue
 		}
@@ -3395,6 +3396,16 @@ func (h *HelperHandler) UploadRequiresPrescription(c *gin.Context) {
 		}
 		materialCode := int(f)
 
+		switch value := strings.TrimSpace(row[1]); {
+		case strings.EqualFold(value, "Да"):
+			trueCodes = append(trueCodes, materialCode)
+		case strings.EqualFold(value, "Нет"):
+			falseCodes = append(falseCodes, materialCode)
+		default:
+			skipped++
+			continue
+		}
+
 		materialCodes = append(materialCodes, materialCode)
 	}
 
@@ -3403,15 +3414,30 @@ func (h *HelperHandler) UploadRequiresPrescription(c *gin.Context) {
 		return
 	}
 
-	result := h.db.Exec(`
-		UPDATE products
-		SET requires_prescription = true,
-		    updated_at = now()
-		WHERE material_code = ANY(?)
-	`, pq.Array(materialCodes))
-
-	if result.Error != nil {
-		handleResponse(c, InternalError, result.Error.Error())
+	var updated int64
+	err = h.db.Transaction(func(tx *gorm.DB) error {
+		for _, group := range []struct {
+			value bool
+			codes []int
+		}{{true, trueCodes}, {false, falseCodes}} {
+			if len(group.codes) == 0 {
+				continue
+			}
+			result := tx.Exec(`
+				UPDATE products
+				SET requires_prescription = ?,
+				    updated_at = now()
+				WHERE material_code = ANY(?)
+			`, group.value, pq.Array(group.codes))
+			if result.Error != nil {
+				return result.Error
+			}
+			updated += result.RowsAffected
+		}
+		return nil
+	})
+	if err != nil {
+		handleResponse(c, InternalError, err.Error())
 		return
 	}
 
@@ -3431,7 +3457,7 @@ func (h *HelperHandler) UploadRequiresPrescription(c *gin.Context) {
 
 	handleResponse(c, OK, gin.H{
 		"total":     total,
-		"updated":   result.RowsAffected,
+		"updated":   updated,
 		"skipped":   skipped,
 		"not_found": notFound,
 	})

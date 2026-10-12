@@ -10726,7 +10726,8 @@ paths:
     post:
       consumes:
       - multipart/form-data
-      description: Update requires_prescription from excel
+      description: 'Update requires_prescription from excel (A: material_code, B:
+        Да/Нет)'
       parameters:
       - description: Excel file (.xlsx)
         in: formData

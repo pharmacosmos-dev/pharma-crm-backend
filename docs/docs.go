@@ -11837,7 +11837,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Update requires_prescription from excel",
+                "description": "Update requires_prescription from excel (A: material_code, B: Да/Нет)",
                 "consumes": [
                     "multipart/form-data"
                 ],
