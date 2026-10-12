@@ -432,8 +432,6 @@ func (s *Services) GetAttendanceStats(
 		    FROM stores
 		    WHERE deleted_at IS NULL
 		      AND is_active = TRUE
-		      -- xaritada ko'rinadigan do'konlar: koordinatasizlari sanoqqa kirmaydi
-		      -- (regex'da "?" o'rniga {0,1} — "?" bu yerda parametr belgisi)
 		      AND (coordinates IS NOT NULL
 		           OR location ~ '^\s*-{0,1}\d+(\.\d+){0,1}\s*,\s*-{0,1}\d+(\.\d+){0,1}\s*$')
 		      AND %s
