@@ -235,10 +235,12 @@ func (s *Services) GetReservedProducts(
 	}
 
 	listArgs := append(append([]any{}, unionArgs...), params.Limit, params.Offset)
-	// top_selling=true bo'lsa eng ko'p sotilgan birinchi (barcha aptekalar bo'yicha), aks holda 1C tartibi
+	// top_selling=true bo'lsa eng ko'p sotilgan birinchi (barcha aptekalar bo'yicha), aks holda 1C tartibi.
+	// Saralash PACHKA bo'yicha: 10 200 donali dorining 948 600 donasi = 93 pachka, 100 donali
+	// dorining 80 215 donasi = 802 pachka — dona bo'yicha saralansa tartib buzilardi.
 	orderBy := `t.sort_index ASC, t.material_code ASC`
 	if params.TopSelling {
-		orderBy = `t.sold_quantity_15d DESC, ` + orderBy
+		orderBy = `t.sold_packs_15d DESC, ` + orderBy
 	}
 	listSQL := `SELECT * FROM (` + unionSQL + `) t ORDER BY ` + orderBy + ` LIMIT ? OFFSET ?`
 
@@ -325,10 +327,20 @@ func reservedProductListSQL(params *domain.ReservedProductQueryParams, openReser
 			'1c'                        AS source,
 			rp.sold_quantity_15d        AS sold_quantity_15d,
 			rp.sold_quantity_prev_15d   AS sold_quantity_prev_15d,
+			-- Pachka hisobi: buyurtma pachkada beriladi, shuning uchun top_selling shu
+			-- qiymat bo'yicha saralanadi. unit_per_pack topilmasa (yoki 0 bo'lsa) 1 deb
+			-- olinadi, ya'ni bo'linmaydigan dorida dona = pachka.
+			ROUND(rp.sold_quantity_15d::numeric
+				/ COALESCE(NULLIF(lp.unit_per_pack, 0), 1), 2) AS sold_packs_15d,
+			ROUND(rp.sold_quantity_prev_15d::numeric
+				/ COALESCE(NULLIF(lp.unit_per_pack, 0), 1), 2) AS sold_packs_prev_15d,
 			rp.sold_change_percent      AS sold_change_percent,
 			rp.created_at               AS created_at,
 			rp.updated_at               AS updated_at
 		FROM reserved_products rp
+		LEFT JOIN products lp
+			ON lp.material_code = ` + reservedProductCodeAsInt("rp.material_code") + `
+			AND lp.deleted_at IS NULL
 		WHERE ` + strings.Join(where, " AND ")
 
 	if openReserveId == "" || (params.IsActive != nil && !*params.IsActive) {
@@ -351,8 +363,8 @@ func reservedProductListSQL(params *domain.ReservedProductQueryParams, openReser
 		args = append(args, condArgs...)
 	}
 
-	// Qo'lda kiritilganlar 1C ro'yxatida yo'q, ya'ni umumiy sold_* raqamlari ham yo'q:
-	// store_id berilsa ular do'kon bo'yicha hisoblab to'ldiriladi.
+	// Qo'lda kiritilganlar 1C ro'yxatida yo'q, ya'ni umumiy sold_* raqamlari ham yo'q —
+	// pachka hisobi ham 0, shuning uchun top_selling da ular oxirida qoladi.
 	query += `
 		UNION ALL
 		SELECT
@@ -364,6 +376,8 @@ func reservedProductListSQL(params *domain.ReservedProductQueryParams, openReser
 			'manual'                    AS source,
 			0::bigint                   AS sold_quantity_15d,
 			0::bigint                   AS sold_quantity_prev_15d,
+			0::numeric                  AS sold_packs_15d,
+			0::numeric                  AS sold_packs_prev_15d,
 			NULL::numeric               AS sold_change_percent,
 			rd.created_at               AS created_at,
 			rd.updated_at               AS updated_at
@@ -378,13 +392,20 @@ func reservedProductListSQL(params *domain.ReservedProductQueryParams, openReser
 // store_products qatori bormi. store_id berilsa o'sha do'kon bo'yicha, berilmasa barcha do'konlar.
 // Kod int'ga CASE orqali o'giriladi: raqam bo'lmagan kod xato bermaydi, NULL bo'lib hech narsaga
 // tushmaydi (ya'ni tarixi yo'q). Taqqoslash int'da — products.material_code indeksi ishlaydi.
+// reservedProductCodeAsInt — material_code (text) ni products.material_code (int) bilan
+// solishtirish uchun ifoda. Raqam bo'lmagan kod NULL bo'ladi va hech narsaga tushmaydi.
+// Taqqoslash int tarafda bo'lgani uchun products'dagi unique indeks ishlaydi — kodni
+// text'ga CAST qilsa butun jadval skanerlanardi.
+func reservedProductCodeAsInt(codeColumn string) string {
+	return `CASE WHEN btrim(` + codeColumn + `) ~ '^[0-9]{1,9}$' THEN btrim(` + codeColumn + `)::int END`
+}
+
 func reservedProductHistoryFilter(codeColumn, storeID string, hasHistory bool) (string, []any) {
 	cond := `EXISTS (
 			SELECT 1
 			FROM products hp
 			JOIN store_products hsp ON hsp.product_id = hp.id
-			WHERE hp.material_code = CASE WHEN btrim(` + codeColumn + `) ~ '^[0-9]{1,9}$'
-				THEN btrim(` + codeColumn + `)::int END
+			WHERE hp.material_code = ` + reservedProductCodeAsInt(codeColumn) + `
 				AND hp.deleted_at IS NULL`
 	args := []any{}
 	if storeID != "" {

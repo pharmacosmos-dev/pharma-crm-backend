@@ -26,6 +26,9 @@ type ReservedProduct struct {
 	// Savdo dinamikasi — har doim barcha aptekalar bo'yicha, store_id ga bog'liq emas.
 	SoldQuantity15d     int64      `json:"sold_quantity_15d" gorm:"column:sold_quantity_15d"`
 	SoldQuantityPrev15d int64      `json:"sold_quantity_prev_15d" gorm:"column:sold_quantity_prev_15d"`
+	// sold_quantity_* ning pachka hisobi (dona / unit_per_pack). top_selling shu bo'yicha saralaydi.
+	SoldPacks15d        float64    `json:"sold_packs_15d" gorm:"column:sold_packs_15d"`
+	SoldPacksPrev15d    float64    `json:"sold_packs_prev_15d" gorm:"column:sold_packs_prev_15d"`
 	SoldChangePercent   *float64   `json:"sold_change_percent" gorm:"column:sold_change_percent"`
 	IsActive            bool       `json:"is_active" gorm:"column:is_active"`
 	CreatedAt           *time.Time `json:"created_at" gorm:"column:created_at"`
