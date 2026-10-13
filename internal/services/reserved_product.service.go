@@ -235,12 +235,13 @@ func (s *Services) GetReservedProducts(
 	}
 
 	listArgs := append(append([]any{}, unionArgs...), params.Limit, params.Offset)
-	// top_selling=true bo'lsa eng ko'p sotilgan birinchi (barcha aptekalar bo'yicha), aks holda 1C tartibi.
-	// Saralash PACHKA bo'yicha: 10 200 donali dorining 948 600 donasi = 93 pachka, 100 donali
-	// dorining 80 215 donasi = 802 pachka — dona bo'yicha saralansa tartib buzilardi.
+	// top_selling=true bo'lsa eng ko'p PUL KELTIRGAN birinchi (barcha aptekalar bo'yicha),
+	// aks holda 1C tartibi. Saralash summa bo'yicha: sotilgan pachka × oxirgi importdagi
+	// pachka narxi — faqat dona yoki faqat pachka bo'yicha saralansa arzon dorilar yuqoriga
+	// chiqib ketardi.
 	orderBy := `t.sort_index ASC, t.material_code ASC`
 	if params.TopSelling {
-		orderBy = `t.sold_packs_15d DESC, ` + orderBy
+		orderBy = `t.sold_amount_15d DESC, ` + orderBy
 	}
 	listSQL := `SELECT * FROM (` + unionSQL + `) t ORDER BY ` + orderBy + ` LIMIT ? OFFSET ?`
 
@@ -327,13 +328,19 @@ func reservedProductListSQL(params *domain.ReservedProductQueryParams, openReser
 			'1c'                        AS source,
 			rp.sold_quantity_15d        AS sold_quantity_15d,
 			rp.sold_quantity_prev_15d   AS sold_quantity_prev_15d,
-			-- Pachka hisobi: buyurtma pachkada beriladi, shuning uchun top_selling shu
-			-- qiymat bo'yicha saralanadi. unit_per_pack topilmasa (yoki 0 bo'lsa) 1 deb
-			-- olinadi, ya'ni bo'linmaydigan dorida dona = pachka.
+			-- Pachka hisobi: buyurtma pachkada beriladi. unit_per_pack topilmasa (yoki 0
+			-- bo'lsa) 1 deb olinadi, ya'ni bo'linmaydigan dorida dona = pachka.
 			ROUND(rp.sold_quantity_15d::numeric
 				/ COALESCE(NULLIF(lp.unit_per_pack, 0), 1), 2) AS sold_packs_15d,
 			ROUND(rp.sold_quantity_prev_15d::numeric
 				/ COALESCE(NULLIF(lp.unit_per_pack, 0), 1), 2) AS sold_packs_prev_15d,
+			COALESCE(lprice.retail_price_vat, 0) AS retail_price_vat,
+			-- Summa = sotilgan pachka × oxirgi importdagi pachka narxi. top_selling shu
+			-- bo'yicha saralanadi: importda ham summa shunday hisoblanadi
+			-- (received_count × retail_price_vat), ya'ni narx pachkaga tegishli.
+			ROUND(rp.sold_quantity_15d::numeric
+				/ COALESCE(NULLIF(lp.unit_per_pack, 0), 1)
+				* COALESCE(lprice.retail_price_vat, 0), 2) AS sold_amount_15d,
 			rp.sold_change_percent      AS sold_change_percent,
 			rp.created_at               AS created_at,
 			rp.updated_at               AS updated_at
@@ -341,6 +348,15 @@ func reservedProductListSQL(params *domain.ReservedProductQueryParams, openReser
 		LEFT JOIN products lp
 			ON lp.material_code = ` + reservedProductCodeAsInt("rp.material_code") + `
 			AND lp.deleted_at IS NULL
+		-- Eng oxirgi importdagi narx: idx_import_details_product_created bo'yicha
+		-- index only scan, ya'ni mahsulotga bitta probe.
+		LEFT JOIN LATERAL (
+			SELECT idd.retail_price_vat
+			FROM import_details idd
+			WHERE idd.product_id = lp.id
+			ORDER BY idd.created_at DESC
+			LIMIT 1
+		) lprice ON TRUE
 		WHERE ` + strings.Join(where, " AND ")
 
 	if openReserveId == "" || (params.IsActive != nil && !*params.IsActive) {
@@ -378,6 +394,8 @@ func reservedProductListSQL(params *domain.ReservedProductQueryParams, openReser
 			0::bigint                   AS sold_quantity_prev_15d,
 			0::numeric                  AS sold_packs_15d,
 			0::numeric                  AS sold_packs_prev_15d,
+			0::numeric                  AS retail_price_vat,
+			0::numeric                  AS sold_amount_15d,
 			NULL::numeric               AS sold_change_percent,
 			rd.created_at               AS created_at,
 			rd.updated_at               AS updated_at

@@ -4715,10 +4715,11 @@ func (h *ProductHandler) PublicList(c *gin.Context) {
 // ListReservedProducts godoc
 // @Summary Get reserved products list
 // @Description 1C yuborgan rezerv mahsulotlar ro'yxati, default ORDER BY sort_index ASC (1C tartibi);
-// @Description top_selling=true bo'lsa sold_packs_15d DESC (eng ko'p sotilgan birinchi, PACHKA hisobida), teng bo'lsa sort_index ASC.
+// @Description top_selling=true bo'lsa sold_amount_15d DESC (eng ko'p pul keltirgan birinchi:
+// @Description sotilgan pachka × oxirgi importdagi retail_price_vat), teng bo'lsa sort_index ASC.
 // @Description is_active berilmasa aktiv va deaktiv qatorlar birga qaytadi.
 // @Description Ro'yxatga do'konning ochiq rezerv hujjatiga kiritilgan, lekin 1C ro'yxatida yo'q
-// @Description mahsulotlar ham qo'shiladi — ular source="manual" va sort_index=0 bilan boshida turadi (top_selling=true da sold_packs_15d=0 bo'lgani uchun oxirida).
+// @Description mahsulotlar ham qo'shiladi — ular source="manual" va sort_index=0 bilan boshida turadi (top_selling=true da sold_amount_15d=0 bo'lgani uchun oxirida).
 // @Description Har qatorda product_id, unit_per_pack, do'kondagi qoldiq (available_quantity),
 // @Description ochiq hujjatga kiritilgan miqdor (reserved_quantity) va o'sha qator id'si
 // @Description (reserve_detail_id) qaytadi; hujjat done bo'lsa yoki bo'lmasa — 0.
@@ -4730,14 +4731,16 @@ func (h *ProductHandler) PublicList(c *gin.Context) {
 // @Description hisoblanib ustunlarga yoziladi. Oldingi 15 kunda savdo bo'lmasa foiz null (0 emas).
 // @Description sold_packs_15d va sold_packs_prev_15d — o'sha raqamlarning pachka hisobi
 // @Description (dona / unit_per_pack): masalan 10 200 donali dorining 948 600 donasi = 93 pachka.
-// @Description top_selling saralashi aynan shu ustun bo'yicha ketadi; foiz ikkalasida ham bir xil.
+// @Description retail_price_vat — mahsulotning eng oxirgi importdagi pachka narxi (NDS bilan),
+// @Description sold_amount_15d — 15 kunlik savdo summasi (sold_packs_15d × retail_price_vat).
+// @Description top_selling saralashi aynan sold_amount_15d bo'yicha ketadi; foiz o'zgarmaydi.
 // @Tags products
 // @Security     BearerAuth
 // @Accept 	json
 // @Produce json
 // @Param 	search 		query string 	false "Nom yoki material_code bo'yicha qidiruv"
 // @Param 	is_active 	query bool 		false "true — hozirgi 1C ro'yxatidagilar, false — chiqib ketganlar"
-// @Param 	top_selling query bool 		false "true — eng ko'p sotilgan (sold_packs_15d DESC, pachka hisobida) bo'yicha tartiblash, false/berilmasa — sort_index (1C tartibi)"
+// @Param 	top_selling query bool 		false "true — eng ko'p pul keltirgan (sold_amount_15d DESC = pachka × oxirgi import narxi) bo'yicha tartiblash, false/berilmasa — sort_index (1C tartibi)"
 // @Param 	has_history query bool 		false "false — faqat tarixi yo'q (yangi) mahsulotlar, true — faqat tarixi borlar; store_id bo'lsa o'sha do'kon bo'yicha, bo'lmasa barcha do'konlar"
 // @Param 	store_id 	query string 	false "available_quantity shu do'kon bo'yicha; bo'sh bo'lsa token'dagi do'kon"
 // @Param 	limit 		query int 		false "Limit"
