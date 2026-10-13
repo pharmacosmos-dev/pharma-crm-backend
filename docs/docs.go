@@ -32859,6 +32859,52 @@ const docTemplate = `{
                 }
             }
         },
+        "/store-target/employee/recalculate": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "For every store target of the current month, redistributes the amount equally among the store's active employees. Dismissed/deleted employees are not counted but their targets are kept unchanged; active employees without an employee target get one; manually changed amounts are reset to the equal share. Sales of all current month employee targets are recalculated from the beginning of the month.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "store-target"
+                ],
+                "summary": "Recalculate employee targets of all stores",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/v1.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/domain.EmployeeTargetRecalculateResult"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    }
+                }
+            }
+        },
         "/store-target/employee/{employee_id}": {
             "put": {
                 "security": [
@@ -38877,6 +38923,20 @@ const docTemplate = `{
                 }
             }
         },
+        "domain.EmployeeTargetRecalculateResult": {
+            "type": "object",
+            "properties": {
+                "month": {
+                    "type": "integer"
+                },
+                "updated_stores": {
+                    "type": "integer"
+                },
+                "year": {
+                    "type": "integer"
+                }
+            }
+        },
         "domain.EmployeeTargetUpdateRequest": {
             "type": "object",
             "required": [
@@ -41116,7 +41176,6 @@ const docTemplate = `{
                     "type": "number"
                 },
                 "retail_price_vat": {
-                    "description": "Eng oxirgi importdagi pachka narxi va 15 kunlik savdo summasi\n(sold_packs_15d × retail_price_vat). top_selling shu summa bo'yicha saralaydi.",
                     "type": "number"
                 },
                 "sold_amount_15d": {

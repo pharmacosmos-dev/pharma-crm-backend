@@ -822,6 +822,84 @@ func (s *Services) UpdateEmployeeTargetSales() {
 	s.log.Infof("UpdateEmployeeTargetSales completed for %d-%02d", year, month)
 }
 
+
+// RecalculateEmployeeTargets - joriy oydagi BARCHA store_target'lar amount'ini
+// har bir do'konning active xodimlariga qaytadan teng taqsimlaydi.
+// dismissed/deleted xodimlar taqsimotda hisobga olinmaydi, ularning targeti o'chirilmaydi.
+// employee_targets'ga hali biriktirilmagan yangi active xodimlarga target yaratiladi.
+// Oxirida joriy oydagi barcha employee_targets sales'i oy boshidan qayta hisoblanadi.
+// Hammasi bitta transaction'da: biror qadam xato bersa hech narsa o'zgarmaydi.
+func (s *Services) RecalculateEmployeeTargets(ctx context.Context) (*domain.EmployeeTargetRecalculateResult, error) {
+	now := time.Now()
+	year := now.Year()
+	month := int(now.Month())
+
+	tx := s.db.WithContext(ctx).Begin()
+	if tx.Error != nil {
+		s.log.Errorf("could not begin recalculate employee targets transaction: %v", tx.Error)
+		return nil, domain.InternalServerError
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			tx.Rollback()
+			panic(r)
+		}
+	}()
+
+	var targets []domain.StoreTarget
+	if err := tx.
+		Where("year = ? AND month = ?", year, month).
+		Find(&targets).Error; err != nil {
+		tx.Rollback()
+		s.log.Errorf("could not get store targets for %d-%02d: %v", year, month, err)
+		return nil, domain.InternalServerError
+	}
+
+	for i := range targets {
+		if err := s.redistributeToEmployees(tx, &targets[i]); err != nil {
+			tx.Rollback()
+			s.log.Errorf("RecalculateEmployeeTargets: rollback, store %s failed: %v", targets[i].StoreId, err)
+			return nil, domain.InternalServerError
+		}
+	}
+
+	// Sales'ni oy boshidan qayta hisoblaymiz — chegarasi distributeToEmployees
+	// qo'yadigan synced_at bilan bir xil, natija cron hisoblaganidek chiqadi
+	startOfMonth := time.Date(year, time.Month(month), 1, 0, 0, 0, 0, time.Local)
+	if err := tx.Exec(`
+		UPDATE employee_targets et
+		SET
+			sales = COALESCE((
+				SELECT SUM(s.total_amount)
+				FROM sales s
+				WHERE s.store_id = et.store_id
+				AND s.employee_id = et.employee_id
+				AND s.stage = '9'
+				AND s.is_returned = false
+				AND s.created_at > ?
+			), 0),
+			synced_at = NOW()
+		WHERE et.year = ? AND et.month = ?
+	`, startOfMonth, year, month).Error; err != nil {
+		tx.Rollback()
+		s.log.Errorf("could not recalculate employee target sales for %d-%02d: %v", year, month, err)
+		return nil, domain.InternalServerError
+	}
+
+	if err := tx.Commit().Error; err != nil {
+		s.log.Errorf("could not commit recalculate employee targets transaction: %v", err)
+		return nil, domain.InternalServerError
+	}
+
+	s.log.Infof("RecalculateEmployeeTargets %d-%02d: %d stores updated", year, month, len(targets))
+
+	return &domain.EmployeeTargetRecalculateResult{
+		Year:          year,
+		Month:         month,
+		UpdatedStores: len(targets),
+	}, nil
+}
+
 // AutoCreateMonthlyStoreTargets - har oyning 1-kuni 00:00 da cron tomonidan chaqiriladi.
 // Oldingi oyda store_target bo'lgan har bir do'kon uchun yangi oy target mavjud bo'lmasa,
 // oldingi oyning amount'i bilan yangi store_target va employee_target'larni yaratadi.

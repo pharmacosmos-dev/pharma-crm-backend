@@ -38,6 +38,7 @@ func (h *StoreTargetHandler) StoreTargetRoutes(r *gin.RouterGroup) {
 		target.GET("/employee/list/:store_id", h.EmployeeHistory)
 		target.GET("/employee/my", h.GetMyEmployeeTarget)
 		target.PUT("/employee/:employee_id", h.UpdateEmployeeTarget)
+		target.POST("/employee/recalculate", h.RecalculateEmployeeTargets)
 		target.GET("/summary", h.Summary)
 		target.POST("/import-excel", h.ImportFromExcel)
 		target.GET("/export-excel", h.ExportStoreTargetExcel)
@@ -542,6 +543,36 @@ func (h *StoreTargetHandler) UpdateEmployeeTarget(c *gin.Context) {
 	}
 
 	handleResponse(c, OK, "updated")
+}
+
+// RecalculateEmployeeTargets godoc
+// @Summary      Recalculate employee targets of all stores
+// @Description  For every store target of the current month, redistributes the amount equally among the store's active employees. Dismissed/deleted employees are not counted but their targets are kept unchanged; active employees without an employee target get one; manually changed amounts are reset to the equal share. Sales of all current month employee targets are recalculated from the beginning of the month.
+// @Tags         store-target
+// @Security     BearerAuth
+// @Accept       json
+// @Produce      json
+// @Success      200 {object} v1.Response{data=domain.EmployeeTargetRecalculateResult}
+// @Failure      500 {object} v1.Response
+// @Router       /store-target/employee/recalculate [post]
+func (h *StoreTargetHandler) RecalculateEmployeeTargets(c *gin.Context) {
+	user := h.service.GetSignedUser(c)
+	if user.UserId == "" {
+		handleServiceResponse(c, nil, domain.UnauthorizedError)
+		return
+	}
+
+	// Barcha do'konlar bo'yicha ishlaydi — DefaultContextTimeout (30s) yetmasligi mumkin
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
+	defer cancel()
+
+	result, err := h.service.RecalculateEmployeeTargets(ctx)
+	if err != nil {
+		handleServiceResponse(c, nil, err)
+		return
+	}
+
+	handleResponse(c, OK, result)
 }
 
 // Summary godoc

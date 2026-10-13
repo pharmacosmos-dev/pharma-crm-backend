@@ -62,3 +62,10 @@ type EmployeeTargetQueryParams struct {
 	Limit      int    `form:"limit"`
 	Offset     int    `form:"offset"`
 }
+
+// RecalculateEmployeeTargets natijasi
+type EmployeeTargetRecalculateResult struct {
+	Year          int `json:"year"`
+	Month         int `json:"month"`
+	UpdatedStores int `json:"updated_stores"`
+}
