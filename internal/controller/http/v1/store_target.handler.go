@@ -547,7 +547,7 @@ func (h *StoreTargetHandler) UpdateEmployeeTarget(c *gin.Context) {
 
 // RecalculateEmployeeTargets godoc
 // @Summary      Recalculate employee targets of all stores
-// @Description  For every store target of the current month, redistributes the amount equally among the store's active employees. Dismissed/deleted employees are not counted but their targets are kept unchanged; active employees without an employee target get one; manually changed amounts are reset to the equal share. Sales of all current month employee targets are recalculated from the beginning of the month.
+// @Description  For every store target of the current month, redistributes the amount equally among the store's active employees with role_type pharmacist or head_pharmacist. Dismissed/deleted employees and other role types are not counted but their targets are kept unchanged; active employees without an employee target get one; manually changed amounts are reset to the equal share. Sales of all current month employee targets are recalculated from the beginning of the month.
 // @Tags         store-target
 // @Security     BearerAuth
 // @Accept       json

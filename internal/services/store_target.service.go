@@ -159,10 +159,15 @@ func (s *Services) distributeToEmployees(tx *gorm.DB, target *domain.StoreTarget
 // redistributeToEmployees - store_target amount'i o'zgarganda xodim targetlarini qayta hisoblaydi.
 // Mavjud employee target bo'lsa amount'ini UPDATE qiladi (sales saqlanadi),
 // yangi xodim bo'lsa CREATE qiladi.
-func (s *Services) redistributeToEmployees(tx *gorm.DB, target *domain.StoreTarget) error {
+// roleTypes berilsa, faqat shu role_type'dagi xodimlar orasida taqsimlanadi.
+func (s *Services) redistributeToEmployees(tx *gorm.DB, target *domain.StoreTarget, roleTypes ...string) error {
+	query := tx.Where("store_id = ? AND status = ?", target.StoreId, "active")
+	if len(roleTypes) > 0 {
+		query = query.Where("role_type IN ?", roleTypes)
+	}
+
 	var employees []domain.Employee
-	if err := tx.Where("store_id = ? AND status = ?", target.StoreId, "active").
-		Find(&employees).Error; err != nil {
+	if err := query.Find(&employees).Error; err != nil {
 		s.log.Errorf("could not get employees for store %s: %v", target.StoreId, err)
 		return err
 	}
@@ -824,8 +829,9 @@ func (s *Services) UpdateEmployeeTargetSales() {
 
 
 // RecalculateEmployeeTargets - joriy oydagi BARCHA store_target'lar amount'ini
-// har bir do'konning active xodimlariga qaytadan teng taqsimlaydi.
-// dismissed/deleted xodimlar taqsimotda hisobga olinmaydi, ularning targeti o'chirilmaydi.
+// har bir do'konning active pharmacist va head_pharmacist xodimlariga qaytadan teng taqsimlaydi.
+// dismissed/deleted va boshqa role_type'dagi xodimlar taqsimotda hisobga olinmaydi,
+// ularning targeti o'chirilmaydi.
 // employee_targets'ga hali biriktirilmagan yangi active xodimlarga target yaratiladi.
 // Oxirida joriy oydagi barcha employee_targets sales'i oy boshidan qayta hisoblanadi.
 // Hammasi bitta transaction'da: biror qadam xato bersa hech narsa o'zgarmaydi.
@@ -856,7 +862,8 @@ func (s *Services) RecalculateEmployeeTargets(ctx context.Context) (*domain.Empl
 	}
 
 	for i := range targets {
-		if err := s.redistributeToEmployees(tx, &targets[i]); err != nil {
+		if err := s.redistributeToEmployees(tx, &targets[i],
+			domain.RoleTypePharmacist, domain.RoleTypeHeadPharmacist); err != nil {
 			tx.Rollback()
 			s.log.Errorf("RecalculateEmployeeTargets: rollback, store %s failed: %v", targets[i].StoreId, err)
 			return nil, domain.InternalServerError
