@@ -53,6 +53,7 @@ func (h *EmployeeHandler) EmployeeRoutes(r *gin.RouterGroup) {
 		employee.GET("/attendance/list", h.AttendanceList)
 		employee.GET("/attendance/stats", h.AttendanceStats)
 		employee.GET("/attendance-days/list", h.EmployeeAttendanceDayList)
+		employee.POST("/attendance-days/aggregate", h.AggregateEmployeeAttendanceDays)
 		employee.POST("/attendance-manual", h.CreateAttendanceLogManual)
 		employee.PUT("/attendance-logs/:id", h.UpdateAttendanceLog)
 		employee.DELETE("/attendance-logs/:id", h.DeleteAttendanceLog)
@@ -1586,6 +1587,55 @@ func (h *EmployeeHandler) StorePayrollList(c *gin.Context) {
 	result["period"] = period
 
 	handleResponse(c, OK, result)
+}
+
+// AggregateEmployeeAttendanceDays godoc
+// @Summary      Aggregate employee attendance days for current month
+// @Description  Bitta xodim uchun joriy oyning (Toshkent vaqti) 1-sanasidan kechagi kungacha attendance_logs'da
+// @Description  ham check-in, ham check-out bo'lgan har bir kunni employee_attendance_days'ga yozadi
+// @Description  (mavjud bo'lsa yangilaydi). worked_minutes = shu kundagi check-in→check-out juftlari yig'indisi.
+// @Description  Hisob kunlik cron (AggregateEmployeeAttendanceDays) bilan bir xil. Log yo'q kunlarga tegmaydi,
+// @Description  is_manual_override=true kunlar o'zgarmaydi. Payroll avtomatik qayta hisoblanmaydi —
+// @Description  kerak bo'lsa keyin /employee/payroll/recalculate chaqiring.
+// @Tags         employees
+// @Security     BearerAuth
+// @Produce      json
+// @Param        employee_id  query  string  true  "Employee ID"
+// @Success      200  {object}  v1.Response
+// @Failure      400  {object}  v1.Response
+// @Failure      401  {object}  v1.Response
+// @Failure      403  {object}  v1.Response
+// @Failure      404  {object}  v1.Response
+// @Failure      500  {object}  v1.Response
+// @Router       /employee/attendance-days/aggregate [post]
+func (h *EmployeeHandler) AggregateEmployeeAttendanceDays(c *gin.Context) {
+	user := h.service.GetSignedUser(c)
+	if user.UserId == "" {
+		handleServiceResponse(c, nil, domain.UnauthorizedError)
+		return
+	}
+	// Haqiqiy ma'lumotga yozadi va oylikka ta'sir qiladi — faqat admin.
+	if !helper.IsAdmin(user) {
+		handleServiceResponse(c, nil, domain.ForbiddinError)
+		return
+	}
+
+	employeeId := c.Query("employee_id")
+	if err := uuid.Validate(employeeId); err != nil {
+		handleResponse(c, BadRequest, "Invalid employee_id")
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
+	defer cancel()
+
+	affected, err := h.service.AggregateEmployeeAttendanceDaysForMonth(ctx, employeeId)
+	if err != nil {
+		handleServiceResponse(c, nil, err)
+		return
+	}
+
+	handleResponse(c, OK, gin.H{"affected_days": affected})
 }
 
 // RecalculatePayroll godoc

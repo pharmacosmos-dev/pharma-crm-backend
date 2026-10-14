@@ -696,6 +696,109 @@ func (s *Services) AggregateEmployeeAttendanceDays() {
 	s.log.Infof("AggregateEmployeeAttendanceDays completed")
 }
 
+// AggregateEmployeeAttendanceDaysForMonth — AggregateEmployeeAttendanceDays'ning bitta xodim
+// uchun qo'lda chaqiriladigan varianti. Cron faqat kechagi kunni qamraydi, bu esa joriy
+// oyning (Toshkent vaqti bo'yicha) 1-sanasidan kechagi kungacha attendance_logs'da HAM check-in,
+// HAM check-out bo'lgan har bir kun uchun employee_attendance_days'ga qator yozadi (mavjud
+// bo'lsa yangilaydi). work_date, worked_minutes, late_minutes va sales_amount cron bilan
+// bir xil formulada hisoblanadi. Log yo'q kunlar uchun is_absent qatori yaratilmaydi.
+// Cron'dan farqli ravishda rol filtri yo'q — xodim aniq ko'rsatilgan.
+// is_manual_override=true bo'lgan kunlarga tegilmaydi. Yozilgan/yangilangan kunlar sonini qaytaradi.
+func (s *Services) AggregateEmployeeAttendanceDaysForMonth(ctx context.Context, employeeId string) (int64, error) {
+	var exists bool
+	err := s.db.WithContext(ctx).
+		Raw(`SELECT EXISTS (SELECT 1 FROM employees WHERE id = ? AND deleted_at IS NULL)`, employeeId).
+		Scan(&exists).Error
+	if err != nil {
+		s.log.Errorf("could not check employee for attendance aggregation: %v", err)
+		return 0, domain.InternalServerError
+	}
+	if !exists {
+		return 0, domain.NotFoundError
+	}
+
+	result := s.db.WithContext(ctx).Exec(`
+		INSERT INTO employee_attendance_days
+		    (id, employee_id, store_id, work_date, planned_start_at, first_check_in, last_check_out,
+		     worked_minutes, late_minutes, sales_amount, is_absent, is_manual_override, created_at, updated_at)
+		SELECT
+		    uuid_generate_v4(),
+		    l.employee_id,
+		    l.store_id,
+		    l.work_date,
+		    CASE WHEN e.start_date IS NOT NULL
+		         THEN (l.work_date + e.start_date) AT TIME ZONE 'Asia/Tashkent'
+		         ELSE NULL END,
+		    l.first_check_in,
+		    l.last_check_out,
+		    GREATEST(0, ROUND(l.worked_seconds / 60))::int,
+		    CASE WHEN e.start_date IS NOT NULL AND l.first_check_in IS NOT NULL
+		         THEN GREATEST(0, ROUND(EXTRACT(EPOCH FROM (l.first_check_in - ((l.work_date + e.start_date) AT TIME ZONE 'Asia/Tashkent'))) / 60))::int
+		         ELSE 0 END,
+		    COALESCE(ds.sales_amount, 0),
+		    FALSE,
+		    FALSE,
+		    NOW(),
+		    NOW()
+		FROM (
+		    SELECT
+		        employee_id,
+		        (array_agg(store_id ORDER BY event_at))[1]            AS store_id,
+		        work_date,
+		        MIN(event_at) FILTER (WHERE event_type = 'check-in')  AS first_check_in,
+		        MAX(event_at) FILTER (WHERE event_type = 'check-out') AS last_check_out,
+		        SUM(worked_seconds)                                   AS worked_seconds
+		    FROM (
+		        SELECT
+		            employee_id,
+		            store_id,
+		            event_type,
+		            event_at,
+		            (event_at + interval '5 hours')::date AS work_date,
+		            CASE WHEN event_type = 'check-out'
+		                      AND LAG(event_type) OVER w = 'check-in'
+		                 THEN EXTRACT(EPOCH FROM (event_at - LAG(event_at) OVER w))
+		                 ELSE 0 END AS worked_seconds
+		        FROM attendance_logs
+		        WHERE employee_id = @employee_id
+		          AND (event_at + interval '5 hours')::date >= date_trunc('month', (NOW() + interval '5 hours')::date)::date
+		          AND (event_at + interval '5 hours')::date <= (NOW() + interval '5 hours')::date - 1
+		        WINDOW w AS (PARTITION BY employee_id, (event_at + interval '5 hours')::date ORDER BY event_at)
+		    ) paired
+		    GROUP BY employee_id, work_date
+		    HAVING COUNT(*) FILTER (WHERE event_type = 'check-in') > 0
+		       AND COUNT(*) FILTER (WHERE event_type = 'check-out') > 0
+		) l
+		JOIN employees e ON e.id = l.employee_id
+		LEFT JOIN (
+		    SELECT (created_at + interval '5 hours')::date AS work_date, SUM(total_amount) AS sales_amount
+		    FROM sales
+		    WHERE employee_id = @employee_id
+		      AND sale_type = 'SALE'
+		      AND stage = 9
+		      AND is_returned = false
+		      AND (created_at + interval '5 hours')::date >= date_trunc('month', (NOW() + interval '5 hours')::date)::date
+		    GROUP BY 1
+		) ds ON ds.work_date = l.work_date
+		ON CONFLICT (employee_id, work_date) DO UPDATE SET
+		    store_id         = EXCLUDED.store_id,
+		    planned_start_at = EXCLUDED.planned_start_at,
+		    first_check_in   = EXCLUDED.first_check_in,
+		    last_check_out   = EXCLUDED.last_check_out,
+		    worked_minutes   = EXCLUDED.worked_minutes,
+		    late_minutes     = EXCLUDED.late_minutes,
+		    sales_amount     = EXCLUDED.sales_amount,
+		    is_absent        = FALSE,
+		    updated_at       = NOW()
+		WHERE employee_attendance_days.is_manual_override = FALSE
+	`, map[string]any{"employee_id": employeeId})
+	if result.Error != nil {
+		s.log.Errorf("could not aggregate attendance days for employee %s: %v", employeeId, result.Error)
+		return 0, domain.InternalServerError
+	}
+	return result.RowsAffected, nil
+}
+
 // AutoCloseUnclosedAttendanceLogs — har kuni cron orqali chaqiriladi. Bugungi kun (Toshkent
 // vaqti bo'yicha) uchun har bir xodimning ENG OXIRGI voqeasini tekshiradi: agar u
 // "check-in" bo'lsa (ya'ni xodim shu kuni check-out qilishni unutgan bo'lsa),

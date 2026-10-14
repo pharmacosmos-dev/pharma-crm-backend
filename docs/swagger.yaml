@@ -7679,6 +7679,53 @@ paths:
       summary: Update employee status
       tags:
       - employees
+  /employee/attendance-days/aggregate:
+    post:
+      description: |-
+        Bitta xodim uchun joriy oyning (Toshkent vaqti) 1-sanasidan kechagi kungacha attendance_logs'da
+        ham check-in, ham check-out bo'lgan har bir kunni employee_attendance_days'ga yozadi
+        (mavjud bo'lsa yangilaydi). worked_minutes = shu kundagi check-in→check-out juftlari yig'indisi.
+        Hisob kunlik cron (AggregateEmployeeAttendanceDays) bilan bir xil. Log yo'q kunlarga tegmaydi,
+        is_manual_override=true kunlar o'zgarmaydi. Payroll avtomatik qayta hisoblanmaydi —
+        kerak bo'lsa keyin /employee/payroll/recalculate chaqiring.
+      parameters:
+      - description: Employee ID
+        in: query
+        name: employee_id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Aggregate employee attendance days for current month
+      tags:
+      - employees
   /employee/attendance-days/list:
     get:
       consumes:
@@ -24428,11 +24475,12 @@ paths:
       consumes:
       - application/json
       description: For every store target of the current month, redistributes the
-        amount equally among the store's active employees. Dismissed/deleted employees
-        are not counted but their targets are kept unchanged; active employees without
-        an employee target get one; manually changed amounts are reset to the equal
-        share. Sales of all current month employee targets are recalculated from the
-        beginning of the month.
+        amount equally among the store's active employees with role_type pharmacist
+        or head_pharmacist. Dismissed/deleted employees and other role types are not
+        counted but their targets are kept unchanged; active employees without an
+        employee target get one; manually changed amounts are reset to the equal share.
+        Sales of all current month employee targets are recalculated from the beginning
+        of the month.
       produces:
       - application/json
       responses:

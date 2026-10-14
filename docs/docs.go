@@ -6848,6 +6848,70 @@ const docTemplate = `{
                 }
             }
         },
+        "/employee/attendance-days/aggregate": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Bitta xodim uchun joriy oyning (Toshkent vaqti) 1-sanasidan kechagi kungacha attendance_logs'da\nham check-in, ham check-out bo'lgan har bir kunni employee_attendance_days'ga yozadi\n(mavjud bo'lsa yangilaydi). worked_minutes = shu kundagi check-in→check-out juftlari yig'indisi.\nHisob kunlik cron (AggregateEmployeeAttendanceDays) bilan bir xil. Log yo'q kunlarga tegmaydi,\nis_manual_override=true kunlar o'zgarmaydi. Payroll avtomatik qayta hisoblanmaydi —\nkerak bo'lsa keyin /employee/payroll/recalculate chaqiring.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "employees"
+                ],
+                "summary": "Aggregate employee attendance days for current month",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Employee ID",
+                        "name": "employee_id",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    }
+                }
+            }
+        },
         "/employee/attendance-days/list": {
             "get": {
                 "security": [
@@ -32866,7 +32930,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "For every store target of the current month, redistributes the amount equally among the store's active employees. Dismissed/deleted employees are not counted but their targets are kept unchanged; active employees without an employee target get one; manually changed amounts are reset to the equal share. Sales of all current month employee targets are recalculated from the beginning of the month.",
+                "description": "For every store target of the current month, redistributes the amount equally among the store's active employees with role_type pharmacist or head_pharmacist. Dismissed/deleted employees and other role types are not counted but their targets are kept unchanged; active employees without an employee target get one; manually changed amounts are reset to the equal share. Sales of all current month employee targets are recalculated from the beginning of the month.",
                 "consumes": [
                     "application/json"
                 ],
