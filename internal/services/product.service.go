@@ -2072,8 +2072,9 @@ func (s *Services) ProductListForArzon(ctx context.Context, storeId string) ([]d
 	SELECT
 		p.id, p.name,
 		COALESCE(pr.name, '') AS producer_name,
-		MIN(sp.retail_price) AS retail_price,
-		COUNT(sp.id) AS count
+		MAX(sp.retail_price) AS retail_price,
+		SUM(sp.unit_quantity)::int AS unit_quantity,
+		p.unit_per_pack
 	FROM store_products sp
 	JOIN products p ON sp.product_id = p.id
 	LEFT JOIN producers pr ON p.producer_id = pr.id
@@ -2083,6 +2084,19 @@ func (s *Services) ProductListForArzon(ctx context.Context, storeId string) ([]d
 	if err != nil {
 		s.log.Errorf("could not get products for arzon_apteka: %v", err)
 		return res, domain.InternalServerError
+	}
+
+	for i := range res {
+		qty, unit := res[i].UnitQuantity, res[i].UnitPerPack
+		if unit <= 0 {
+			res[i].Count = fmt.Sprintf("%d", qty)
+			continue
+		}
+		if qty%unit > 0 {
+			res[i].Count = fmt.Sprintf("%d (%d/%d)", qty/unit, qty%unit, unit)
+		} else {
+			res[i].Count = fmt.Sprintf("%d", qty/unit)
+		}
 	}
 	return res, nil
 }

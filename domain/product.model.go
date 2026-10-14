@@ -257,7 +257,9 @@ type ProductArzon struct {
 	Name         string  `gorm:"name" json:"name"`
 	ProducerName string  `gorm:"producer_name" json:"producer_name"`
 	RetailPrice  float64 `gorm:"retail_price" json:"retail_price"`
-	Count        int64   `gorm:"count" json:"count"`
+	UnitQuantity int     `gorm:"unit_quantity" json:"unit_quantity"`
+	UnitPerPack  int     `gorm:"unit_per_pack" json:"unit_per_pack"`
+	Count        string  `gorm:"-" json:"count"` // packs (units/unit_per_pack), e.g. "17 (4/30)"
 }
 
 type SingeProductDashoard struct {
