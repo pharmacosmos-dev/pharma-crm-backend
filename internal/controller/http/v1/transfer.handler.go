@@ -956,10 +956,10 @@ func (h *TransferHandler) ExportTransferNakladnoyPDF(c *gin.Context) {
 	}
 
 	// check if transfer is not completed
-	if transfer.Status != constants.GeneralStatusCompleted && transfer.Status != constants.GeneralStatusChecking && transfer.Status != constants.GeneralStatusSent {
-		handleResponse(c, BadRequest, "transfer.not.completed")
-		return
-	}
+	// if transfer.Status != constants.GeneralStatusNew && transfer.Status != constants.GeneralStatusCompleted && transfer.Status != constants.GeneralStatusChecking && transfer.Status != constants.GeneralStatusSent {
+	// 	handleResponse(c, BadRequest, "transfer.not.completed")
+	// 	return
+	// }
 
 	res, _, err := h.service.TransferDetailList(&domain.ReturnDetailParam{
 		TransferId: transferId,
