@@ -273,6 +273,7 @@ const (
 	RoleNameZavStore = "Заведующий" // store head/manager: exempt from the sale stats 14-day date range limit
 	RoleNameCashier  = "Кассир"     // cashier: sale stats/list restricted to their own sales
 	RoleNameConsultant = "Консультант" // consultant: sale stats/list restricted to their own sales
+	RoleNameOperator   = "Оператор"    // operator: sale stats/list of all stores, last 10 days only
 )
 
 // movement type

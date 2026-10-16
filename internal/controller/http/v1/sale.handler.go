@@ -235,10 +235,15 @@ func (h *SaleHandler) GetSales(c *gin.Context) {
 	if err != nil {
 		h.log.Error(err)
 	}
+	// Operator barcha aptekalarni ko'radi, lekin faqat oxirgi 10 kunni
+	isOperator, err := h.service.EmployeeHasRole(ctx, user.UserId, constants.RoleNameOperator)
+	if err != nil {
+		h.log.Error(err)
+	}
 
-	// 10 kunlik cheklov faqat Kassir va Zavedyushiy uchun qo'llaniladi; do'konga tegishli
-	// boshqa rollar uchun cheklovsiz to'liq oraliq ruxsat etiladi
-	if user.StoreId != "" && (isCashier || isZavStore) {
+	// 10 kunlik cheklov Kassir va Zavedyushiy (do'konga tegishli bo'lsa) hamda Operator uchun
+	// qo'llaniladi; boshqa rollar uchun cheklovsiz to'liq oraliq ruxsat etiladi
+	if (user.StoreId != "" && (isCashier || isZavStore)) || isOperator {
 		limitDate := time.Now().
 			AddDate(0, 0, -10).
 			Truncate(24 * time.Hour)
@@ -265,7 +270,8 @@ func (h *SaleHandler) GetSales(c *gin.Context) {
 				params.CompanyIds, _ = h.service.GetCompanyIds(ctx, true)
 			}
 		} else {
-			if user.StoreId != "" {
+			// operator o'z do'koniga bog'lanmaydi — barcha aptekalar
+			if user.StoreId != "" && !isOperator {
 				params.StoreId = user.StoreId
 			}
 			params.CompanyId = user.CompanyId
@@ -574,10 +580,15 @@ func (h *SaleHandler) GetSalesStats(c *gin.Context) {
 	if err != nil {
 		h.log.Error(err)
 	}
+	// Operator barcha aptekalarni ko'radi, lekin faqat oxirgi 10 kunni
+	isOperator, err := h.service.EmployeeHasRole(ctx, user.UserId, constants.RoleNameOperator)
+	if err != nil {
+		h.log.Error(err)
+	}
 
-	// 10 kunlik cheklov faqat Kassir va Zavedyushiy uchun qo'llaniladi; do'konga tegishli
-	// boshqa rollar uchun cheklovsiz to'liq oraliq ruxsat etiladi
-	if user.StoreId != "" && (isCashier || isZavStore) {
+	// 10 kunlik cheklov Kassir va Zavedyushiy (do'konga tegishli bo'lsa) hamda Operator uchun
+	// qo'llaniladi; boshqa rollar uchun cheklovsiz to'liq oraliq ruxsat etiladi
+	if (user.StoreId != "" && (isCashier || isZavStore)) || isOperator {
 		limitDate := time.Now().
 			AddDate(0, 0, -10).
 			Truncate(24 * time.Hour)
@@ -603,8 +614,8 @@ func (h *SaleHandler) GetSalesStats(c *gin.Context) {
 				params.CompanyIds, _ = h.service.GetCompanyIds(ctx, true)
 			}
 		} else {
-			// oddiy xodim: faqat o'z do'koni
-			if user.StoreId != "" {
+			// oddiy xodim: faqat o'z do'koni; operator esa barcha aptekalarni ko'radi
+			if user.StoreId != "" && !isOperator {
 				params.StoreId = user.StoreId
 			}
 			params.CompanyId = user.CompanyId
