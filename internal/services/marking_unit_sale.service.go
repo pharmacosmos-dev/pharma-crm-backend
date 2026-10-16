@@ -2,6 +2,7 @@ package services
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/pharma-crm-backend/domain"
 	"github.com/pharma-crm-backend/pkg/utils"
@@ -179,4 +180,39 @@ func (s *Services) ReverseMarkingUnitSale(ctx context.Context, tx *gorm.DB, sale
 	}
 
 	return nil
+}
+
+// GetMarkingUnitSales: markirovkalar bo'yicha sotilgan/qolgan donalar ro'yxati.
+// marking berilsa shu matn qatnashgan markirovkalar qidiriladi.
+func (s *Services) GetMarkingUnitSales(
+	ctx context.Context, params *domain.MarkingUnitSaleQueryParams,
+) ([]domain.MarkingUnitSale, int64, error) {
+	newQuery := func() *gorm.DB {
+		q := s.db.WithContext(ctx).Table("marking_unit_sales mus")
+		if params.Marking != "" {
+			q = q.Where("mus.marking ILIKE ?", fmt.Sprintf("%%%s%%", params.Marking))
+		}
+		return q
+	}
+
+	var totalCount int64
+	if err := newQuery().Count(&totalCount).Error; err != nil {
+		s.log.Errorf("could not count marking_unit_sales: %v", err)
+		return nil, 0, domain.InternalServerError
+	}
+
+	var res []domain.MarkingUnitSale
+	err := newQuery().
+		Select("mus.*", "p.name AS product_name").
+		Joins("LEFT JOIN products p ON p.id = mus.product_id").
+		Order("mus.updated_at DESC").
+		Limit(params.Limit).
+		Offset(params.Offset).
+		Find(&res).Error
+	if err != nil {
+		s.log.Errorf("could not get marking_unit_sales: %v", err)
+		return nil, 0, domain.InternalServerError
+	}
+
+	return res, totalCount, nil
 }

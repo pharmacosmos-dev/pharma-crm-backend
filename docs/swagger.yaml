@@ -13057,6 +13057,49 @@ paths:
       summary: Get Loyalty Card Transactions Dashboard
       tags:
       - loyalty_card
+  /marking-unit-sale/list:
+    get:
+      consumes:
+      - application/json
+      description: Har bir markirovka bo'yicha nechta dona sotilgan (sold_quantity)
+        va nechta qolgan (stock_quantity).
+      parameters:
+      - description: Markirovka bo'yicha qidiruv
+        in: query
+        name: marking
+        type: string
+      - description: Limit (default 10)
+        in: query
+        name: limit
+        type: integer
+      - description: Offset
+        in: query
+        name: offset
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: List marking unit sales
+      tags:
+      - marking-unit-sale
   /noor/category/list:
     get:
       consumes:
