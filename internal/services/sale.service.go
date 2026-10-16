@@ -1114,6 +1114,10 @@ func (s *Services) ApplySaleInventoryUpdate(ctx context.Context, tx *gorm.DB, sa
 		return domain.InternalServerError
 	}
 
+	if err = s.ApplyMarkingUnitSale(ctx, tx, sale.Id); err != nil {
+		return err
+	}
+
 	go s.AddSaleBonuses(sale, cartItemsWithProducts, loyaltyCardBarcode)
 
 	return nil
@@ -1134,6 +1138,10 @@ func (s *Services) ReverseInventoryUpdate(ctx context.Context, tx *gorm.DB, sale
 	if qb.Error != nil {
 		s.log.Errorf("could not update store_product unit_quantity: %v", qb.Error)
 		return domain.InternalServerError
+	}
+
+	if err := s.ReverseMarkingUnitSale(ctx, tx, sale.Id); err != nil {
+		return err
 	}
 
 	go s.RemoveBonusBySaleId(sale.Id)

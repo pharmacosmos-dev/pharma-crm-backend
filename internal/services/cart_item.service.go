@@ -808,6 +808,11 @@ func (s *Services) UpdateCartItemMarkings(ctx context.Context, id string, req *d
 		return err
 	}
 
+	// check if all units of the marking were already sold
+	if err = s.checkMarkingHasStock(ctx, s.db, req.Marking); err != nil {
+		return err
+	}
+
 	// append new marking
 	err = s.db.Model(&cartItem).Update("markings", gorm.Expr("array_append(markings, ?)", req.Marking)).Error
 	if err != nil {
