@@ -2487,6 +2487,15 @@ func (h *ProductHandler) DeleteExcludedProduct(c *gin.Context) {
 	handleResponse(c, OK, "Excluded product deleted successfully")
 }
 
+// packagingAudit — packaging o'zgarishini kim, qaysi endpoint va IP orqali qilganini yig'adi
+func (h *ProductHandler) packagingAudit(c *gin.Context) domain.PackagingAudit {
+	return domain.PackagingAudit{
+		Method:    c.Request.Method + " " + c.FullPath(),
+		UserId:    h.service.GetSignedUser(c).UserId,
+		IpAddress: c.ClientIP(),
+	}
+}
+
 // UpdatePackaging godoc
 // @Summary Update product packaging
 // @Description Update product unit_per_pack and recalculate store_products.unit_quantity
@@ -2510,6 +2519,8 @@ func (h *ProductHandler) UpdatePackaging(c *gin.Context) {
 
 	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
 	defer cancel()
+
+	req.PackagingAudit = h.packagingAudit(c)
 
 	// lock parallel request
 	mu := h.getProductLock(req.ProductId)
@@ -2549,6 +2560,8 @@ func (h *ProductHandler) UpdatePackagingV2(c *gin.Context) {
 	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
 	defer cancel()
 
+	req.PackagingAudit = h.packagingAudit(c)
+
 	mu := h.getProductLock(req.ProductId)
 	mu.Lock()
 	defer mu.Unlock()
@@ -2584,6 +2597,8 @@ func (h *ProductHandler) UpdatePackagingV3(c *gin.Context) {
 
 	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
 	defer cancel()
+
+	req.PackagingAudit = h.packagingAudit(c)
 
 	mu := h.getProductLock(req.ProductId)
 	mu.Lock()
@@ -4135,6 +4150,8 @@ func (h *ProductHandler) FixPackagingQuantity(c *gin.Context) {
 
 	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
 	defer cancel()
+
+	req.PackagingAudit = h.packagingAudit(c)
 
 	mu := h.getProductLock(req.ProductId)
 	mu.Lock()

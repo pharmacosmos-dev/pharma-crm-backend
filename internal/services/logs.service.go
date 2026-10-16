@@ -34,6 +34,9 @@ func (s *Services) GetLogs(ctx context.Context, params *domain.LogParams) ([]dom
 
 	case params.ProviderType == "return":
 		return s.GetReturnLogs(ctx, params)
+
+	case params.ProviderType == "packaging":
+		return s.GetPackagingLogs(ctx, params)
 	}
 
 	return nil, 0, domain.BadRequestError
@@ -113,6 +116,17 @@ func (s *Services) GetTransferOnecLogs(ctx context.Context, params *domain.LogPa
 func (s *Services) GetReturnLogs(ctx context.Context, params *domain.LogParams) ([]domain.Log, int64, error) {
 	return s.getOnecRequestLogs(ctx, params, "return",
 		"method = ?", "POST "+constants.OnecPathVozvrat,
+	)
+}
+
+// GetPackagingLogs — unit_per_pack / qoldiq o'zgarishlari: kim, qaysi mahsulotda, eski va yangi qiymat
+func (s *Services) GetPackagingLogs(ctx context.Context, params *domain.LogParams) ([]domain.Log, int64, error) {
+	return s.getOnecRequestLogs(ctx, params, "packaging",
+		"method IN (?, ?, ?, ?)",
+		"PUT /v1/product/update-packaging",
+		"PUT /v1/product/update-packaging-v2",
+		"PUT /v1/product/revert-packaging",
+		"PUT /v1/product/fix-packaging-quantity",
 	)
 }
 

@@ -12731,7 +12731,8 @@ paths:
         in: query
         name: end_date
         type: string
-      - description: Type might be -> (payme, click, epos, dmed)
+      - description: Type might be -> (payme, click, alif, epos, dmed, uzum, revolution,
+          max_price, transfers, return, packaging)
         in: query
         name: provider_type
         type: string

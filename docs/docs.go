@@ -14909,7 +14909,7 @@ const docTemplate = `{
                     },
                     {
                         "type": "string",
-                        "description": "Type might be -\u003e (payme, click, epos, dmed)",
+                        "description": "Type might be -\u003e (payme, click, alif, epos, dmed, uzum, revolution, max_price, transfers, return, packaging)",
                         "name": "provider_type",
                         "in": "query"
                     },

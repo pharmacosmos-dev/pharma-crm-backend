@@ -33,7 +33,7 @@ func (h *LogHandler) LogRoutes(r *gin.RouterGroup) {
 // @Produce json
 // @Param   start_date 	query string false "Start Date"
 // @Param   end_date 	query string false "End Date"
-// @Param   provider_type query string false "Type might be -> (payme, click, epos, dmed)"
+// @Param   provider_type query string false "Type might be -> (payme, click, alif, epos, dmed, uzum, revolution, max_price, transfers, return, packaging)"
 // @Param   limit  query int false "Limit"
 // @Param   offset query int false "Offset"
 // @Success 200 {object} v1.Response

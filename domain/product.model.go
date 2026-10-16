@@ -518,10 +518,20 @@ type NoorCategory struct {
 type UpdatePackagingRequest struct {
 	ProductId   string `json:"product_id" binding:"required"`
 	UnitPerPack int    `json:"unit_per_pack" binding:"required,min=1"`
+	PackagingAudit
 }
 
 type RevertPackagingRequest struct {
 	ProductId string `json:"product_id" binding:"required"`
+	PackagingAudit
+}
+
+// PackagingAudit — unit_per_pack o'zgarishini kim qilganini onec_requests ga yozish uchun
+// handler to'ldiradi; so'rov body'sidan o'qilmaydi
+type PackagingAudit struct {
+	Method    string `json:"-"`
+	UserId    string `json:"-"`
+	IpAddress string `json:"-"`
 }
 
 // domain/product_photo_alert.go

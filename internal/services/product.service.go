@@ -2,6 +2,7 @@ package services
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"strconv"
@@ -3337,6 +3338,16 @@ func (s *Services) UpdatePackaging(ctx context.Context, req *domain.UpdatePackag
 		return domain.InternalServerError
 	}
 
+	err = s.savePackagingLog(ctx, tx, req.PackagingAudit, req.ProductId, map[string]any{
+		"old_unit_per_pack": product.UnitPerPack,
+		"new_unit_per_pack": req.UnitPerPack,
+	})
+	if err != nil {
+		_ = tx.Rollback()
+		s.log.Errorf("could not save update packaging log: %v", err)
+		return domain.InternalServerError
+	}
+
 	// 4. Commit transaction
 	if err = tx.Commit().Error; err != nil {
 		s.log.Errorf("could not commit update packaging transaction: %v", err)
@@ -3344,6 +3355,30 @@ func (s *Services) UpdatePackaging(ctx context.Context, req *domain.UpdatePackag
 	}
 
 	return nil
+}
+
+// savePackagingLog — unit_per_pack / unit_quantity o'zgarishini kim qilganini onec_requests ga
+// yozadi. O'zgarish bilan bitta tranzaksiyada chaqiriladi: log yozilmasa o'zgarish ham bekor bo'ladi.
+func (s *Services) savePackagingLog(ctx context.Context, tx *gorm.DB, audit domain.PackagingAudit, productId string, payload map[string]any) error {
+	payload["product_id"] = productId
+	payload["user_id"] = audit.UserId
+	body, err := json.Marshal(payload)
+	if err != nil {
+		return err
+	}
+
+	return tx.WithContext(ctx).Exec(`
+		INSERT INTO onec_requests (method, payload, response, status_code, ip_address)
+		VALUES (
+			?,
+			?::jsonb || jsonb_build_object(
+				'user_full_name', (SELECT full_name FROM employees WHERE id = NULLIF(?, '')::uuid),
+				'product_name',   (SELECT name FROM products WHERE id = ?::uuid)
+			),
+			'{"status":"ok"}', 200, ?
+		)`,
+		audit.Method, string(body), audit.UserId, productId, audit.IpAddress,
+	).Error
 }
 
 // UpdatePackagingV2 - avvalgi versiyadan farqli o'laroq, bu funksiya unit_per_pack ni 1 dan boshqa qiymatga ham yangilashga imkon beradi.
@@ -3412,6 +3447,16 @@ func (s *Services) UpdatePackagingV2(ctx context.Context, req *domain.UpdatePack
 	if err != nil {
 		_ = tx.Rollback()
 		s.log.Errorf("could not recalc cart_items.unit_quantity: %v", err)
+		return domain.InternalServerError
+	}
+
+	err = s.savePackagingLog(ctx, tx, req.PackagingAudit, req.ProductId, map[string]any{
+		"old_unit_per_pack": product.UnitPerPack,
+		"new_unit_per_pack": req.UnitPerPack,
+	})
+	if err != nil {
+		_ = tx.Rollback()
+		s.log.Errorf("could not save update packaging v2 log: %v", err)
 		return domain.InternalServerError
 	}
 
@@ -3495,6 +3540,16 @@ func (s *Services) UpdatePackagingV3(ctx context.Context, req *domain.RevertPack
 		return domain.InternalServerError
 	}
 
+	err = s.savePackagingLog(ctx, tx, req.PackagingAudit, req.ProductId, map[string]any{
+		"old_unit_per_pack": oldUnitPerPack,
+		"new_unit_per_pack": 1,
+	})
+	if err != nil {
+		_ = tx.Rollback()
+		s.log.Errorf("could not save revert packaging log: %v", err)
+		return domain.InternalServerError
+	}
+
 	if err = tx.Commit().Error; err != nil {
 		s.log.Errorf("could not commit revert packaging transaction: %v", err)
 		return domain.InternalServerError
@@ -3515,7 +3570,8 @@ func (s *Services) FixPackagingQuantity(ctx context.Context, req *domain.UpdateP
 	}()
 
 	var product struct {
-		Id string `gorm:"column:id"`
+		Id          string `gorm:"column:id"`
+		UnitPerPack int    `gorm:"column:unit_per_pack"`
 	}
 
 	err := tx.WithContext(ctx).Table("products").Take(&product, "id = ?", req.ProductId).Error
@@ -3551,6 +3607,18 @@ func (s *Services) FixPackagingQuantity(ctx context.Context, req *domain.UpdateP
 	if err != nil {
 		_ = tx.Rollback()
 		s.log.Errorf("could not fix cart_items.unit_quantity: %v", err)
+		return domain.InternalServerError
+	}
+
+	// unit_per_pack o'zgarmaydi, faqat qoldiqlar bo'linadi
+	err = s.savePackagingLog(ctx, tx, req.PackagingAudit, req.ProductId, map[string]any{
+		"old_unit_per_pack":   product.UnitPerPack,
+		"new_unit_per_pack":   product.UnitPerPack,
+		"quantity_divided_by": req.UnitPerPack,
+	})
+	if err != nil {
+		_ = tx.Rollback()
+		s.log.Errorf("could not save fix packaging quantity log: %v", err)
 		return domain.InternalServerError
 	}
 
