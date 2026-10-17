@@ -433,6 +433,13 @@ func (s *Services) FinalizeSale(ctx context.Context, req *domain.FinalSale) (*do
 		return nil, err
 	}
 
+	// markirovkalar qoldig'i cart_item donalarini qoplashini fiskallashdan oldin tekshirish
+	err = s.validateSaleMarkingStock(ctx, tx, sale.Id)
+	if err != nil {
+		_ = tx.Rollback()
+		return nil, err
+	}
+
 	updates["tax_free"] = req.TaxFree
 
 	if req.TaxFree {

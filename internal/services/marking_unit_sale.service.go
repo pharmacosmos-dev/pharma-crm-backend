@@ -27,23 +27,130 @@ type markingCartItem struct {
 	Markings     utils.StringArray `gorm:"type:text[]"`
 }
 
-// checkMarkingHasStock: markirovka jadvalda bo'lsa va qoldig'i 0 bo'lsa — to'liq sotilgan.
-// Jadvalda yo'q markirovka hali sotilmagan hisoblanadi.
-func (s *Services) checkMarkingHasStock(ctx context.Context, tx *gorm.DB, marking string) error {
+// getMarkingAvailableUnits: har bir markirovkadan yana nechta dona sotish mumkin.
+// Jadvalda yo'q markirovka hali ochilmagan pachka — unit_per_pack dona.
+func (s *Services) getMarkingAvailableUnits(ctx context.Context, tx *gorm.DB, markings []string, unitPerPack int) (map[string]int, error) {
+	res := make(map[string]int, len(markings))
+	if len(markings) == 0 {
+		return res, nil
+	}
+
+	var rows []struct {
+		Marking       string
+		StockQuantity int
+	}
+	err := tx.WithContext(ctx).
+		Raw(`SELECT marking, stock_quantity FROM marking_unit_sales WHERE marking IN ?`, markings).
+		Scan(&rows).Error
+	if err != nil {
+		s.log.Errorf("could not get marking_unit_sales stock: %v", err)
+		return nil, domain.InternalServerError
+	}
+
+	for _, m := range markings {
+		res[m] = max(unitPerPack, 1)
+	}
+	for _, r := range rows {
+		res[r.Marking] = r.StockQuantity
+	}
+
+	return res, nil
+}
+
+func markingNotEnoughError(marking string, available int) error {
+	return domain.NewError(
+		domain.MarkingNotEnoughError.Code,
+		fmt.Sprintf("%s:%d", domain.MarkingNotEnoughError.Message, available),
+	)
+}
+
+// checkMarkingCanCover: cart_item'ga yangi markirovka qo'shishdan oldin tekshiradi.
+//   - qoldig'i 0 — markirovka to'liq sotilgan;
+//   - qisman sotilgan markirovka (qoldiq < unit_per_pack) cart_item'ning hali
+//     markirovka bilan qoplanmagan donalaridan kam bo'lsa — yetmaydi.
+//
+// To'liq pachka yetmasa xato berilmaydi: kassir keyingi pachka markirovkasini skanerlaydi.
+func (s *Services) checkMarkingCanCover(ctx context.Context, tx *gorm.DB, cartItem *domain.CartItem, marking string) error {
 	if marking == "" {
 		return nil
 	}
 
-	var res markingUnitSale
-	result := tx.WithContext(ctx).
-		Raw(`SELECT id, sold_quantity, stock_quantity FROM marking_unit_sales WHERE marking = ?`, marking).
-		Scan(&res)
-	if result.Error != nil {
-		s.log.Errorf("could not get marking_unit_sale(%s): %v", marking, result.Error)
+	var unitPerPack int
+	err := tx.WithContext(ctx).
+		Raw(`SELECT p.unit_per_pack FROM store_products sp JOIN products p ON p.id = sp.product_id WHERE sp.id = ?`, cartItem.StoreProductId).
+		Scan(&unitPerPack).Error
+	if err != nil {
+		s.log.Errorf("could not get unit_per_pack of store_product(%s): %v", cartItem.StoreProductId, err)
 		return domain.InternalServerError
 	}
-	if result.RowsAffected > 0 && res.StockQuantity <= 0 {
+	unitPerPack = max(unitPerPack, 1)
+
+	available, err := s.getMarkingAvailableUnits(ctx, tx, append([]string{marking}, cartItem.Markings...), unitPerPack)
+	if err != nil {
+		return err
+	}
+
+	if available[marking] <= 0 {
 		return domain.MarkingAlreadySoldError
+	}
+
+	needed := cartItem.UnitQuantity
+	for _, m := range cartItem.Markings {
+		needed -= available[m]
+	}
+	if needed > available[marking] && available[marking] < unitPerPack {
+		return markingNotEnoughError(marking, available[marking])
+	}
+
+	return nil
+}
+
+// validateSaleMarkingStock: FinalSale'da (fiskallashdan oldin) savdodagi markirovkalar
+// donalarni qoplay olishini tekshiradi — ApplyMarkingUnitSale bilan bir xil taqsimlash.
+// Bir markirovka savdoning bir nechta cart_item'ida bo'lsa ham qoldig'i umumiy hisoblanadi.
+// Xato faqat qoplanmay qolgan cart_item'da qisman sotilgan markirovka bo'lsa beriladi,
+// aks holda markirovkasi to'liq skanerlanmagan oddiy savdolar to'xtab qolardi.
+func (s *Services) validateSaleMarkingStock(ctx context.Context, tx *gorm.DB, saleId string) error {
+	items, err := s.getMarkingCartItems(ctx, tx, saleId)
+	if err != nil {
+		return err
+	}
+
+	available := map[string]int{}
+	for _, item := range items {
+		unitPerPack := max(item.UnitPerPack, 1)
+
+		var unknown []string
+		for _, m := range item.Markings {
+			if _, ok := available[m]; !ok {
+				unknown = append(unknown, m)
+			}
+		}
+		fetched, err := s.getMarkingAvailableUnits(ctx, tx, unknown, unitPerPack)
+		if err != nil {
+			return err
+		}
+		for m, v := range fetched {
+			available[m] = v
+		}
+
+		remaining := item.UnitQuantity
+		partial := ""
+		for _, m := range item.Markings {
+			if available[m] <= 0 {
+				return domain.MarkingAlreadySoldError
+			}
+			if available[m] < unitPerPack && partial == "" {
+				partial = m
+			}
+			take := min(available[m], remaining)
+			available[m] -= take
+			remaining -= take
+		}
+
+		if remaining > 0 && partial != "" {
+			return markingNotEnoughError(partial, item.UnitQuantity-remaining)
+		}
 	}
 
 	return nil
