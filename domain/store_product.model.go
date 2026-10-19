@@ -124,3 +124,19 @@ type StoreProductOnline struct {
 	UnitPerPack  int        `gorm:"unit_per_pack" json:"unit_per_pack"`
 	BlisterCount int        `gorm:"blister_count" json:"blister_count"`
 }
+
+// ProductExpireStockQueryParam - mahsulot qoldig'ini srok bo'yicha olish filtri
+type ProductExpireStockQueryParam struct {
+	ProductId string `form:"product_id" binding:"required,uuid"`
+	StoreId   string `form:"store_id" binding:"omitempty,uuid"`
+}
+
+// ProductExpireStock - bitta srok (expire_date) bo'yicha qoldiq
+type ProductExpireStock struct {
+	ExpireDate    *string `gorm:"expire_date" json:"expire_date"`
+	UnitQuantity  int     `gorm:"unit_quantity" json:"unit_quantity"`
+	UnitPerPack   int     `gorm:"unit_per_pack" json:"unit_per_pack"`
+	PackQuantity  int     `gorm:"pack_quantity" json:"pack_quantity"`
+	UnitRemainder int     `gorm:"unit_remainder" json:"unit_remainder"`
+	StoreCount    int     `gorm:"store_count" json:"store_count"`
+}

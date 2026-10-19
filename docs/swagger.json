@@ -19185,6 +19185,82 @@
                 }
             }
         },
+        "/product/expire-stock": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Mahsulotning store_products dagi qoldig'i (unit_quantity \u003e 0) har bir srok (expire_date) bo'yicha.\nstore_id berilmasa barcha aptekalar bo'yicha yig'indi, berilsa faqat shu apteka bo'yicha.\npack_quantity = unit_quantity / unit_per_pack, unit_remainder — qolgan donalar,\nstore_count — shu srokda qoldig'i bor aptekalar soni. expire_date null bo'lsa srok kiritilmagan.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "products"
+                ],
+                "summary": "Get product stock grouped by expire_date",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "ProductId",
+                        "name": "product_id",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "StoreId",
+                        "name": "store_id",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/v1.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "type": "array",
+                                            "items": {
+                                                "$ref": "#/definitions/domain.ProductExpireStock"
+                                            }
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    }
+                }
+            }
+        },
         "/product/export-arzon": {
             "get": {
                 "security": [
@@ -40758,6 +40834,29 @@
                     "items": {
                         "type": "string"
                     }
+                }
+            }
+        },
+        "domain.ProductExpireStock": {
+            "type": "object",
+            "properties": {
+                "expire_date": {
+                    "type": "string"
+                },
+                "pack_quantity": {
+                    "type": "integer"
+                },
+                "store_count": {
+                    "type": "integer"
+                },
+                "unit_per_pack": {
+                    "type": "integer"
+                },
+                "unit_quantity": {
+                    "type": "integer"
+                },
+                "unit_remainder": {
+                    "type": "integer"
                 }
             }
         },

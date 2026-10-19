@@ -1891,6 +1891,21 @@ definitions:
           type: string
         type: array
     type: object
+  domain.ProductExpireStock:
+    properties:
+      expire_date:
+        type: string
+      pack_quantity:
+        type: integer
+      store_count:
+        type: integer
+      unit_per_pack:
+        type: integer
+      unit_quantity:
+        type: integer
+      unit_remainder:
+        type: integer
+    type: object
   domain.ProductPhotoAlertCreate:
     properties:
       category:
@@ -15824,6 +15839,56 @@ paths:
       security:
       - BearerAuth: []
       summary: List excluded products
+      tags:
+      - products
+  /product/expire-stock:
+    get:
+      consumes:
+      - application/json
+      description: |-
+        Mahsulotning store_products dagi qoldig'i (unit_quantity > 0) har bir srok (expire_date) bo'yicha.
+        store_id berilmasa barcha aptekalar bo'yicha yig'indi, berilsa faqat shu apteka bo'yicha.
+        pack_quantity = unit_quantity / unit_per_pack, unit_remainder — qolgan donalar,
+        store_count — shu srokda qoldig'i bor aptekalar soni. expire_date null bo'lsa srok kiritilmagan.
+      parameters:
+      - description: ProductId
+        in: query
+        name: product_id
+        required: true
+        type: string
+      - description: StoreId
+        in: query
+        name: store_id
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/v1.Response'
+            - properties:
+                data:
+                  items:
+                    $ref: '#/definitions/domain.ProductExpireStock'
+                  type: array
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Get product stock grouped by expire_date
       tags:
       - products
   /product/export-arzon:

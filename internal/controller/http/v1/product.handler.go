@@ -111,6 +111,7 @@ func (h *ProductHandler) ProductRoutes(r *gin.RouterGroup) {
 		product.PATCH("/store-product/:id/unit-quantity", h.UpdateStoreProductUnitQuantity)
 		product.GET("/public-list", h.PublicList)
 		product.GET("/reserved-products/list", h.ListReservedProducts)
+		product.GET("/expire-stock", h.GetProductExpireStock)
 	}
 }
 
@@ -4797,4 +4798,46 @@ func (h *ProductHandler) ListReservedProducts(c *gin.Context) {
 	}
 
 	handleResponse(c, OK, utils.ListResponse(res, totalCount, params.Limit, params.Offset))
+}
+
+// GetProductExpireStock godoc
+// @Summary Get product stock grouped by expire_date
+// @Description Mahsulotning store_products dagi qoldig'i (unit_quantity > 0) har bir srok (expire_date) bo'yicha.
+// @Description store_id berilmasa barcha aptekalar bo'yicha yig'indi, berilsa faqat shu apteka bo'yicha.
+// @Description pack_quantity = unit_quantity / unit_per_pack, unit_remainder — qolgan donalar,
+// @Description store_count — shu srokda qoldig'i bor aptekalar soni. expire_date null bo'lsa srok kiritilmagan.
+// @Tags products
+// @Security     BearerAuth
+// @Accept json
+// @Produce json
+// @Param 	product_id 	query string 	true  "ProductId"
+// @Param 	store_id 	query string 	false "StoreId"
+// @Success 200 {object} v1.Response{data=[]domain.ProductExpireStock}
+// @Failure 400 {object} v1.Response
+// @Failure 401 {object} v1.Response
+// @Failure 500 {object} v1.Response
+// @Router /product/expire-stock [get]
+func (h *ProductHandler) GetProductExpireStock(c *gin.Context) {
+	user := h.service.GetSignedUser(c)
+	if user.UserId == "" {
+		handleServiceResponse(c, nil, domain.UnauthorizedError)
+		return
+	}
+
+	var params domain.ProductExpireStockQueryParam
+	if err := c.ShouldBindQuery(&params); err != nil {
+		handleServiceResponse(c, nil, domain.InvalidQueryError)
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
+	defer cancel()
+
+	res, err := h.service.GetProductExpireStock(ctx, &params)
+	if err != nil {
+		handleServiceResponse(c, nil, err)
+		return
+	}
+
+	handleResponse(c, OK, res)
 }

@@ -4566,3 +4566,37 @@ func (s *Services) getProductBarcodeUnitsByProductBarcode(ctx context.Context, t
 	}
 	return result, nil
 }
+
+// GetProductExpireStock - mahsulotning store_products dagi qoldig'ini expire_date bo'yicha
+// guruhlab qaytaradi (faqat unit_quantity > 0). store_id berilmasa barcha aptekalar bo'yicha.
+func (s *Services) GetProductExpireStock(ctx context.Context, params *domain.ProductExpireStockQueryParam) ([]domain.ProductExpireStock, error) {
+	qb := s.db.WithContext(ctx).
+		Table("store_products sp").
+		Select(
+			"TO_CHAR(sp.expire_date, 'YYYY-MM-DD') AS expire_date",
+			"SUM(sp.unit_quantity) AS unit_quantity",
+			"GREATEST(p.unit_per_pack, 1) AS unit_per_pack",
+			"SUM(sp.unit_quantity) / GREATEST(p.unit_per_pack, 1) AS pack_quantity",
+			"SUM(sp.unit_quantity) % GREATEST(p.unit_per_pack, 1) AS unit_remainder",
+			"COUNT(DISTINCT sp.store_id) AS store_count",
+		).
+		Joins("JOIN products p ON p.id = sp.product_id").
+		Where("sp.product_id = ?", params.ProductId).
+		Where("sp.unit_quantity > 0")
+
+	if params.StoreId != "" {
+		qb = qb.Where("sp.store_id = ?", params.StoreId)
+	}
+
+	var res []domain.ProductExpireStock
+	err := qb.
+		Group("sp.expire_date, p.unit_per_pack").
+		Order("sp.expire_date ASC NULLS LAST").
+		Find(&res).Error
+	if err != nil {
+		s.log.Errorf("could not get product expire stock: %v", err)
+		return nil, domain.InternalServerError
+	}
+
+	return res, nil
+}
