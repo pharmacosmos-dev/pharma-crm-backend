@@ -4576,8 +4576,8 @@ func (s *Services) GetProductExpireStock(ctx context.Context, params *domain.Pro
 			"TO_CHAR(sp.expire_date, 'YYYY-MM-DD') AS expire_date",
 			"SUM(sp.unit_quantity) AS unit_quantity",
 			"GREATEST(p.unit_per_pack, 1) AS unit_per_pack",
-			"SUM(sp.unit_quantity) / GREATEST(p.unit_per_pack, 1) AS pack_quantity",
-			"SUM(sp.unit_quantity) % GREATEST(p.unit_per_pack, 1) AS unit_remainder",
+			// "SUM(sp.unit_quantity) / GREATEST(p.unit_per_pack, 1) AS pack_quantity",
+			// "SUM(sp.unit_quantity) % GREATEST(p.unit_per_pack, 1) AS unit_remainder",
 			"COUNT(DISTINCT sp.store_id) AS store_count",
 		).
 		Joins("JOIN products p ON p.id = sp.product_id").

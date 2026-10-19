@@ -40850,19 +40850,14 @@ const docTemplate = `{
                 "expire_date": {
                     "type": "string"
                 },
-                "pack_quantity": {
-                    "type": "integer"
-                },
                 "store_count": {
+                    "description": "PackQuantity  int     ` + "`" + `gorm:\"pack_quantity\" json:\"pack_quantity\"` + "`" + `\nUnitRemainder int     ` + "`" + `gorm:\"unit_remainder\" json:\"unit_remainder\"` + "`" + `",
                     "type": "integer"
                 },
                 "unit_per_pack": {
                     "type": "integer"
                 },
                 "unit_quantity": {
-                    "type": "integer"
-                },
-                "unit_remainder": {
                     "type": "integer"
                 }
             }
