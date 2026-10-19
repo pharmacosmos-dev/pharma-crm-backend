@@ -32,7 +32,7 @@ func (h *MarkingUnitSaleHandler) MarkingUnitSaleRoutes(r *gin.RouterGroup) {
 // @Security     BearerAuth
 // @Accept       json
 // @Produce      json
-// @Param        marking  query  string  false  "Markirovka bo'yicha qidiruv"
+// @Param        marking  query  string  false  "Markirovka yoki mahsulot nomi bo'yicha qidiruv"
 // @Param        limit    query  int     false  "Limit (default 10)"
 // @Param        offset   query  int     false  "Offset"
 // @Success      200  {object}  v1.Response

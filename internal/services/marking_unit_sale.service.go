@@ -290,14 +290,17 @@ func (s *Services) ReverseMarkingUnitSale(ctx context.Context, tx *gorm.DB, sale
 }
 
 // GetMarkingUnitSales: markirovkalar bo'yicha sotilgan/qolgan donalar ro'yxati.
-// marking berilsa shu matn qatnashgan markirovkalar qidiriladi.
+// marking parametri markirovka yoki mahsulot nomi bo'yicha qidiradi.
 func (s *Services) GetMarkingUnitSales(
 	ctx context.Context, params *domain.MarkingUnitSaleQueryParams,
 ) ([]domain.MarkingUnitSale, int64, error) {
 	newQuery := func() *gorm.DB {
-		q := s.db.WithContext(ctx).Table("marking_unit_sales mus")
+		q := s.db.WithContext(ctx).
+			Table("marking_unit_sales mus").
+			Joins("LEFT JOIN products p ON p.id = mus.product_id")
 		if params.Marking != "" {
-			q = q.Where("mus.marking ILIKE ?", fmt.Sprintf("%%%s%%", params.Marking))
+			search := fmt.Sprintf("%%%s%%", params.Marking)
+			q = q.Where("mus.marking ILIKE ? OR p.name ILIKE ?", search, search)
 		}
 		return q
 	}
@@ -311,7 +314,6 @@ func (s *Services) GetMarkingUnitSales(
 	var res []domain.MarkingUnitSale
 	err := newQuery().
 		Select("mus.*", "p.name AS product_name").
-		Joins("LEFT JOIN products p ON p.id = mus.product_id").
 		Order("mus.updated_at DESC").
 		Limit(params.Limit).
 		Offset(params.Offset).

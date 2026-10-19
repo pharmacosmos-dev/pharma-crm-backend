@@ -15440,7 +15440,7 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "Markirovka bo'yicha qidiruv",
+                        "description": "Markirovka yoki mahsulot nomi bo'yicha qidiruv",
                         "name": "marking",
                         "in": "query"
                     },

@@ -13064,7 +13064,7 @@ paths:
       description: Har bir markirovka bo'yicha nechta dona sotilgan (sold_quantity)
         va nechta qolgan (stock_quantity).
       parameters:
-      - description: Markirovka bo'yicha qidiruv
+      - description: Markirovka yoki mahsulot nomi bo'yicha qidiruv
         in: query
         name: marking
         type: string
