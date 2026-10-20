@@ -799,9 +799,9 @@ func (s *Services) UpdateCartItemMarkings(ctx context.Context, id string, req *d
 	}
 
 	// check duplicate
-	if utils.In(req.Marking, cartItem.Markings...) {
-		return domain.AlreadyExistsError
-	}
+	// if utils.In(req.Marking, cartItem.Markings...) {
+	// 	return domain.AlreadyExistsError
+	// }
 
 	// check if marking was already sold in a finished sale
 	if err = s.checkMarkingNotSold(ctx, s.db, req.Marking); err != nil {
