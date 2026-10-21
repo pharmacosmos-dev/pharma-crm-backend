@@ -51,7 +51,7 @@ func (h *HelperHandler) HelperRoutes(r *gin.RouterGroup) {
 		helper.POST("/upload-product-barcodes", h.UploadProductBarcodes)
 		helper.POST("/check-product-barcode-mxik", h.CheckProductBarcodeMxik)
 		helper.POST("/upload-product-barcode-unit-code", h.UploadProductBarcodeUnitCode)
-		helper.POST("/upload-barcode-mxik-unit", h.UploadBarcodeMxikUnit)
+		helper.POST("/upload-barcode-mxik-unit", h.UploadProductBarcodeUnitCode)
 		helper.POST("/upload-store-products", h.UploadStoreProducts)
 		helper.POST("/upload-product-producer", h.UploadProductProducer)
 		helper.POST("/upload-store-terminals", h.UploadTerminalIDs)
@@ -854,7 +854,8 @@ func (h *HelperHandler) UploadProductBarcodeUnitCode(c *gin.Context) {
 		handleResponse(c, InternalError, tx.Error.Error())
 		return
 	}
-	updated, skipped, emptyValues, pairNotFound := 0, 0, 0, 0
+	updated, skipped, emptyValues := 0, 0, 0
+	notFound := make([]productBarcodeMismatch, 0)
 	for _, row := range rows {
 		if row.Barcode == "" || row.Mxik == "" || row.UnitCode == "" {
 			skipped++
@@ -873,7 +874,7 @@ func (h *HelperHandler) UploadProductBarcodeUnitCode(c *gin.Context) {
 		}
 		if res.RowsAffected == 0 {
 			skipped++
-			pairNotFound++
+			notFound = append(notFound, productBarcodeMismatch{Barcode: row.Barcode, Mxik: row.Mxik})
 		} else {
 			updated += int(res.RowsAffected)
 		}
@@ -883,10 +884,10 @@ func (h *HelperHandler) UploadProductBarcodeUnitCode(c *gin.Context) {
 		return
 	}
 	handleResponse(c, OK, gin.H{
-		"updated":                     updated,
-		"skipped":                     skipped,
-		"skipped_empty_values":        emptyValues,
-		"barcode_mxik_pair_not_found": pairNotFound,
+		"updated":              updated,
+		"skipped":              skipped,
+		"skipped_empty_values": emptyValues,
+		"not_found":            notFound,
 	})
 }
 
