@@ -10675,11 +10675,11 @@ const docTemplate = `{
                 "tags": [
                     "helper"
                 ],
-                "summary": "Check material code, barcode and MXIK values against product_barcodes",
+                "summary": "Check barcode and MXIK values against product_barcodes",
                 "parameters": [
                     {
                         "type": "file",
-                        "description": "Excel file with material_code, barcode, mxik columns",
+                        "description": "Excel file with barcode and mxik columns",
                         "name": "file",
                         "in": "formData",
                         "required": true
@@ -11705,7 +11705,7 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "file",
-                        "description": "Excel file with material_code, barcode, mxik, unit_code columns",
+                        "description": "Excel file with barcode, mxik, unit_code columns",
                         "name": "file",
                         "in": "formData",
                         "required": true
