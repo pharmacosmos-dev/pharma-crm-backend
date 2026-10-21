@@ -10659,6 +10659,42 @@ const docTemplate = `{
                 }
             }
         },
+        "/helper/check-product-barcode-mxik": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "consumes": [
+                    "multipart/form-data"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "helper"
+                ],
+                "summary": "Check material code, barcode and MXIK values against product_barcodes",
+                "parameters": [
+                    {
+                        "type": "file",
+                        "description": "Excel file with material_code, barcode, mxik columns",
+                        "name": "file",
+                        "in": "formData",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    }
+                }
+            }
+        },
         "/helper/check-products-by-material-code": {
             "post": {
                 "security": [
@@ -11642,6 +11678,42 @@ const docTemplate = `{
                     },
                     "500": {
                         "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/helper/upload-product-barcode-unit-code": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "consumes": [
+                    "multipart/form-data"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "helper"
+                ],
+                "summary": "Update product barcode unit codes from Excel",
+                "parameters": [
+                    {
+                        "type": "file",
+                        "description": "Excel file with material_code, barcode, mxik, unit_code columns",
+                        "name": "file",
+                        "in": "formData",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
                         "schema": {
                             "$ref": "#/definitions/v1.Response"
                         }
@@ -39370,6 +39442,9 @@ const docTemplate = `{
                 },
                 "uzum": {
                     "type": "number"
+                },
+                "uzum_self_pickup": {
+                    "type": "boolean"
                 },
                 "uzum_tez_kor": {
                     "type": "number"

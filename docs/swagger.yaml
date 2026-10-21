@@ -923,6 +923,8 @@ definitions:
         type: number
       uzum:
         type: number
+      uzum_self_pickup:
+        type: boolean
       uzum_tez_kor:
         type: number
     type: object
@@ -10003,6 +10005,28 @@ paths:
       summary: Check online_products_price existence by product IDs from Excel
       tags:
       - helper
+  /helper/check-product-barcode-mxik:
+    post:
+      consumes:
+      - multipart/form-data
+      parameters:
+      - description: Excel file with material_code, barcode, mxik columns
+        in: formData
+        name: file
+        required: true
+        type: file
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Check material code, barcode and MXIK values against product_barcodes
+      tags:
+      - helper
   /helper/check-products-by-material-code:
     post:
       consumes:
@@ -10638,6 +10662,28 @@ paths:
       security:
       - BearerAuth: []
       summary: Upload pharmacy info excel
+      tags:
+      - helper
+  /helper/upload-product-barcode-unit-code:
+    post:
+      consumes:
+      - multipart/form-data
+      parameters:
+      - description: Excel file with material_code, barcode, mxik, unit_code columns
+        in: formData
+        name: file
+        required: true
+        type: file
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Update product barcode unit codes from Excel
       tags:
       - helper
   /helper/upload-product-barcodes:
