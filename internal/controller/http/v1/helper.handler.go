@@ -695,16 +695,14 @@ func (h *HelperHandler) UploadBarcodeMxikUnit(c *gin.Context) {
 }
 
 type productBarcodeExcelRow struct {
-	MaterialCode int
-	Barcode      string
-	Mxik         string
-	UnitCode     string
+	Barcode  string
+	Mxik     string
+	UnitCode string
 }
 
 type productBarcodeMismatch struct {
-	MaterialCode int    `json:"material_code"`
-	Barcode      string `json:"barcode"`
-	Mxik         string `json:"mxik"`
+	Barcode string `json:"barcode"`
+	Mxik    string `json:"mxik"`
 }
 
 func readProductBarcodeExcel(c *gin.Context, requireUnitCode bool) ([]productBarcodeExcelRow, error) {
@@ -730,48 +728,79 @@ func readProductBarcodeExcel(c *gin.Context, requireUnitCode bool) ([]productBar
 	if err != nil {
 		return nil, err
 	}
-	if len(rows) < 2 {
+	if len(rows) == 0 {
 		return nil, fmt.Errorf("empty file")
 	}
 	indexes := map[string]int{}
 	for i, header := range rows[0] {
-		indexes[strings.ToLower(strings.TrimSpace(header))] = i
+		indexes[normalizeProductBarcodeHeader(header)] = i
 	}
-	required := []string{"material_code", "barcode", "mxik"}
+	required := []string{"barcode", "mxik"}
 	if requireUnitCode {
 		required = append(required, "unit_code")
 	}
+	canonical := map[string]string{"barcode": "barcode", "mxik": "mxik", "unit_code": "unitcode"}
+	headerRowPresent := true
 	for _, name := range required {
-		if _, ok := indexes[name]; !ok {
-			return nil, fmt.Errorf("missing required column: %s", name)
+		if _, ok := indexes[canonical[name]]; !ok {
+			headerRowPresent = false
+			break
 		}
 	}
+	if !headerRowPresent {
+		// Accept headerless files with or without the legacy material_code column.
+		legacyMaterialCodeColumn := (!requireUnitCode && len(rows[0]) >= 3) || (requireUnitCode && len(rows[0]) >= 4)
+		barcodeIndex, mxikIndex, unitCodeIndex := 0, 1, 2
+		if legacyMaterialCodeColumn {
+			barcodeIndex, mxikIndex, unitCodeIndex = 1, 2, 3
+		}
+		indexes = map[string]int{"barcode": barcodeIndex, "mxik": mxikIndex}
+		if requireUnitCode {
+			indexes["unitcode"] = unitCodeIndex
+		}
+	} else if len(rows) < 2 {
+		return nil, fmt.Errorf("empty file")
+	}
 	get := func(row []string, name string) string {
-		i := indexes[name]
+		i := indexes[canonical[name]]
 		if i >= len(row) {
 			return ""
 		}
 		return strings.TrimSpace(row[i])
 	}
-	result := make([]productBarcodeExcelRow, 0, len(rows)-1)
-	for _, row := range rows[1:] {
+	dataRows := rows[1:]
+	if !headerRowPresent {
+		dataRows = rows
+	}
+	result := make([]productBarcodeExcelRow, 0, len(dataRows))
+	for _, row := range dataRows {
 		result = append(result, productBarcodeExcelRow{
-			MaterialCode: parseIntComma(get(row, "material_code")),
-			Barcode:      get(row, "barcode"),
-			Mxik:         get(row, "mxik"),
-			UnitCode:     get(row, "unit_code"),
+			Barcode:  get(row, "barcode"),
+			Mxik:     get(row, "mxik"),
+			UnitCode: get(row, "unit_code"),
 		})
 	}
 	return result, nil
 }
 
+func normalizeProductBarcodeHeader(header string) string {
+	header = strings.TrimPrefix(strings.TrimSpace(header), "\uFEFF")
+	var normalized strings.Builder
+	for _, r := range strings.ToLower(header) {
+		if (r >= 'a' && r <= 'z') || (r >= '0' && r <= '9') {
+			normalized.WriteRune(r)
+		}
+	}
+	return normalized.String()
+}
+
 // CheckProductBarcodeMxik godoc
-// @Summary Check material code, barcode and MXIK values against product_barcodes
+// @Summary Check barcode and MXIK values against product_barcodes
 // @Tags helper
 // @Security BearerAuth
 // @Accept multipart/form-data
 // @Produce json
-// @Param file formData file true "Excel file with material_code, barcode, mxik columns"
+// @Param file formData file true "Excel file with barcode and mxik columns"
 // @Success 200 {object} v1.Response
 // @Router /helper/check-product-barcode-mxik [POST]
 func (h *HelperHandler) CheckProductBarcodeMxik(c *gin.Context) {
@@ -784,19 +813,17 @@ func (h *HelperHandler) CheckProductBarcodeMxik(c *gin.Context) {
 	for _, row := range rows {
 		var exists bool
 		err := h.db.Raw(`SELECT EXISTS (
-			SELECT 1 FROM products p
-			JOIN product_barcodes pb ON pb.product_id = p.id
-			WHERE p.material_code = ? AND pb.barcode = ? AND COALESCE(pb.mxik, '') = ?
-		)`, row.MaterialCode, row.Barcode, row.Mxik).Scan(&exists).Error
+			SELECT 1 FROM product_barcodes pb
+			WHERE pb.barcode = ? AND COALESCE(pb.mxik, '') = ?
+		)`, row.Barcode, row.Mxik).Scan(&exists).Error
 		if err != nil {
 			handleResponse(c, InternalError, err.Error())
 			return
 		}
 		if !exists {
 			mismatches = append(mismatches, productBarcodeMismatch{
-				MaterialCode: row.MaterialCode,
-				Barcode:      row.Barcode,
-				Mxik:         row.Mxik,
+				Barcode: row.Barcode,
+				Mxik:    row.Mxik,
 			})
 		}
 	}
@@ -809,7 +836,7 @@ func (h *HelperHandler) CheckProductBarcodeMxik(c *gin.Context) {
 // @Security BearerAuth
 // @Accept multipart/form-data
 // @Produce json
-// @Param file formData file true "Excel file with material_code, barcode, mxik, unit_code columns"
+// @Param file formData file true "Excel file with barcode, mxik, unit_code columns"
 // @Success 200 {object} v1.Response
 // @Router /helper/upload-product-barcode-unit-code [POST]
 func (h *HelperHandler) UploadProductBarcodeUnitCode(c *gin.Context) {
@@ -825,16 +852,14 @@ func (h *HelperHandler) UploadProductBarcodeUnitCode(c *gin.Context) {
 	}
 	updated, skipped := 0, 0
 	for _, row := range rows {
-		if row.MaterialCode == 0 || row.Barcode == "" || row.Mxik == "" || row.UnitCode == "" {
+		if row.Barcode == "" || row.Mxik == "" || row.UnitCode == "" {
 			skipped++
 			continue
 		}
 		res := tx.Exec(`UPDATE product_barcodes pb
 			SET unit_code = ?, updated_at = NOW()
-			FROM products p
-			WHERE pb.product_id = p.id AND p.material_code = ?
-			  AND pb.barcode = ? AND COALESCE(pb.mxik, '') = ?`,
-			row.UnitCode, row.MaterialCode, row.Barcode, row.Mxik)
+			WHERE pb.barcode = ? AND COALESCE(pb.mxik, '') = ?`,
+			row.UnitCode, row.Barcode, row.Mxik)
 		if res.Error != nil {
 			_ = tx.Rollback().Error
 			handleResponse(c, InternalError, res.Error.Error())
