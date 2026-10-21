@@ -774,10 +774,12 @@ func readProductBarcodeExcel(c *gin.Context, requireUnitCode bool) ([]productBar
 	}
 	result := make([]productBarcodeExcelRow, 0, len(dataRows))
 	for _, row := range dataRows {
+		barcode := strings.Join(strings.Fields(get(row, "barcode")), "")
+		mxik := strings.Join(strings.Fields(get(row, "mxik")), "")
 		unitCode := strings.Join(strings.Fields(get(row, "unit_code")), "")
 		result = append(result, productBarcodeExcelRow{
-			Barcode:  get(row, "barcode"),
-			Mxik:     get(row, "mxik"),
+			Barcode:  barcode,
+			Mxik:     mxik,
 			UnitCode: unitCode,
 		})
 	}
@@ -815,7 +817,8 @@ func (h *HelperHandler) CheckProductBarcodeMxik(c *gin.Context) {
 		var exists bool
 		err := h.db.Raw(`SELECT EXISTS (
 			SELECT 1 FROM product_barcodes pb
-			WHERE pb.barcode = ? AND COALESCE(pb.mxik, '') = ?
+			WHERE regexp_replace(COALESCE(pb.barcode, ''), '[[:space:]]', '', 'g') = ?
+			  AND regexp_replace(COALESCE(pb.mxik, ''), '[[:space:]]', '', 'g') = ?
 		)`, row.Barcode, row.Mxik).Scan(&exists).Error
 		if err != nil {
 			handleResponse(c, InternalError, err.Error())
@@ -851,15 +854,17 @@ func (h *HelperHandler) UploadProductBarcodeUnitCode(c *gin.Context) {
 		handleResponse(c, InternalError, tx.Error.Error())
 		return
 	}
-	updated, skipped := 0, 0
+	updated, skipped, emptyValues, pairNotFound := 0, 0, 0, 0
 	for _, row := range rows {
 		if row.Barcode == "" || row.Mxik == "" || row.UnitCode == "" {
 			skipped++
+			emptyValues++
 			continue
 		}
 		res := tx.Exec(`UPDATE product_barcodes pb
 			SET unit_code = ?, updated_at = NOW()
-			WHERE pb.barcode = ? AND COALESCE(pb.mxik, '') = ?`,
+			WHERE regexp_replace(COALESCE(pb.barcode, ''), '[[:space:]]', '', 'g') = ?
+			  AND regexp_replace(COALESCE(pb.mxik, ''), '[[:space:]]', '', 'g') = ?`,
 			row.UnitCode, row.Barcode, row.Mxik)
 		if res.Error != nil {
 			_ = tx.Rollback().Error
@@ -868,6 +873,7 @@ func (h *HelperHandler) UploadProductBarcodeUnitCode(c *gin.Context) {
 		}
 		if res.RowsAffected == 0 {
 			skipped++
+			pairNotFound++
 		} else {
 			updated += int(res.RowsAffected)
 		}
@@ -876,7 +882,12 @@ func (h *HelperHandler) UploadProductBarcodeUnitCode(c *gin.Context) {
 		handleResponse(c, InternalError, err.Error())
 		return
 	}
-	handleResponse(c, OK, gin.H{"updated": updated, "skipped": skipped})
+	handleResponse(c, OK, gin.H{
+		"updated":                     updated,
+		"skipped":                     skipped,
+		"skipped_empty_values":        emptyValues,
+		"barcode_mxik_pair_not_found": pairNotFound,
+	})
 }
 
 // UploadStoreProductUpdate godoc
