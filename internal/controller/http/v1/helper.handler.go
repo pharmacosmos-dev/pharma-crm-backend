@@ -774,10 +774,11 @@ func readProductBarcodeExcel(c *gin.Context, requireUnitCode bool) ([]productBar
 	}
 	result := make([]productBarcodeExcelRow, 0, len(dataRows))
 	for _, row := range dataRows {
+		unitCode := strings.Join(strings.Fields(get(row, "unit_code")), "")
 		result = append(result, productBarcodeExcelRow{
 			Barcode:  get(row, "barcode"),
 			Mxik:     get(row, "mxik"),
-			UnitCode: get(row, "unit_code"),
+			UnitCode: unitCode,
 		})
 	}
 	return result, nil
