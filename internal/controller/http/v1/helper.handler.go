@@ -49,6 +49,8 @@ func (h *HelperHandler) HelperRoutes(r *gin.RouterGroup) {
 		helper.POST("/upload-mxik", h.UploadMxik)
 		helper.POST("/epos", h.EposTransmitter)
 		helper.POST("/upload-product-barcodes", h.UploadProductBarcodes)
+		helper.POST("/check-product-barcode-mxik", h.CheckProductBarcodeMxik)
+		helper.POST("/upload-product-barcode-unit-code", h.UploadProductBarcodeUnitCode)
 		helper.POST("/upload-barcode-mxik-unit", h.UploadBarcodeMxikUnit)
 		helper.POST("/upload-store-products", h.UploadStoreProducts)
 		helper.POST("/upload-product-producer", h.UploadProductProducer)
@@ -690,6 +692,165 @@ func (h *HelperHandler) UploadBarcodeMxikUnit(c *gin.Context) {
 		"product_not_found":     productNotFound,
 		"barcode_row_not_found": barcodeRowNotFound,
 	})
+}
+
+type productBarcodeExcelRow struct {
+	MaterialCode int
+	Barcode      string
+	Mxik         string
+	UnitCode     string
+}
+
+type productBarcodeMismatch struct {
+	MaterialCode int    `json:"material_code"`
+	Barcode      string `json:"barcode"`
+	Mxik         string `json:"mxik"`
+}
+
+func readProductBarcodeExcel(c *gin.Context, requireUnitCode bool) ([]productBarcodeExcelRow, error) {
+	var file domain.File
+	if err := c.ShouldBind(&file); err != nil {
+		return nil, err
+	}
+	ext := filepath.Ext(file.File.Filename)
+	if ext != ".xlsx" && ext != ".xls" {
+		return nil, fmt.Errorf("unsupported file format")
+	}
+	path := filepath.Join("uploads", uuid.New().String()+ext)
+	if err := c.SaveUploadedFile(file.File, path); err != nil {
+		return nil, err
+	}
+	defer os.Remove(path)
+	wb, err := excelize.OpenFile(path)
+	if err != nil {
+		return nil, err
+	}
+	defer wb.Close()
+	rows, err := wb.GetRows(wb.GetSheetName(0))
+	if err != nil {
+		return nil, err
+	}
+	if len(rows) < 2 {
+		return nil, fmt.Errorf("empty file")
+	}
+	indexes := map[string]int{}
+	for i, header := range rows[0] {
+		indexes[strings.ToLower(strings.TrimSpace(header))] = i
+	}
+	required := []string{"material_code", "barcode", "mxik"}
+	if requireUnitCode {
+		required = append(required, "unit_code")
+	}
+	for _, name := range required {
+		if _, ok := indexes[name]; !ok {
+			return nil, fmt.Errorf("missing required column: %s", name)
+		}
+	}
+	get := func(row []string, name string) string {
+		i := indexes[name]
+		if i >= len(row) {
+			return ""
+		}
+		return strings.TrimSpace(row[i])
+	}
+	result := make([]productBarcodeExcelRow, 0, len(rows)-1)
+	for _, row := range rows[1:] {
+		result = append(result, productBarcodeExcelRow{
+			MaterialCode: parseIntComma(get(row, "material_code")),
+			Barcode:      get(row, "barcode"),
+			Mxik:         get(row, "mxik"),
+			UnitCode:     get(row, "unit_code"),
+		})
+	}
+	return result, nil
+}
+
+// CheckProductBarcodeMxik godoc
+// @Summary Check material code, barcode and MXIK values against product_barcodes
+// @Tags helper
+// @Security BearerAuth
+// @Accept multipart/form-data
+// @Produce json
+// @Param file formData file true "Excel file with material_code, barcode, mxik columns"
+// @Success 200 {object} v1.Response
+// @Router /helper/check-product-barcode-mxik [POST]
+func (h *HelperHandler) CheckProductBarcodeMxik(c *gin.Context) {
+	rows, err := readProductBarcodeExcel(c, false)
+	if err != nil {
+		handleResponse(c, BadRequest, err.Error())
+		return
+	}
+	mismatches := make([]productBarcodeMismatch, 0)
+	for _, row := range rows {
+		var exists bool
+		err := h.db.Raw(`SELECT EXISTS (
+			SELECT 1 FROM products p
+			JOIN product_barcodes pb ON pb.product_id = p.id
+			WHERE p.material_code = ? AND pb.barcode = ? AND COALESCE(pb.mxik, '') = ?
+		)`, row.MaterialCode, row.Barcode, row.Mxik).Scan(&exists).Error
+		if err != nil {
+			handleResponse(c, InternalError, err.Error())
+			return
+		}
+		if !exists {
+			mismatches = append(mismatches, productBarcodeMismatch{
+				MaterialCode: row.MaterialCode,
+				Barcode:      row.Barcode,
+				Mxik:         row.Mxik,
+			})
+		}
+	}
+	handleResponse(c, OK, mismatches)
+}
+
+// UploadProductBarcodeUnitCode godoc
+// @Summary Update product barcode unit codes from Excel
+// @Tags helper
+// @Security BearerAuth
+// @Accept multipart/form-data
+// @Produce json
+// @Param file formData file true "Excel file with material_code, barcode, mxik, unit_code columns"
+// @Success 200 {object} v1.Response
+// @Router /helper/upload-product-barcode-unit-code [POST]
+func (h *HelperHandler) UploadProductBarcodeUnitCode(c *gin.Context) {
+	rows, err := readProductBarcodeExcel(c, true)
+	if err != nil {
+		handleResponse(c, BadRequest, err.Error())
+		return
+	}
+	tx := h.db.Begin()
+	if tx.Error != nil {
+		handleResponse(c, InternalError, tx.Error.Error())
+		return
+	}
+	updated, skipped := 0, 0
+	for _, row := range rows {
+		if row.MaterialCode == 0 || row.Barcode == "" || row.Mxik == "" || row.UnitCode == "" {
+			skipped++
+			continue
+		}
+		res := tx.Exec(`UPDATE product_barcodes pb
+			SET unit_code = ?, updated_at = NOW()
+			FROM products p
+			WHERE pb.product_id = p.id AND p.material_code = ?
+			  AND pb.barcode = ? AND COALESCE(pb.mxik, '') = ?`,
+			row.UnitCode, row.MaterialCode, row.Barcode, row.Mxik)
+		if res.Error != nil {
+			_ = tx.Rollback().Error
+			handleResponse(c, InternalError, res.Error.Error())
+			return
+		}
+		if res.RowsAffected == 0 {
+			skipped++
+		} else {
+			updated += int(res.RowsAffected)
+		}
+	}
+	if err := tx.Commit().Error; err != nil {
+		handleResponse(c, InternalError, err.Error())
+		return
+	}
+	handleResponse(c, OK, gin.H{"updated": updated, "skipped": skipped})
 }
 
 // UploadStoreProductUpdate godoc
