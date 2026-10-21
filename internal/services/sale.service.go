@@ -400,6 +400,12 @@ func (s *Services) FinalizeSale(ctx context.Context, req *domain.FinalSale) (*do
 		return nil, err
 	}
 	updates := map[string]any{}
+
+	updates["uzum_self_pickup"] = false
+	if sale.UzumTezKor > 0 || req.UzumTezKor > 0 ||
+		(sale.Type == constants.SaleTypeOnline && sale.PaymentType == constants.PaymentTypeUzumTezkor) {
+		updates["uzum_self_pickup"] = req.UzumSelfPickup
+	}
 	if req.ServiceType == constants.ServiceTypeDmed {
 		cartItems, err := s.GetCartItems(ctx, tx, sale.Id)
 		if err != nil {

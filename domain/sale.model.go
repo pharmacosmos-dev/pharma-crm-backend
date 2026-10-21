@@ -36,6 +36,7 @@ type Sale struct {
 	Alif               float64        `gorm:"alif" json:"alif"`
 	Uzum               float64        `gorm:"uzum" json:"uzum"`
 	UzumTezKor         float64        `gorm:"uzum_tez_kor" json:"uzum_tez_kor"`
+	UzumSelfPickup     bool           `gorm:"uzum_self_pickup" json:"uzum_self_pickup"`
 	LoyaltyCard        float64        `gorm:"loyalty_card" json:"loyalty_card"`
 	IsPaid             bool           `gorm:"is_paid" json:"is_paid"`
 	IsCorporate        bool           `gorm:"is_corporate" json:"is_corporate"`
@@ -211,6 +212,7 @@ type FinalSale struct {
 	LoyaltyCard        float64            `gorm:"loyalty_card" json:"loyalty_card"`
 	Uzum               float64            `gorm:"uzum" json:"uzum"`
 	UzumTezKor         float64            `gorm:"uzum_tez_kor" json:"uzum_tez_kor"`
+	UzumSelfPickup     bool               `json:"uzum_self_pickup"`
 	ReturnAmount       float64            `gorm:"return_amount" json:"return_amount"`
 	LoyaltyCardBarcode string             `gorm:"loyalty_card_barcode" json:"loyalty_card_barcode"`
 	OtpCode            string             `gorm:"otp_code" json:"otp_code"`
