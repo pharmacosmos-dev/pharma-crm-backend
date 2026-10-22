@@ -724,7 +724,8 @@ func readProductBarcodeExcel(c *gin.Context, requireUnitCode bool) ([]productBar
 		return nil, err
 	}
 	defer wb.Close()
-	rows, err := wb.GetRows(wb.GetSheetName(0))
+	// Raw values: formatted reads turn a #,##0 unit_code into "1,847,205".
+	rows, err := wb.GetRows(wb.GetSheetName(0), excelize.Options{RawCellValue: true})
 	if err != nil {
 		return nil, err
 	}
@@ -775,8 +776,11 @@ func readProductBarcodeExcel(c *gin.Context, requireUnitCode bool) ([]productBar
 	result := make([]productBarcodeExcelRow, 0, len(dataRows))
 	for _, row := range dataRows {
 		barcode := strings.Join(strings.Fields(get(row, "barcode")), "")
-		mxik := strings.Join(strings.Fields(get(row, "mxik")), "")
-		unitCode := strings.Join(strings.Fields(get(row, "unit_code")), "")
+		mxik := normalizeProductBarcodeMxik(strings.Join(strings.Fields(get(row, "mxik")), ""))
+		unitCode := strings.ReplaceAll(strings.Join(strings.Fields(get(row, "unit_code")), ""), ",", "")
+		if barcode == "" && mxik == "" && unitCode == "" {
+			continue
+		}
 		result = append(result, productBarcodeExcelRow{
 			Barcode:  barcode,
 			Mxik:     mxik,
@@ -785,6 +789,27 @@ func readProductBarcodeExcel(c *gin.Context, requireUnitCode bool) ([]productBar
 	}
 	return result, nil
 }
+
+// MXIK is 17 digits; Excel number cells drop the leading zeros.
+func normalizeProductBarcodeMxik(mxik string) string {
+	if mxik == "" || len(mxik) >= 17 {
+		return mxik
+	}
+	for _, r := range mxik {
+		if r < '0' || r > '9' {
+			return mxik
+		}
+	}
+	return strings.Repeat("0", 17-len(mxik)) + mxik
+}
+
+// These mirror the Excel-side normalization so both sides compare the same way.
+const productBarcodeNormalizedBarcodeSQL = `regexp_replace(COALESCE(pb.barcode, ''), '[[:space:]]', '', 'g')`
+const productBarcodeNormalizedMxikSQL = `(CASE
+	WHEN regexp_replace(COALESCE(pb.mxik, ''), '[[:space:]]', '', 'g') ~ '^[0-9]{1,16}$'
+	THEN lpad(regexp_replace(pb.mxik, '[[:space:]]', '', 'g'), 17, '0')
+	ELSE regexp_replace(COALESCE(pb.mxik, ''), '[[:space:]]', '', 'g')
+END)`
 
 func normalizeProductBarcodeHeader(header string) string {
 	header = strings.TrimPrefix(strings.TrimSpace(header), "\uFEFF")
@@ -812,24 +837,28 @@ func (h *HelperHandler) CheckProductBarcodeMxik(c *gin.Context) {
 		handleResponse(c, BadRequest, err.Error())
 		return
 	}
+	barcodes := make([]string, len(rows))
+	mxiks := make([]string, len(rows))
+	for i, row := range rows {
+		barcodes[i], mxiks[i] = row.Barcode, row.Mxik
+	}
+	// One pass over product_barcodes instead of a full scan per Excel row.
 	mismatches := make([]productBarcodeMismatch, 0)
-	for _, row := range rows {
-		var exists bool
-		err := h.db.Raw(`SELECT EXISTS (
-			SELECT 1 FROM product_barcodes pb
-			WHERE regexp_replace(COALESCE(pb.barcode, ''), '[[:space:]]', '', 'g') = ?
-			  AND regexp_replace(COALESCE(pb.mxik, ''), '[[:space:]]', '', 'g') = ?
-		)`, row.Barcode, row.Mxik).Scan(&exists).Error
-		if err != nil {
-			handleResponse(c, InternalError, err.Error())
-			return
-		}
-		if !exists {
-			mismatches = append(mismatches, productBarcodeMismatch{
-				Barcode: row.Barcode,
-				Mxik:    row.Mxik,
-			})
-		}
+	err = h.db.Raw(`WITH input AS (
+			SELECT barcode, mxik, MIN(n) AS n
+			FROM unnest(?::text[], ?::text[]) WITH ORDINALITY AS x(barcode, mxik, n)
+			GROUP BY barcode, mxik
+		), existing AS (
+			SELECT DISTINCT `+productBarcodeNormalizedBarcodeSQL+` AS barcode, `+productBarcodeNormalizedMxikSQL+` AS mxik
+			FROM product_barcodes pb
+		)
+		SELECT i.barcode, i.mxik
+		FROM input i
+		WHERE NOT EXISTS (SELECT 1 FROM existing e WHERE e.barcode = i.barcode AND e.mxik = i.mxik)
+		ORDER BY i.n`, pq.Array(barcodes), pq.Array(mxiks)).Scan(&mismatches).Error
+	if err != nil {
+		handleResponse(c, InternalError, err.Error())
+		return
 	}
 	handleResponse(c, OK, mismatches)
 }
@@ -849,40 +878,53 @@ func (h *HelperHandler) UploadProductBarcodeUnitCode(c *gin.Context) {
 		handleResponse(c, BadRequest, err.Error())
 		return
 	}
-	tx := h.db.Begin()
-	if tx.Error != nil {
-		handleResponse(c, InternalError, tx.Error.Error())
-		return
-	}
-	updated, skipped, emptyValues := 0, 0, 0
-	notFound := make([]productBarcodeMismatch, 0)
+	emptyValues := 0
+	barcodes := make([]string, 0, len(rows))
+	mxiks := make([]string, 0, len(rows))
+	unitCodes := make([]string, 0, len(rows))
 	for _, row := range rows {
 		if row.Barcode == "" || row.Mxik == "" || row.UnitCode == "" {
-			skipped++
 			emptyValues++
 			continue
 		}
-		res := tx.Exec(`UPDATE product_barcodes pb
-			SET unit_code = ?, updated_at = NOW()
-			WHERE regexp_replace(COALESCE(pb.barcode, ''), '[[:space:]]', '', 'g') = ?
-			  AND regexp_replace(COALESCE(pb.mxik, ''), '[[:space:]]', '', 'g') = ?`,
-			row.UnitCode, row.Barcode, row.Mxik)
-		if res.Error != nil {
-			_ = tx.Rollback().Error
-			handleResponse(c, InternalError, res.Error.Error())
+		barcodes = append(barcodes, row.Barcode)
+		mxiks = append(mxiks, row.Mxik)
+		unitCodes = append(unitCodes, row.UnitCode)
+	}
+	// Single UPDATE with a join; for duplicate pairs in the file the last row wins.
+	matched := make([]productBarcodeMismatch, 0)
+	if len(barcodes) > 0 {
+		err = h.db.Raw(`WITH input AS (
+				SELECT DISTINCT ON (barcode, mxik) barcode, mxik, unit_code
+				FROM unnest(?::text[], ?::text[], ?::text[]) WITH ORDINALITY AS x(barcode, mxik, unit_code, n)
+				ORDER BY barcode, mxik, n DESC
+			)
+			UPDATE product_barcodes pb
+			SET unit_code = i.unit_code, updated_at = NOW()
+			FROM input i
+			WHERE `+productBarcodeNormalizedBarcodeSQL+` = i.barcode
+			  AND `+productBarcodeNormalizedMxikSQL+` = i.mxik
+			RETURNING i.barcode, i.mxik`,
+			pq.Array(barcodes), pq.Array(mxiks), pq.Array(unitCodes)).Scan(&matched).Error
+		if err != nil {
+			handleResponse(c, InternalError, err.Error())
 			return
 		}
-		if res.RowsAffected == 0 {
-			skipped++
-			notFound = append(notFound, productBarcodeMismatch{Barcode: row.Barcode, Mxik: row.Mxik})
-		} else {
-			updated += int(res.RowsAffected)
+	}
+	found := make(map[productBarcodeMismatch]bool, len(matched))
+	for _, m := range matched {
+		found[m] = true
+	}
+	notFound := make([]productBarcodeMismatch, 0)
+	for i := range barcodes {
+		pair := productBarcodeMismatch{Barcode: barcodes[i], Mxik: mxiks[i]}
+		if !found[pair] {
+			found[pair] = true // report each missing pair once
+			notFound = append(notFound, pair)
 		}
 	}
-	if err := tx.Commit().Error; err != nil {
-		handleResponse(c, InternalError, err.Error())
-		return
-	}
+	updated := len(matched)
+	skipped := emptyValues + len(notFound)
 	handleResponse(c, OK, gin.H{
 		"updated":              updated,
 		"skipped":              skipped,
