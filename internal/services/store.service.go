@@ -137,6 +137,16 @@ func (s *Services) GetStores(ctx context.Context, params *domain.StoreQueryParam
 	return stores, totalCount, ids, nil
 }
 
+// storeEmployeeCountRoleTypes — actual_employee_count'ga kiradigan
+// employees.role_type'lar: konsultant, farmatsevt, zavedushiy, pomoshnik, stajor.
+var storeEmployeeCountRoleTypes = []string{
+	domain.RoleTypeConsultant,
+	domain.RoleTypePharmacist,
+	domain.RoleTypeHeadPharmacist,
+	domain.RoleTypePharmacistAssistant,
+	domain.RoleTypeIntern,
+}
+
 // storeEmployeeCountQuery builds the shared base query behind the employee
 // count list and its statistics, so both always cover the same set of stores.
 
@@ -153,10 +163,11 @@ func (s *Services) storeEmployeeCountQuery(ctx context.Context, params *domain.S
 				  AND e.is_active = TRUE
 				  AND e.store_id IS NOT NULL
 				  AND e.status = ?
+				  AND e.role_type IN (?)
 				GROUP BY e.store_id
 			) actual
 				ON actual.store_id = stores.id
-		`, constants.GeneralStatusActive).
+		`, constants.GeneralStatusActive, storeEmployeeCountRoleTypes).
 		Joins(`
 			LEFT JOIN (
 				SELECT
