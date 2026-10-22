@@ -149,15 +149,10 @@ func (s *Services) GetEmployees(
 					SELECT ranked.id
 					FROM (?) AS ranked
 					WHERE
-						(
-							ranked.employee_count = 0
-							AND ranked.status = ?
-						)
-						OR
-						(
-							ranked.employee_count > 0
-							AND ranked.rn <= ranked.employee_count
-						)
+						-- aktivlar rejadan oshsa ham doim chiqadi; dismissed'lar
+						-- faqat rejadagi bo'sh joylarni to'ldiradi
+						ranked.status = ?
+						OR ranked.rn <= ranked.employee_count
 				)
 			`,
 				rankedEmployees,
