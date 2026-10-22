@@ -22,6 +22,7 @@ type markingUnitSale struct {
 type markingCartItem struct {
 	Id           string
 	ProductId    string
+	ProductName  string
 	UnitPerPack  int
 	UnitQuantity int
 	Markings     utils.StringArray `gorm:"type:text[]"`
@@ -57,10 +58,12 @@ func (s *Services) getMarkingAvailableUnits(ctx context.Context, tx *gorm.DB, ma
 	return res, nil
 }
 
-func markingNotEnoughError(marking string, available int) error {
+// Xabar: "marking.not.enough:<qoldiq>:<mahsulot nomi>" — nom oxirida, chunki
+// uning ichida ham ":" bo'lishi mumkin.
+func markingNotEnoughError(available int, productName string) error {
 	return domain.NewError(
 		domain.MarkingNotEnoughError.Code,
-		fmt.Sprintf("%s:%d", domain.MarkingNotEnoughError.Message, available),
+		fmt.Sprintf("%s:%d:%s", domain.MarkingNotEnoughError.Message, available, productName),
 	)
 }
 
@@ -75,15 +78,18 @@ func (s *Services) checkMarkingCanCover(ctx context.Context, tx *gorm.DB, cartIt
 		return nil
 	}
 
-	var unitPerPack int
+	var product struct {
+		Name        string
+		UnitPerPack int
+	}
 	err := tx.WithContext(ctx).
-		Raw(`SELECT p.unit_per_pack FROM store_products sp JOIN products p ON p.id = sp.product_id WHERE sp.id = ?`, cartItem.StoreProductId).
-		Scan(&unitPerPack).Error
+		Raw(`SELECT p.name, p.unit_per_pack FROM store_products sp JOIN products p ON p.id = sp.product_id WHERE sp.id = ?`, cartItem.StoreProductId).
+		Scan(&product).Error
 	if err != nil {
 		s.log.Errorf("could not get unit_per_pack of store_product(%s): %v", cartItem.StoreProductId, err)
 		return domain.InternalServerError
 	}
-	unitPerPack = max(unitPerPack, 1)
+	unitPerPack := max(product.UnitPerPack, 1)
 
 	available, err := s.getMarkingAvailableUnits(ctx, tx, append([]string{marking}, cartItem.Markings...), unitPerPack)
 	if err != nil {
@@ -99,7 +105,7 @@ func (s *Services) checkMarkingCanCover(ctx context.Context, tx *gorm.DB, cartIt
 		needed -= available[m]
 	}
 	if needed > available[marking] && available[marking] < unitPerPack {
-		return markingNotEnoughError(marking, available[marking])
+		return markingNotEnoughError(available[marking], product.Name)
 	}
 
 	return nil
@@ -149,7 +155,7 @@ func (s *Services) validateSaleMarkingStock(ctx context.Context, tx *gorm.DB, sa
 		}
 
 		if remaining > 0 && partial != "" {
-			return markingNotEnoughError(partial, item.UnitQuantity-remaining)
+			return markingNotEnoughError(item.UnitQuantity-remaining, item.ProductName)
 		}
 	}
 
@@ -160,7 +166,7 @@ func (s *Services) getMarkingCartItems(ctx context.Context, tx *gorm.DB, saleId 
 	var items []markingCartItem
 	err := tx.WithContext(ctx).
 		Table("cart_items ci").
-		Select("ci.id", "p.id AS product_id", "p.unit_per_pack", "ci.unit_quantity", "ci.markings").
+		Select("ci.id", "p.id AS product_id", "p.name AS product_name", "p.unit_per_pack", "ci.unit_quantity", "ci.markings").
 		Joins("JOIN store_products sp ON sp.id = ci.store_product_id").
 		Joins("JOIN products p ON sp.product_id = p.id").
 		Where("ci.sale_id = ? AND COALESCE(cardinality(ci.markings), 0) > 0", saleId).
