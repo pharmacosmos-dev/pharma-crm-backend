@@ -81,7 +81,6 @@ func (s *Services) GetNomenclature(ctx context.Context, storeId string, page, li
 			FROM product_barcodes WHERE barcode IS NOT NULL AND barcode != ''
 			ORDER BY product_id, created_at DESC
 		) pb ON pb.product_id = p.id
-		WHERE p.requires_prescription = false
 	`
 	if limit > 0 && page > 0 {
 		query = query + fmt.Sprintf("LIMIT %d OFFSET %d", limit, (page-1)*limit)
@@ -206,7 +205,7 @@ func (s *Services) GetAvailability(ctx context.Context, storeId string, page, li
 			ORDER BY created_at DESC
 			LIMIT 1
 		) osp ON true
-		WHERE sp.unit_quantity > 0 AND p.requires_prescription = false
+		WHERE sp.unit_quantity > 0
 		GROUP BY p.id, p.unit_per_pack
 	`
 	if limit > 0 && page > 0 {
