@@ -783,7 +783,10 @@ func (h *ReportHandler) StoreReportAmount(c *gin.Context) {
 		if user.StoreId != "" {
 			params.StoreId = user.StoreId
 		}
-		params.CompanyIds = []string{user.CompanyId}
+		// company_id bo'sh xodim (masalan, bugalter) barcha kompaniyalarni ko'radi — IN('') hech narsa qaytarmasdi
+		if user.CompanyId != "" {
+			params.CompanyIds = []string{user.CompanyId}
+		}
 	}
 
 	applyRopAptekaScope(user, &params)
@@ -1003,7 +1006,10 @@ func (h *ReportHandler) StoreReportStats(c *gin.Context) {
 		if user.StoreId != "" {
 			params.StoreId = user.StoreId
 		}
-		params.CompanyIds = []string{user.CompanyId}
+		// company_id bo'sh xodim (masalan, bugalter) barcha kompaniyalarni ko'radi — IN('') hech narsa qaytarmasdi
+		if user.CompanyId != "" {
+			params.CompanyIds = []string{user.CompanyId}
+		}
 	}
 
 	applyRopAptekaScope(user, &params)
