@@ -420,16 +420,18 @@ func (s *Services) CreateProductMaxPriceChanged(
 		})
 	}
 
-	var notFoundCodes []int
+	// bo'sh bo'lsa JSON'da null emas, [] qaytishi uchun
+	notFoundCodes := []int{}
 	var updatedCount int
 	var materialCodes []int
 
 	for _, p := range req.Products {
 
-		if p.MaxPrice <= 0 {
+		// max_price = 0 ham qabul qilinadi (narx cheklovi olib tashlanadi), faqat manfiy rad etiladi
+		if p.MaxPrice < 0 {
 			tx.Rollback()
 			return nil, domain.NewNotAdditionError(400, map[string]any{
-				"message":       "max_price must be greater than 0",
+				"message":       "max_price must not be negative",
 				"material_code": p.MaterialCode,
 			})
 		}
@@ -470,7 +472,7 @@ func (s *Services) CreateProductMaxPriceChanged(
 	return map[string]any{
 		"total_requested":          len(req.Products),
 		"updated_count":            updatedCount,
-		"not_found_material_codes": notFoundCodes,
+		"not_found":                notFoundCodes,
 		"reset_to_zero_count":      resetResult.RowsAffected,
 	}, nil
 }
