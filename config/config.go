@@ -124,7 +124,7 @@ func Load() Config {
 	c.Integration.TasnifApiUrl = cast.ToString(GetOrReturnDefaultValue("TASNIF_API_URL", "http://localhost:8080"))
 	c.Integration.NoorApiUrl = cast.ToString(GetOrReturnDefaultValue("NOOR_API_URL", "http://localhost:80"))
 	c.Integration.NoorApiToken = cast.ToString(GetOrReturnDefaultValue("NOOR_API_TOKEN", "token"))
-	// bo'sh bo'lsa webhook o'chiq: accept/reject eski /orders/vendor/* API orqali ketadi
+	// Noor buyurtmasini qabul qilish/rad etish faqat shu webhook orqali ketadi: bo'sh bo'lsa kassaga 424 qaytadi
 	c.Integration.NoorWebhookUrl = cast.ToString(GetOrReturnDefaultValue("NOOR_WEBHOOK_URL", ""))
 	c.Integration.NoorWebhookKey = cast.ToString(GetOrReturnDefaultValue("NOOR_WEBHOOK_KEY", ""))
 	c.Integration.DmedApiUrl = cast.ToString(GetOrReturnDefaultValue("DMED_API_URL", "http://localhost:80"))

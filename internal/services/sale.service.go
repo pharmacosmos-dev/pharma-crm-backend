@@ -1434,26 +1434,14 @@ func (s *Services) AcceptOnlineSale(ctx context.Context, req *domain.ConfirmOnli
 	}
 
 	if sale.ServiceType == constants.ServiceTypeNoor {
-		if s.noorWebhookEnabled(sale.VendorOrderId) {
-			err = s.SendNoorOrderStatus(ctx, &domain.NoorOrderStatusRequest{
-				ExternalId: sale.VendorOrderId,
-				OrderId:    sale.SaleNumber,
-				Status:     constants.NoorOrderStatusAccepted,
-			})
-			if err != nil {
-				_ = tx.Rollback()
-				return nil, err
-			}
-		} else {
-			url := fmt.Sprintf("%s/orders/vendor/%d/confirm", s.cfg.NoorApiUrl, sale.SaleNumber)
-
-			var response *http.Response
-			err = s.NoorRequest(&response, http.MethodPatch, url, nil)
-			if err != nil {
-				_ = tx.Rollback()
-				s.log.Errorf("could not send order confirm request to noor: %v", err)
-				return nil, domain.NoorNotOperationalError
-			}
+		err = s.SendNoorOrderStatus(ctx, &domain.NoorOrderStatusRequest{
+			ExternalId: sale.VendorOrderId,
+			OrderId:    sale.SaleNumber,
+			Status:     constants.NoorOrderStatusAccepted,
+		})
+		if err != nil {
+			_ = tx.Rollback()
+			return nil, err
 		}
 	}
 
@@ -1512,7 +1500,7 @@ func (s *Services) CancelOnlineSale(ctx context.Context, req *domain.ConfirmOnli
 		return domain.InternalServerError
 	}
 
-	if sale.ServiceType == constants.ServiceTypeNoor && s.noorWebhookEnabled(sale.VendorOrderId) {
+	if sale.ServiceType == constants.ServiceTypeNoor {
 		err = s.SendNoorOrderStatus(ctx, &domain.NoorOrderStatusRequest{
 			ExternalId: sale.VendorOrderId,
 			OrderId:    sale.SaleNumber,
@@ -1524,6 +1512,7 @@ func (s *Services) CancelOnlineSale(ctx context.Context, req *domain.ConfirmOnli
 			return err
 		}
 	} else {
+		// TODO: uzum orders also get the old noor cancel here; kept unchanged until uzum cancel is sorted out
 		requestData, err := json.Marshal(gin.H{"order_id": sale.SaleNumber})
 		if err != nil {
 			_ = tx.Rollback()

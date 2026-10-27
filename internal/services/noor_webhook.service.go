@@ -19,16 +19,22 @@ const (
 	noorWebhookAttemptTimeout = 8 * time.Second
 )
 
-// noorWebhookEnabled — webhook faqat URL va kalit sozlanganda hamda buyurtmada
-// Noor'ning external_id'si bo'lganda ishlaydi. Aks holda eski /orders/vendor/* API ishlatiladi.
-func (s *Services) noorWebhookEnabled(externalId string) bool {
-	return s.cfg.NoorWebhookUrl != "" && s.cfg.NoorWebhookKey != "" && externalId != ""
-}
-
 // SendNoorOrderStatus sends the order status to the noor webhook.
 // 429, 5xx and network errors are retried: noor says a repeat is safe.
 // 400/401/404/413 are not retried, the request itself has to be fixed.
 func (s *Services) SendNoorOrderStatus(ctx context.Context, req *domain.NoorOrderStatusRequest) error {
+	if s.cfg.NoorWebhookUrl == "" || s.cfg.NoorWebhookKey == "" {
+		s.log.Errorf("noor webhook is not configured (NOOR_WEBHOOK_URL, NOOR_WEBHOOK_KEY), %s status of order %d is not sent",
+			req.Status, req.OrderId)
+		return domain.NoorNotOperationalError
+	}
+
+	// noor finds the order by its own id
+	if req.ExternalId == "" {
+		s.log.Errorf("noor order %d has no external_id, %s status is not sent", req.OrderId, req.Status)
+		return domain.NoorNotOperationalError
+	}
+
 	data, err := json.Marshal(req)
 	if err != nil {
 		s.log.Errorf("could not marshal noor order status request: %v", err)
