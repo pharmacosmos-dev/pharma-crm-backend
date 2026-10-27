@@ -8,6 +8,7 @@ import (
 	"math"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -1395,6 +1396,12 @@ func (s *Services) AcceptOnlineSale(ctx context.Context, req *domain.ConfirmOnli
 		return nil, err
 	}
 
+	// Noor already cancelled it (no answer in 5 minutes or the customer cancelled)
+	if sale.OnlineStatus == constants.SaleOnlineStageCanceled {
+		_ = tx.Rollback()
+		return nil, domain.OnlineOrderCanceledError
+	}
+
 	// check before accepted
 	if sale.OnlineStatus != constants.SaleOnlineStageNew && sale.Stage != constants.SaleStageNew {
 		_ = tx.Rollback()
@@ -1427,14 +1434,26 @@ func (s *Services) AcceptOnlineSale(ctx context.Context, req *domain.ConfirmOnli
 	}
 
 	if sale.ServiceType == constants.ServiceTypeNoor {
-		url := fmt.Sprintf("%s/orders/vendor/%d/confirm", s.cfg.NoorApiUrl, sale.SaleNumber)
+		if s.noorWebhookEnabled(sale.VendorOrderId) {
+			err = s.SendNoorOrderStatus(ctx, &domain.NoorOrderStatusRequest{
+				ExternalId: sale.VendorOrderId,
+				OrderId:    sale.SaleNumber,
+				Status:     constants.NoorOrderStatusAccepted,
+			})
+			if err != nil {
+				_ = tx.Rollback()
+				return nil, err
+			}
+		} else {
+			url := fmt.Sprintf("%s/orders/vendor/%d/confirm", s.cfg.NoorApiUrl, sale.SaleNumber)
 
-		var response *http.Response
-		err = s.NoorRequest(&response, http.MethodPatch, url, nil)
-		if err != nil {
-			_ = tx.Rollback()
-			s.log.Errorf("could not send order confirm request to noor: %v", err)
-			return nil, domain.NoorNotOperationalError
+			var response *http.Response
+			err = s.NoorRequest(&response, http.MethodPatch, url, nil)
+			if err != nil {
+				_ = tx.Rollback()
+				s.log.Errorf("could not send order confirm request to noor: %v", err)
+				return nil, domain.NoorNotOperationalError
+			}
 		}
 	}
 
@@ -1493,19 +1512,32 @@ func (s *Services) CancelOnlineSale(ctx context.Context, req *domain.ConfirmOnli
 		return domain.InternalServerError
 	}
 
-	requestData, err := json.Marshal(gin.H{"order_id": sale.SaleNumber})
-	if err != nil {
-		_ = tx.Rollback()
-		s.log.Errorf("could not parse online sale response: %v", err)
-		return domain.InternalServerError
-	}
-	url := fmt.Sprintf("%s/orders/vendor/%d/cancel", s.cfg.NoorApiUrl, sale.SaleNumber)
-	var response *http.Response
-	err = s.NoorRequest(&response, http.MethodPatch, url, requestData)
-	if err != nil {
-		_ = tx.Rollback()
-		s.log.Errorf("could not send order cancel request to noor: %v", err)
-		return domain.NoorNotOperationalError
+	if sale.ServiceType == constants.ServiceTypeNoor && s.noorWebhookEnabled(sale.VendorOrderId) {
+		err = s.SendNoorOrderStatus(ctx, &domain.NoorOrderStatusRequest{
+			ExternalId: sale.VendorOrderId,
+			OrderId:    sale.SaleNumber,
+			Status:     constants.NoorOrderStatusRejected,
+			Reason:     strings.TrimSpace(req.Reason),
+		})
+		if err != nil {
+			_ = tx.Rollback()
+			return err
+		}
+	} else {
+		requestData, err := json.Marshal(gin.H{"order_id": sale.SaleNumber})
+		if err != nil {
+			_ = tx.Rollback()
+			s.log.Errorf("could not parse online sale response: %v", err)
+			return domain.InternalServerError
+		}
+		url := fmt.Sprintf("%s/orders/vendor/%d/cancel", s.cfg.NoorApiUrl, sale.SaleNumber)
+		var response *http.Response
+		err = s.NoorRequest(&response, http.MethodPatch, url, requestData)
+		if err != nil {
+			_ = tx.Rollback()
+			s.log.Errorf("could not send order cancel request to noor: %v", err)
+			return domain.NoorNotOperationalError
+		}
 	}
 	// commit transaction
 	if err = tx.Commit().Error; err != nil {

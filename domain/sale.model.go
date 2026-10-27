@@ -406,11 +406,27 @@ type OnlineOrderResponse struct {
 	OrderId int    `json:"order_id"`
 }
 
+// noor order status webhook request
+type NoorOrderStatusRequest struct {
+	ExternalId string `json:"external_id"`
+	OrderId    int    `json:"order_id"`
+	Status     string `json:"status"`
+	Reason     string `json:"reason,omitempty"`
+}
+
+// noor order status webhook response
+type NoorOrderStatusResponse struct {
+	Message string `json:"message"`
+	Details any    `json:"details"`
+}
+
 type ConfirmOnlineSaleRequest struct {
 	SaleId             string `gorm:"sale_id" json:"sale_id"`
 	CashBoxOperationId string `gorm:"cash_box_operation_id" json:"cash_box_operation_id"`
 	CashboxId          string `gorm:"cashbox_id" json:"cashbox_id"`
 	EmployeeId         string `gorm:"employee_id" json:"employee_id"`
+	// Reason — rad etish sababi (faqat online-cancel'da), Noor'ga webhook orqali boradi
+	Reason string `json:"reason"`
 }
 
 type OnlineSaleDto struct {

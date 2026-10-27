@@ -227,6 +227,10 @@ const (
 	ServiceTypeDmed = "dmed"
 	ServiceTypeUzum = "uzum"
 
+	// Noor order status webhook statuses
+	NoorOrderStatusAccepted = "accepted"
+	NoorOrderStatusRejected = "rejected"
+
 	ProductMovementImport    = 1
 	ProductMovementInventory = 2
 )

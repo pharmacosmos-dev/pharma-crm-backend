@@ -83,6 +83,7 @@ var (
 	AlreadyUpdatedError                  = NewError(http.StatusConflict, "already.updated")
 	NoOpenCashboxError                   = NewError(http.StatusConflict, "no.open.cashbox")
 	AlreadyAcceptedError                 = NewError(http.StatusConflict, "already.accepted")
+	OnlineOrderCanceledError             = NewError(http.StatusConflict, "online.order.canceled")
 	DuplicatePhoneError                  = NewError(http.StatusConflict, "duplicate.phone.error")
 	DuplicateLoyaltyCardError            = NewError(http.StatusConflict, "duplicate.loyalty.card.error")
 	AlreadyHaveOpenCashboxOperationError = NewError(http.StatusConflict, "already.have.open.cashbox.operation")

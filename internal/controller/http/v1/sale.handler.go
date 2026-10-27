@@ -1213,6 +1213,7 @@ func (h *SaleHandler) RemoveCustomerDiscount(c *gin.Context) {
 // @Param   body body domain.ConfirmOnlineSaleRequest true "confirm online sale"
 // @Success 200 {object} v1.Response
 // @Failure 400 {object} v1.Response
+// @Failure 409 {object} v1.Response "online.order.canceled — Noor buyurtmani allaqachon bekor qilgan"
 // @Failure 424 {object} v1.Response "noor.not.operational — Noor API so'rovni rad etdi"
 // @Failure 500 {object} v1.Response
 // @Router 	/sale/online-accept [POST]

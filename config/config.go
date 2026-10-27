@@ -70,6 +70,8 @@ type (
 		TasnifApiUrl     string `env-required:"true" yaml:"tasnif_api_url" env:"TASNIF_API_URL"`
 		NoorApiUrl       string `env-required:"true" yaml:"noor_api_url" env:"NOOR_API_URL"`
 		NoorApiToken     string `env-required:"true" yaml:"noor_api_token" env:"NOOR_API_TOKEN"`
+		NoorWebhookUrl   string `env-required:"false" yaml:"noor_webhook_url" env:"NOOR_WEBHOOK_URL"`
+		NoorWebhookKey   string `env-required:"false" yaml:"noor_webhook_key" env:"NOOR_WEBHOOK_KEY"`
 		DmedApiUrl       string `env-required:"true" yaml:"dmed_api_url" env:"DMED_API_URL"`
 		DmedApiToken     string `env-required:"true" yaml:"dmed_api_token" env:"DMED_API_TOKEN"`
 		OsonAptekaApiUrl string `env-required:"true" yaml:"oson_apteka_api_url" env:"OSON_APTEKA_API_URL"`
@@ -122,6 +124,9 @@ func Load() Config {
 	c.Integration.TasnifApiUrl = cast.ToString(GetOrReturnDefaultValue("TASNIF_API_URL", "http://localhost:8080"))
 	c.Integration.NoorApiUrl = cast.ToString(GetOrReturnDefaultValue("NOOR_API_URL", "http://localhost:80"))
 	c.Integration.NoorApiToken = cast.ToString(GetOrReturnDefaultValue("NOOR_API_TOKEN", "token"))
+	// bo'sh bo'lsa webhook o'chiq: accept/reject eski /orders/vendor/* API orqali ketadi
+	c.Integration.NoorWebhookUrl = cast.ToString(GetOrReturnDefaultValue("NOOR_WEBHOOK_URL", ""))
+	c.Integration.NoorWebhookKey = cast.ToString(GetOrReturnDefaultValue("NOOR_WEBHOOK_KEY", ""))
 	c.Integration.DmedApiUrl = cast.ToString(GetOrReturnDefaultValue("DMED_API_URL", "http://localhost:80"))
 	c.Integration.DmedApiToken = cast.ToString(GetOrReturnDefaultValue("DMED_API_TOKEN", "token"))
 	c.Integration.OsonAptekaApiUrl = cast.ToString(GetOrReturnDefaultValue("OSON_APTEKA_API_URL", "https://remains.osonapteka.uz/api/set-app-remains"))

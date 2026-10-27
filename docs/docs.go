@@ -31621,6 +31621,12 @@ const docTemplate = `{
                             "$ref": "#/definitions/v1.Response"
                         }
                     },
+                    "409": {
+                        "description": "online.order.canceled — Noor buyurtmani allaqachon bekor qilgan",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
                     "424": {
                         "description": "noor.not.operational — Noor API so'rovni rad etdi",
                         "schema": {
@@ -38594,6 +38600,10 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "employee_id": {
+                    "type": "string"
+                },
+                "reason": {
+                    "description": "Reason — rad etish sababi (faqat online-cancel'da), Noor'ga webhook orqali boradi",
                     "type": "string"
                 },
                 "sale_id": {
