@@ -1426,9 +1426,10 @@ func (s *Services) GetNoorStoreProductQuantities(storeId string, productIds []st
 	var res []domain.NoorStoreProductQuantity
 
 	query := `
+
 	SELECT
 		ids.product_id::text AS product_id,
-		COALESCE(SUM(sp.unit_quantity / NULLIF(p.unit_per_pack / NULLIF(p.blister_count, 0), 0)), 0)::int AS quantity,
+		COALESCE(sp.unit_quantity / NULLIF(p.unit_per_pack, 0), 0)::int AS quantity,
 		ROUND(opp.retail_price)::int AS price
 	FROM unnest(string_to_array(?, ',')::uuid[]) WITH ORDINALITY AS ids(product_id, ord)
 	JOIN LATERAL (
@@ -1438,12 +1439,16 @@ func (s *Services) GetNoorStoreProductQuantities(storeId string, productIds []st
 		ORDER BY created_at DESC
 		LIMIT 1
 	) opp ON TRUE
-	LEFT JOIN store_products sp
-		ON sp.product_id = ids.product_id
-		AND sp.store_id = ?
-		AND sp.unit_quantity > 0
-	LEFT JOIN products p ON p.id = sp.product_id
-	GROUP BY ids.ord, ids.product_id, opp.retail_price
+	LEFT JOIN LATERAL (
+		SELECT unit_quantity
+		FROM store_products
+		WHERE product_id = ids.product_id
+		AND store_id = ?
+		AND unit_quantity > 0
+		ORDER BY unit_quantity DESC
+		LIMIT 1
+	) sp ON TRUE
+	LEFT JOIN products p ON p.id = ids.product_id
 	ORDER BY ids.ord;`
 
 	err := s.db.Raw(query, strings.Join(productIds, ","), constants.ServiceTypeUzum, storeId).Scan(&res).Error

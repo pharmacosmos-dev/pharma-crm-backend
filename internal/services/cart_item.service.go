@@ -346,17 +346,28 @@ func (s *Services) GetOrCheckOnlineCartItems(ctx context.Context, storeId string
 	SELECT
 		sp.id,
 		sp.product_id,
-		sp.retail_price,
+		COALESCE(osp.retail_price, sp.retail_price) AS retail_price,
 		sp.unit_quantity,
-		(sp.unit_quantity * p.blister_count) / p.unit_per_pack AS quantity,
+		sp.unit_quantity / p.unit_per_pack AS quantity,
 		p.name AS product_name,
 		p.unit_per_pack,
 		p.blister_count
 	FROM store_products sp
 	JOIN products p ON sp.product_id = p.id
+	LEFT JOIN LATERAL (
+		SELECT retail_price
+		FROM online_products_price
+		WHERE product_id = sp.product_id
+		AND type = 'uzum'
+		ORDER BY created_at DESC
+		LIMIT 1
+	) osp ON true
 	WHERE sp.store_id = ?
 	AND sp.product_id = ?
-	AND (sp.unit_quantity * p.blister_count) / p.unit_per_pack >= ?;
+	AND p.unit_per_pack > 0
+	AND sp.unit_quantity / p.unit_per_pack >= ?
+	ORDER BY sp.unit_quantity DESC
+	LIMIT 1;
 	`
 
 	cartItems := []domain.CartItemOnlineRequest{}
@@ -375,17 +386,15 @@ func (s *Services) GetOrCheckOnlineCartItems(ctx context.Context, storeId string
 		if storeProduct.Quantity < float64(req[i].Quantity) { // checking quantity enough or not enough
 			return cartItems, domain.NewNotAdditionError(http.StatusConflict, storeProduct.ProductId)
 		}
-		// quantity calculate:  req.quantity = order_quantity -> based on blister_count
-		// example: unit_per_pack = 50, blister_count = 5, count_per_blister = unit_per_pack/blister_count = 10
-		// order_quantity = 2 - > blister_count * count_per_blister = 2 * 10 = 20
-		// cart_item.unit_quantity = order_quantity * (unit_per_pack/blister_count) = 2 * (50/5) = 20
+		// req.quantity is in packs (like uzum):
+		// example: unit_per_pack = 50, order quantity = 2 -> cart_item.unit_quantity = 2 * 50 = 100
 		cartItems = append(cartItems, domain.CartItemOnlineRequest{
 			SaleId:         saleId,
 			StoreProductId: storeProduct.Id,
 			ProductId:      storeProduct.ProductId,
-			UnitQuantity:   req[i].Quantity * (storeProduct.UnitPerPack / storeProduct.BlisterCount),
+			UnitQuantity:   req[i].Quantity * storeProduct.UnitPerPack,
 			UnitPrice:      storeProduct.RetailPrice,
-			TotalPrice:     (storeProduct.RetailPrice / float64(storeProduct.UnitPerPack)) * float64(req[i].Quantity*(storeProduct.UnitPerPack/storeProduct.BlisterCount)),
+			TotalPrice:     storeProduct.RetailPrice * float64(req[i].Quantity),
 		})
 	}
 

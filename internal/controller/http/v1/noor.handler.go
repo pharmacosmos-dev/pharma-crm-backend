@@ -125,15 +125,16 @@ const noorMaxProductIds = 500
 
 // Store Product Quantity
 // @Summary 	Get product quantities in a store
-// @Description Berilgan do'kondagi berilgan mahsulotlarning umumiy qoldig'i.
-// @Description store_id va product_ids body'da yuboriladi.
+// @Description Berilgan do'kondagi berilgan mahsulotlarning qoldig'i, qadoqda (uzum availability bilan bir xil).
+// @Description Har bir mahsulotdan faqat eng katta partiya olinadi: buyurtma ham bitta partiyadan yoziladi.
+// @Description shop_id va product_ids body'da yuboriladi (eski store_id kaliti ham qabul qilinadi).
 // @Description Javob har doim massiv. Qoldiq tugagan bo'lsa ham qatori qaytadi, quantity: 0 bilan.
 // @Description price online_products_price'dan olinadi. Narxi kiritilmagan mahsulot javobga tushmaydi.
 // @Tags 		Noor API
 // @Security    BasicAuth
 // @Accept 		json
 // @Produce 	json
-// @Param 		body body domain.NoorStoreProductQuantityRequest true "store_id va product_ids (ko'pi bilan 500 ta)"
+// @Param 		body body domain.NoorStoreProductQuantityRequest true "shop_id va product_ids (ko'pi bilan 500 ta)"
 // @Success 	200 {object} []domain.NoorStoreProductQuantity
 // @Failure 	400 {object} v1.IntegrationErrorResponse
 // @Failure 	500 {object} v1.IntegrationErrorResponse
@@ -146,7 +147,11 @@ func (h *NoorHandler) StoreProductQuantity(c *gin.Context) {
 		return
 	}
 
-	if _, err := uuid.Parse(body.StoreId); err != nil {
+	shopId := strings.TrimSpace(body.StoreId)
+	if shopId == "" {
+		shopId = strings.TrimSpace(body.StoreId)
+	}
+	if _, err := uuid.Parse(shopId); err != nil {
 		handleResponseNoor(c, http.StatusBadRequest, "invalid store_id")
 		return
 	}
@@ -185,7 +190,7 @@ func (h *NoorHandler) StoreProductQuantity(c *gin.Context) {
 		return
 	}
 
-	res, err := h.service.GetNoorStoreProductQuantities(body.StoreId, productIds)
+	res, err := h.service.GetNoorStoreProductQuantities(shopId, productIds)
 	if err != nil {
 		handleResponseNoor(c, http.StatusInternalServerError, err)
 		return
