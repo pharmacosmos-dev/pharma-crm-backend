@@ -186,6 +186,11 @@ func (s *Services) CreateNoorSale(ctx context.Context, req *domain.OnlineOrderRe
 		return 0, err
 	}
 
+	// set is_marking and barcode so the cashier is asked to scan markings
+	if err = s.fillNoorCartItemMarkings(ctx, cartItems); err != nil {
+		return 0, err
+	}
+
 	// create or get customer
 	customer, err := s.GetOrCreateCustomerByPhone(ctx, &req.ClientInfo)
 	if err != nil {
@@ -209,6 +214,58 @@ func (s *Services) CreateNoorSale(ctx context.Context, req *domain.OnlineOrderRe
 	go s.NotifyOnlineOrder(req.ShopId, res.SaleNumber)
 
 	return res.SaleNumber, nil
+}
+
+// noor order has no scanned barcode, so take the product's barcode (a marking one first);
+// FetchCartItems reads is_marking from product_barcodes by cart_items.barcode
+func (s *Services) fillNoorCartItemMarkings(ctx context.Context, items []domain.CartItemOnlineRequest) error {
+	if len(items) == 0 {
+		return nil
+	}
+
+	spIds := make([]string, 0, len(items))
+	for i := range items {
+		spIds = append(spIds, items[i].StoreProductId)
+	}
+
+	var rows []struct {
+		Id        string  `gorm:"column:id"`
+		IsMarking bool    `gorm:"column:is_marking"`
+		Barcode   *string `gorm:"column:barcode"`
+	}
+	err := s.db.WithContext(ctx).Raw(`
+	SELECT
+		sp.id,
+		COALESCE(pb.is_marking, sp.is_marking, false) AS is_marking,
+		COALESCE(pb.barcode, NULLIF(sp.barcode, ''), NULLIF(p.barcode, '')) AS barcode
+	FROM store_products sp
+	JOIN products p ON p.id = sp.product_id
+	LEFT JOIN LATERAL (
+		SELECT barcode, is_marking
+		FROM product_barcodes
+		WHERE product_id = p.id
+		AND barcode IS NOT NULL AND barcode <> ''
+		ORDER BY is_marking DESC, created_at DESC
+		LIMIT 1
+	) pb ON true
+	WHERE sp.id IN (?)`, spIds).Scan(&rows).Error
+	if err != nil {
+		s.log.Errorf("could not get noor cart_item markings: %v", err)
+		return domain.InternalServerError
+	}
+
+	bySp := make(map[string]int, len(rows))
+	for i := range rows {
+		bySp[rows[i].Id] = i
+	}
+	for i := range items {
+		if j, ok := bySp[items[i].StoreProductId]; ok {
+			items[i].IsMarking = rows[j].IsMarking
+			items[i].Barcode = rows[j].Barcode
+		}
+	}
+
+	return nil
 }
 
 // get sale_number of noor order by external_id (stored in sales.vendor_order_id)

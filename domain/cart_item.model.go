@@ -167,6 +167,9 @@ type CartItemOnlineRequest struct {
 	UnitPrice      float64 `gorm:"unit_price" json:"-"`
 	TotalPrice     float64 `gorm:"total_price" json:"-"`
 	ProductId      string  `gorm:"product_id" json:"-"`
+	// filled only for noor orders; uzum keeps the column defaults (false / NULL)
+	IsMarking bool    `gorm:"is_marking" json:"-"`
+	Barcode   *string `gorm:"barcode" json:"-"`
 }
 
 type CartItemForDMED struct {
