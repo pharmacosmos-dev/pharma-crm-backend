@@ -418,6 +418,18 @@ type NoorOrderStatusRequest struct {
 	OrderId    int    `json:"order_id"`
 	Status     string `json:"status"`
 	Reason     string `json:"reason,omitempty"`
+	// completed only: one item per pack that left the shelf
+	Items []NoorOrderStatusItem `json:"items,omitempty"`
+}
+
+// one pack in the noor completed webhook
+type NoorOrderStatusItem struct {
+	ProductId   string  `json:"product_id"`
+	Label       string  `json:"label"`
+	Barcode     *string `json:"barcode,omitempty"`
+	ClassCode   string  `json:"class_code"`
+	PackageCode string  `json:"package_code"`
+	VatPercent  int     `json:"vat_percent"`
 }
 
 // noor order status webhook response

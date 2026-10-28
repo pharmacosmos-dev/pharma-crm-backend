@@ -662,6 +662,10 @@ func (s *Services) FinalizeSale(ctx context.Context, req *domain.FinalSale) (*do
 	if updates["stage"] == constants.SaleStageFinished {
 		// go s.CreateProductMovementsForSale(sale)
 		go s.updateStocksAfterSaleFinished(sale.Id)
+
+		if sale.ServiceType == constants.ServiceTypeNoor {
+			go s.SendNoorOrderCompleted(sale.Id)
+		}
 	}
 
 	return res, nil
@@ -979,10 +983,6 @@ func (s *Services) EposResult(ctx context.Context, req *domain.EposResponseReque
 			_ = tx.Rollback()
 			return nil, err
 		}
-
-		if sale.ServiceType == constants.ServiceTypeNoor {
-			go s.SendOrderOfdToNoor(sale.SaleNumber, fiscal.QrCodeUrl)
-		}
 	}
 
 	// Create new sale for next operation
@@ -1006,6 +1006,10 @@ func (s *Services) EposResult(ctx context.Context, req *domain.EposResponseReque
 	if updates["stage"] == constants.SaleStageFinished {
 		// go s.CreateProductMovementsForSale(sale)
 		go s.updateStocksAfterSaleFinished(sale.Id)
+
+		if sale.ServiceType == constants.ServiceTypeNoor {
+			go s.SendNoorOrderCompleted(sale.Id)
+		}
 	}
 
 	return res, nil
@@ -3080,21 +3084,3 @@ func (s *Services) generateDisplayId() int {
 	return displayId
 }
 
-func (s *Services) SendOrderOfdToNoor(saleNumber int, ofdUrl string) error {
-	requestData, err := json.Marshal(gin.H{"qrCodeURL": ofdUrl})
-	if err != nil {
-		s.log.Errorf("could not parse online sale ofd response: %v", err)
-		return domain.InternalServerError
-	}
-
-	url := fmt.Sprintf("%s/orders/vendor/%d/set-product-ofd", s.cfg.NoorApiUrl, saleNumber)
-
-	var response *http.Response
-	err = s.NoorRequest(&response, http.MethodPatch, url, requestData)
-	if err != nil {
-		s.log.Errorf("could not send order confirm request to noor: %v", err)
-		return domain.InternalServerError
-	}
-
-	return nil
-}

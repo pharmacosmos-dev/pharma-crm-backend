@@ -230,7 +230,8 @@ const (
 
 	// Noor order status webhook statuses
 	NoorOrderStatusAccepted = "accepted"
-	NoorOrderStatusRejected = "rejected"
+	NoorOrderStatusRejected  = "rejected"
+	NoorOrderStatusCompleted = "completed"
 
 	ProductMovementImport    = 1
 	ProductMovementInventory = 2
