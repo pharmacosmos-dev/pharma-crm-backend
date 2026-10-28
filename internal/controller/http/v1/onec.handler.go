@@ -822,6 +822,7 @@ func (h *ProductOnecHandler) StoreReportStats(c *gin.Context) {
 // @Param   alif              query bool     false "Alif"
 // @Param   uzum              query bool     false "Uzum"
 // @Param   uzum_tez_kor      query bool     false "Uzum tez kor"
+// @Param   noor              query bool     false "Noor"
 // @Success 200 {object} v1.Response
 // @Failure 400 {object} v1.Response
 // @Failure 404 {object} v1.Response

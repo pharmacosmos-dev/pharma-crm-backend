@@ -805,7 +805,8 @@ func (s *Services) fillExpenseChequeTotals(dok *domain.ExpenseDok, storeId strin
 		COALESCE(SUM(s.payme), 0) AS payme_sum,
 		COALESCE(SUM(s.alif), 0) AS alif_sum,
 		COALESCE(SUM(s.uzum), 0) AS uzum_sum,
-		COALESCE(SUM(s.uzum_tez_kor), 0) AS uzum_tezkor_sum
+		COALESCE(SUM(s.uzum_tez_kor), 0) AS uzum_tezkor_sum,
+		COALESCE(SUM(s.noor), 0) AS noor_sum
 	FROM sales s
 	WHERE s.store_id = ?
 	  AND s.stage IN (9, 11)
@@ -828,6 +829,7 @@ func (s *Services) fillExpenseChequeTotals(dok *domain.ExpenseDok, storeId strin
 	dok.AlifSum = totals.AlifSum
 	dok.UzumSum = totals.UzumSum
 	dok.UzumTezkorSum = totals.UzumTezkorSum
+	dok.NoorSum = totals.NoorSum
 
 	return nil
 }

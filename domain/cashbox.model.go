@@ -224,6 +224,7 @@ type ExpenseDok struct {
 	AlifSum       float64 `json:"Alif"`
 	UzumSum       float64 `json:"Uzum"`
 	UzumTezkorSum float64 `json:"uzumtezkor"`
+	NoorSum       float64 `json:"noor"`
 }
 
 // expense document cheque count and payment type sums
@@ -237,6 +238,7 @@ type ExpenseChequeTotals struct {
 	AlifSum       float64 `gorm:"column:alif_sum"`
 	UzumSum       float64 `gorm:"column:uzum_sum"`
 	UzumTezkorSum float64 `gorm:"column:uzum_tezkor_sum"`
+	NoorSum       float64 `gorm:"column:noor_sum"`
 }
 // expense product structure
 type ExpenseProduct struct {

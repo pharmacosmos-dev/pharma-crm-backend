@@ -907,7 +907,7 @@ func (h *ReportHandler) StoreReportAmountExport(c *gin.Context) {
 	f.SetSheetName("Sheet1", sheetName)
 
 	// Headerlar
-	headers := []string{"ID", "АПТЕКА", "ДАТА", "НАЛИЧНЫЕ", "HUMO", "UZCARD", "CLICK", "PAYME", "ALIF", "UZUM", "UZUMTEZKOR", "НАКОПИТЕЛЬНЫЙ", "ВОЗВРАТ", "ОБЩАЯ СУММА", "Количество чеков"}
+	headers := []string{"ID", "АПТЕКА", "ДАТА", "НАЛИЧНЫЕ", "HUMO", "UZCARD", "CLICK", "PAYME", "ALIF", "UZUM", "UZUMTEZKOR", "NOOR", "НАКОПИТЕЛЬНЫЙ", "ВОЗВРАТ", "ОБЩАЯ СУММА", "Количество чеков"}
 
 	err = setExcelHeaders(f, sheetName, headers)
 	if err != nil {
@@ -930,10 +930,11 @@ func (h *ReportHandler) StoreReportAmountExport(c *gin.Context) {
 		f.SetCellValue(sheetName, "I"+row, value.Alif)
 		f.SetCellValue(sheetName, "J"+row, value.Uzum)
 		f.SetCellValue(sheetName, "K"+row, value.UzumTezKor)
-		f.SetCellValue(sheetName, "L"+row, value.LoyaltyCardAmount)
-		f.SetCellValue(sheetName, "M"+row, value.ReturnAmount)
-		f.SetCellValue(sheetName, "N"+row, value.TotalAmount)
-		f.SetCellValue(sheetName, "O"+row, value.ChequeCount)
+		f.SetCellValue(sheetName, "L"+row, value.Noor)
+		f.SetCellValue(sheetName, "M"+row, value.LoyaltyCardAmount)
+		f.SetCellValue(sheetName, "N"+row, value.ReturnAmount)
+		f.SetCellValue(sheetName, "O"+row, value.TotalAmount)
+		f.SetCellValue(sheetName, "P"+row, value.ChequeCount)
 	}
 
 	saveExcelToUploads(c, f, *h.log, "apteka_reports")

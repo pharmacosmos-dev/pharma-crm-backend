@@ -42,6 +42,7 @@ var (
 	ShiftToEmployeeNotCheckedInError          = NewError(http.StatusBadRequest, "shift.to_employee.not_checked_in")
 	CashboxCloseCheckOutRequiredError         = NewError(http.StatusBadRequest, "cashbox.close.check_out.required")
 	OnlineOrderUzumTezkorPaymentRequiredError = NewError(http.StatusBadRequest, "online_order.uzum_tezkor.payment.required")
+	OnlineOrderNoorPaymentRequiredError       = NewError(http.StatusBadRequest, "online_order.noor.payment.required")
 	AttendanceNotInStoreError                 = NewError(http.StatusBadRequest, "employee.notInStore")
 
 	// 401 – Unauthorized (token noto‘g‘ri yoki mavjud emas)

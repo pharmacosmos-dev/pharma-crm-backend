@@ -106,6 +106,7 @@ type StoreAmount struct {
 	Alif           float64    `gorm:"alif" json:"alif"`
 	Uzum           float64    `gorm:"uzum" json:"uzum"`
 	UzumTezKor     float64    `gorm:"column:uzum_tez_kor" json:"uzum_tez_kor"`
+	Noor           float64    `gorm:"column:noor" json:"noor"`
 	ReturnAmount   float64    `gorm:"return_amount" json:"return_amount"`
 	TotalAmount    float64    `gorm:"total_amount" json:"total_amount"`
 	DiscountAmount float64    `gorm:"discount_amount" json:"discount_amount"`
@@ -136,6 +137,8 @@ type StoreReportStats struct {
 	TotalUzumSum        float64 `gorm:"total_uzum_sum" json:"total_uzum_sum"`
 	TotalUzumTezKorCount int     `gorm:"total_uzum_tez_kor_count" json:"total_uzum_tez_kor_count"`
     TotalUzumTezKorSum  float64 `gorm:"total_uzum_tez_kor_sum" json:"total_uzum_tez_kor_sum"`
+	TotalNoorCount      int     `gorm:"total_noor_count" json:"total_noor_count"`
+	TotalNoorSum        float64 `gorm:"total_noor_sum" json:"total_noor_sum"`
 	TotalLoyaltyCardSum   float64 `gorm:"total_loyalty_card_sum" json:"total_loyalty_card_sum"`
 	TotalLoyaltyCardCount int     `gorm:"total_loyalty_card_count" json:"total_loyalty_card_count"`
 	TotalCashbackSum      float64 `gorm:"total_cashback_sum" json:"total_cashback_sum"`
