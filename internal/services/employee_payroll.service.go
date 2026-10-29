@@ -49,6 +49,7 @@ import (
 //
 //	BAZA:
 //	  roli "Заведующий"  → store_sales_amount (do'kon aylanmasi)
+//	  rolsiz head_pharmacist (Кассир/Заведующий yo'q) → store_sales_amount
 //	  qolganlar          → individual_sales_amount (o'z savdosi)
 //	  ikkala rol ham bo'lsa — "Заведующий" ustun turadi
 //
@@ -148,6 +149,9 @@ type payrollReadFilter struct {
 	RoleType         string
 	OutOfWorkedHours *bool
 	OnlyWorked       bool
+	// ExcludeFranchise — franshiza kompaniyasi do'konlaridagi qatorlarni chiqarib
+	// tashlash (hisobot uchun). O'z oyligini ko'rishda qo'llanmaydi.
+	ExcludeFranchise bool
 	Limit            int // 0 = cheklovsiz
 	Offset           int
 }
@@ -187,9 +191,10 @@ func payrollSearchPattern(value string) string {
 // o'qiydi: JOIN ham, hisob-kitob ham yo'q — hammasi cron tomonidan oldindan yozilgan.
 //
 // Ro'yxatga faqat roli "Кассир"/"Заведующий" va davomati bor (worked_hours > 0)
-// xodimlar kiradi. Cron barcha faol xodimlarga qator yozadi, shu jumladan oy
-// davomida bironta smenaga chiqmaganlarga ham — ular hisobotni nol qatorlar
-// bilan to'ldirib yubormasligi uchun bu yerda chiqarib tashlanadi.
+// yoki face-id ishlamaydigan (shu oy hech kimda davomat yo'q) do'kondagi aktiv
+// xodimlar kiradi (qarang: payrollIncludedRowSQL). Boshqa do'konlarda oy davomida
+// bironta smenaga chiqmagan xodimlar hisobotni nol qatorlar bilan to'ldirmasligi
+// uchun chiqarib tashlanadi.
 //
 // out_of_worked_hours berilsa ro'yxat oylik normaga nisbatan toraytiriladi:
 // true → normadan ortiq ishlaganlar, false → normani to'ldirmaganlar. Aynan
@@ -215,6 +220,7 @@ func (s *Services) GetEmployeePayrolls(
 		OutOfWorkedHours: params.OutOfWorkedHours,
 		Roles:            payrollSalesRoles,
 		OnlyWorked:       true,
+		ExcludeFranchise: true,
 		Limit:            params.Limit,
 		Offset:           params.Offset,
 	})
@@ -405,6 +411,7 @@ func (s *Services) recalculatePayrollMonth(
 		"draft":             domain.EmployeePayrollStatusDraft,
 		"work_day_hours":    payrollWorkDayHours,
 		"zav_role":          constants.RoleNameZavStore,
+		"sales_roles":       pq.StringArray(payrollSalesRoles),
 		"head_pharmacist":   domain.RoleTypeHeadPharmacist,
 		"pharmacist":        domain.RoleTypePharmacist,
 		"nds_divisor":       payrollNdsDivisor,
@@ -514,6 +521,10 @@ func (s *Services) UpdateEmployeePayrollAdvance(
 								THEN r.individual_sales_amount / CAST(@nds_divisor AS numeric)
 								WHEN CAST(@zav_role AS text) = ANY(r.role_names)
 								THEN r.store_sales_amount
+								-- roli biriktirilmagan bosh farmatsevt (cron bilan bir xil qoida)
+								WHEN COALESCE(CAST(@role_type AS varchar), e.role_type) = CAST(@head_pharmacist AS text)
+								 AND NOT (r.role_names && CAST(@sales_roles AS text[]))
+								THEN r.store_sales_amount
 								ELSE r.individual_sales_amount
 							END * COALESCE(CAST(@kpi AS numeric), r.kpi_percent) / 100.0, 2) AS kpi_amount
 					FROM employee_payrolls r
@@ -595,6 +606,7 @@ func (s *Services) UpdateEmployeePayrollAdvance(
 			"salary":            req.Salary,
 			"daily_hours":       req.DailyWorkHours,
 			"zav_role":          constants.RoleNameZavStore,
+			"sales_roles":       pq.StringArray(payrollSalesRoles),
 			"kpi_bez_nds":       req.KpiBezNds,
 			"role_type":         req.RoleType,
 			"head_pharmacist":   domain.RoleTypeHeadPharmacist,
@@ -690,7 +702,7 @@ const payrollManagementFilterSQL = `
 	  AND (CAST(@staff AS text)       IS NULL OR e.staff       = CAST(@staff AS text))
 	  AND (CAST(@search AS text)      IS NULL OR p.full_name ILIKE CAST(@search AS text)
 											  OR e.phone     ILIKE CAST(@search AS text))
-	  AND p.role_names && CAST(@roles AS text[])
+	  AND (p.role_names && CAST(@roles AS text[]) OR ` + payrollRoleTypeSQL + `)
 	  AND e.deleted_at IS NULL
 	  AND EXISTS (
 		  SELECT 1
@@ -991,8 +1003,9 @@ func payrollSelectArgs(period domain.PayrollPeriod, filter payrollReadFilter) ma
 		"search":              nullIfEmpty(payrollSearchPattern(filter.Search)),
 		"out_of_worked_hours": filter.OutOfWorkedHours,
 		// Bo'sh massiv NULL bo'lib ketadi → o'sha shart tekshirilmaydi.
-		"roles":       pq.StringArray(filter.Roles),
-		"only_worked": filter.OnlyWorked,
+		"roles":             pq.StringArray(filter.Roles),
+		"only_worked":       filter.OnlyWorked,
+		"exclude_franchise": filter.ExcludeFranchise,
 	}
 }
 
@@ -1044,12 +1057,13 @@ func (s *Services) GetPayrollStatistics(
 	}
 
 	filter := payrollReadFilter{
-		CompanyId:  params.CompanyId,
-		StoreId:    params.StoreId,
-		Search:     params.Search,
-		RoleType:   params.RoleType,
-		Roles:      payrollSalesRoles,
-		OnlyWorked: true,
+		CompanyId:        params.CompanyId,
+		StoreId:          params.StoreId,
+		Search:           params.Search,
+		RoleType:         params.RoleType,
+		Roles:            payrollSalesRoles,
+		OnlyWorked:       true,
+		ExcludeFranchise: true,
 	}
 
 	var stats domain.PayrollStatistics
@@ -1102,8 +1116,8 @@ func (s *Services) paginateStores(
 				WHERE p.store_id = stores.id
 				  AND p.year = ?
 				  AND p.month = ?
-				  AND p.role_names && CAST(? AS text[])
-				  AND p.worked_hours > 0
+				  AND (p.role_names && CAST(? AS text[]) OR `+payrollRoleTypeSQL+`)
+				  AND `+payrollIncludedRowSQL+`
 				  AND CASE WHEN CAST(? AS boolean)
 				           THEN p.avg_monthly_hours < p.worked_hours
 				           ELSE p.avg_monthly_hours > p.worked_hours
@@ -1428,6 +1442,11 @@ final AS (
                       THEN r.individual_sales_amount / CAST(@nds_divisor AS numeric)
                       WHEN @zav_role = ANY(r.role_names)
                       THEN r.store_sales_amount
+                      -- Roli biriktirilmagan bosh farmatsevt ham Заведующий kabi
+                      -- do'kon aylanmasidan oladi. Roli bor xodimga tegmaydi.
+                      WHEN r.role_type = CAST(@head_pharmacist AS text)
+                       AND NOT (r.role_names && CAST(@sales_roles AS text[]))
+                      THEN r.store_sales_amount
                       ELSE r.individual_sales_amount
                  END * r.kpi_percent / 100.0, 2) AS kpi_amount
     FROM kpi_rate r
@@ -1542,8 +1561,65 @@ WHERE p.year = @year
   AND (CAST(@company_id AS uuid)  IS NULL OR p.company_id  = CAST(@company_id AS uuid))
   AND (CAST(@role_type AS text)   IS NULL OR e.role_type   = CAST(@role_type AS text))
 	AND (CAST(@search AS text)      IS NULL OR p.full_name ILIKE CAST(@search AS text))
-  AND (CAST(@roles AS text[])     IS NULL OR p.role_names && CAST(@roles AS text[]))
-  AND (NOT CAST(@only_worked AS boolean) OR p.worked_hours > 0)` + payrollOutOfWorkedHoursSQL
+  AND (CAST(@roles AS text[])     IS NULL OR p.role_names && CAST(@roles AS text[])
+                                          OR ` + payrollRoleTypeSQL + `)
+  AND (NOT CAST(@only_worked AS boolean) OR ` + payrollIncludedRowSQL + `)
+  -- Franshiza do'koni qatorlari hisobotga kirmaydi (do'konlar ro'yxatidagi
+  -- paginateStores qoidasi bilan bir xil). Do'konsiz qator kiraveradi.
+  AND (NOT CAST(@exclude_franchise AS boolean) OR NOT EXISTS (
+       SELECT 1
+       FROM stores sf
+       JOIN companies cf ON cf.id = sf.company_id
+       WHERE sf.id = p.store_id
+         AND cf.is_franchise = TRUE))` + payrollOutOfWorkedHoursSQL
+
+// payrollRoleTypeSQL — rol filtrining ikkinchi yo'li (p = employee_payrolls):
+// xodimga "Кассир"/"Заведующий" roli biriktirilmagan bo'lsa ham employees.role_type
+// apteka xodimiga tegishli bo'lsa (farmatsevt, bosh farmatsevt, stajyorlar,
+// yordamchi) hisobotga kiradi. role_type payroll qatorida saqlanmaydi, xodim
+// kartochkasidan JONLI olinadi.
+//
+// Yordamchining ikkala slug'i ham bor: bazada pharmacist_assistant saqlanadi,
+// pharmacy_assistant esa kodda ishlatilgan eski nom.
+const payrollRoleTypeSQL = `EXISTS (
+       SELECT 1
+       FROM employees er
+       WHERE er.id = p.employee_id
+         AND er.role_type IN (
+             '` + domain.RoleTypePharmacist + `',
+             '` + domain.RoleTypeHeadPharmacist + `',
+             '` + domain.RoleTypeIntern + `',
+             '` + domain.RoleTypeHeadPharmacistIntern + `',
+             '` + domain.RoleTypePharmacistAssistant + `',
+             '` + domain.RoleTypePharmacyAssistant + `'))`
+
+// payrollIncludedRowSQL — hisobotga kiradigan payroll qatori (p = employee_payrolls):
+// davomati bor (worked_hours > 0) YOKI face-id ishlamaydigan do'kondagi aktiv xodim.
+//
+// Face-id yo'q do'kon (masalan, Moxiniso) alohida belgilanmaydi: shu oyda do'konning
+// BIRORTA ham xodimida davomat bo'lmasa, o'sha do'konning aktiv, franshiza
+// bo'lmagan kompaniyadagi xodimlari nol soat bilan ko'rinadi. Face-id ishlaydigan
+// do'konda smenaga chiqmagan xodim (ta'til, ketib qolgan) esa avvalgidek
+// ro'yxatni nol qatorlar bilan to'ldirmaydi. Do'konsiz qator bu yo'ldan kirmaydi.
+// Xodimlar va do'konlar ro'yxati AYNAN shu shartni ishlatadi.
+const payrollIncludedRowSQL = `
+  (p.worked_hours > 0
+   OR (p.store_id IS NOT NULL
+       AND EXISTS (
+           SELECT 1
+           FROM employees ea
+           JOIN companies ca ON ca.id = ea.company_id
+           WHERE ea.id = p.employee_id
+             AND ea.status = '` + constants.GeneralStatusActive + `'
+             AND ea.deleted_at IS NULL
+             AND ca.is_franchise = FALSE)
+       AND NOT EXISTS (
+           SELECT 1
+           FROM employee_payrolls pw
+           WHERE pw.store_id = p.store_id
+             AND pw.year = p.year
+             AND pw.month = p.month
+             AND pw.worked_hours > 0)))`
 
 // payrollOutOfWorkedHoursSQL — oylik normaga nisbatan filtr (p = employee_payrolls).
 // NULL → filtrsiz, true → normadan ortiq ishlaganlar, false → normani
@@ -1657,8 +1733,8 @@ WHERE p.year = @year
   -- GetEmployeePayrolls bilan bir xil doira: do'kon yig'indisi aynan xodimlar
   -- ro'yxatida ko'rinadigan qatorlardan chiqadi, shuning uchun ro'yxatni qo'lda
   -- qo'shib chiqqanda do'kon summasi bilan mos keladi.
-  AND p.role_names && CAST(@roles AS text[])
-  AND p.worked_hours > 0` + payrollOutOfWorkedHoursSQL + `
+  AND (p.role_names && CAST(@roles AS text[]) OR ` + payrollRoleTypeSQL + `)
+  AND ` + payrollIncludedRowSQL + payrollOutOfWorkedHoursSQL + `
 GROUP BY p.store_id, s.employee_count`
 
 // storePayrollStatisticsQuery — do'konlar ro'yxatining yig'ma ko'rsatkichlari.
@@ -1699,8 +1775,8 @@ payrolls_f AS (
     WHERE p.year = @year
       AND p.month = @month
       AND p.store_id IN (SELECT id FROM stores_f)
-      AND p.role_names && CAST(@roles AS text[])
-      AND p.worked_hours > 0
+      AND (p.role_names && CAST(@roles AS text[]) OR ` + payrollRoleTypeSQL + `)
+      AND ` + payrollIncludedRowSQL + `
 ),
 per_store AS (
     SELECT pf.store_id,

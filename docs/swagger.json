@@ -15883,7 +15883,7 @@
                         "BasicAuth": []
                     }
                 ],
-                "description": "Berilgan do'kondagi berilgan mahsulotlarning umumiy qoldig'i.\nstore_id va product_ids body'da yuboriladi.\nJavob har doim massiv. Qoldiq tugagan bo'lsa ham qatori qaytadi, quantity: 0 bilan.\nprice online_products_price'dan olinadi. Narxi kiritilmagan mahsulot javobga tushmaydi.",
+                "description": "Berilgan do'kondagi berilgan mahsulotlarning qoldig'i, qadoqda (uzum availability bilan bir xil).\nHar bir mahsulotdan faqat eng katta partiya olinadi: buyurtma ham bitta partiyadan yoziladi.\nshop_id va product_ids body'da yuboriladi (eski store_id kaliti ham qabul qilinadi).\nJavob har doim massiv. Qoldiq tugagan bo'lsa ham qatori qaytadi, quantity: 0 bilan.\nprice online_products_price'dan olinadi. Narxi kiritilmagan mahsulot javobga tushmaydi.",
                 "consumes": [
                     "application/json"
                 ],
@@ -15896,7 +15896,7 @@
                 "summary": "Get product quantities in a store",
                 "parameters": [
                     {
-                        "description": "store_id va product_ids (ko'pi bilan 500 ta)",
+                        "description": "shop_id va product_ids (ko'pi bilan 500 ta)",
                         "name": "body",
                         "in": "body",
                         "required": true,
@@ -24292,6 +24292,12 @@
                         "type": "boolean",
                         "description": "Uzum tez kor",
                         "name": "uzum_tez_kor",
+                        "in": "query"
+                    },
+                    {
+                        "type": "boolean",
+                        "description": "Noor",
+                        "name": "noor",
                         "in": "query"
                     }
                 ],
@@ -39345,7 +39351,7 @@
                 },
                 "app_type": {
                     "type": "string",
-                    "example": "click|payme|uzum|uzum_tez_kor"
+                    "example": "click|payme|uzum|uzumtezkor|noor"
                 },
                 "otp_data": {
                     "type": "string"
@@ -39406,6 +39412,9 @@
                     "items": {
                         "$ref": "#/definitions/domain.MarkingData"
                     }
+                },
+                "noor": {
+                    "type": "number"
                 },
                 "otp_code": {
                     "type": "string"
