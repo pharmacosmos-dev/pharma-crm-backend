@@ -1444,8 +1444,10 @@ final AS (
                       THEN r.store_sales_amount
                       -- Roli biriktirilmagan bosh farmatsevt ham Заведующий kabi
                       -- do'kon aylanmasidan oladi. Roli bor xodimga tegmaydi.
+                      -- role_names bu yerda array_agg(roles.name) — varchar[];
+                      -- text[] bilan solishtirish uchun aniq cast shart.
                       WHEN r.role_type = CAST(@head_pharmacist AS text)
-                       AND NOT (r.role_names && CAST(@sales_roles AS text[]))
+                       AND NOT (CAST(r.role_names AS text[]) && CAST(@sales_roles AS text[]))
                       THEN r.store_sales_amount
                       ELSE r.individual_sales_amount
                  END * r.kpi_percent / 100.0, 2) AS kpi_amount
