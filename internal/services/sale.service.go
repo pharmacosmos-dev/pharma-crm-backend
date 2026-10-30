@@ -328,9 +328,10 @@ func (s *Services) CreateOnlineSale(ctx context.Context, req *domain.OnlineSaleC
 		payment_type,
 		is_paid,
 		client_comment,
-		vendor_order_id
-		) 
-	VALUES(?, ?, ?, ?, ?, NULLIF(?, '')::uuid, ?, ?, ?, ?, ?) RETURNING *`,
+		vendor_order_id,
+		uzum_self_pickup
+		)
+	VALUES(?, ?, ?, ?, ?, NULLIF(?, '')::uuid, ?, ?, ?, ?, ?, ?) RETURNING *`,
 		req.Id,
 		req.StoreId,
 		constants.SaleTypeOnline,
@@ -342,6 +343,7 @@ func (s *Services) CreateOnlineSale(ctx context.Context, req *domain.OnlineSaleC
 		true,
 		req.ClientComment,
 		req.VendorOrderId,
+		req.SelfPickup,
 	).Scan(&sale).Error
 	if err != nil {
 		_ = tx.Rollback()
@@ -479,6 +481,10 @@ func (s *Services) FinalizeSale(ctx context.Context, req *domain.FinalSale) (*do
 	if sale.UzumTezKor > 0 || req.UzumTezKor > 0 ||
 		(sale.Type == constants.SaleTypeOnline && sale.PaymentType == constants.PaymentTypeUzumTezkor) {
 		updates["uzum_self_pickup"] = req.UzumSelfPickup
+	}
+	// Uzum zakazi yaratilganda deliveryType=takeaway bilan kelgan bo'lsa, finalize uni o'chirmaydi
+	if sale.UzumSelfPickup {
+		updates["uzum_self_pickup"] = true
 	}
 	if req.ServiceType == constants.ServiceTypeDmed {
 		cartItems, err := s.GetCartItems(ctx, tx, sale.Id)

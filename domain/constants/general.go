@@ -228,6 +228,9 @@ const (
 	ServiceTypeDmed = "dmed"
 	ServiceTypeUzum = "uzum"
 
+	// Uzum order deliveryType: mijoz zakazni o'zi olib ketadi
+	UzumDeliveryTypeTakeaway = "takeaway"
+
 	// Noor order status webhook statuses
 	NoorOrderStatusAccepted = "accepted"
 	NoorOrderStatusRejected  = "rejected"

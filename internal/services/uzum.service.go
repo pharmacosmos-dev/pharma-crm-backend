@@ -299,6 +299,9 @@ func (s *Services) CreateUzumOrder(ctx context.Context, req *domain.UzumCreateOr
 		return nil, err
 	}
 
+	// "takeaway" — mijoz zakazni aptekadan o'zi olib ketadi
+	selfPickup := req.DeliveryType == constants.UzumDeliveryTypeTakeaway
+
 	// Create sale using existing CreateOnlineSale
 	sale, err := s.CreateOnlineSale(ctx, &domain.OnlineSaleCreate{
 		Id:            saleId,
@@ -306,6 +309,7 @@ func (s *Services) CreateUzumOrder(ctx context.Context, req *domain.UzumCreateOr
 		VendorOrderId: req.EatsId,
 		ServiceType:   constants.ServiceTypeUzum,
 		ClientComment: req.Comment,
+		SelfPickup:    selfPickup,
 		Items:         cartItems,
 	})
 

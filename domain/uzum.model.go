@@ -115,6 +115,7 @@ type UzumCreateOrderRequest struct {
 	Items         []UzumOrderItemRequest `json:"items" binding:"required"`
 	PaymentInfo   *UzumOrderPaymentInfo  `json:"paymentInfo"`
 	DeliveryInfo  *UzumOrderDeliveryInfo `json:"deliveryInfo"`
+	DeliveryType  string                 `json:"deliveryType"`
 	Persons       int                    `json:"persons"`
 	Promos        []UzumOrderPromo       `json:"promos"`
 	RestaurantId  string                 `json:"restaurantId"`

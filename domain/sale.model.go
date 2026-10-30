@@ -116,6 +116,7 @@ type OnlineSaleCreate struct {
 	ServiceType   string                  `gorm:"service_type" json:"service_type"`
 	CustomerId    string                  `gorm:"customer_id" json:"customer_id"`
 	ClientComment string                  `gorm:"client_comment" json:"client_comment"`
+	SelfPickup    bool                    `gorm:"uzum_self_pickup" json:"uzum_self_pickup"`
 	Items         []CartItemOnlineRequest `gorm:"-" json:"items"`
 }
 
