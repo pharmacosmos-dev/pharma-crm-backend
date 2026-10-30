@@ -34,6 +34,8 @@ type CartItem struct {
 // AppendMarkingRequest structure
 type AppendMarkingRequest struct {
 	Marking string `json:"marking" binding:"required"`
+	// yuborilmasa savdoning do'koni olinadi
+	StoreId string `json:"store_id"`
 }
 
 // UpdateAutoOrderRequest structure

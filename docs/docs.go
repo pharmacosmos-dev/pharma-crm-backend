@@ -38215,6 +38215,10 @@ const docTemplate = `{
             "properties": {
                 "marking": {
                     "type": "string"
+                },
+                "store_id": {
+                    "description": "yuborilmasa savdoning do'koni olinadi",
+                    "type": "string"
                 }
             }
         },
@@ -42415,6 +42419,9 @@ const docTemplate = `{
                 },
                 "deliveryInfo": {
                     "$ref": "#/definitions/domain.UzumOrderDeliveryInfo"
+                },
+                "deliveryType": {
+                    "type": "string"
                 },
                 "discriminator": {
                     "type": "string"

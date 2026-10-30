@@ -69,15 +69,58 @@ func markingNotEnoughError(available int, productName string) error {
 	)
 }
 
+// Xabar: "marking.sold.in.other.store:<sotilgan>:<qoldiq>:<apteka nomi>" — nom oxirida,
+// chunki uning ichida ham ":" bo'lishi mumkin.
+func markingSoldInOtherStoreError(sold, stock int, storeName string) error {
+	return domain.NewError(
+		domain.MarkingSoldInOtherStoreError.Code,
+		fmt.Sprintf("%s:%d:%d:%s", domain.MarkingSoldInOtherStoreError.Message, sold, stock, storeName),
+	)
+}
+
+// checkMarkingStore: markirovka boshqa aptekada ochilgan (sotilgan) bo'lsa xato beradi.
+// Jadvalda yo'q yoki store_id'si bo'sh qator tekshirilmaydi.
+func (s *Services) checkMarkingStore(ctx context.Context, tx *gorm.DB, marking, storeId string) error {
+	if marking == "" || storeId == "" {
+		return nil
+	}
+
+	var row struct {
+		StoreId       string
+		StoreName     string
+		SoldQuantity  int
+		StockQuantity int
+	}
+	result := tx.WithContext(ctx).Raw(`
+	SELECT mus.store_id, COALESCE(st.name, '') AS store_name, mus.sold_quantity, mus.stock_quantity
+	FROM marking_unit_sales mus
+	LEFT JOIN stores st ON st.id = mus.store_id
+	WHERE mus.marking = ? AND mus.store_id IS NOT NULL`, marking).Scan(&row)
+	if result.Error != nil {
+		s.log.Errorf("could not get store of marking_unit_sale(%s): %v", marking, result.Error)
+		return domain.InternalServerError
+	}
+	if result.RowsAffected == 0 || row.StoreId == storeId {
+		return nil
+	}
+
+	return markingSoldInOtherStoreError(row.SoldQuantity, row.StockQuantity, row.StoreName)
+}
+
 // checkMarkingCanCover: cart_item'ga yangi markirovka qo'shishdan oldin tekshiradi.
-//   - qoldig'i 0 — markirovka to'liq sotilgan;
+//   - markirovka boshqa aptekada sotilgan — o'sha apteka, sotilgan va qolgan donalar bilan;
+//   - qoldig'i 0 — markirovka to'liq  sotilgan;
 //   - qisman sotilgan markirovka (qoldiq < unit_per_pack) cart_item'ning hali
 //     markirovka bilan qoplanmagan donalaridan kam bo'lsa — yetmaydi.
 //
 // To'liq pachka yetmasa xato berilmaydi: kassir keyingi pachka markirovkasini skanerlaydi.
-func (s *Services) checkMarkingCanCover(ctx context.Context, tx *gorm.DB, cartItem *domain.CartItem, marking string) error {
+func (s *Services) checkMarkingCanCover(ctx context.Context, tx *gorm.DB, cartItem *domain.CartItem, marking, storeId string) error {
 	if marking == "" {
 		return nil
+	}
+
+	if err := s.checkMarkingStore(ctx, tx, marking, storeId); err != nil {
+		return err
 	}
 
 	var product struct {

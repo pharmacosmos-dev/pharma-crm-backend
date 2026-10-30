@@ -817,8 +817,13 @@ func (s *Services) UpdateCartItemMarkings(ctx context.Context, id string, req *d
 		return err
 	}
 
-	// check marking stock: fully sold or not enough units for this cart item
-	if err = s.checkMarkingCanCover(ctx, s.db, cartItem, req.Marking); err != nil {
+	storeId := req.StoreId
+	if storeId == "" {
+		storeId = sale.StoreId
+	}
+
+	// check marking stock: sold in another store, fully sold or not enough units for this cart item
+	if err = s.checkMarkingCanCover(ctx, s.db, cartItem, req.Marking, storeId); err != nil {
 		return err
 	}
 

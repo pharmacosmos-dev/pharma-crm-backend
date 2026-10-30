@@ -93,6 +93,7 @@ var (
 	AttendanceAlreadyCheckedInError      = NewError(http.StatusConflict, "attendance.already.checked_in")
 	MarkingAlreadySoldError              = NewError(http.StatusConflict, "marking.already.sold")
 	MarkingNotEnoughError                = NewError(http.StatusConflict, "marking.not.enough")
+	MarkingSoldInOtherStoreError         = NewError(http.StatusConflict, "marking.sold.in.other.store")
 	// RetailPriceAboveMaxPriceError - sotuv narxi referens narxdan (products.max_price)
 	// yuqori. Xabar boshqa kalitlardan farqli o'laroq rus tilida, chunki kassada
 	// shu matnning o'zi ko'rsatiladi.

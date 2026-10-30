@@ -38208,6 +38208,10 @@
             "properties": {
                 "marking": {
                     "type": "string"
+                },
+                "store_id": {
+                    "description": "yuborilmasa savdoning do'koni olinadi",
+                    "type": "string"
                 }
             }
         },
@@ -42408,6 +42412,9 @@
                 },
                 "deliveryInfo": {
                     "$ref": "#/definitions/domain.UzumOrderDeliveryInfo"
+                },
+                "deliveryType": {
+                    "type": "string"
                 },
                 "discriminator": {
                     "type": "string"
