@@ -52,6 +52,7 @@ func (h *HelperHandler) HelperRoutes(r *gin.RouterGroup) {
 		helper.POST("/check-product-barcode-mxik", h.CheckProductBarcodeMxik)
 		helper.POST("/upload-product-barcode-unit-code", h.UploadProductBarcodeUnitCode)
 		helper.POST("/upload-barcode-mxik-unit", h.UploadProductBarcodeUnitCode)
+		helper.POST("/upload-unit-code-by-mxik", h.UploadUnitCodeByMxik)
 		helper.POST("/upload-store-products", h.UploadStoreProducts)
 		helper.POST("/upload-product-producer", h.UploadProductProducer)
 		helper.POST("/upload-store-terminals", h.UploadTerminalIDs)
@@ -928,6 +929,138 @@ func (h *HelperHandler) UploadProductBarcodeUnitCode(c *gin.Context) {
 	handleResponse(c, OK, gin.H{
 		"updated":              updated,
 		"skipped":              skipped,
+		"skipped_empty_values": emptyValues,
+		"not_found":            notFound,
+	})
+}
+
+type mxikUnitCodeExcelRow struct {
+	Mxik     string
+	UnitCode string
+}
+
+// readMxikUnitCodeExcel reads mxik and unit_code columns by header name,
+// falling back to the first two columns when there is no header row.
+func readMxikUnitCodeExcel(c *gin.Context) ([]mxikUnitCodeExcelRow, error) {
+	var file domain.File
+	if err := c.ShouldBind(&file); err != nil {
+		return nil, err
+	}
+	ext := filepath.Ext(file.File.Filename)
+	if ext != ".xlsx" && ext != ".xls" {
+		return nil, fmt.Errorf("unsupported file format")
+	}
+	path := filepath.Join("uploads", uuid.New().String()+ext)
+	if err := c.SaveUploadedFile(file.File, path); err != nil {
+		return nil, err
+	}
+	defer os.Remove(path)
+	wb, err := excelize.OpenFile(path)
+	if err != nil {
+		return nil, err
+	}
+	defer wb.Close()
+	// Raw values: formatted reads turn a #,##0 unit_code into "1,847,205".
+	rows, err := wb.GetRows(wb.GetSheetName(0), excelize.Options{RawCellValue: true})
+	if err != nil {
+		return nil, err
+	}
+	if len(rows) == 0 {
+		return nil, fmt.Errorf("empty file")
+	}
+	mxikIndex, unitCodeIndex := -1, -1
+	for i, header := range rows[0] {
+		switch normalizeProductBarcodeHeader(header) {
+		case "mxik":
+			mxikIndex = i
+		case "unitcode":
+			unitCodeIndex = i
+		}
+	}
+	dataRows := rows[1:]
+	if mxikIndex < 0 || unitCodeIndex < 0 {
+		mxikIndex, unitCodeIndex = 0, 1
+		dataRows = rows
+	}
+	get := func(row []string, i int) string {
+		if i >= len(row) {
+			return ""
+		}
+		return strings.Join(strings.Fields(row[i]), "")
+	}
+	result := make([]mxikUnitCodeExcelRow, 0, len(dataRows))
+	for _, row := range dataRows {
+		mxik := normalizeProductBarcodeMxik(get(row, mxikIndex))
+		unitCode := strings.ReplaceAll(get(row, unitCodeIndex), ",", "")
+		if mxik == "" && unitCode == "" {
+			continue
+		}
+		result = append(result, mxikUnitCodeExcelRow{Mxik: mxik, UnitCode: unitCode})
+	}
+	return result, nil
+}
+
+// UploadUnitCodeByMxik godoc
+// @Summary Update product barcode unit codes by MXIK from Excel
+// @Description Finds product_barcodes rows by mxik and sets their unit_code
+// @Tags helper
+// @Security BearerAuth
+// @Accept multipart/form-data
+// @Produce json
+// @Param file formData file true "Excel file with mxik, unit_code columns"
+// @Success 200 {object} v1.Response
+// @Failure 400 {object} v1.Response
+// @Failure 500 {object} v1.Response
+// @Router /helper/upload-unit-code-by-mxik [POST]
+func (h *HelperHandler) UploadUnitCodeByMxik(c *gin.Context) {
+	rows, err := readMxikUnitCodeExcel(c)
+	if err != nil {
+		handleResponse(c, BadRequest, err.Error())
+		return
+	}
+	emptyValues := 0
+	mxiks := make([]string, 0, len(rows))
+	unitCodes := make([]string, 0, len(rows))
+	for _, row := range rows {
+		if row.Mxik == "" || row.UnitCode == "" || row.UnitCode == "0" {
+			emptyValues++
+			continue
+		}
+		mxiks = append(mxiks, row.Mxik)
+		unitCodes = append(unitCodes, row.UnitCode)
+	}
+	// Single UPDATE with a join; for duplicate mxiks in the file the last row wins.
+	var matched []string
+	if len(mxiks) > 0 {
+		err = h.db.Raw(`WITH input AS (
+				SELECT DISTINCT ON (mxik) mxik, unit_code
+				FROM unnest(?::text[], ?::text[]) WITH ORDINALITY AS x(mxik, unit_code, n)
+				ORDER BY mxik, n DESC
+			)
+			UPDATE product_barcodes pb
+			SET unit_code = i.unit_code, updated_at = NOW()
+			FROM input i
+			WHERE `+productBarcodeNormalizedMxikSQL+` = i.mxik
+			RETURNING i.mxik`,
+			pq.Array(mxiks), pq.Array(unitCodes)).Scan(&matched).Error
+		if err != nil {
+			handleResponse(c, InternalError, err.Error())
+			return
+		}
+	}
+	found := make(map[string]bool, len(matched))
+	for _, m := range matched {
+		found[m] = true
+	}
+	notFound := make([]string, 0)
+	for _, mxik := range mxiks {
+		if !found[mxik] {
+			found[mxik] = true // report each missing mxik once
+			notFound = append(notFound, mxik)
+		}
+	}
+	handleResponse(c, OK, gin.H{
+		"updated":              len(matched),
 		"skipped_empty_values": emptyValues,
 		"not_found":            notFound,
 	})

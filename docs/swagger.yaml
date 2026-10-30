@@ -11059,6 +11059,37 @@ paths:
       summary: Upload package code excel
       tags:
       - helper
+  /helper/upload-unit-code-by-mxik:
+    post:
+      consumes:
+      - multipart/form-data
+      description: Finds product_barcodes rows by mxik and sets their unit_code
+      parameters:
+      - description: Excel file with mxik, unit_code columns
+        in: formData
+        name: file
+        required: true
+        type: file
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Update product barcode unit codes by MXIK from Excel
+      tags:
+      - helper
   /helper/upload-unit-count:
     post:
       consumes:
