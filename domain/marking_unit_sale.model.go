@@ -9,6 +9,7 @@ type MarkingUnitSale struct {
 	ProductId      string     `gorm:"column:product_id" json:"product_id"`
 	ProductName    string     `gorm:"column:product_name" json:"product_name"`
 	StoreId        string     `gorm:"column:store_id" json:"store_id"`
+	StoreName      string     `gorm:"column:store_name" json:"store_name"`
 	StoreProductId string     `gorm:"column:store_product_id" json:"store_product_id"`
 	UnitPerPack    int        `gorm:"column:unit_per_pack" json:"unit_per_pack"`
 	SoldQuantity   int        `gorm:"column:sold_quantity" json:"sold_quantity"`

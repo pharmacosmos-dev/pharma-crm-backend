@@ -372,7 +372,8 @@ func (s *Services) GetMarkingUnitSales(
 
 	var res []domain.MarkingUnitSale
 	err := newQuery().
-		Select("mus.*", "p.name AS product_name").
+		Joins("LEFT JOIN stores st ON st.id = mus.store_id").
+		Select("mus.*", "p.name AS product_name", "st.name AS store_name").
 		Order("mus.updated_at DESC").
 		Limit(params.Limit).
 		Offset(params.Offset).
