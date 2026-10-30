@@ -1774,6 +1774,7 @@ func (s *Services) GetSaleOne(ctx context.Context, saleId string) (*domain.SaleR
 		Alif               float64    `gorm:"alif"`
 		Uzum               float64    `gorm:"uzum"`
 		UzumTezKor         float64    `gorm:"uzum_tez_kor"`
+		UzumSelfPickup	   bool       `gorm:"uzum_self_pickup"`
 		Noor               float64    `gorm:"noor"`
 		LoyaltyCard        float64    `gorm:"loyalty_card"`
 		IsDelivered        bool       `gorm:"is_delivered"`
@@ -1828,6 +1829,7 @@ func (s *Services) GetSaleOne(ctx context.Context, saleId string) (*domain.SaleR
 			"s.alif",
 			"s.uzum",
 			"s.uzum_tez_kor",
+			"s.uzum_self_pickup",
 			"s.noor",
 			"s.loyalty_card",
 			"s.status",
@@ -1896,6 +1898,7 @@ func (s *Services) GetSaleOne(ctx context.Context, saleId string) (*domain.SaleR
 		Alif:               tempSale.Alif,
 		Uzum:               tempSale.Uzum,
 		UzumTezKor:         tempSale.UzumTezKor,
+		UzumSelfPickup:     tempSale.UzumSelfPickup,
 		Noor:               tempSale.Noor,
 		LoyaltyCard:        tempSale.LoyaltyCard,
 		Status:             tempSale.Status,

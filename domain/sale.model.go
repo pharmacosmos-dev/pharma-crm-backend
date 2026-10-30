@@ -147,6 +147,7 @@ type SaleResponse struct {
 	Alif            float64    `gorm:"alif" json:"alif"`
 	Uzum            float64    `gorm:"uzum" json:"uzum"`
 	UzumTezKor      float64    `gorm:"uzum_tez_kor" json:"uzum_tez_kor"`
+	UzumSelfPickup  bool       `gorm:"uzum_self_pickup" json:"uzum_self_pickup"`
 	Noor            float64    `gorm:"noor" json:"noor"`
 	LoyaltyCard     float64    `gorm:"loyalty_card" json:"loyalty_card"`
 	ProductCount    float64    `gorm:"product_count" json:"product_count"`
