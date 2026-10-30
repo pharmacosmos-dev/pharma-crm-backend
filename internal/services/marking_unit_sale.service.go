@@ -20,12 +20,14 @@ type markingUnitSale struct {
 }
 
 type markingCartItem struct {
-	Id           string
-	ProductId    string
-	ProductName  string
-	UnitPerPack  int
-	UnitQuantity int
-	Markings     utils.StringArray `gorm:"type:text[]"`
+	Id             string
+	ProductId      string
+	StoreId        string
+	StoreProductId string
+	ProductName    string
+	UnitPerPack    int
+	UnitQuantity   int
+	Markings       utils.StringArray `gorm:"type:text[]"`
 }
 
 // getMarkingAvailableUnits: har bir markirovkadan yana nechta dona sotish mumkin.
@@ -166,7 +168,7 @@ func (s *Services) getMarkingCartItems(ctx context.Context, tx *gorm.DB, saleId 
 	var items []markingCartItem
 	err := tx.WithContext(ctx).
 		Table("cart_items ci").
-		Select("ci.id", "p.id AS product_id", "p.name AS product_name", "p.unit_per_pack", "ci.unit_quantity", "ci.markings").
+		Select("ci.id", "p.id AS product_id", "sp.store_id", "sp.id AS store_product_id", "p.name AS product_name", "p.unit_per_pack", "ci.unit_quantity", "ci.markings").
 		Joins("JOIN store_products sp ON sp.id = ci.store_product_id").
 		Joins("JOIN products p ON sp.product_id = p.id").
 		Where("ci.sale_id = ? AND COALESCE(cardinality(ci.markings), 0) > 0", saleId).
@@ -224,10 +226,18 @@ func (s *Services) ApplyMarkingUnitSale(ctx context.Context, tx *gorm.DB, saleId
 				break
 			}
 
+			// store_id/store_product_id — markirovka birinchi sotilgan do'kon; migratsiyagacha
+			// yaratilgan qatorlarda ular bo'sh, shuning uchun keyingi savdoda to'ldiriladi.
+			// Ikkalasi faqat birga yoziladi: store_product o'chirilib store_product_id NULL
+			// bo'lib qolsa ham, boshqa do'konning store_product_id si yozilib ketmaydi.
 			err = tx.WithContext(ctx).Exec(`
-			INSERT INTO marking_unit_sales (marking, product_id, unit_per_pack, sold_quantity, stock_quantity)
-			VALUES (?, ?, ?, 0, ?)
-			ON CONFLICT (marking) DO NOTHING`, marking, item.ProductId, unitPerPack, unitPerPack).Error
+			INSERT INTO marking_unit_sales (marking, product_id, store_id, store_product_id, unit_per_pack, sold_quantity, stock_quantity)
+			VALUES (?, ?, ?, ?, ?, 0, ?)
+			ON CONFLICT (marking) DO UPDATE SET
+				store_id         = EXCLUDED.store_id,
+				store_product_id = EXCLUDED.store_product_id
+			WHERE marking_unit_sales.store_id IS NULL`,
+				marking, item.ProductId, item.StoreId, item.StoreProductId, unitPerPack, unitPerPack).Error
 			if err != nil {
 				s.log.Errorf("could not insert marking_unit_sale(%s): %v", marking, err)
 				return domain.InternalServerError
