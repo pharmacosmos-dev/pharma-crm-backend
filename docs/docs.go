@@ -31717,12 +31717,12 @@ const docTemplate = `{
                 "summary": "Cancel online sale",
                 "parameters": [
                     {
-                        "description": "cancel online sale",
+                        "description": "cancel online sale (admin only, no cashbox)",
                         "name": "body",
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/domain.ConfirmOnlineSaleRequest"
+                            "$ref": "#/definitions/domain.CancelOnlineSaleRequest"
                         }
                     }
                 ],
@@ -38370,6 +38370,25 @@ const docTemplate = `{
                 }
             }
         },
+        "domain.CancelOnlineSaleRequest": {
+            "type": "object",
+            "required": [
+                "sale_id"
+            ],
+            "properties": {
+                "eats_id": {
+                    "description": "EatsId — sales.vendor_order_id (Noor external_id), sale_id bilan mos kelishi kerak",
+                    "type": "string"
+                },
+                "reason": {
+                    "description": "Reason — rad etish sababi, Noor'ga webhook orqali boradi",
+                    "type": "string"
+                },
+                "sale_id": {
+                    "type": "string"
+                }
+            }
+        },
         "domain.CartItemCheckMarkingRequest": {
             "type": "object",
             "required": [
@@ -38659,10 +38678,6 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "employee_id": {
-                    "type": "string"
-                },
-                "reason": {
-                    "description": "Reason — rad etish sababi (faqat online-cancel'da), Noor'ga webhook orqali boradi",
                     "type": "string"
                 },
                 "sale_id": {

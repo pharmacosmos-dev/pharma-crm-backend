@@ -1250,7 +1250,7 @@ func (h *SaleHandler) AcceptOnlineSale(c *gin.Context) {
 // @Security     BearerAuth
 // @Accept 	json
 // @Produce json
-// @Param   body body domain.ConfirmOnlineSaleRequest true "cancel online sale"
+// @Param   body body domain.CancelOnlineSaleRequest true "cancel online sale (admin only, no cashbox)"
 // @Success 200 {object} v1.Response
 // @Failure 400 {object} v1.Response
 // @Failure 424 {object} v1.Response "noor.not.operational — Noor API so'rovni rad etdi"
@@ -1263,7 +1263,7 @@ func (h *SaleHandler) CancelOnlineSale(c *gin.Context) {
 		return
 	}
 
-	var body domain.ConfirmOnlineSaleRequest
+	var body domain.CancelOnlineSaleRequest
 	if err := c.ShouldBindJSON(&body); err != nil {
 		handleServiceResponse(c, BadRequest, domain.InvalidRequestBodyError)
 		return

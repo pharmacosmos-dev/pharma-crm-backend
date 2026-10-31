@@ -11,7 +11,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/pharma-crm-backend/domain"
 	"github.com/pharma-crm-backend/domain/constants"
@@ -1543,14 +1542,8 @@ func (s *Services) AcceptOnlineSale(ctx context.Context, req *domain.ConfirmOnli
 	return sale, nil
 }
 
-// cancel sale from the cashier
-func (s *Services) CancelOnlineSale(ctx context.Context, req *domain.ConfirmOnlineSaleRequest) error {
-	// cashier cancels from the open shift, admin cancels without one
-	operation, err := s.GetOpenCashboxOperationByEmployeeId(ctx, req.EmployeeId)
-	if err != nil && !errors.Is(err, domain.NoOpenCashboxError) {
-		return err
-	}
-
+// cancel online sale by admin, no cashbox shift needed
+func (s *Services) CancelOnlineSale(ctx context.Context, req *domain.CancelOnlineSaleRequest) error {
 	// start transaction
 	tx := s.db.Begin()
 	defer func() {
@@ -1570,38 +1563,56 @@ func (s *Services) CancelOnlineSale(ctx context.Context, req *domain.ConfirmOnli
 		_ = tx.Rollback()
 		return domain.OnlineOrderCanceledError
 	}
+
+	// eats_id must belong to this sale
+	eatsId := strings.TrimSpace(req.EatsId)
+	if eatsId != "" && sale.VendorOrderId != "" && eatsId != sale.VendorOrderId {
+		_ = tx.Rollback()
+		return domain.InvalidRequestBodyError
+	}
+	if sale.VendorOrderId == "" {
+		sale.VendorOrderId = eatsId
+	}
+
+	reason := strings.TrimSpace(req.Reason)
+
+	// uzum: same as the uzum DELETE /order, crm only, a finished order gets its inventory back
+	if sale.ServiceType == constants.ServiceTypeUzum {
+		_ = tx.Rollback()
+
+		var uzumSale domain.Sale
+		err = s.db.WithContext(ctx).Take(&uzumSale, "id = ?", sale.Id).Error
+		if err != nil {
+			s.log.Errorf("could not get uzum sale %s for cancel: %v", sale.Id, err)
+			return domain.InternalServerError
+		}
+
+		if err = s.cancelUzumSale(ctx, &uzumSale, reason, req.EmployeeId); err != nil {
+			return domain.InternalServerError
+		}
+		return nil
+	}
+
 	if utils.In(sale.Stage, constants.FinishedSaleStages...) {
 		_ = tx.Rollback()
 		return domain.AlreadyCompletedError
 	}
 
-	if operation != nil {
-		err = tx.WithContext(ctx).
-			Exec(`
+	err = tx.WithContext(ctx).
+		Exec(`
 	UPDATE sales
 	SET
-		employee_id = ?,
-		cash_box_operation_id = ?,
-		cashbox_id = ?,
+		employee_id = COALESCE(NULLIF(?, '')::uuid, employee_id),
+		client_comment = `+cancelReasonCommentSql+`,
 		online_status = ?,
 		stage = ?
 	WHERE id = ?`,
-				req.EmployeeId,
-				operation.Id,
-				operation.CashBoxId,
-				constants.SaleOnlineStageCanceled,
-				constants.SaleStagePending,
-				req.SaleId,
-			).Error
-	} else {
-		// admin: the sale stays on the cashier who had it
-		err = tx.WithContext(ctx).
-			Exec(`UPDATE sales SET online_status = ?, stage = ? WHERE id = ?`,
-				constants.SaleOnlineStageCanceled,
-				constants.SaleStagePending,
-				req.SaleId,
-			).Error
-	}
+			req.EmployeeId,
+			reason, reason,
+			constants.SaleOnlineStageCanceled,
+			constants.SaleStagePending,
+			req.SaleId,
+		).Error
 
 	if err != nil {
 		_ = tx.Rollback()
@@ -1614,29 +1625,14 @@ func (s *Services) CancelOnlineSale(ctx context.Context, req *domain.ConfirmOnli
 			ExternalId: sale.VendorOrderId,
 			OrderId:    sale.SaleNumber,
 			Status:     constants.NoorOrderStatusRejected,
-			Reason:     strings.TrimSpace(req.Reason),
+			Reason:     reason,
 		})
 		if err != nil {
 			_ = tx.Rollback()
 			return err
 		}
-	} else {
-		// TODO: uzum orders also get the old noor cancel here; kept unchanged until uzum cancel is sorted out
-		requestData, err := json.Marshal(gin.H{"order_id": sale.SaleNumber})
-		if err != nil {
-			_ = tx.Rollback()
-			s.log.Errorf("could not parse online sale response: %v", err)
-			return domain.InternalServerError
-		}
-		url := fmt.Sprintf("%s/orders/vendor/%d/cancel", s.cfg.NoorApiUrl, sale.SaleNumber)
-		var response *http.Response
-		err = s.NoorRequest(&response, http.MethodPatch, url, requestData)
-		if err != nil {
-			_ = tx.Rollback()
-			s.log.Errorf("could not send order cancel request to noor: %v", err)
-			return domain.NoorNotOperationalError
-		}
 	}
+
 	// commit transaction
 	if err = tx.Commit().Error; err != nil {
 		s.log.Errorf("could not commit cancel online sale transaction: %v", err)
@@ -1644,9 +1640,7 @@ func (s *Services) CancelOnlineSale(ctx context.Context, req *domain.ConfirmOnli
 	}
 
 	// admin cancelled: let the store's cashier know
-	if operation == nil {
-		s.NotifyOnlineOrderCancel(sale.StoreId, sale.SaleNumber)
-	}
+	s.NotifyOnlineOrderCancel(sale.StoreId, sale.SaleNumber)
 
 	return nil
 }

@@ -5,6 +5,7 @@ import (
 	"crypto/sha1"
 	"errors"
 	"fmt"
+	"strings"
 
 	"github.com/google/uuid"
 	"github.com/pharma-crm-backend/domain"
@@ -574,6 +575,24 @@ func (s *Services) CancelUzumOrder(ctx context.Context, orderId string, req *dom
 		s.log.Errorf("failed to find uzum order %s for cancel: %v", orderId, err)
 		return fmt.Errorf("could not get order")
 	}
+
+	return s.cancelUzumSale(ctx, &sale, strings.TrimSpace(req.Comment), "")
+}
+
+// appends the cancel reason to client_comment, takes the reason twice
+const cancelReasonCommentSql = `CASE WHEN ? = '' THEN client_comment
+		ELSE CONCAT_WS(' | ', NULLIF(client_comment, ''), 'Bekor qilish: ' || ?) END`
+
+// cancelUzumSale cancels the uzum order in the crm only, nothing is sent to uzum.
+// used by the uzum DELETE /order and by the admin online-cancel.
+func (s *Services) cancelUzumSale(ctx context.Context, sale *domain.Sale, reason, employeeId string) error {
+	orderId := sale.Id
+
+	// a repeat cancel must not reverse the inventory twice
+	if sale.OnlineStatus == constants.SaleOnlineStageCanceled {
+		return nil
+	}
+
 	tx := s.db.Begin()
 	defer func() {
 		if r := recover(); r != nil {
@@ -582,7 +601,7 @@ func (s *Services) CancelUzumOrder(ctx context.Context, orderId string, req *dom
 	}()
 
 	if sale.Stage == constants.SaleStageFinished {
-		err = s.ReverseInventoryUpdate(ctx, tx, &sale)
+		err := s.ReverseInventoryUpdate(ctx, tx, sale)
 		if err != nil {
 			_ = tx.Rollback()
 			s.log.Errorf("could not reserve inventory for uzum order %s: %v", orderId, err)
@@ -590,9 +609,15 @@ func (s *Services) CancelUzumOrder(ctx context.Context, orderId string, req *dom
 		}
 	}
 
-	err = tx.WithContext(ctx).
-		Exec("UPDATE sales SET online_status = ? WHERE id = ? AND service_type = ?;",
-			constants.SaleOnlineStageCanceled, orderId, constants.ServiceTypeUzum).Error
+	err := tx.WithContext(ctx).
+		Exec(`
+	UPDATE sales
+	SET
+		online_status = ?,
+		employee_id = COALESCE(NULLIF(?, '')::uuid, employee_id),
+		client_comment = `+cancelReasonCommentSql+`
+	WHERE id = ? AND service_type = ?;`,
+			constants.SaleOnlineStageCanceled, employeeId, reason, reason, orderId, constants.ServiceTypeUzum).Error
 	if err != nil {
 		_ = tx.Rollback()
 		s.log.Errorf("failed to cancel uzum order %s: %v", orderId, err)

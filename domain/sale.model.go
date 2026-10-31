@@ -445,8 +445,16 @@ type ConfirmOnlineSaleRequest struct {
 	CashBoxOperationId string `gorm:"cash_box_operation_id" json:"cash_box_operation_id"`
 	CashboxId          string `gorm:"cashbox_id" json:"cashbox_id"`
 	EmployeeId         string `gorm:"employee_id" json:"employee_id"`
-	// Reason — rad etish sababi (faqat online-cancel'da), Noor'ga webhook orqali boradi
-	Reason string `json:"reason"`
+}
+
+// online sale cancel request, cancelled only by admins
+type CancelOnlineSaleRequest struct {
+	SaleId string `json:"sale_id" binding:"required"`
+	// EatsId — sales.vendor_order_id (Noor external_id), sale_id bilan mos kelishi kerak
+	EatsId string `json:"eats_id"`
+	// Reason — rad etish sababi, Noor'ga webhook orqali boradi
+	Reason     string `json:"reason"`
+	EmployeeId string `json:"-"` // from the bearer token
 }
 
 type OnlineSaleDto struct {

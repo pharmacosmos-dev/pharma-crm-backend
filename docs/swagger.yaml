@@ -142,6 +142,20 @@ definitions:
       name:
         type: string
     type: object
+  domain.CancelOnlineSaleRequest:
+    properties:
+      eats_id:
+        description: EatsId — sales.vendor_order_id (Noor external_id), sale_id bilan
+          mos kelishi kerak
+        type: string
+      reason:
+        description: Reason — rad etish sababi, Noor'ga webhook orqali boradi
+        type: string
+      sale_id:
+        type: string
+    required:
+    - sale_id
+    type: object
   domain.CartItemCheckMarkingRequest:
     properties:
       barcode:
@@ -332,10 +346,6 @@ definitions:
       cashbox_id:
         type: string
       employee_id:
-        type: string
-      reason:
-        description: Reason — rad etish sababi (faqat online-cancel'da), Noor'ga webhook
-          orqali boradi
         type: string
       sale_id:
         type: string
@@ -23630,12 +23640,12 @@ paths:
       - application/json
       description: Cancel online sale
       parameters:
-      - description: cancel online sale
+      - description: cancel online sale (admin only, no cashbox)
         in: body
         name: body
         required: true
         schema:
-          $ref: '#/definitions/domain.ConfirmOnlineSaleRequest'
+          $ref: '#/definitions/domain.CancelOnlineSaleRequest'
       produces:
       - application/json
       responses:
