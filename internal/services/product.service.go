@@ -414,6 +414,7 @@ func (s *Services) GetProducts(ctx context.Context, params *domain.ProductQueryP
 		"p.unit_label",
 		"p.requires_prescription",
 		"p.is_return",
+		"p.max_price",
 		"p.created_at",
 		"p.updated_at",
 

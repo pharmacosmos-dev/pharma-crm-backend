@@ -249,6 +249,7 @@ type ProductData struct {
 	//CountryId            *string   `gorm:"country_id" json:"country_id"`
 	Country              string    `gorm:"country" json:"country"`
 	IsReturn             bool      `gorm:"is_return" json:"is_return"`
+	MaxPrice             float64   `gorm:"max_price" json:"max_price"`
 }
 
 // product response structure for arzon apteka
