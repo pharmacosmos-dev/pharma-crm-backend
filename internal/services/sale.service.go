@@ -1545,8 +1545,9 @@ func (s *Services) AcceptOnlineSale(ctx context.Context, req *domain.ConfirmOnli
 
 // cancel sale from the cashier
 func (s *Services) CancelOnlineSale(ctx context.Context, req *domain.ConfirmOnlineSaleRequest) error {
+	// cashier cancels from the open shift, admin cancels without one
 	operation, err := s.GetOpenCashboxOperationByEmployeeId(ctx, req.EmployeeId)
-	if err != nil {
+	if err != nil && !errors.Is(err, domain.NoOpenCashboxError) {
 		return err
 	}
 
@@ -1565,8 +1566,18 @@ func (s *Services) CancelOnlineSale(ctx context.Context, req *domain.ConfirmOnli
 		return err
 	}
 
-	err = tx.WithContext(ctx).
-		Exec(`
+	if sale.OnlineStatus == constants.SaleOnlineStageCanceled {
+		_ = tx.Rollback()
+		return domain.OnlineOrderCanceledError
+	}
+	if utils.In(sale.Stage, constants.FinishedSaleStages...) {
+		_ = tx.Rollback()
+		return domain.AlreadyCompletedError
+	}
+
+	if operation != nil {
+		err = tx.WithContext(ctx).
+			Exec(`
 	UPDATE sales
 	SET
 		employee_id = ?,
@@ -1575,13 +1586,22 @@ func (s *Services) CancelOnlineSale(ctx context.Context, req *domain.ConfirmOnli
 		online_status = ?,
 		stage = ?
 	WHERE id = ?`,
-			req.EmployeeId,
-			operation.Id,
-			operation.CashBoxId,
-			constants.SaleOnlineStageCanceled,
-			constants.SaleStagePending,
-			req.SaleId,
-		).Error
+				req.EmployeeId,
+				operation.Id,
+				operation.CashBoxId,
+				constants.SaleOnlineStageCanceled,
+				constants.SaleStagePending,
+				req.SaleId,
+			).Error
+	} else {
+		// admin: the sale stays on the cashier who had it
+		err = tx.WithContext(ctx).
+			Exec(`UPDATE sales SET online_status = ?, stage = ? WHERE id = ?`,
+				constants.SaleOnlineStageCanceled,
+				constants.SaleStagePending,
+				req.SaleId,
+			).Error
+	}
 
 	if err != nil {
 		_ = tx.Rollback()
@@ -1621,6 +1641,11 @@ func (s *Services) CancelOnlineSale(ctx context.Context, req *domain.ConfirmOnli
 	if err = tx.Commit().Error; err != nil {
 		s.log.Errorf("could not commit cancel online sale transaction: %v", err)
 		return domain.InternalServerError
+	}
+
+	// admin cancelled: let the store's cashier know
+	if operation == nil {
+		s.NotifyOnlineOrderCancel(sale.StoreId, sale.SaleNumber)
 	}
 
 	return nil
