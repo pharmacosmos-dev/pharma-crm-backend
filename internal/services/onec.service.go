@@ -431,7 +431,7 @@ func (s *Services) CreateProductMaxPriceChanged(
 	// bo'sh bo'lsa JSON'da null emas, [] qaytishi uchun
 	notFoundCodes := []int{}
 	var updatedCount int
-	var materialCodes []int
+	// var materialCodes []int
 
 	for _, p := range req.Products {
 
@@ -444,7 +444,7 @@ func (s *Services) CreateProductMaxPriceChanged(
 			})
 		}
 
-		materialCodes = append(materialCodes, p.MaterialCode)
+		// materialCodes = append(materialCodes, p.MaterialCode)
 
 		result := tx.WithContext(ctx).Exec(`
 			UPDATE products
@@ -463,15 +463,16 @@ func (s *Services) CreateProductMaxPriceChanged(
 		}
 	}
 
-	resetResult := tx.WithContext(ctx).Exec(
-		"UPDATE products SET max_price = 0 WHERE material_code NOT IN (?)",
-		materialCodes,
-	)
-
-	if resetResult.Error != nil {
-		tx.Rollback()
-		return nil, domain.InternalServerError
-	}
+	// faqat yuborilgan material_code'lar o'zgaradi, qolgan mahsulotlarning max_price'iga tegilmaydi
+	// resetResult := tx.WithContext(ctx).Exec(
+	// 	"UPDATE products SET max_price = 0 WHERE material_code NOT IN (?)",
+	// 	materialCodes,
+	// )
+	//
+	// if resetResult.Error != nil {
+	// 	tx.Rollback()
+	// 	return nil, domain.InternalServerError
+	// }
 
 	if err := tx.Commit().Error; err != nil {
 		return nil, domain.InternalServerError
@@ -481,7 +482,7 @@ func (s *Services) CreateProductMaxPriceChanged(
 		"total_requested":          len(req.Products),
 		"updated_count":            updatedCount,
 		"not_found":                notFoundCodes,
-		"reset_to_zero_count":      resetResult.RowsAffected,
+		// "reset_to_zero_count":      resetResult.RowsAffected,
 	}, nil
 }
 
