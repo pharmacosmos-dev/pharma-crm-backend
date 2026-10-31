@@ -14,26 +14,26 @@ import (
 	"gorm.io/gorm"
 )
 
-// onecFixedUnitCodes — 1C importida shu mxik'lar kelsa, product_barcodes'dagi
-// mavjud unit_code o'zgartirilmaydi, yangi qator esa 1C'niki emas, shu
-// unit_code bilan yaratiladi.
-var onecFixedUnitCodes = map[string]string{
-	"02936001013000000": "1462212",
-	"03304011003000000": "1343317",
-	"06214001011000000": "1176945",
-	"03305005001000000": "1361137",
-	"09619002001000000": "1490313",
-	"04014001003000000": "1340578",
-	"09619001001000000": "1490629",
-	"03306001001000000": "1343362",
-	"09018010033000000": "1489938",
-	"03005001007000000": "1198047",
-	"03304011006000000": "1344152",
-	"03307002001000000": "1344066",
-	"03401002005000000": "1659570",
-	"03304011005000000": "1344153",
-	"09603002002000000": "1490267",
-}
+// // onecFixedUnitCodes — 1C importida shu mxik'lar kelsa, product_barcodes'dagi
+// // mavjud unit_code o'zgartirilmaydi, yangi qator esa 1C'niki emas, shu
+// // unit_code bilan yaratiladi.
+// var onecFixedUnitCodes = map[string]string{
+// 	"02936001013000000": "1462212",
+// 	"03304011003000000": "1343317",
+// 	"06214001011000000": "1176945",
+// 	"03305005001000000": "1361137",
+// 	"09619002001000000": "1490313",
+// 	"04014001003000000": "1340578",
+// 	"09619001001000000": "1490629",
+// 	"03306001001000000": "1343362",
+// 	"09018010033000000": "1489938",
+// 	"03005001007000000": "1198047",
+// 	"03304011006000000": "1344152",
+// 	"03307002001000000": "1344066",
+// 	"03401002005000000": "1659570",
+// 	"03304011005000000": "1344153",
+// 	"09603002002000000": "1490267",
+// }
 
 func (s *Services) CreateImportFromOnec(ctx context.Context, req *domain.CreateOnecImportDto) error {
 	// calculate total count and sum from the request to detect duplicates
@@ -232,29 +232,37 @@ func (s *Services) createOrGetProductAndImportDetails(
 			s.log.Errorf("could not creating new product on importing: %v", err)
 			return domain.InternalServerError
 		}
-		// product_id va barcode bo'yicha mavjud bo'lsa - update, aks holda - create
-		fixedUnitCode, keepUnitCode := onecFixedUnitCodes[strings.TrimSpace(products[i].Ikpu)]
-		insertUnitCode := products[i].UnitCode
-		if keepUnitCode {
-			insertUnitCode = fixedUnitCode
-		}
-		barcodeUpdate := tx.WithContext(ctx).Exec(`
-			UPDATE product_barcodes
-			SET mxik = ?, is_marking = ?, unit_code = CASE WHEN ? THEN unit_code ELSE ? END, updated_at = NOW()
-			WHERE product_id = ? AND barcode = ?
-		`,
-			products[i].Ikpu,
-			products[i].Mar,
-			keepUnitCode,
-			products[i].UnitCode,
-			productId,
-			products[i].Barcode,
-		)
-		if barcodeUpdate.Error != nil {
-			s.log.Errorf("could not update product barcode: %v", barcodeUpdate.Error)
+		// product_id, barcode va mxik bo'yicha mavjud bo'lsa - o'zgartirilmaydi, aks holda - 1C datasi bilan create
+		// fixedUnitCode, keepUnitCode := onecFixedUnitCodes[strings.TrimSpace(products[i].Ikpu)]
+		// insertUnitCode := products[i].UnitCode
+		// if keepUnitCode {
+		// 	insertUnitCode = fixedUnitCode
+		// }
+		// barcodeUpdate := tx.WithContext(ctx).Exec(`
+		// 	UPDATE product_barcodes
+		// 	SET mxik = ?, is_marking = ?, unit_code = CASE WHEN ? THEN unit_code ELSE ? END, updated_at = NOW()
+		// 	WHERE product_id = ? AND barcode = ?
+		// `,
+		// 	products[i].Ikpu,
+		// 	products[i].Mar,
+		// 	keepUnitCode,
+		// 	products[i].UnitCode,
+		// 	productId,
+		// 	products[i].Barcode,
+		// )
+		// if barcodeUpdate.Error != nil {
+		// 	s.log.Errorf("could not update product barcode: %v", barcodeUpdate.Error)
+		// 	return domain.InternalServerError
+		// }
+		var barcodeExists bool
+		err = tx.WithContext(ctx).Raw(`
+			SELECT EXISTS (SELECT 1 FROM product_barcodes WHERE product_id = ? AND barcode = ? AND mxik = ?)
+		`, productId, products[i].Barcode, products[i].Ikpu).Scan(&barcodeExists).Error
+		if err != nil {
+			s.log.Errorf("could not check product barcode: %v", err)
 			return domain.InternalServerError
 		}
-		if barcodeUpdate.RowsAffected == 0 {
+		if !barcodeExists {
 			err = tx.WithContext(ctx).Exec(`
 				INSERT INTO product_barcodes (
 					product_id,
@@ -271,7 +279,7 @@ func (s *Services) createOrGetProductAndImportDetails(
 				products[i].Ikpu,
 				constants.GeneralStatusCompleted,
 				products[i].Mar,
-				insertUnitCode,
+				products[i].UnitCode,
 			).Error
 			if err != nil {
 				s.log.Errorf("could not create product barcode: %v", err)
