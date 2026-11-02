@@ -72,6 +72,7 @@ func (h *EmployeeHandler) EmployeeRoutes(r *gin.RouterGroup) {
 		employee.GET("/payroll/stores/export-excel", h.ExportStorePayrollExcel)
 		employee.GET("/payroll/employees/export-excel", h.ExportEmployeePayrollExcel)
 		employee.PUT("/payroll/:id/management", h.UpdateEmployeePayrollManagement)
+		employee.POST("/payroll/advance/import-excel", h.ImportPayrollAdvanceExcel)
 	}
 }
 
@@ -2252,6 +2253,171 @@ func (h *EmployeeHandler) UpdateEmployeePayrollManagement(c *gin.Context) {
 	}
 
 	handleResponse(c, OK, res)
+}
+
+// ImportPayrollAdvanceExcel godoc
+// @Summary      Import payroll advances from Excel
+// @Description  Excel'dagi avanslarni shu oyning payroll qatorlariga yozadi (UpdateEmployeePayrollManagement'dagi avans bilan bir xil: net_pay qayta hisoblanadi).
+// @Description  Birinchi varaq, 1-qator sarlavha. Ustunlar sarlavha bo'yicha topiladi: Филиал, Сотрудник, Пластик (karta avansi), Наличные (naqd avans, ixtiyoriy). Boshqa ustunlar e'tiborsiz qoladi.
+// @Description  Xodim oy + filial nomi + ism bo'yicha topiladi (payroll'dagi full_name yoki first_name + last_name). Katak bo'sh bo'lsa o'sha avans o'zgarmaydi.
+// @Description  overwrite=false (default) — avansi allaqachon bor xodimlar o'tkazib yuboriladi. dry_run=true — hech narsa yozilmaydi, faqat natija qaytadi.
+// @Tags         employees
+// @Security     BearerAuth
+// @Accept       multipart/form-data
+// @Produce      json
+// @Param        file       formData  file  true   "Excel (.xlsx)"
+// @Param        year       query     int   true   "Year"
+// @Param        month      query     int   true   "Month 1-12"
+// @Param        dry_run    query     bool  false  "true — faqat tekshirish, yozmaydi"
+// @Param        overwrite  query     bool  false  "true — mavjud avansni ham almashtiradi"
+// @Success      200  {object}  domain.PayrollAdvanceImportResult
+// @Failure      400  {object}  v1.Response
+// @Failure      401  {object}  v1.Response
+// @Failure      500  {object}  v1.Response
+// @Router       /employee/payroll/advance/import-excel [post]
+func (h *EmployeeHandler) ImportPayrollAdvanceExcel(c *gin.Context) {
+	user := h.service.GetSignedUser(c)
+	if user.UserId == "" {
+		handleServiceResponse(c, nil, domain.UnauthorizedError)
+		return
+	}
+
+	year, errY := strconv.Atoi(c.Query("year"))
+	month, errM := strconv.Atoi(c.Query("month"))
+	if errY != nil || errM != nil || year == 0 || month < 1 || month > 12 {
+		handleResponse(c, BadRequest, "year and month query params are required")
+		return
+	}
+	dryRun := c.Query("dry_run") == "true"
+	overwrite := c.Query("overwrite") == "true"
+
+	file, err := c.FormFile("file")
+	if err != nil {
+		handleResponse(c, BadRequest, "file field is required (multipart/form-data, key: file)")
+		return
+	}
+	src, err := file.Open()
+	if err != nil {
+		handleResponse(c, InternalError, "Could not open the file: "+err.Error())
+		return
+	}
+	defer src.Close()
+
+	f, err := excelize.OpenReader(src)
+	if err != nil {
+		handleResponse(c, BadRequest, "The Excel file is invalid or corrupted: "+err.Error())
+		return
+	}
+	defer f.Close()
+
+	sheets := f.GetSheetList()
+	if len(sheets) == 0 {
+		handleResponse(c, BadRequest, "No sheet was found in the Excel file.")
+		return
+	}
+	// RawCellValue: summalar formatlanmagan son bo'lib keladi ("2000064", "2,000,064.00" emas)
+	sheetRows, err := f.GetRows(sheets[0], excelize.Options{RawCellValue: true})
+	if err != nil {
+		handleResponse(c, BadRequest, "Could not read the sheet: "+err.Error())
+		return
+	}
+	if len(sheetRows) < 2 {
+		handleResponse(c, BadRequest, "The uploaded file is empty or contains only a header row.")
+		return
+	}
+
+	rows, missing := parsePayrollAdvanceRows(sheetRows)
+	if missing != "" {
+		handleResponse(c, BadRequest, missing)
+		return
+	}
+	if len(rows) == 0 {
+		handleResponse(c, BadRequest, "No employee rows were found in the Excel file.")
+		return
+	}
+
+	// Admin bo'lmasa faqat o'z kompaniyasi va o'z do'koni bo'yicha
+	var companyId, storeId string
+	if !helper.IsAdmin(user) {
+		companyId, storeId = user.CompanyId, user.StoreId
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), constants.ContextTimeoutForReports)
+	defer cancel()
+
+	res, err := h.service.ImportPayrollAdvances(ctx, year, month, companyId, storeId, user.UserId, rows, dryRun, overwrite)
+	if err != nil {
+		handleServiceResponse(c, nil, err)
+		return
+	}
+
+	handleResponse(c, OK, res)
+}
+
+// parsePayrollAdvanceRows — avans Excel'ini qatorlarga ajratadi. Ustunlar 1-qatordagi
+// sarlavha bo'yicha topiladi; majburiy ustun bo'lmasa xato matni qaytadi.
+func parsePayrollAdvanceRows(sheetRows [][]string) ([]domain.PayrollAdvanceImportRow, string) {
+	headers := map[string][]string{
+		"store": {"ФИЛИАЛ", "АПТЕКА", "FILIAL", "APTEKA", "STORE"},
+		"name":  {"СОТРУДНИК", "ФИО", "XODIM", "EMPLOYEE", "FULL_NAME"},
+		"card":  {"ПЛАСТИК", "KARTA", "PLASTIK", "ADVANCE_CARD_AMOUNT"},
+		"cash":  {"НАЛИЧНЫЕ", "АВАНС", "NAQD", "ADVANCE_CASH_AMOUNT"},
+	}
+	col := map[string]int{"store": -1, "name": -1, "card": -1, "cash": -1}
+	for i, h := range sheetRows[0] {
+		h = strings.ToUpper(strings.TrimSpace(h))
+		for key, names := range headers {
+			if col[key] == -1 && utils.In(h, names...) {
+				col[key] = i
+			}
+		}
+	}
+	if col["store"] == -1 || col["name"] == -1 || (col["card"] == -1 && col["cash"] == -1) {
+		return nil, "Header row must contain Филиал, Сотрудник and Пластик (or Наличные) columns."
+	}
+
+	cell := func(r []string, i int) string {
+		if i < 0 || i >= len(r) {
+			return ""
+		}
+		return strings.TrimSpace(r[i])
+	}
+	amount := func(s string) (*float64, bool) {
+		s = strings.NewReplacer(",", "", " ", "", " ", "").Replace(s)
+		if s == "" {
+			return nil, true
+		}
+		v, err := strconv.ParseFloat(s, 64)
+		if err != nil || v < 0 {
+			return nil, false
+		}
+		return &v, true
+	}
+
+	var rows []domain.PayrollAdvanceImportRow
+	for i, r := range sheetRows[1:] {
+		row := domain.PayrollAdvanceImportRow{
+			Row:       i + 2,
+			StoreName: cell(r, col["store"]),
+			FullName:  cell(r, col["name"]),
+		}
+		if row.StoreName == "" && row.FullName == "" {
+			continue // bo'sh qator
+		}
+		var okCard, okCash bool
+		row.Card, okCard = amount(cell(r, col["card"]))
+		row.Cash, okCash = amount(cell(r, col["cash"]))
+		switch {
+		case row.StoreName == "" || row.FullName == "":
+			row.Invalid = "Филиал and Сотрудник are required"
+		case !okCard || !okCash:
+			row.Invalid = "amount must be a non-negative number"
+		case row.Card == nil && row.Cash == nil:
+			row.Invalid = "Пластик or Наличные amount is required"
+		}
+		rows = append(rows, row)
+	}
+	return rows, ""
 }
 
 // MyPayroll godoc

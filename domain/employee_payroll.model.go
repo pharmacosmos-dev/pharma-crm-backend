@@ -464,6 +464,48 @@ type PayrollPeriod struct {
 	IsLive bool   `json:"is_live"`
 }
 
+// PayrollAdvanceImportRow — avans import Excel'ining bitta qatori.
+// Card/Cash nil bo'lsa (katak bo'sh yoki ustun yo'q) o'sha avans o'zgarmaydi.
+type PayrollAdvanceImportRow struct {
+	Row       int
+	StoreName string
+	FullName  string
+	Card      *float64
+	Cash      *float64
+	Invalid   string // qatorni o'qishdagi xato, bo'sh bo'lsa qator yaroqli
+}
+
+// Avans import qatorining natijasi.
+const (
+	PayrollImportUpdated     = "updated"      // yozildi
+	PayrollImportWouldUpdate = "would_update" // dry_run: yoziladi
+	PayrollImportSkipped     = "skipped"      // avans allaqachon bor (overwrite=false)
+	PayrollImportNotFound    = "not_found"    // shu oy, filial va ism bo'yicha payroll yo'q
+	PayrollImportAmbiguous   = "ambiguous"    // bir nechta payroll mos keldi
+	PayrollImportDuplicate   = "duplicate"    // shu xodim faylda yuqoriroqda bor
+	PayrollImportInvalid     = "invalid"      // qator noto'g'ri to'ldirilgan
+	PayrollImportError       = "error"        // yozishda xato
+)
+
+type PayrollAdvanceImportRowResult struct {
+	Row               int      `json:"row"`
+	StoreName         string   `json:"store_name"`
+	FullName          string   `json:"full_name"`
+	PayrollId         string   `json:"payroll_id,omitempty"`
+	AdvanceCardAmount *float64 `json:"advance_card_amount"`
+	AdvanceCashAmount *float64 `json:"advance_cash_amount"`
+	Status            string   `json:"status"`
+	Reason            string   `json:"reason,omitempty"`
+}
+
+type PayrollAdvanceImportResult struct {
+	Period PayrollPeriod                   `json:"period"`
+	DryRun bool                            `json:"dry_run"`
+	Total  int                             `json:"total"`
+	Counts map[string]int                  `json:"counts"`
+	Rows   []PayrollAdvanceImportRowResult `json:"rows"`
+}
+
 type MyPayrollResponse struct {
 	Period  PayrollPeriod      `json:"period"`
 	Payroll EmployeePayrollRow `json:"payroll"`
