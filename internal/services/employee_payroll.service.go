@@ -1756,6 +1756,7 @@ const storePayrollStatisticsQuery = `
 WITH stores_f AS (
     SELECT
         s.id,
+        s.created_at,
         COALESCE(s.employee_count, 0) AS employee_count,
         (SELECT COUNT(*)
            FROM employees e
@@ -1795,7 +1796,10 @@ per_store AS (
     GROUP BY pf.store_id, sf.employee_count
 )
 SELECT
-    (SELECT COUNT(*) FROM stores_f)::bigint                             AS total_stores_count,
+    -- davr oxirigacha (Toshkent vaqti bilan oy tugaguncha) ochilgan faol do'konlar
+    (SELECT COUNT(*) FROM stores_f
+      WHERE created_at < (make_date(@year, @month, 1) + interval '1 month') AT TIME ZONE 'Asia/Tashkent'
+    )::bigint                                                           AS total_stores_count,
     COALESCE((SELECT SUM(employee_count) FROM stores_f), 0)::numeric    AS total_employee_count,
     COALESCE((SELECT SUM(active_employee_count) FROM stores_f), 0)::bigint AS total_active_store_employee_count,
     (SELECT COUNT(*) FROM payrolls_f)::bigint                           AS total_payroll_count,
