@@ -1818,6 +1818,55 @@ definitions:
       type:
         type: string
     type: object
+  domain.PayrollAdvanceImportResult:
+    properties:
+      counts:
+        additionalProperties:
+          type: integer
+        type: object
+      dry_run:
+        type: boolean
+      period:
+        $ref: '#/definitions/domain.PayrollPeriod'
+      rows:
+        items:
+          $ref: '#/definitions/domain.PayrollAdvanceImportRowResult'
+        type: array
+      total:
+        type: integer
+    type: object
+  domain.PayrollAdvanceImportRowResult:
+    properties:
+      advance_card_amount:
+        type: number
+      advance_cash_amount:
+        type: number
+      full_name:
+        type: string
+      payroll_id:
+        type: string
+      reason:
+        type: string
+      row:
+        type: integer
+      status:
+        type: string
+      store_name:
+        type: string
+    type: object
+  domain.PayrollPeriod:
+    properties:
+      from:
+        type: string
+      is_live:
+        type: boolean
+      month:
+        type: integer
+      to:
+        type: string
+      year:
+        type: integer
+    type: object
   domain.PendingSaleResponse:
     properties:
       id:
@@ -8672,6 +8721,63 @@ paths:
       security:
       - BearerAuth: []
       summary: Update payroll salary, KPI and advance amounts
+      tags:
+      - employees
+  /employee/payroll/advance/import-excel:
+    post:
+      consumes:
+      - multipart/form-data
+      description: |-
+        Excel'dagi avanslarni shu oyning payroll qatorlariga yozadi (UpdateEmployeePayrollManagement'dagi avans bilan bir xil: net_pay qayta hisoblanadi).
+        Birinchi varaq, 1-qator sarlavha. Ustunlar sarlavha bo'yicha topiladi: Филиал, Сотрудник, Пластик (karta avansi), Наличные (naqd avans, ixtiyoriy). Boshqa ustunlar e'tiborsiz qoladi.
+        Xodim oy + filial nomi + ism bo'yicha topiladi (payroll'dagi full_name yoki first_name + last_name). Katak bo'sh bo'lsa o'sha avans o'zgarmaydi.
+        overwrite=false (default) — avansi allaqachon bor xodimlar o'tkazib yuboriladi. dry_run=true — hech narsa yozilmaydi, faqat natija qaytadi.
+      parameters:
+      - description: Excel (.xlsx)
+        in: formData
+        name: file
+        required: true
+        type: file
+      - description: Year
+        in: query
+        name: year
+        required: true
+        type: integer
+      - description: Month 1-12
+        in: query
+        name: month
+        required: true
+        type: integer
+      - description: true — faqat tekshirish, yozmaydi
+        in: query
+        name: dry_run
+        type: boolean
+      - description: true — mavjud avansni ham almashtiradi
+        in: query
+        name: overwrite
+        type: boolean
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/domain.PayrollAdvanceImportResult'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Import payroll advances from Excel
       tags:
       - employees
   /employee/payroll/employees:

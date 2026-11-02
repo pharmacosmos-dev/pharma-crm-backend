@@ -8193,6 +8193,87 @@ const docTemplate = `{
                 }
             }
         },
+        "/employee/payroll/advance/import-excel": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Excel'dagi avanslarni shu oyning payroll qatorlariga yozadi (UpdateEmployeePayrollManagement'dagi avans bilan bir xil: net_pay qayta hisoblanadi).\nBirinchi varaq, 1-qator sarlavha. Ustunlar sarlavha bo'yicha topiladi: Филиал, Сотрудник, Пластик (karta avansi), Наличные (naqd avans, ixtiyoriy). Boshqa ustunlar e'tiborsiz qoladi.\nXodim oy + filial nomi + ism bo'yicha topiladi (payroll'dagi full_name yoki first_name + last_name). Katak bo'sh bo'lsa o'sha avans o'zgarmaydi.\noverwrite=false (default) — avansi allaqachon bor xodimlar o'tkazib yuboriladi. dry_run=true — hech narsa yozilmaydi, faqat natija qaytadi.",
+                "consumes": [
+                    "multipart/form-data"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "employees"
+                ],
+                "summary": "Import payroll advances from Excel",
+                "parameters": [
+                    {
+                        "type": "file",
+                        "description": "Excel (.xlsx)",
+                        "name": "file",
+                        "in": "formData",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Year",
+                        "name": "year",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Month 1-12",
+                        "name": "month",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "boolean",
+                        "description": "true — faqat tekshirish, yozmaydi",
+                        "name": "dry_run",
+                        "in": "query"
+                    },
+                    {
+                        "type": "boolean",
+                        "description": "true — mavjud avansni ham almashtiradi",
+                        "name": "overwrite",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/domain.PayrollAdvanceImportResult"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    }
+                }
+            }
+        },
         "/employee/payroll/employees": {
             "get": {
                 "security": [
@@ -40859,6 +40940,81 @@ const docTemplate = `{
                 },
                 "type": {
                     "type": "string"
+                }
+            }
+        },
+        "domain.PayrollAdvanceImportResult": {
+            "type": "object",
+            "properties": {
+                "counts": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "integer"
+                    }
+                },
+                "dry_run": {
+                    "type": "boolean"
+                },
+                "period": {
+                    "$ref": "#/definitions/domain.PayrollPeriod"
+                },
+                "rows": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/domain.PayrollAdvanceImportRowResult"
+                    }
+                },
+                "total": {
+                    "type": "integer"
+                }
+            }
+        },
+        "domain.PayrollAdvanceImportRowResult": {
+            "type": "object",
+            "properties": {
+                "advance_card_amount": {
+                    "type": "number"
+                },
+                "advance_cash_amount": {
+                    "type": "number"
+                },
+                "full_name": {
+                    "type": "string"
+                },
+                "payroll_id": {
+                    "type": "string"
+                },
+                "reason": {
+                    "type": "string"
+                },
+                "row": {
+                    "type": "integer"
+                },
+                "status": {
+                    "type": "string"
+                },
+                "store_name": {
+                    "type": "string"
+                }
+            }
+        },
+        "domain.PayrollPeriod": {
+            "type": "object",
+            "properties": {
+                "from": {
+                    "type": "string"
+                },
+                "is_live": {
+                    "type": "boolean"
+                },
+                "month": {
+                    "type": "integer"
+                },
+                "to": {
+                    "type": "string"
+                },
+                "year": {
+                    "type": "integer"
                 }
             }
         },
