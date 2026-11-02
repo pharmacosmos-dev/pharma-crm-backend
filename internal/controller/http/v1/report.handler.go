@@ -881,8 +881,13 @@ func (h *ReportHandler) StoreReportAmountExport(c *gin.Context) {
 		if user.StoreId != "" {
 			params.StoreId = user.StoreId
 		}
-		params.CompanyIds = []string{user.CompanyId}
+		// company_id bo'sh xodim (masalan, bugalter) barcha kompaniyalarni ko'radi — IN('') uuid xatosi berardi
+		if user.CompanyId != "" {
+			params.CompanyIds = []string{user.CompanyId}
+		}
 	}
+
+	applyRopAptekaScope(user, &params)
 
 	// Kassir roli (employee_roles orqali) faqat bugungi kundan boshqa oraliqlarda o'z sotuvlarini ko'radi;
 	// start_date bugungi kun bo'lsa cheklov qo'llanilmaydi
