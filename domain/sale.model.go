@@ -173,6 +173,7 @@ type SaleResponse struct {
 	CreatedAt       *time.Time `gorm:"created_at" json:"created_at"`
 	UpdatedAt       *time.Time `gorm:"updated_at" json:"updated_at"`
 	CompletedAt     *time.Time `gorm:"completed_at" json:"completed_at"`
+	CourierArrivalAt *time.Time `gorm:"courier_arrival_at" json:"courier_arrival_at"`
 	CashBack        float64    `gorm:"cash_back" json:"cash_back"`
 
 	CashBoxOperationId string `gorm:"cash_box_operation_id" json:"cash_box_operation_id"`

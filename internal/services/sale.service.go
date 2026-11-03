@@ -1907,6 +1907,7 @@ func (s *Services) GetSaleOne(ctx context.Context, saleId string) (*domain.SaleR
 		CreatedAt          *time.Time `gorm:"created_at"`
 		UpdatedAt          *time.Time `gorm:"updated_at"`
 		CompletedAt        *time.Time `gorm:"completed_at"`
+		CourierArrivalAt   *time.Time `gorm:"courier_arrival_at"`
 
 		StoreName   string `gorm:"store_name"`
 		CashBoxName string `gorm:"cash_box_name"`
@@ -1967,6 +1968,7 @@ func (s *Services) GetSaleOne(ctx context.Context, saleId string) (*domain.SaleR
 			"s.created_at",
 			"s.updated_at",
 			"s.completed_at",
+			"s.courier_arrival_at",
 
 			"st.name AS store_name",
 			"ca.name AS cash_box_name",
@@ -2035,6 +2037,7 @@ func (s *Services) GetSaleOne(ctx context.Context, saleId string) (*domain.SaleR
 		CreatedAt:          tempSale.CreatedAt,
 		UpdatedAt:          tempSale.UpdatedAt,
 		CompletedAt:        tempSale.CompletedAt,
+		CourierArrivalAt:   tempSale.CourierArrivalAt,
 
 		StoreName:   tempSale.StoreName,
 		CashBoxName: tempSale.CashBoxName,
