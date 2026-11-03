@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/pharma-crm-backend/domain"
@@ -303,15 +304,18 @@ func (s *Services) CreateUzumOrder(ctx context.Context, req *domain.UzumCreateOr
 	// "takeaway" — mijoz zakazni aptekadan o'zi olib ketadi
 	selfPickup := req.DeliveryType == constants.UzumDeliveryTypeTakeaway
 
-	// Create sale using existing CreateOnlineSale
+	// Create sale using existing CreateOnlineSale.
+	// Items are taken from stock right away (new order), cancel gives them back.
 	sale, err := s.CreateOnlineSale(ctx, &domain.OnlineSaleCreate{
-		Id:            saleId,
-		StoreId:       storeId,
-		VendorOrderId: req.EatsId,
-		ServiceType:   constants.ServiceTypeUzum,
-		ClientComment: req.Comment,
-		SelfPickup:    selfPickup,
-		Items:         cartItems,
+		Id:               saleId,
+		StoreId:          storeId,
+		VendorOrderId:    req.EatsId,
+		ServiceType:      constants.ServiceTypeUzum,
+		ClientComment:    req.Comment,
+		SelfPickup:       selfPickup,
+		Items:            cartItems,
+		CourierArrivalAt: uzumCourierArrival(req),
+		ReserveStock:     true,
 	})
 
 	if err != nil {
@@ -325,6 +329,23 @@ func (s *Services) CreateUzumOrder(ctx context.Context, req *domain.UzumCreateOr
 		OrderId: sale.Id,
 		Result:  "OK",
 	}, nil
+}
+
+// uzumCourierArrival — courierArrivementDate: top-level field first, then deliveryInfo.
+// Unparseable or empty value is not saved.
+func uzumCourierArrival(req *domain.UzumCreateOrderRequest) *time.Time {
+	raw := req.CourierArrivementDate
+	if raw == "" && req.DeliveryInfo != nil {
+		raw = req.DeliveryInfo.CourierArrivementDate
+	}
+	if raw == "" {
+		return nil
+	}
+	t, err := time.Parse(time.RFC3339Nano, raw)
+	if err != nil {
+		return nil
+	}
+	return &t
 }
 
 func (s *Services) getAndCheckUzumOrderItems(
@@ -491,6 +512,18 @@ func (s *Services) GetUzumOrder(ctx context.Context, orderId string) (*domain.Uz
 		}
 	}
 
+	// courier arrival time saved from the create request
+	var courierArrivalAt *time.Time
+	_ = s.db.WithContext(ctx).
+		Raw("SELECT courier_arrival_at FROM sales WHERE id = ?", orderId).
+		Scan(&courierArrivalAt).Error
+	if courierArrivalAt != nil {
+		if resp.DeliveryInfo == nil {
+			resp.DeliveryInfo = &domain.UzumOrderDeliveryInfo{}
+		}
+		resp.DeliveryInfo.CourierArrivementDate = courierArrivalAt.UTC().Format("2006-01-02T15:04:05.000Z")
+	}
+
 	// Build payment info
 	paymentType := "CARD"
 	if sale.Cash > 0 {
@@ -606,6 +639,13 @@ func (s *Services) cancelUzumSale(ctx context.Context, sale *domain.Sale, reason
 			_ = tx.Rollback()
 			s.log.Errorf("could not reserve inventory for uzum order %s: %v", orderId, err)
 			return fmt.Errorf("failed to reverse inventory update")
+		}
+	} else if sale.Stage != constants.SaleStageReturnedFinish {
+		// not sold yet: give back what was taken from stock when the order came
+		if err := s.releaseReservedStock(ctx, tx, orderId, nil); err != nil {
+			_ = tx.Rollback()
+			s.log.Errorf("could not release reserved stock for uzum order %s: %v", orderId, err)
+			return fmt.Errorf("failed to release reserved stock")
 		}
 	}
 

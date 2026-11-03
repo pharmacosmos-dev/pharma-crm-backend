@@ -118,6 +118,9 @@ type OnlineSaleCreate struct {
 	ClientComment string                  `gorm:"client_comment" json:"client_comment"`
 	SelfPickup    bool                    `gorm:"uzum_self_pickup" json:"uzum_self_pickup"`
 	Items         []CartItemOnlineRequest `gorm:"-" json:"items"`
+	// uzum only: courier arrival time and stock reserved at creation
+	CourierArrivalAt *time.Time           `gorm:"-" json:"-"`
+	ReserveStock     bool                 `gorm:"-" json:"-"`
 }
 
 // SaleItem structure for create return

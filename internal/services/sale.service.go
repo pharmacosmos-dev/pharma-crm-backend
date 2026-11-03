@@ -328,9 +328,10 @@ func (s *Services) CreateOnlineSale(ctx context.Context, req *domain.OnlineSaleC
 		is_paid,
 		client_comment,
 		vendor_order_id,
-		uzum_self_pickup
+		uzum_self_pickup,
+		courier_arrival_at
 		)
-	VALUES(?, ?, ?, ?, ?, NULLIF(?, '')::uuid, ?, ?, ?, ?, ?, ?) RETURNING *`,
+	VALUES(?, ?, ?, ?, ?, NULLIF(?, '')::uuid, ?, ?, ?, ?, ?, ?, ?) RETURNING *`,
 		req.Id,
 		req.StoreId,
 		constants.SaleTypeOnline,
@@ -343,6 +344,7 @@ func (s *Services) CreateOnlineSale(ctx context.Context, req *domain.OnlineSaleC
 		req.ClientComment,
 		req.VendorOrderId,
 		req.SelfPickup,
+		req.CourierArrivalAt,
 	).Scan(&sale).Error
 	if err != nil {
 		_ = tx.Rollback()
@@ -356,6 +358,13 @@ func (s *Services) CreateOnlineSale(ctx context.Context, req *domain.OnlineSaleC
 		_ = tx.Rollback()
 		s.log.Errorf("could not create online sale cart_items: %v", err)
 		return &sale, domain.InternalServerError
+	}
+
+	if req.ReserveStock {
+		if err = s.reserveOnlineSaleStock(ctx, tx, req.Id); err != nil {
+			_ = tx.Rollback()
+			return &sale, err
+		}
 	}
 
 	// commit transaction
@@ -1129,6 +1138,7 @@ func (s *Services) validateSaleProductQuantity(ctx context.Context, tx *gorm.DB,
 			"ci.store_product_id",
 			"ci.employee_id",
 			"ci.unit_quantity",
+			"ci.reserved_unit_quantity",
 			"sp.unit_quantity as sp_unit_quantity",
 			"p.id AS product_id",
 			"p.unit_per_pack",
@@ -1147,7 +1157,8 @@ func (s *Services) validateSaleProductQuantity(ctx context.Context, tx *gorm.DB,
 	}
 	insufficientProducts := map[string]any{}
 	for _, item := range cartItemsWithProducts {
-		if item.UnitQuantity > item.StoreProductUnitQuantity {
+		// reserved part was already taken from store_products when the order was created
+		if item.UnitQuantity-item.ReservedUnitQuantity > item.StoreProductUnitQuantity {
 			insufficientProducts = map[string]any{
 				"required_quantity":  item.UnitQuantity,
 				"available_quantity": item.StoreProductUnitQuantity,
@@ -1174,6 +1185,7 @@ func (s *Services) ApplySaleInventoryUpdate(ctx context.Context, tx *gorm.DB, sa
 			"ci.store_product_id",
 			"ci.employee_id",
 			"ci.unit_quantity",
+			"ci.reserved_unit_quantity",
 			"sp.unit_quantity as sp_unit_quantity",
 			"p.id AS product_id",
 			"p.unit_per_pack",
@@ -1193,15 +1205,16 @@ func (s *Services) ApplySaleInventoryUpdate(ctx context.Context, tx *gorm.DB, sa
 	}
 
 	for _, item := range cartItemsWithProducts {
-		if item.UnitQuantity > item.StoreProductUnitQuantity {
+		if item.UnitQuantity-item.ReservedUnitQuantity > item.StoreProductUnitQuantity {
 			s.log.Warnf("Product not enough cart_item(%s) -> %d, store_product(%s) -> %d", item.Id, item.UnitQuantity, item.StoreProductId, item.StoreProductUnitQuantity)
 			return domain.NotEnoughProductError
 		}
 	}
 
+	// the reserved part (uzum order) is already taken, only the rest is taken now
 	query := `
 	UPDATE store_products sp
-	SET unit_quantity = sp.unit_quantity - ci.unit_quantity, updated_at = NOW()
+	SET unit_quantity = sp.unit_quantity - (ci.unit_quantity - ci.reserved_unit_quantity), updated_at = NOW()
 	FROM cart_items ci
 	WHERE sp.id = ci.store_product_id 
 	AND ci.sale_id = ?;
@@ -1214,11 +1227,96 @@ func (s *Services) ApplySaleInventoryUpdate(ctx context.Context, tx *gorm.DB, sa
 		return domain.InternalServerError
 	}
 
+	// sold: nothing is reserved anymore, a later return gives back the whole unit_quantity
+	err = tx.WithContext(ctx).
+		Exec("UPDATE cart_items SET reserved_unit_quantity = 0 WHERE sale_id = ? AND reserved_unit_quantity <> 0", sale.Id).Error
+	if err != nil {
+		s.log.Errorf("could not reset cart_items reserved_unit_quantity: %v", err)
+		return domain.InternalServerError
+	}
+
 	if err = s.ApplyMarkingUnitSale(ctx, tx, sale.Id); err != nil {
 		return err
 	}
 
 	go s.AddSaleBonuses(sale, cartItemsWithProducts, loyaltyCardBarcode)
+
+	return nil
+}
+
+// reserveOnlineSaleStock takes the online order's cart_items from store_products
+// by store_product_id right when the order is created. The update is conditional,
+// so two orders can not take the same last packs.
+func (s *Services) reserveOnlineSaleStock(ctx context.Context, tx *gorm.DB, saleId string) error {
+	var needed int64
+	err := tx.WithContext(ctx).
+		Raw("SELECT COUNT(DISTINCT store_product_id) FROM cart_items WHERE sale_id = ? AND unit_quantity > 0", saleId).
+		Scan(&needed).Error
+	if err != nil {
+		s.log.Errorf("could not count online sale store products: %v", err)
+		return domain.InternalServerError
+	}
+
+	qb := tx.WithContext(ctx).Exec(`
+	UPDATE store_products sp
+	SET unit_quantity = sp.unit_quantity - r.qty, updated_at = NOW()
+	FROM (
+		SELECT store_product_id, SUM(unit_quantity) AS qty
+		FROM cart_items
+		WHERE sale_id = ? AND unit_quantity > 0
+		GROUP BY store_product_id
+	) r
+	WHERE sp.id = r.store_product_id
+	  AND sp.unit_quantity >= r.qty`, saleId)
+	if qb.Error != nil {
+		s.log.Errorf("could not reserve online sale stock: %v", qb.Error)
+		return domain.InternalServerError
+	}
+	if qb.RowsAffected != needed {
+		s.log.Warnf("online sale %s: not enough stock to reserve (%d of %d store products)", saleId, qb.RowsAffected, needed)
+		return domain.NotEnoughProductError
+	}
+
+	err = tx.WithContext(ctx).
+		Exec("UPDATE cart_items SET reserved_unit_quantity = unit_quantity WHERE sale_id = ? AND unit_quantity > 0", saleId).Error
+	if err != nil {
+		s.log.Errorf("could not mark online sale cart_items reserved: %v", err)
+		return domain.InternalServerError
+	}
+
+	return nil
+}
+
+// releaseReservedStock gives the reserved quantity back to store_products by
+// store_product_id and clears it, so a repeated call gives back nothing.
+// cartItemIds limits it to those cart_items, empty means the whole sale.
+func (s *Services) releaseReservedStock(ctx context.Context, tx *gorm.DB, saleId string, cartItemIds []string) error {
+	filter, args := "sale_id = ?", []any{saleId}
+	if len(cartItemIds) > 0 {
+		filter, args = "id IN (?)", []any{cartItemIds}
+	}
+
+	err := tx.WithContext(ctx).Exec(`
+	UPDATE store_products sp
+	SET unit_quantity = sp.unit_quantity + r.qty, updated_at = NOW()
+	FROM (
+		SELECT store_product_id, SUM(reserved_unit_quantity) AS qty
+		FROM cart_items
+		WHERE `+filter+` AND reserved_unit_quantity > 0
+		GROUP BY store_product_id
+	) r
+	WHERE sp.id = r.store_product_id`, args...).Error
+	if err != nil {
+		s.log.Errorf("could not release reserved stock: %v", err)
+		return domain.InternalServerError
+	}
+
+	err = tx.WithContext(ctx).
+		Exec("UPDATE cart_items SET reserved_unit_quantity = 0 WHERE "+filter+" AND reserved_unit_quantity > 0", args...).Error
+	if err != nil {
+		s.log.Errorf("could not clear cart_items reserved_unit_quantity: %v", err)
+		return domain.InternalServerError
+	}
 
 	return nil
 }

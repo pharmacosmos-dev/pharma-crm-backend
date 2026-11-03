@@ -1116,6 +1116,11 @@ func (s *Services) CheckCartItemMarking(ctx context.Context, req *domain.CartIte
 }
 
 func (s *Services) deleteCartItemByIds(ctx context.Context, tx *gorm.DB, id []string) error {
+	// an uzum order item may hold reserved stock — give it back before the row is gone
+	if err := s.releaseReservedStock(ctx, tx, "", id); err != nil {
+		return err
+	}
+
 	err := tx.WithContext(ctx).Delete(&domain.CartItem{}, "id IN (?)", id).Error
 	if err != nil {
 		s.log.Errorf("could not delete cart_item: %v", err)

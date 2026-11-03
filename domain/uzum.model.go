@@ -109,16 +109,17 @@ type UzumErrorList []UzumError
 
 // UzumCreateOrderRequest represents the incoming order request (YGroceryOrderV2)
 type UzumCreateOrderRequest struct {
-	Discriminator string                 `json:"discriminator"`
-	Comment       string                 `json:"comment"`
-	EatsId        string                 `json:"eatsId" binding:"required"`
-	Items         []UzumOrderItemRequest `json:"items" binding:"required"`
-	PaymentInfo   *UzumOrderPaymentInfo  `json:"paymentInfo"`
-	DeliveryInfo  *UzumOrderDeliveryInfo `json:"deliveryInfo"`
-	DeliveryType  string                 `json:"deliveryType"`
-	Persons       int                    `json:"persons"`
-	Promos        []UzumOrderPromo       `json:"promos"`
-	RestaurantId  string                 `json:"restaurantId"`
+	Discriminator         string                 `json:"discriminator"`
+	Comment               string                 `json:"comment"`
+	EatsId                string                 `json:"eatsId" binding:"required"`
+	Items                 []UzumOrderItemRequest `json:"items" binding:"required"`
+	PaymentInfo           *UzumOrderPaymentInfo  `json:"paymentInfo"`
+	DeliveryInfo          *UzumOrderDeliveryInfo `json:"deliveryInfo"`
+	DeliveryType          string                 `json:"deliveryType"`
+	Persons               int                    `json:"persons"`
+	Promos                []UzumOrderPromo       `json:"promos"`
+	RestaurantId          string                 `json:"restaurantId"`
+	CourierArrivementDate string                 `json:"courierArrivementDate"`
 }
 
 // UzumOrderItemRequest represents an order item in the request

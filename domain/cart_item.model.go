@@ -216,4 +216,6 @@ type CartItemWithProduct struct {
 	IsMarking                bool              `gorm:"column:is_marking" json:"is_marking"`
 	ProductName              string            `gorm:"column:product_name"`
 	StoreProductUnitQuantity int               `gorm:"column:sp_unit_quantity"`
+	// already taken from store_products when the online order was created
+	ReservedUnitQuantity     int               `gorm:"column:reserved_unit_quantity"`
 }

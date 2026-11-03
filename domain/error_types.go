@@ -90,6 +90,7 @@ var (
 	AlreadyHaveOpenCashboxOperationError = NewError(http.StatusConflict, "already.have.open.cashbox.operation")
 	UnfinishedTransferOrReturnError      = NewError(http.StatusConflict, "unfinished.transfer.or.return")
 	ActiveInventoryError                 = NewError(http.StatusConflict, "active.inventory.exists")
+	UnfinishedOnlineOrderError           = NewError(http.StatusConflict, "unfinished.online.order")
 	AttendanceAlreadyCheckedInError      = NewError(http.StatusConflict, "attendance.already.checked_in")
 	MarkingAlreadySoldError              = NewError(http.StatusConflict, "marking.already.sold")
 	MarkingNotEnoughError                = NewError(http.StatusConflict, "marking.not.enough")

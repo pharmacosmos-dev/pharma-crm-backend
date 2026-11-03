@@ -29,6 +29,28 @@ func (s *Services) CreateInventory(ctx context.Context, req *domain.InventoryReq
 		return domain.UnfinishedTransferOrReturnError
 	}
 
+	// Open online orders (new, accepted, waiting for courier) hold reserved stock:
+	// the packs are still on the shelf and would be counted, then the reservation is lost.
+	var openOnlineCount int64
+	err = s.db.WithContext(ctx).Raw(`
+		SELECT COUNT(*) FROM sales
+		WHERE store_id = ?
+		AND type = ?
+		AND online_status IN (?)
+		AND stage NOT IN (?)`,
+		req.StoreId,
+		constants.SaleTypeOnline,
+		constants.OnlinePendingStages,
+		constants.FinishedSaleStages,
+	).Scan(&openOnlineCount).Error
+	if err != nil {
+		s.log.Errorf("could not check open online orders: %v", err)
+		return domain.InternalServerError
+	}
+	if openOnlineCount > 0 {
+		return domain.UnfinishedOnlineOrderError
+	}
+
 	var id string
 	// start transaction
 	tx := s.db.Begin()
