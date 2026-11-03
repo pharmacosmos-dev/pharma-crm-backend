@@ -301,8 +301,10 @@ func (s *Services) CreateUzumOrder(ctx context.Context, req *domain.UzumCreateOr
 		return nil, err
 	}
 
-	// "takeaway" — mijoz zakazni aptekadan o'zi olib ketadi
-	selfPickup := req.DeliveryType == constants.UzumDeliveryTypeTakeaway
+	// "takeaway" — mijoz zakazni aptekadan o'zi olib ketadi.
+	// Uzum buni deliveryType'da yoki discriminator'da yuboradi.
+	selfPickup := req.DeliveryType == constants.UzumDeliveryTypeTakeaway ||
+		req.Discriminator == constants.UzumDeliveryTypeTakeaway
 
 	// Create sale using existing CreateOnlineSale.
 	// Items are taken from stock right away (new order), cancel gives them back.
