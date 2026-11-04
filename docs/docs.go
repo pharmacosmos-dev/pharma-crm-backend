@@ -21734,6 +21734,61 @@ const docTemplate = `{
                 }
             }
         },
+        "/product/photos/upload": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Bir nechta rasm yuklaydi. Fayl nomi material_code (masalan 10422.JPG, 10422_2.jpg).\nRasm ./app/uploads ga saqlanadi va shu material_code'li products.photos ga yoziladi.\nFormat/hajm noto'g'ri yoki product topilmagan rasmlar \"failed\" ro'yxatida qaytadi.",
+                "consumes": [
+                    "multipart/form-data"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "products"
+                ],
+                "summary": "Upload product photos by material_code",
+                "parameters": [
+                    {
+                        "type": "file",
+                        "description": "Rasmlar (.jpg, .jpeg, .png; har biri 5 MB gacha)",
+                        "name": "files",
+                        "in": "formData",
+                        "required": true
+                    },
+                    {
+                        "type": "boolean",
+                        "description": "true — eski rasmlar o'rniga yoziladi, false — qo'shiladi",
+                        "name": "overwrite",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/domain.ProductPhotoUploadResult"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    }
+                }
+            }
+        },
         "/product/producer": {
             "get": {
                 "security": [
@@ -41198,6 +41253,63 @@ const docTemplate = `{
                 }
             }
         },
+        "domain.ProductPhotoUploadFailed": {
+            "type": "object",
+            "properties": {
+                "file_name": {
+                    "type": "string"
+                },
+                "material_code": {
+                    "type": "integer"
+                },
+                "reason": {
+                    "type": "string"
+                }
+            }
+        },
+        "domain.ProductPhotoUploadItem": {
+            "type": "object",
+            "properties": {
+                "file_name": {
+                    "type": "string"
+                },
+                "material_code": {
+                    "type": "integer"
+                },
+                "photo": {
+                    "type": "string"
+                }
+            }
+        },
+        "domain.ProductPhotoUploadResult": {
+            "type": "object",
+            "properties": {
+                "failed": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/domain.ProductPhotoUploadFailed"
+                    }
+                },
+                "failed_count": {
+                    "type": "integer"
+                },
+                "not_uploaded_material_codes": {
+                    "type": "array",
+                    "items": {
+                        "type": "integer"
+                    }
+                },
+                "uploaded": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/domain.ProductPhotoUploadItem"
+                    }
+                },
+                "uploaded_count": {
+                    "type": "integer"
+                }
+            }
+        },
         "domain.ProductRequest": {
             "type": "object",
             "properties": {
@@ -42586,6 +42698,9 @@ const docTemplate = `{
             ],
             "properties": {
                 "comment": {
+                    "type": "string"
+                },
+                "courierArrivementDate": {
                     "type": "string"
                 },
                 "deliveryInfo": {

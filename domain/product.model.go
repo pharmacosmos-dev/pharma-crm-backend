@@ -636,3 +636,26 @@ type ProductByImportParam struct {
 	StartDate       string   `form:"start_date"`
 	EndDate         string   `form:"end_date"`
 }
+
+// ProductPhotoUploadItem — products.photos ga yozilgan bitta rasm.
+type ProductPhotoUploadItem struct {
+	FileName     string `json:"file_name"`
+	MaterialCode int    `json:"material_code"`
+	Photo        string `json:"photo"`
+}
+
+// ProductPhotoUploadFailed — yuklanmagan rasm va sababi.
+type ProductPhotoUploadFailed struct {
+	FileName     string `json:"file_name"`
+	MaterialCode int    `json:"material_code"`
+	Reason       string `json:"reason"`
+}
+
+// ProductPhotoUploadResult — /product/photos/upload javobi.
+type ProductPhotoUploadResult struct {
+	UploadedCount            int                        `json:"uploaded_count"`
+	FailedCount              int                        `json:"failed_count"`
+	Uploaded                 []ProductPhotoUploadItem   `json:"uploaded"`
+	Failed                   []ProductPhotoUploadFailed `json:"failed"`
+	NotUploadedMaterialCodes []int                      `json:"not_uploaded_material_codes"`
+}

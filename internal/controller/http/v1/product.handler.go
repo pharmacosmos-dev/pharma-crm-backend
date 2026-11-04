@@ -5,8 +5,11 @@ import (
 	"crypto/rand"
 	"errors"
 	"fmt"
+	"io"
 	"math"
 	"math/big"
+	"mime/multipart"
+	"net/http"
 	gen "math/rand"
 	"os"
 	"path/filepath"
@@ -45,6 +48,7 @@ func (h *ProductHandler) ProductRoutes(r *gin.RouterGroup) {
 		product.GET("/export-excel", h.ExportProductExcel)
 		product.PUT("/:id", h.Update)
 		product.POST("/excel-upload", h.UploadProduct)
+		product.POST("/photos/upload", h.UploadProductPhotos)
 		product.GET("/producer", h.GetProducerList)
 		product.GET("/similar/:id", h.SimilarProducts)
 		product.GET("/store/:id", h.GetProductsForSearch)
@@ -4840,4 +4844,178 @@ func (h *ProductHandler) GetProductExpireStock(c *gin.Context) {
 	}
 
 	handleResponse(c, OK, res)
+}
+
+// UploadProductPhotos godoc
+// @Summary Upload product photos by material_code
+// @Description Bir nechta rasm yuklaydi. Fayl nomi material_code (masalan 10422.JPG, 10422_2.jpg).
+// @Description Rasm ./app/uploads ga saqlanadi va shu material_code'li products.photos ga yoziladi.
+// @Description Format/hajm noto'g'ri yoki product topilmagan rasmlar "failed" ro'yxatida qaytadi.
+// @Tags products
+// @Security BearerAuth
+// @Accept multipart/form-data
+// @Produce json
+// @Param files formData file true "Rasmlar (.jpg, .jpeg, .png; har biri 5 MB gacha)"
+// @Param overwrite query bool false "true — eski rasmlar o'rniga yoziladi, false — qo'shiladi"
+// @Success 200 {object} domain.ProductPhotoUploadResult
+// @Failure 400 {object} v1.Response
+// @Failure 500 {object} v1.Response
+// @Router /product/photos/upload [post]
+func (h *ProductHandler) UploadProductPhotos(c *gin.Context) {
+	form, err := c.MultipartForm()
+	if err != nil {
+		h.log.Error("Failed to parse multipart form: ", err)
+		handleResponse(c, BadRequest, "Failed to parse multipart form")
+		return
+	}
+
+	files := form.File["files"]
+	if len(files) == 0 {
+		handleResponse(c, BadRequest, "files is required")
+		return
+	}
+
+	overwrite, _ := strconv.ParseBool(c.Query("overwrite"))
+
+	const maxFileSize = int64(5 * 1024 * 1024) // 5 MB
+
+	type photoFile struct {
+		header       *multipart.FileHeader
+		name         string
+		ext          string
+		materialCode int
+	}
+
+	res := domain.ProductPhotoUploadResult{
+		Uploaded: []domain.ProductPhotoUploadItem{},
+		Failed:   []domain.ProductPhotoUploadFailed{},
+	}
+	fail := func(name string, code int, reason string) {
+		res.Failed = append(res.Failed, domain.ProductPhotoUploadFailed{FileName: name, MaterialCode: code, Reason: reason})
+	}
+
+	// 1. validate files and read material_code from the file name
+	var valid []photoFile
+	var codes []int
+	seenCodes := map[int]bool{}
+	for _, fh := range files {
+		// papka yuklanganda nom "papka/10422.JPG" ko'rinishida kelishi mumkin
+		name := filepath.Base(filepath.ToSlash(fh.Filename))
+		ext := strings.ToLower(filepath.Ext(name))
+		code := productPhotoMaterialCode(strings.TrimSuffix(name, filepath.Ext(name)))
+
+		if code == 0 {
+			fail(name, 0, "invalid.material_code")
+			continue
+		}
+		if ext != ".jpg" && ext != ".jpeg" && ext != ".png" {
+			fail(name, code, "invalid.format")
+			continue
+		}
+		if fh.Size > maxFileSize {
+			fail(name, code, "file.too.large")
+			continue
+		}
+		if !isImageContent(fh) {
+			fail(name, code, "invalid.format")
+			continue
+		}
+
+		valid = append(valid, photoFile{header: fh, name: name, ext: ext, materialCode: code})
+		if !seenCodes[code] {
+			seenCodes[code] = true
+			codes = append(codes, code)
+		}
+	}
+
+	ctx, cancel := context.WithTimeout(c.Request.Context(), constants.DefaultContextTimeout)
+	defer cancel()
+
+	// 2. find products by material_code
+	existing, err := h.service.GetExistingProductMaterialCodes(ctx, codes)
+	if err != nil {
+		handleServiceResponse(c, InternalError, err)
+		return
+	}
+
+	// 3. save files of found products into ./app/uploads
+	photos := map[int][]string{}
+	var saved []string
+	for _, f := range valid {
+		if !existing[f.materialCode] {
+			fail(f.name, f.materialCode, "product.not.found")
+			continue
+		}
+
+		newFilename := uuid.New().String() + f.ext
+		savePath := filepath.Join("./app/uploads", newFilename)
+		if err := c.SaveUploadedFile(f.header, savePath); err != nil {
+			h.log.Errorf("Failed to save product photo %s: %v", f.name, err)
+			fail(f.name, f.materialCode, "save.failed")
+			continue
+		}
+
+		saved = append(saved, savePath)
+		photos[f.materialCode] = append(photos[f.materialCode], newFilename)
+		res.Uploaded = append(res.Uploaded, domain.ProductPhotoUploadItem{
+			FileName:     f.name,
+			MaterialCode: f.materialCode,
+			Photo:        newFilename,
+		})
+	}
+
+	// 4. update products.photos; on error remove the saved files
+	if err := h.service.AttachProductPhotos(ctx, photos, overwrite); err != nil {
+		for _, p := range saved {
+			_ = os.Remove(p)
+		}
+		handleServiceResponse(c, InternalError, err)
+		return
+	}
+
+	uploadedCodes := map[int]bool{}
+	for _, u := range res.Uploaded {
+		uploadedCodes[u.MaterialCode] = true
+	}
+	notUploaded := map[int]bool{}
+	res.NotUploadedMaterialCodes = []int{}
+	for _, f := range res.Failed {
+		if f.MaterialCode != 0 && !uploadedCodes[f.MaterialCode] && !notUploaded[f.MaterialCode] {
+			notUploaded[f.MaterialCode] = true
+			res.NotUploadedMaterialCodes = append(res.NotUploadedMaterialCodes, f.MaterialCode)
+		}
+	}
+
+	res.UploadedCount = len(res.Uploaded)
+	res.FailedCount = len(res.Failed)
+
+	handleResponse(c, OK, res)
+}
+
+// productPhotoMaterialCode — fayl nomining boshidagi raqamlar (10422, 10422_2, 10422 (1)).
+func productPhotoMaterialCode(name string) int {
+	name = strings.TrimSpace(name)
+	end := 0
+	for end < len(name) && name[end] >= '0' && name[end] <= '9' {
+		end++
+	}
+	code, err := strconv.Atoi(name[:end])
+	if err != nil {
+		return 0
+	}
+	return code
+}
+
+// isImageContent — fayl ichi haqiqatan jpeg yoki png ekanini tekshiradi.
+func isImageContent(fh *multipart.FileHeader) bool {
+	f, err := fh.Open()
+	if err != nil {
+		return false
+	}
+	defer f.Close()
+
+	buf := make([]byte, 512)
+	n, _ := io.ReadFull(f, buf)
+	contentType := http.DetectContentType(buf[:n])
+	return contentType == "image/jpeg" || contentType == "image/png"
 }
