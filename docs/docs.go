@@ -21741,7 +21741,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Bir nechta rasm yuklaydi. Fayl nomi material_code (masalan 10422.JPG, 10422_2.jpg).\nRasm ./app/uploads ga saqlanadi va shu material_code'li products.photos ga yoziladi.\nFormat/hajm noto'g'ri yoki product topilmagan rasmlar \"failed\" ro'yxatida qaytadi.",
+                "description": "Rasmlarni yuklaydi: papkani ZIP qilib \"file\" maydonida yoki bir nechta rasmni \"files\" maydonida.\nFayl nomi material_code (masalan 10422.JPG, 10422_2.jpg), kengaytma katta-kichik harf farqsiz.\nRasm ./app/uploads ga saqlanadi va shu material_code'li products.photos ga yoziladi.\nFormat/hajm noto'g'ri yoki product topilmagan rasmlar \"failed\" ro'yxatida qaytadi.",
                 "consumes": [
                     "multipart/form-data"
                 ],
@@ -21755,10 +21755,15 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "file",
-                        "description": "Rasmlar (.jpg, .jpeg, .png; har biri 5 MB gacha)",
+                        "description": "Rasmlar papkasi .zip arxivda",
+                        "name": "file",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "file",
+                        "description": "Rasmlar (.jpg, .jpeg, .png; har biri 5 MB gacha), bir nechta bo'lishi mumkin",
                         "name": "files",
-                        "in": "formData",
-                        "required": true
+                        "in": "formData"
                     },
                     {
                         "type": "boolean",

@@ -1,6 +1,7 @@
 package v1
 
 import (
+	"archive/zip"
 	"context"
 	"crypto/rand"
 	"errors"
@@ -8,10 +9,10 @@ import (
 	"io"
 	"math"
 	"math/big"
-	"mime/multipart"
 	"net/http"
 	gen "math/rand"
 	"os"
+	"path"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -4848,14 +4849,16 @@ func (h *ProductHandler) GetProductExpireStock(c *gin.Context) {
 
 // UploadProductPhotos godoc
 // @Summary Upload product photos by material_code
-// @Description Bir nechta rasm yuklaydi. Fayl nomi material_code (masalan 10422.JPG, 10422_2.jpg).
+// @Description Rasmlarni yuklaydi: papkani ZIP qilib "file" maydonida yoki bir nechta rasmni "files" maydonida.
+// @Description Fayl nomi material_code (masalan 10422.JPG, 10422_2.jpg), kengaytma katta-kichik harf farqsiz.
 // @Description Rasm ./app/uploads ga saqlanadi va shu material_code'li products.photos ga yoziladi.
 // @Description Format/hajm noto'g'ri yoki product topilmagan rasmlar "failed" ro'yxatida qaytadi.
 // @Tags products
 // @Security BearerAuth
 // @Accept multipart/form-data
 // @Produce json
-// @Param files formData file true "Rasmlar (.jpg, .jpeg, .png; har biri 5 MB gacha)"
+// @Param file formData file false "Rasmlar papkasi .zip arxivda"
+// @Param files formData file false "Rasmlar (.jpg, .jpeg, .png; har biri 5 MB gacha), bir nechta bo'lishi mumkin"
 // @Param overwrite query bool false "true — eski rasmlar o'rniga yoziladi, false — qo'shiladi"
 // @Success 200 {object} domain.ProductPhotoUploadResult
 // @Failure 400 {object} v1.Response
@@ -4869,21 +4872,17 @@ func (h *ProductHandler) UploadProductPhotos(c *gin.Context) {
 		return
 	}
 
-	files := form.File["files"]
-	if len(files) == 0 {
-		handleResponse(c, BadRequest, "files is required")
-		return
-	}
-
 	overwrite, _ := strconv.ParseBool(c.Query("overwrite"))
 
 	const maxFileSize = int64(5 * 1024 * 1024) // 5 MB
 
-	type photoFile struct {
-		header       *multipart.FileHeader
+	// photoSource — bitta rasm: oddiy yuklangan fayl yoki ZIP ichidagi fayl
+	type photoSource struct {
 		name         string
 		ext          string
+		size         int64
 		materialCode int
+		open         func() (io.ReadCloser, error)
 	}
 
 	res := domain.ProductPhotoUploadResult{
@@ -4894,77 +4893,128 @@ func (h *ProductHandler) UploadProductPhotos(c *gin.Context) {
 		res.Failed = append(res.Failed, domain.ProductPhotoUploadFailed{FileName: name, MaterialCode: code, Reason: reason})
 	}
 
-	// 1. validate files and read material_code from the file name
-	var valid []photoFile
+	// 1. collect files: "files" + "file", ZIP archives are unpacked
+	var sources []photoSource
+	for _, fh := range append(form.File["files"], form.File["file"]...) {
+		fh := fh
+		name := path.Base(strings.ReplaceAll(fh.Filename, `\`, "/"))
+
+		if strings.ToLower(filepath.Ext(name)) != ".zip" {
+			sources = append(sources, photoSource{
+				name: name,
+				size: fh.Size,
+				open: func() (io.ReadCloser, error) { return fh.Open() },
+			})
+			continue
+		}
+
+		zf, err := fh.Open()
+		if err != nil {
+			h.log.Errorf("Failed to open zip %s: %v", name, err)
+			fail(name, 0, "invalid.zip")
+			continue
+		}
+		defer zf.Close()
+
+		zr, err := zip.NewReader(zf, fh.Size)
+		if err != nil {
+			h.log.Errorf("Failed to read zip %s: %v", name, err)
+			fail(name, 0, "invalid.zip")
+			continue
+		}
+
+		for _, entry := range zr.File {
+			entry := entry
+			// Windows arxivlarida yo'l "papka\10422.JPG" ko'rinishida bo'lishi mumkin
+			entryPath := strings.ReplaceAll(entry.Name, `\`, "/")
+			entryName := path.Base(entryPath)
+			// papkalar va macOS yordamchi fayllari (__MACOSX/, ._*) o'tkazib yuboriladi
+			if entry.FileInfo().IsDir() || strings.HasPrefix(entryPath, "__MACOSX/") || strings.HasPrefix(entryName, ".") {
+				continue
+			}
+			sources = append(sources, photoSource{
+				name: entryName,
+				size: int64(entry.UncompressedSize64),
+				open: func() (io.ReadCloser, error) { return entry.Open() },
+			})
+		}
+	}
+
+	if len(sources) == 0 && len(res.Failed) == 0 {
+		handleResponse(c, BadRequest, "file or files is required")
+		return
+	}
+
+	// 2. validate files and read material_code from the file name
+	var valid []photoSource
 	var codes []int
 	seenCodes := map[int]bool{}
-	for _, fh := range files {
-		// papka yuklanganda nom "papka/10422.JPG" ko'rinishida kelishi mumkin
-		name := filepath.Base(filepath.ToSlash(fh.Filename))
-		ext := strings.ToLower(filepath.Ext(name))
-		code := productPhotoMaterialCode(strings.TrimSuffix(name, filepath.Ext(name)))
+	for _, src := range sources {
+		src.ext = strings.ToLower(filepath.Ext(src.name))
+		src.materialCode = productPhotoMaterialCode(strings.TrimSuffix(src.name, filepath.Ext(src.name)))
 
-		if code == 0 {
-			fail(name, 0, "invalid.material_code")
+		if src.materialCode == 0 {
+			fail(src.name, 0, "invalid.material_code")
 			continue
 		}
-		if ext != ".jpg" && ext != ".jpeg" && ext != ".png" {
-			fail(name, code, "invalid.format")
+		if src.ext != ".jpg" && src.ext != ".jpeg" && src.ext != ".png" {
+			fail(src.name, src.materialCode, "invalid.format")
 			continue
 		}
-		if fh.Size > maxFileSize {
-			fail(name, code, "file.too.large")
+		if src.size > maxFileSize {
+			fail(src.name, src.materialCode, "file.too.large")
 			continue
 		}
-		if !isImageContent(fh) {
-			fail(name, code, "invalid.format")
+		if !isImageContent(src.open) {
+			fail(src.name, src.materialCode, "invalid.format")
 			continue
 		}
 
-		valid = append(valid, photoFile{header: fh, name: name, ext: ext, materialCode: code})
-		if !seenCodes[code] {
-			seenCodes[code] = true
-			codes = append(codes, code)
+		valid = append(valid, src)
+		if !seenCodes[src.materialCode] {
+			seenCodes[src.materialCode] = true
+			codes = append(codes, src.materialCode)
 		}
 	}
 
 	ctx, cancel := context.WithTimeout(c.Request.Context(), constants.DefaultContextTimeout)
 	defer cancel()
 
-	// 2. find products by material_code
+	// 3. find products by material_code
 	existing, err := h.service.GetExistingProductMaterialCodes(ctx, codes)
 	if err != nil {
 		handleServiceResponse(c, InternalError, err)
 		return
 	}
 
-	// 3. save files of found products into ./app/uploads
+	// 4. save files of found products into ./app/uploads
 	photos := map[int][]string{}
 	var saved []string
-	for _, f := range valid {
-		if !existing[f.materialCode] {
-			fail(f.name, f.materialCode, "product.not.found")
+	for _, src := range valid {
+		if !existing[src.materialCode] {
+			fail(src.name, src.materialCode, "product.not.found")
 			continue
 		}
 
-		newFilename := uuid.New().String() + f.ext
+		newFilename := uuid.New().String() + src.ext
 		savePath := filepath.Join("./app/uploads", newFilename)
-		if err := c.SaveUploadedFile(f.header, savePath); err != nil {
-			h.log.Errorf("Failed to save product photo %s: %v", f.name, err)
-			fail(f.name, f.materialCode, "save.failed")
+		if err := saveProductPhoto(src.open, savePath, maxFileSize); err != nil {
+			h.log.Errorf("Failed to save product photo %s: %v", src.name, err)
+			_ = os.Remove(savePath)
+			fail(src.name, src.materialCode, "save.failed")
 			continue
 		}
 
 		saved = append(saved, savePath)
-		photos[f.materialCode] = append(photos[f.materialCode], newFilename)
+		photos[src.materialCode] = append(photos[src.materialCode], newFilename)
 		res.Uploaded = append(res.Uploaded, domain.ProductPhotoUploadItem{
-			FileName:     f.name,
-			MaterialCode: f.materialCode,
+			FileName:     src.name,
+			MaterialCode: src.materialCode,
 			Photo:        newFilename,
 		})
 	}
 
-	// 4. update products.photos; on error remove the saved files
+	// 5. update products.photos; on error remove the saved files
 	if err := h.service.AttachProductPhotos(ctx, photos, overwrite); err != nil {
 		for _, p := range saved {
 			_ = os.Remove(p)
@@ -5007,8 +5057,8 @@ func productPhotoMaterialCode(name string) int {
 }
 
 // isImageContent — fayl ichi haqiqatan jpeg yoki png ekanini tekshiradi.
-func isImageContent(fh *multipart.FileHeader) bool {
-	f, err := fh.Open()
+func isImageContent(open func() (io.ReadCloser, error)) bool {
+	f, err := open()
 	if err != nil {
 		return false
 	}
@@ -5018,4 +5068,29 @@ func isImageContent(fh *multipart.FileHeader) bool {
 	n, _ := io.ReadFull(f, buf)
 	contentType := http.DetectContentType(buf[:n])
 	return contentType == "image/jpeg" || contentType == "image/png"
+}
+
+// saveProductPhoto — rasmni diskka yozadi; ZIP ichidagi fayl e'lon qilinganidan
+// katta chiqsa (maxSize'dan oshsa) xato qaytaradi.
+func saveProductPhoto(open func() (io.ReadCloser, error), savePath string, maxSize int64) error {
+	src, err := open()
+	if err != nil {
+		return err
+	}
+	defer src.Close()
+
+	dst, err := os.Create(savePath)
+	if err != nil {
+		return err
+	}
+	defer dst.Close()
+
+	n, err := io.Copy(dst, io.LimitReader(src, maxSize+1))
+	if err != nil {
+		return err
+	}
+	if n > maxSize {
+		return fmt.Errorf("file exceeds %d bytes", maxSize)
+	}
+	return nil
 }
