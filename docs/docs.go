@@ -21734,16 +21734,16 @@ const docTemplate = `{
                 }
             }
         },
-        "/product/photos/upload": {
+        "/product/photos/attach-from-uploads": {
             "post": {
                 "security": [
                     {
                         "BearerAuth": []
                     }
                 ],
-                "description": "Rasmlarni yuklaydi: papkani ZIP qilib \"file\" maydonida yoki bir nechta rasmni \"files\" maydonida.\nFayl nomi material_code (masalan 10422.JPG, 10422_2.jpg), kengaytma katta-kichik harf farqsiz.\nRasm ./app/uploads ga saqlanadi va shu material_code'li products.photos ga yoziladi.\nFormat/hajm noto'g'ri yoki product topilmagan rasmlar \"failed\" ro'yxatida qaytadi.",
+                "description": "Rasmlar serverdagi ./app/uploads da 12345.JPG nomi bilan turadi; fayl yuklanmaydi va ko'chirilmaydi.\nNomdagi raqam (12345) bo'yicha products.material_code topiladi va photos ga \"12345.JPG\" qo'shiladi.\nfile_names berilsa (frontend tanlangan papkadagi fayl nomlarini yuboradi) faqat shular olinadi,\nberilmasa uploads'dagi 12345.JPG ko'rinishidagi hamma fayl olinadi.\nphotos'da bor nom qayta qo'shilmaydi, shuning uchun qayta chaqirish xavfsiz.",
                 "consumes": [
-                    "multipart/form-data"
+                    "application/json"
                 ],
                 "produces": [
                     "application/json"
@@ -21751,19 +21751,15 @@ const docTemplate = `{
                 "tags": [
                     "products"
                 ],
-                "summary": "Upload product photos by material_code",
+                "summary": "Attach photos that are already in the uploads folder",
                 "parameters": [
                     {
-                        "type": "file",
-                        "description": "Rasmlar papkasi .zip arxivda",
-                        "name": "file",
-                        "in": "formData"
-                    },
-                    {
-                        "type": "file",
-                        "description": "Rasmlar (.jpg, .jpeg, .png; har biri 5 MB gacha), bir nechta bo'lishi mumkin",
-                        "name": "files",
-                        "in": "formData"
+                        "description": "Fayl nomlari",
+                        "name": "body",
+                        "in": "body",
+                        "schema": {
+                            "$ref": "#/definitions/domain.ProductPhotoAttachFromUploadsRequest"
+                        }
                     },
                     {
                         "type": "boolean",
@@ -41255,6 +41251,21 @@ const docTemplate = `{
                 },
                 "reason": {
                     "type": "string"
+                }
+            }
+        },
+        "domain.ProductPhotoAttachFromUploadsRequest": {
+            "type": "object",
+            "properties": {
+                "file_names": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    },
+                    "example": [
+                        "12345.JPG",
+                        "10422.JPG"
+                    ]
                 }
             }
         },

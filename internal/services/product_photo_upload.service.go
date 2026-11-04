@@ -32,7 +32,7 @@ func (s *Services) GetExistingProductMaterialCodes(ctx context.Context, codes []
 
 // AttachProductPhotos — har bir material_code'ga tegishli products.photos'ga
 // rasm nomlarini yozadi. overwrite=true bo'lsa eski rasmlar o'rniga yoziladi,
-// aks holda oxiriga qo'shiladi.
+// aks holda oxiriga qo'shiladi (photos'da bor nom qayta qo'shilmaydi).
 func (s *Services) AttachProductPhotos(ctx context.Context, photos map[int][]string, overwrite bool) error {
 	tx := s.db.WithContext(ctx).Begin()
 	defer recoverTransaction(tx, s.log)
@@ -44,7 +44,10 @@ func (s *Services) AttachProductPhotos(ctx context.Context, photos map[int][]str
 
 		query := `
 			UPDATE products
-			SET photos = COALESCE(photos, '{}') || ARRAY[?]::varchar[],
+			SET photos = COALESCE(photos, '{}') || ARRAY(
+					SELECT x FROM unnest(ARRAY[?]::varchar[]) AS x
+					WHERE NOT (x = ANY (COALESCE(photos, '{}')))
+				)::varchar[],
 				updated_at = NOW()
 			WHERE material_code = ? AND deleted_at IS NULL`
 		if overwrite {

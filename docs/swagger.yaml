@@ -1987,6 +1987,16 @@ definitions:
     - category
     - product_id
     type: object
+  domain.ProductPhotoAttachFromUploadsRequest:
+    properties:
+      file_names:
+        example:
+        - 12345.JPG
+        - 10422.JPG
+        items:
+          type: string
+        type: array
+    type: object
   domain.ProductPhotoUploadFailed:
     properties:
       file_name:
@@ -17603,25 +17613,22 @@ paths:
       summary: List product photo alerts
       tags:
       - products
-  /product/photos/upload:
+  /product/photos/attach-from-uploads:
     post:
       consumes:
-      - multipart/form-data
+      - application/json
       description: |-
-        Rasmlarni yuklaydi: papkani ZIP qilib "file" maydonida yoki bir nechta rasmni "files" maydonida.
-        Fayl nomi material_code (masalan 10422.JPG, 10422_2.jpg), kengaytma katta-kichik harf farqsiz.
-        Rasm ./app/uploads ga saqlanadi va shu material_code'li products.photos ga yoziladi.
-        Format/hajm noto'g'ri yoki product topilmagan rasmlar "failed" ro'yxatida qaytadi.
+        Rasmlar serverdagi ./app/uploads da 12345.JPG nomi bilan turadi; fayl yuklanmaydi va ko'chirilmaydi.
+        Nomdagi raqam (12345) bo'yicha products.material_code topiladi va photos ga "12345.JPG" qo'shiladi.
+        file_names berilsa (frontend tanlangan papkadagi fayl nomlarini yuboradi) faqat shular olinadi,
+        berilmasa uploads'dagi 12345.JPG ko'rinishidagi hamma fayl olinadi.
+        photos'da bor nom qayta qo'shilmaydi, shuning uchun qayta chaqirish xavfsiz.
       parameters:
-      - description: Rasmlar papkasi .zip arxivda
-        in: formData
-        name: file
-        type: file
-      - description: Rasmlar (.jpg, .jpeg, .png; har biri 5 MB gacha), bir nechta
-          bo'lishi mumkin
-        in: formData
-        name: files
-        type: file
+      - description: Fayl nomlari
+        in: body
+        name: body
+        schema:
+          $ref: '#/definitions/domain.ProductPhotoAttachFromUploadsRequest'
       - description: true — eski rasmlar o'rniga yoziladi, false — qo'shiladi
         in: query
         name: overwrite
@@ -17643,7 +17650,7 @@ paths:
             $ref: '#/definitions/v1.Response'
       security:
       - BearerAuth: []
-      summary: Upload product photos by material_code
+      summary: Attach photos that are already in the uploads folder
       tags:
       - products
   /product/producer:

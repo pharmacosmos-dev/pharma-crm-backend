@@ -659,3 +659,9 @@ type ProductPhotoUploadResult struct {
 	Failed                   []ProductPhotoUploadFailed `json:"failed"`
 	NotUploadedMaterialCodes []int                      `json:"not_uploaded_material_codes"`
 }
+
+// ProductPhotoAttachFromUploadsRequest — uploads'dagi rasm nomlari (12345.JPG).
+// Bo'sh bo'lsa uploads'dagi hamma 12345.JPG ko'rinishidagi fayl olinadi.
+type ProductPhotoAttachFromUploadsRequest struct {
+	FileNames []string `json:"file_names" example:"12345.JPG,10422.JPG"`
+}
