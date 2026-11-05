@@ -32,7 +32,7 @@ type CreateReminderRequest struct {
 	Text     string   `json:"text" binding:"required"`
 	FromDate string   `json:"from_date" binding:"required" example:"2026-07-20T09:00:00+05:00"`
 	ToDate   string   `json:"to_date" binding:"required" example:"2026-07-20T18:00:00+05:00"`
-	StoreIds []string `json:"store_ids" binding:"required,min=1"`
+	StoreIds []string `json:"store_ids"` // bo'sh bo'lsa franshiza bo'lmagan barcha faol aptekalar
 }
 
 // ReminderListItem — GET list javobi uchun, reminders jadvalidagi barcha ustunlar bilan
