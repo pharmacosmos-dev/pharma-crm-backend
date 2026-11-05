@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"github.com/pharma-crm-backend/domain"
+	"github.com/pharma-crm-backend/pkg/utils"
 )
 
 // GetExistingProductMaterialCodes — berilgan material_code'lardan products'da
@@ -45,7 +46,7 @@ func (s *Services) AttachProductPhotos(ctx context.Context, photos map[int][]str
 		query := `
 			UPDATE products
 			SET photos = COALESCE(photos, '{}') || ARRAY(
-					SELECT x FROM unnest(ARRAY[?]::varchar[]) AS x
+					SELECT x FROM unnest(?::varchar[]) AS x
 					WHERE NOT (x = ANY (COALESCE(photos, '{}')))
 				)::varchar[],
 				updated_at = NOW()
@@ -53,12 +54,14 @@ func (s *Services) AttachProductPhotos(ctx context.Context, photos map[int][]str
 		if overwrite {
 			query = `
 			UPDATE products
-			SET photos = ARRAY[?]::varchar[],
+			SET photos = ?::varchar[],
 				updated_at = NOW()
 			WHERE material_code = ? AND deleted_at IS NULL`
 		}
 
-		if err := tx.Exec(query, names, code).Error; err != nil {
+		// utils.StringArray bitta '{a,b}' qiymat bo'lib boradi; oddiy []string
+		// gorm'da ('a','b') ga yoyilib, ARRAY[...] ichida xato beradi
+		if err := tx.Exec(query, utils.StringArray(names), code).Error; err != nil {
 			tx.Rollback()
 			s.log.Errorf("could not update photos for material_code %d: %v", code, err)
 			return domain.InternalServerError
