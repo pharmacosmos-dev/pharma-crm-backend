@@ -369,7 +369,8 @@ func (s *Services) GetAllStoreMapInfo(ctx context.Context, params *domain.StoreM
 		searchPattern := fmt.Sprintf("%%%s%%", params.Search)
 
 		qb = qb.Where(
-			"stores.name ILIKE ? OR stores.detailed_name ILIKE ?",
+			"stores.name ILIKE ? OR stores.detailed_name ILIKE ? OR stores.short_name ILIKE ?",
+			searchPattern,
 			searchPattern,
 			searchPattern,
 		)
