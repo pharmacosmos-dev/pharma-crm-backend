@@ -38951,7 +38951,6 @@ const docTemplate = `{
             "type": "object",
             "required": [
                 "from_date",
-                "store_ids",
                 "text",
                 "to_date"
             ],
@@ -38961,8 +38960,8 @@ const docTemplate = `{
                     "example": "2026-07-20T09:00:00+05:00"
                 },
                 "store_ids": {
+                    "description": "bo'sh bo'lsa franshiza bo'lmagan barcha faol aptekalar",
                     "type": "array",
-                    "minItems": 1,
                     "items": {
                         "type": "string"
                     }
@@ -42314,6 +42313,9 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "phone": {
+                    "type": "string"
+                },
+                "short_name": {
                     "type": "string"
                 },
                 "store_code": {

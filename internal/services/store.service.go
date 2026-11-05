@@ -64,6 +64,7 @@ func (s *Services) GetStores(ctx context.Context, params *domain.StoreQueryParam
 			"store_code",
 			"name",
 			"detailed_name",
+			"stores.short_name",
 			"stores.company_id",
 			"phone",
 			"contact",
@@ -304,6 +305,7 @@ func (s *Services) GetAllStoreMapInfo(ctx context.Context, params *domain.StoreM
 		Select(`
 			stores.id,
 			stores.name,
+			stores.short_name,
 			stores.address,
 			stores.store_code,
 			stores.inn,
@@ -433,6 +435,7 @@ func (s *Services) GetStoreByIdMapInfo(ctx context.Context, storeId string) (*do
 		Select(`
 			stores.id,
 			stores.name,
+			stores.short_name,
 			stores.address,
 			stores.store_code,
 			stores.inn,

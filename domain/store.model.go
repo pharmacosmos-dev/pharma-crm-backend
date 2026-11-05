@@ -12,6 +12,7 @@ type Store struct {
 	StoreCode          int            `gorm:"store_code" json:"store_code"`
 	Name               string         `gorm:"name" json:"name"`
 	DetailedName       string         `gorm:"detailed_name" json:"detailed_name"`
+	ShortName          string         `gorm:"short_name" json:"short_name"`
 	CompanyId          string         `gorm:"company_id" json:"company_id"`
 	Phone              string         `gorm:"phone" json:"phone"`
 	Contact            string         `gorm:"contact" json:"contact"`
@@ -34,6 +35,7 @@ type StoreDto struct {
 	StoreCode          int            `gorm:"store_code" json:"store_code"`
 	Name               string         `gorm:"name" json:"name"`
 	DetailedName       string         `gorm:"detailed_name" json:"detailed_name"`
+	ShortName          string         `gorm:"short_name" json:"short_name"`
 	CompanyId          string         `gorm:"company_id" json:"company_id"`
 	Phone              string         `gorm:"phone" json:"phone"`
 	Contact            string         `gorm:"contact" json:"contact"`
@@ -60,6 +62,7 @@ type StoreRequest struct {
 	Phone         *string        `gorm:"phone" json:"phone"`
 	WorkHours     string         `gorm:"work_hours" json:"work_hours"`
 	DetailedName  string         `gorm:"detailed_name" json:"detailed_name"`
+	ShortName     string         `gorm:"short_name" json:"short_name"`
 	Address       string         `gorm:"address" json:"address"`
 	Inn           string         `gorm:"inn" json:"inn"`
 	EmployeeCount float64        `gorm:"employee_count" json:"employee_count"`
@@ -77,6 +80,7 @@ type StoreUpdateRequest struct {
 	Phone         *string        `gorm:"phone" json:"phone"`
 	WorkHours     string         `gorm:"work_hours" json:"work_hours"`
 	DetailedName  string         `gorm:"detailed_name" json:"detailed_name"`
+	ShortName     string         `gorm:"short_name" json:"short_name"`
 	Address       string         `gorm:"address" json:"address"`
 	Inn           string         `gorm:"inn" json:"inn"`
 	EmployeeCount float64        `gorm:"employee_count" json:"employee_count"`
@@ -157,6 +161,7 @@ type StoreMapInfoQueryParams struct {
 type StoreMapInfo struct {
 	Id            string `json:"id"`
 	Name          string `json:"name"`
+	ShortName     string `json:"short_name"`
 	WorkHours     string `json:"work_hours"`
 	Phone         string `json:"phone"`
 	IsOnlineOrder bool   `json:"is_online_order"`
