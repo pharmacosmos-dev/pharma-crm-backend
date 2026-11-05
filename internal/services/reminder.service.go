@@ -34,8 +34,22 @@ func (s *Services) CreateReminder(ctx context.Context, req *domain.CreateReminde
 	}
 
 	storeIds := uniqueNonEmptyIds(req.StoreIds)
+	// store_ids kelmasa — franshiza bo'lmagan (companies.is_franchise = false)
+	// kompaniyalarning barcha faol aptekalariga yuboriladi
 	if len(storeIds) == 0 {
-		return nil, domain.StoreIdsRequiredError
+		if err := s.db.WithContext(ctx).Raw(`
+			SELECT s.id FROM stores s
+			JOIN companies c ON c.id = s.company_id
+			WHERE c.is_franchise = false
+			  AND s.is_active = TRUE
+			  AND s.deleted_at IS NULL`).
+			Scan(&storeIds).Error; err != nil {
+			s.log.Errorf("could not get non-franchise stores for reminder: %v", err)
+			return nil, domain.InternalServerError
+		}
+		if len(storeIds) == 0 {
+			return nil, domain.StoreIdsRequiredError
+		}
 	}
 
 	var existingCount int64
