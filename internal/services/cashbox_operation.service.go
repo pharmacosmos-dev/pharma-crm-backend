@@ -19,7 +19,8 @@ func (s *Services) GetCashboxOperationSummary(ctx context.Context, operationId s
 		SUM(s.uzcard) AS total_uzcard_sum,
 		SUM(s.click) AS total_click_sum,
 		SUM(s.payme) AS total_payme_sum,
-		SUM(s.alif) AS total_alif_sum
+		SUM(s.alif) AS total_alif_sum,
+		SUM(s.unified_qr) AS total_unified_qr_sum
 	FROM sales s
 	WHERE s.cash_box_operation_id = ? ORDER BY s.total_amount DESC;
 	`
@@ -61,6 +62,11 @@ func (s *Services) GetCashboxOperationSummary(ctx context.Context, operationId s
 			Id:     "",
 			Name:   "Alif",
 			Amount: saleStats.TotalAlifSum,
+		},
+		domain.SalePaymentCloseCashBox{
+			Id:     "",
+			Name:   "Unified QR",
+			Amount: saleStats.TotalUnifiedQrSum,
 		},
 	)
 

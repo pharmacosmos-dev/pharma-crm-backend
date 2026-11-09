@@ -203,6 +203,7 @@ func (h *SaleHandler) Get(c *gin.Context) {
 // @Param click 			query bool false 	"click"
 // @Param payme 			query bool false 	"payme"
 // @Param alif 				query bool false 	"alif"
+// @Param unified_qr 			query bool false 	"unified_qr"
 // @Success 200 {object} v1.Response
 // @Failure 400 {object} v1.Response
 // @Failure 500 {object} v1.Response
@@ -320,6 +321,7 @@ func (h *SaleHandler) GetSales(c *gin.Context) {
 // @Param click 			query bool false 	"click"
 // @Param payme 			query bool false 	"payme"
 // @Param alif 				query bool false 	"alif"
+// @Param unified_qr 			query bool false 	"unified_qr"
 // @Success 200 {object} v1.Response
 // @Failure 400 {object} v1.Response
 // @Failure 500 {object} v1.Response
@@ -550,6 +552,7 @@ func (h *SaleHandler) ExportDMEDSalesExcel(c *gin.Context) {
 // @Param click 			query bool false 	"click"
 // @Param payme 			query bool false 	"payme"
 // @Param alif 				query bool false 	"alif"
+// @Param unified_qr 			query bool false 	"unified_qr"
 // @Success 200 {object} v1.Response
 // @Failure 400 {object} v1.Response
 // @Failure 500 {object} v1.Response

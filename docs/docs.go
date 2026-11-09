@@ -24492,6 +24492,12 @@ const docTemplate = `{
                         "description": "Noor",
                         "name": "noor",
                         "in": "query"
+                    },
+                    {
+                        "type": "boolean",
+                        "description": "Unified QR",
+                        "name": "unified_qr",
+                        "in": "query"
                     }
                 ],
                 "responses": {
@@ -31461,6 +31467,12 @@ const docTemplate = `{
                         "description": "alif",
                         "name": "alif",
                         "in": "query"
+                    },
+                    {
+                        "type": "boolean",
+                        "description": "unified_qr",
+                        "name": "unified_qr",
+                        "in": "query"
                     }
                 ],
                 "responses": {
@@ -31746,6 +31758,12 @@ const docTemplate = `{
                         "type": "boolean",
                         "description": "alif",
                         "name": "alif",
+                        "in": "query"
+                    },
+                    {
+                        "type": "boolean",
+                        "description": "unified_qr",
+                        "name": "unified_qr",
                         "in": "query"
                     }
                 ],
@@ -32534,6 +32552,12 @@ const docTemplate = `{
                         "type": "boolean",
                         "description": "alif",
                         "name": "alif",
+                        "in": "query"
+                    },
+                    {
+                        "type": "boolean",
+                        "description": "unified_qr",
+                        "name": "unified_qr",
                         "in": "query"
                     }
                 ],
@@ -39562,7 +39586,7 @@ const docTemplate = `{
                 },
                 "app_type": {
                     "type": "string",
-                    "example": "click|payme|uzum|uzumtezkor|noor"
+                    "example": "click|payme|uzum|uzumtezkor|noor|unified_qr"
                 },
                 "otp_data": {
                     "type": "string"
@@ -39658,6 +39682,9 @@ const docTemplate = `{
                     "type": "boolean"
                 },
                 "total_amount": {
+                    "type": "number"
+                },
+                "unified_qr": {
                     "type": "number"
                 },
                 "uzcard": {

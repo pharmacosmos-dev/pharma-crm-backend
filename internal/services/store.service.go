@@ -656,6 +656,7 @@ func (s *Services) GetStoreByIdMapInfo(ctx context.Context, storeId string) (*do
 				('uzum', COALESCE(sales.uzum, 0)),
 				('uzum_tez_kor', COALESCE(sales.uzum_tez_kor, 0)),
 				('noor', COALESCE(sales.noor, 0)),
+				('unified_qr', COALESCE(sales.unified_qr, 0)),
 				('loyalty_card', COALESCE(sales.loyalty_card, 0))
 		) AS payment(type, amount)
 		WHERE sales.store_id = ?

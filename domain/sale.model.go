@@ -37,6 +37,7 @@ type Sale struct {
 	Uzum               float64        `gorm:"uzum" json:"uzum"`
 	UzumTezKor         float64        `gorm:"uzum_tez_kor" json:"uzum_tez_kor"`
 	Noor               float64        `gorm:"noor" json:"noor"`
+	UnifiedQr          float64        `gorm:"unified_qr" json:"unified_qr"`
 	UzumSelfPickup     bool           `gorm:"uzum_self_pickup" json:"uzum_self_pickup"`
 	LoyaltyCard        float64        `gorm:"loyalty_card" json:"loyalty_card"`
 	IsPaid             bool           `gorm:"is_paid" json:"is_paid"`
@@ -82,6 +83,7 @@ type SaleQueryParams struct {
 	Uzum            bool        `form:"uzum"`
 	UzumTezKor      bool        `form:"uzum_tez_kor"`
 	Noor            bool        `form:"noor"`
+	UnifiedQr       bool        `form:"unified_qr"`
 	IsCorporate     bool        `form:"is_corporate"`
 	Stage           int         `form:"stage"`
 	OnlineStatus    *int        `form:"online_status"`
@@ -152,6 +154,7 @@ type SaleResponse struct {
 	UzumTezKor      float64    `gorm:"uzum_tez_kor" json:"uzum_tez_kor"`
 	UzumSelfPickup  bool       `gorm:"uzum_self_pickup" json:"uzum_self_pickup"`
 	Noor            float64    `gorm:"noor" json:"noor"`
+	UnifiedQr       float64    `gorm:"unified_qr" json:"unified_qr"`
 	LoyaltyCard     float64    `gorm:"loyalty_card" json:"loyalty_card"`
 	ProductCount    float64    `gorm:"product_count" json:"product_count"`
 	Status          string     `gorm:"status" json:"status"`
@@ -222,6 +225,7 @@ type FinalSale struct {
 	Uzum               float64            `gorm:"uzum" json:"uzum"`
 	UzumTezKor         float64            `gorm:"uzum_tez_kor" json:"uzum_tez_kor"`
 	Noor               float64            `gorm:"noor" json:"noor"`
+	UnifiedQr          float64            `gorm:"unified_qr" json:"unified_qr"`
 	UzumSelfPickup     bool               `json:"uzum_self_pickup"`
 	ReturnAmount       float64            `gorm:"return_amount" json:"return_amount"`
 	LoyaltyCardBarcode string             `gorm:"loyalty_card_barcode" json:"loyalty_card_barcode"`
@@ -258,7 +262,7 @@ type FinalPaymentType struct {
 	PaymentTypeID string  `gorm:"payment_type_id" json:"payment_type_id"`
 	Amount        float64 `gorm:"amount" json:"amount"`
 	ReturnAmount  float64 `gorm:"return_amount" json:"return_amount"`
-	AppType       string  `gorm:"app_type" json:"app_type" example:"click|payme|uzum|uzumtezkor|noor"`
+	AppType       string  `gorm:"app_type" json:"app_type" example:"click|payme|uzum|uzumtezkor|noor|unified_qr"`
 	Type          string  `gorm:"type" json:"type" example:"card|cash|app"`
 	OtpData       string  `gorm:"otp_data" json:"otp_data"`
 }
@@ -305,6 +309,8 @@ type SaleStats struct {
 	TotalUzumTezKorCount  int     `gorm:"total_uzum_tez_kor_count" json:"total_uzum_tez_kor_count"`
 	TotalNoorSum          float64 `gorm:"total_noor_sum" json:"total_noor_sum"`
 	TotalNoorCount        int     `gorm:"total_noor_count" json:"total_noor_count"`
+	TotalUnifiedQrSum     float64 `gorm:"total_unified_qr_sum" json:"total_unified_qr_sum"`
+	TotalUnifiedQrCount   int     `gorm:"total_unified_qr_count" json:"total_unified_qr_count"`
 	TotalCashbackSum      float64 `gorm:"total_cashback_sum" json:"total_cashback_sum"`
 	TotalCashbackCount    float64 `gorm:"total_cashback_count" json:"total_cashback_count"`
 	TotalProductCount     int64   `gorm:"total_product_count" json:"total_product_count"`

@@ -558,6 +558,7 @@ func (s *Services) FinalizeSale(ctx context.Context, req *domain.FinalSale) (*do
 			updates["uzum"] = req.Uzum
 			updates["uzum_tez_kor"] = req.UzumTezKor
 			updates["noor"] = req.Noor
+			updates["unified_qr"] = req.UnifiedQr
 			updates["total_amount"] = gorm.Expr("(SELECT COALESCE(SUM(total_price) - SUM(discount_amount), 0) FROM cart_items WHERE sale_id = ?)", req.SaleId)
 			updates["total_discount"] = gorm.Expr("(SELECT COALESCE(SUM(discount_amount), 0) FROM cart_items WHERE sale_id = ?)", req.SaleId)
 			updates["return_amount"] = req.ReturnAmount
@@ -572,7 +573,7 @@ func (s *Services) FinalizeSale(ctx context.Context, req *domain.FinalSale) (*do
 
 			if req.LoyaltyCardBarcode != "" {
 				if req.LoyaltyCard > 0 {
-					updates["cash_back"] = (req.Cash + req.Humo + req.Uzcard + req.Click + req.Payme + req.Alif + req.Uzum + req.UzumTezKor + req.Noor) * (float64(sale.Customer.LoyaltyCardPercent) / 100)
+					updates["cash_back"] = (req.Cash + req.Humo + req.Uzcard + req.Click + req.Payme + req.Alif + req.Uzum + req.UzumTezKor + req.Noor + req.UnifiedQr) * (float64(sale.Customer.LoyaltyCardPercent) / 100)
 				} else {
 					updates["cash_back"] = gorm.Expr(
 						"(SELECT (COALESCE(SUM(total_price) - SUM(discount_amount), 0)::numeric / 100 * ?) FROM cart_items WHERE sale_id = ?)",
@@ -631,6 +632,7 @@ func (s *Services) FinalizeSale(ctx context.Context, req *domain.FinalSale) (*do
 			updates["uzum"] = req.Uzum
 			updates["uzum_tez_kor"] = req.UzumTezKor
 			updates["noor"] = req.Noor
+			updates["unified_qr"] = req.UnifiedQr
 			updates["total_amount"] = gorm.Expr("(SELECT COALESCE(SUM(total_price) - SUM(discount_amount), 0) FROM cart_items WHERE sale_id = ?)", req.SaleId)
 			updates["total_discount"] = gorm.Expr("(SELECT COALESCE(SUM(discount_amount), 0) FROM cart_items WHERE sale_id = ?)", req.SaleId)
 			updates["return_amount"] = req.ReturnAmount
@@ -640,7 +642,7 @@ func (s *Services) FinalizeSale(ctx context.Context, req *domain.FinalSale) (*do
 
 			if req.LoyaltyCardBarcode != "" {
 				if req.LoyaltyCard > 0 {
-					updates["cash_back"] = (req.Cash + req.Humo + req.Uzcard + req.Click + req.Payme + req.Alif + req.Uzum + req.UzumTezKor + req.Noor) * (float64(sale.Customer.LoyaltyCardPercent) / 100)
+					updates["cash_back"] = (req.Cash + req.Humo + req.Uzcard + req.Click + req.Payme + req.Alif + req.Uzum + req.UzumTezKor + req.Noor + req.UnifiedQr) * (float64(sale.Customer.LoyaltyCardPercent) / 100)
 				} else {
 					updates["cash_back"] = gorm.Expr(
 						"(SELECT (COALESCE(SUM(total_price) - SUM(discount_amount), 0)::numeric / 100 * ?) FROM cart_items WHERE sale_id = ?)",
@@ -728,6 +730,7 @@ func (s *Services) FinalizeReturnSale(ctx context.Context, tx *gorm.DB, req *dom
 			updates["uzum"] = -req.Uzum
 			updates["uzum_tez_kor"] = -req.UzumTezKor
 			updates["noor"] = -req.Noor
+			updates["unified_qr"] = -req.UnifiedQr
 			updates["loyalty_card"] = -req.LoyaltyCard
 			updates["total_amount"] = gorm.Expr("-(SELECT COALESCE(SUM(total_price) - SUM(discount_amount), 0) FROM cart_items WHERE sale_id = ?)", req.SaleId)
 			updates["total_discount"] = gorm.Expr("-(SELECT COALESCE(SUM(discount_amount), 0) FROM cart_items WHERE sale_id = ?)", req.SaleId)
@@ -757,6 +760,7 @@ func (s *Services) FinalizeReturnSale(ctx context.Context, tx *gorm.DB, req *dom
 		updates["uzum"] = -req.Uzum
 		updates["uzum_tez_kor"] = -req.UzumTezKor
 		updates["noor"] = -req.Noor
+		updates["unified_qr"] = -req.UnifiedQr
 		updates["loyalty_card"] = -req.LoyaltyCard
 		updates["total_amount"] = gorm.Expr("-(SELECT COALESCE(SUM(total_price) - SUM(discount_amount), 0) FROM cart_items WHERE sale_id = ?)", req.SaleId)
 		updates["total_discount"] = gorm.Expr("-(SELECT COALESCE(SUM(discount_amount), 0) FROM cart_items WHERE sale_id = ?)", req.SaleId)
@@ -1370,6 +1374,8 @@ func (s *Services) matchingPaymentTypeSum(ctx context.Context, tx *gorm.DB, req 
 		} else if item.Type == constants.PaymentTypeApp && item.AppType == constants.PaymentTypeUzum {
 			req.Uzum = item.Amount
 			req.OtpCode = item.OtpData
+		} else if item.Type == constants.PaymentTypeApp && item.AppType == constants.PaymentTypeUnifiedQr {
+			req.UnifiedQr = item.Amount
 		} else if item.Type == constants.PaymentTypeOnlineOrder && item.AppType == constants.PaymentTypeUzumTezkor {
 			req.UzumTezKor = item.Amount
 			req.OtpCode = item.OtpData
@@ -1810,6 +1816,8 @@ func (s *Services) UpdateSalePaymentType(ctx context.Context, req *domain.Change
 			amount = s.Payme
 		case "alif":
 			amount = s.Alif
+		case "unified_qr":
+			amount = s.UnifiedQr
 		default:
 			amount = 0
 		}
@@ -1893,6 +1901,7 @@ func (s *Services) GetSaleOne(ctx context.Context, saleId string) (*domain.SaleR
 		UzumTezKor         float64    `gorm:"uzum_tez_kor"`
 		UzumSelfPickup	   bool       `gorm:"uzum_self_pickup"`
 		Noor               float64    `gorm:"noor"`
+		UnifiedQr          float64    `gorm:"unified_qr"`
 		LoyaltyCard        float64    `gorm:"loyalty_card"`
 		IsDelivered        bool       `gorm:"is_delivered"`
 		TaxFree            bool       `gorm:"tax_free"`
@@ -1949,6 +1958,7 @@ func (s *Services) GetSaleOne(ctx context.Context, saleId string) (*domain.SaleR
 			"s.uzum_tez_kor",
 			"s.uzum_self_pickup",
 			"s.noor",
+			"s.unified_qr",
 			"s.loyalty_card",
 			"s.status",
 			"s.stage",
@@ -2019,6 +2029,7 @@ func (s *Services) GetSaleOne(ctx context.Context, saleId string) (*domain.SaleR
 		UzumTezKor:         tempSale.UzumTezKor,
 		UzumSelfPickup:     tempSale.UzumSelfPickup,
 		Noor:               tempSale.Noor,
+		UnifiedQr:          tempSale.UnifiedQr,
 		LoyaltyCard:        tempSale.LoyaltyCard,
 		Status:             tempSale.Status,
 		Stage:              tempSale.Stage,
@@ -2169,6 +2180,9 @@ func (s *Services) GetSales(ctx context.Context, params *domain.SaleQueryParams,
 	if params.Noor {
 		qb = qb.Where("s.noor > 0")
 	}
+	if params.UnifiedQr {
+		qb = qb.Where("s.unified_qr > 0")
+	}
 
 	if params.VendorId != "" {
 		qb = qb.Where("s.employee_id = ?", params.VendorId)
@@ -2236,6 +2250,7 @@ func (s *Services) GetSales(ctx context.Context, params *domain.SaleQueryParams,
 				OR (pt.front_name = 'uzum' AND s.uzum > 0)
 				OR (pt.front_name = 'uzumtezkor' AND s.uzum_tez_kor > 0)
 				OR (pt.front_name = 'noor' AND s.noor > 0)
+				OR (pt.front_name = 'unified_qr' AND s.unified_qr > 0)
 				OR (pt.front_name = 'loyalty_card' AND s.loyalty_card > 0)
 			)
 		)`, params.PaymentTypeId)
@@ -2266,6 +2281,7 @@ func (s *Services) GetSales(ctx context.Context, params *domain.SaleQueryParams,
 			"s.uzum",
 			"s.uzum_tez_kor",
 			"s.noor",
+			"s.unified_qr",
 			"s.loyalty_card",
 			"s.cash_back",
 			"s.status",
@@ -2330,7 +2346,9 @@ func (s *Services) GetSalesStats(ctx context.Context, params *domain.SaleQueryPa
 			"SUM(s.uzum_tez_kor) AS total_uzum_tez_kor_sum",
 			"COUNT(*) FILTER (WHERE s.uzum_tez_kor != 0) AS total_uzum_tez_kor_count",
 			"SUM(s.noor) AS total_noor_sum",
+			"SUM(s.unified_qr) AS total_unified_qr_sum",
 			"COUNT(*) FILTER (WHERE s.noor != 0) AS total_noor_count",
+			"COUNT(*) FILTER (WHERE s.unified_qr != 0) AS total_unified_qr_count",
 		).Table("sales s").
 		Joins("JOIN stores st ON s.store_id = st.id")
 
@@ -2362,6 +2380,9 @@ func (s *Services) GetSalesStats(ctx context.Context, params *domain.SaleQueryPa
 	}
 	if params.Noor {
 		qb = qb.Where("s.noor > 0")
+	}
+	if params.UnifiedQr {
+		qb = qb.Where("s.unified_qr > 0")
 	}
 	if params.VendorId != "" {
 		qb = qb.Where("s.employee_id = ?", params.VendorId)
@@ -2472,6 +2493,9 @@ func (s *Services) GetSaleList(ctx context.Context, params *domain.SaleQueryPara
 	if params.Noor {
 		qb = qb.Where("s.noor > 0")
 	}
+	if params.UnifiedQr {
+		qb = qb.Where("s.unified_qr > 0")
+	}
 	if params.VendorId != "" {
 		qb = qb.Where("s.employee_id = ?", params.VendorId)
 	}
@@ -2541,6 +2565,7 @@ func (s *Services) GetSaleList(ctx context.Context, params *domain.SaleQueryPara
 			"s.uzum",
 			"s.uzum_tez_kor",
 			"s.noor",
+			"s.unified_qr",
 			"s.service_type",
 			"s.vendor_order_id",
 			"s.status",

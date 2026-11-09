@@ -136,6 +136,7 @@ type CashboxOperationAmount struct {
 	Payme  float64 `gorm:"payme" json:"payme"`
 	Uzum   float64 `gorm:"uzum" json:"uzum"`
 	UzumTezKor float64 `gorm:"uzum_tez_kor" json:"uzum_tez_kor"`
+	UnifiedQr  float64 `gorm:"unified_qr" json:"unified_qr"`
 }
 
 // Cashbox operation shift
@@ -225,6 +226,7 @@ type ExpenseDok struct {
 	UzumSum       float64 `json:"Uzum"`
 	UzumTezkorSum float64 `json:"uzumtezkor"`
 	NoorSum       float64 `json:"noor"`
+	UnifiedQrSum  float64 `json:"unified_qr"`
 }
 
 // expense document cheque count and payment type sums
@@ -239,6 +241,7 @@ type ExpenseChequeTotals struct {
 	UzumSum       float64 `gorm:"column:uzum_sum"`
 	UzumTezkorSum float64 `gorm:"column:uzum_tezkor_sum"`
 	NoorSum       float64 `gorm:"column:noor_sum"`
+	UnifiedQrSum  float64 `gorm:"column:unified_qr_sum"`
 }
 // expense product structure
 type ExpenseProduct struct {

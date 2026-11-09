@@ -165,6 +165,10 @@ type DashboardPaymentDto struct {
 	NoorCount     int     `gorm:"noor_count" json:"noor_count"`
 	NoorPrevius   float64 `gorm:"noor_previus" json:"noor_previus"`
 	NoorPercent   float64 `gorm:"noor_percent" json:"noor_percent"`
+	UnifiedQr        float64 `gorm:"unified_qr" json:"unified_qr"`
+	UnifiedQrCount   int     `gorm:"unified_qr_count" json:"unified_qr_count"`
+	UnifiedQrPrevius float64 `gorm:"unified_qr_previus" json:"unified_qr_previus"`
+	UnifiedQrPercent float64 `gorm:"unified_qr_percent" json:"unified_qr_percent"`
 }
 
 // Dashboard transactions structure

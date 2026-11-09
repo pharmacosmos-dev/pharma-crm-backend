@@ -871,7 +871,7 @@ definitions:
       amount:
         type: number
       app_type:
-        example: click|payme|uzum|uzumtezkor|noor
+        example: click|payme|uzum|uzumtezkor|noor|unified_qr
         type: string
       otp_data:
         type: string
@@ -936,6 +936,8 @@ definitions:
       tax_free:
         type: boolean
       total_amount:
+        type: number
+      unified_qr:
         type: number
       uzcard:
         type: number
@@ -19049,6 +19051,10 @@ paths:
         in: query
         name: noor
         type: boolean
+      - description: Unified QR
+        in: query
+        name: unified_qr
+        type: boolean
       produces:
       - application/json
       responses:
@@ -23585,6 +23591,10 @@ paths:
         in: query
         name: alif
         type: boolean
+      - description: unified_qr
+        in: query
+        name: unified_qr
+        type: boolean
       produces:
       - application/json
       responses:
@@ -23769,6 +23779,10 @@ paths:
       - description: alif
         in: query
         name: alif
+        type: boolean
+      - description: unified_qr
+        in: query
+        name: unified_qr
         type: boolean
       produces:
       - application/json
@@ -24274,6 +24288,10 @@ paths:
       - description: alif
         in: query
         name: alif
+        type: boolean
+      - description: unified_qr
+        in: query
+        name: unified_qr
         type: boolean
       produces:
       - application/json
