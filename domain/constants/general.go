@@ -175,6 +175,7 @@ const (
 	PaymentTypeUzumTezkor  = "uzumtezkor"
 	PaymentTypeNoor        = "noor"
 	PaymentTypeUnifiedQr   = "unified_qr"
+	PaymentTypeYagonaQr    = "Yagona QR" // payment_types.front_name; frontend app_type sifatida yuboradi
 	PaymentTypeOnlineOrder = "online_order"
 	PaymentTypeAlif        = "alif"
 	PaymentTypeHumo        = "humo"

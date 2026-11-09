@@ -1374,7 +1374,7 @@ func (s *Services) matchingPaymentTypeSum(ctx context.Context, tx *gorm.DB, req 
 		} else if item.Type == constants.PaymentTypeApp && item.AppType == constants.PaymentTypeUzum {
 			req.Uzum = item.Amount
 			req.OtpCode = item.OtpData
-		} else if item.Type == constants.PaymentTypeCard && item.AppType == constants.PaymentTypeUnifiedQr {
+		} else if item.Type == constants.PaymentTypeCard && (strings.EqualFold(item.AppType, constants.PaymentTypeYagonaQr) || item.AppType == constants.PaymentTypeUnifiedQr) {
 			req.UnifiedQr = item.Amount
 		} else if item.Type == constants.PaymentTypeOnlineOrder && item.AppType == constants.PaymentTypeUzumTezkor {
 			req.UzumTezKor = item.Amount
@@ -2250,7 +2250,7 @@ func (s *Services) GetSales(ctx context.Context, params *domain.SaleQueryParams,
 				OR (pt.front_name = 'uzum' AND s.uzum > 0)
 				OR (pt.front_name = 'uzumtezkor' AND s.uzum_tez_kor > 0)
 				OR (pt.front_name = 'noor' AND s.noor > 0)
-				OR (pt.front_name = 'unified_qr' AND s.unified_qr > 0)
+				OR (pt.front_name IN ('unified_qr', 'Yagona QR') AND s.unified_qr > 0)
 				OR (pt.front_name = 'loyalty_card' AND s.loyalty_card > 0)
 			)
 		)`, params.PaymentTypeId)
