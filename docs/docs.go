@@ -21990,7 +21990,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "1C yuborgan rezerv mahsulotlar ro'yxati, default ORDER BY sort_index ASC (1C tartibi);\ntop_selling=true bo'lsa sold_amount_15d DESC (eng ko'p pul keltirgan birinchi:\nsotilgan pachka × oxirgi importdagi retail_price_vat), teng bo'lsa sort_index ASC.\nis_active berilmasa aktiv va deaktiv qatorlar birga qaytadi.\nRo'yxatga do'konning ochiq rezerv hujjatiga kiritilgan, lekin 1C ro'yxatida yo'q\nmahsulotlar ham qo'shiladi — ular source=\"manual\" va sort_index=0 bilan boshida turadi (top_selling=true da sold_amount_15d=0 bo'lgani uchun oxirida).\nHar qatorda product_id, unit_per_pack, do'kondagi qoldiq (available_quantity),\nochiq hujjatga kiritilgan miqdor (reserved_quantity) va o'sha qator id'si\n(reserve_detail_id) qaytadi; hujjat done bo'lsa yoki bo'lmasa — 0.\nhas_history — mahsulotning harakat tarixi: false bo'lsa hech qanday kirim,\ntransfer yoki sotuv bo'lmagan, ya'ni frontend uni yangi mahsulot deb belgilaydi.\nstore_id berilsa o'sha do'kon bo'yicha, berilmasa barcha do'konlar bo'yicha.\nSavdo dinamikasi (sold_quantity_15d, sold_quantity_prev_15d, sold_change_percent) —\nhar doim BARCHA aptekalar bo'yicha, store_id ga bog'liq emas: 1C importida\nhisoblanib ustunlarga yoziladi. Oldingi 15 kunda savdo bo'lmasa foiz null (0 emas).\nsold_packs_15d va sold_packs_prev_15d — o'sha raqamlarning pachka hisobi\n(dona / unit_per_pack): masalan 10 200 donali dorining 948 600 donasi = 93 pachka.\nretail_price_vat — mahsulotning eng oxirgi importdagi pachka narxi (NDS bilan),\nsold_amount_15d — 15 kunlik savdo summasi (sold_packs_15d × retail_price_vat).\ntop_selling saralashi aynan sold_amount_15d bo'yicha ketadi; foiz o'zgarmaydi.",
+                "description": "1C yuborgan rezerv mahsulotlar ro'yxati, default ORDER BY sort_index ASC (1C tartibi);\ntop_selling=true bo'lsa sold_amount_15d DESC (eng ko'p pul keltirgan birinchi:\nsotilgan pachka × oxirgi importdagi retail_price_vat), teng bo'lsa sort_index ASC.\nis_active berilmasa faqat aktiv (is_active = true) qatorlar qaytadi.\nRo'yxatga do'konning ochiq rezerv hujjatiga kiritilgan, lekin 1C ro'yxatida yo'q\nmahsulotlar ham qo'shiladi — ular source=\"manual\" va sort_index=0 bilan boshida turadi (top_selling=true da sold_amount_15d=0 bo'lgani uchun oxirida).\nHar qatorda product_id, unit_per_pack, do'kondagi qoldiq (available_quantity),\nochiq hujjatga kiritilgan miqdor (reserved_quantity) va o'sha qator id'si\n(reserve_detail_id) qaytadi; hujjat done bo'lsa yoki bo'lmasa — 0.\nhas_history — mahsulotning harakat tarixi: false bo'lsa hech qanday kirim,\ntransfer yoki sotuv bo'lmagan, ya'ni frontend uni yangi mahsulot deb belgilaydi.\nstore_id berilsa o'sha do'kon bo'yicha, berilmasa barcha do'konlar bo'yicha.\nSavdo dinamikasi (sold_quantity_15d, sold_quantity_prev_15d, sold_change_percent) —\nhar doim BARCHA aptekalar bo'yicha, store_id ga bog'liq emas: 1C importida\nhisoblanib ustunlarga yoziladi. Oldingi 15 kunda savdo bo'lmasa foiz null (0 emas).\nsold_packs_15d va sold_packs_prev_15d — o'sha raqamlarning pachka hisobi\n(dona / unit_per_pack): masalan 10 200 donali dorining 948 600 donasi = 93 pachka.\nretail_price_vat — mahsulotning eng oxirgi importdagi pachka narxi (NDS bilan),\nsold_amount_15d — 15 kunlik savdo summasi (sold_packs_15d × retail_price_vat).\ntop_selling saralashi aynan sold_amount_15d bo'yicha ketadi; foiz o'zgarmaydi.",
                 "consumes": [
                     "application/json"
                 ],
@@ -28840,6 +28840,16 @@ const docTemplate = `{
                         "type": "string",
                         "description": "Do'kon (admin uchun; boshqalarda token'dagi do'kon)",
                         "name": "store_id",
+                        "in": "query"
+                    },
+                    {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        },
+                        "collectionFormat": "csv",
+                        "description": "Do'konlar (store_ids biriktirilgan xodim uchun ruxsat berilganlari)",
+                        "name": "store_ids",
                         "in": "query"
                     },
                     {

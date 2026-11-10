@@ -93,8 +93,10 @@ type ReserveDetailUpdateRequest struct {
 }
 
 type ReserveQueryParams struct {
-	StoreId   string `form:"store_id"`
-	Status    string `form:"status"`
+	StoreId   string   `form:"store_id"`
+	StoreIds  []string `form:"store_ids"`
+	CompanyId string   `form:"company_id"`
+	Status    string   `form:"status"`
 	Search    string `form:"search"` // dok_number yoki izoh bo'yicha
 	StartDate string `form:"start_date"`
 	EndDate   string `form:"end_date"`

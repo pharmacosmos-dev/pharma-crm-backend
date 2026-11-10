@@ -94,6 +94,7 @@ func (h *ReserveHandler) Create(c *gin.Context) {
 // @Accept       json
 // @Produce      json
 // @Param        store_id    query  string  false  "Do'kon (admin uchun; boshqalarda token'dagi do'kon)"
+// @Param        store_ids   query  []string false "Do'konlar (store_ids biriktirilgan xodim uchun ruxsat berilganlari)"
 // @Param        status      query  string  false  "new | checking | done"
 // @Param        search      query  string  false  "dok_number yoki izoh bo'yicha"
 // @Param        start_date  query  string  false  "YYYY-MM-DD (Toshkent kuni)"
@@ -119,14 +120,39 @@ func (h *ReserveHandler) List(c *gin.Context) {
 	}
 	params.Limit, params.Offset = defaultLimitOffset(params.Limit, params.Offset)
 
-	// Admin bo'lmagan xodim faqat o'z do'koni hujjatlarini ko'radi.
-	if !helper.IsAdmin(user) && user.StoreId != "" {
-		params.StoreId = user.StoreId
+	// Admin bo'lmagan xodim faqat o'z do'koni / kompaniyasi hujjatlarini ko'radi.
+	if !helper.IsAdmin(user) {
+		if user.StoreId != "" {
+			params.StoreId = user.StoreId
+		}
+		params.CompanyId = user.CompanyId
 	}
-	// Bir nechta do'konga biriktirilgan xodim (ROP) ruxsatidan tashqari do'konni so'rasa — bo'sh javob.
-	if len(user.StoreIds) > 0 && params.StoreId != "" && !utils.In(params.StoreId, user.StoreIds...) {
-		handleResponse(c, OK, utils.ListResponse([]domain.Reserve{}, 0, params.Limit, params.Offset))
-		return
+
+	// Bir nechta do'konga biriktirilgan xodim (ROP) faqat ruxsat berilgan do'konlarni ko'radi.
+	if len(user.StoreIds) > 0 {
+		params.CompanyId = ""
+		switch {
+		case params.StoreId != "":
+			if !utils.In(params.StoreId, user.StoreIds...) {
+				handleResponse(c, OK, utils.ListResponse([]domain.Reserve{}, 0, params.Limit, params.Offset))
+				return
+			}
+			params.StoreIds = nil
+		case len(params.StoreIds) > 0:
+			allowed := make([]string, 0, len(params.StoreIds))
+			for _, id := range params.StoreIds {
+				if utils.In(id, user.StoreIds...) {
+					allowed = append(allowed, id)
+				}
+			}
+			if len(allowed) == 0 {
+				handleResponse(c, OK, utils.ListResponse([]domain.Reserve{}, 0, params.Limit, params.Offset))
+				return
+			}
+			params.StoreIds = allowed
+		default:
+			params.StoreIds = user.StoreIds
+		}
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)

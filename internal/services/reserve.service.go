@@ -211,9 +211,16 @@ func (s *Services) GetReserves(
 	where := []string{"1 = 1"}
 	args := []any{}
 
-	if params.StoreId != "" {
+	if len(params.StoreIds) > 0 {
+		where = append(where, "r.store_id IN (?)")
+		args = append(args, params.StoreIds)
+	} else if params.StoreId != "" {
 		where = append(where, "r.store_id = ?")
 		args = append(args, params.StoreId)
+	}
+	if params.CompanyId != "" {
+		where = append(where, "EXISTS (SELECT 1 FROM stores cs WHERE cs.id = r.store_id AND cs.company_id = ?)")
+		args = append(args, params.CompanyId)
 	}
 	if params.Status != "" {
 		where = append(where, "r.status = ?")
