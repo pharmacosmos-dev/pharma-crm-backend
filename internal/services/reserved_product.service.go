@@ -302,10 +302,13 @@ func reservedProductListSQL(params *domain.ReservedProductQueryParams, openReser
 	where := []string{"1 = 1"}
 	args := []any{}
 
+	// is_active berilmasa faqat hozirgi 1C ro'yxatidagilar (is_active = true)
+	isActive := true
 	if params.IsActive != nil {
-		where = append(where, "rp.is_active = ?")
-		args = append(args, *params.IsActive)
+		isActive = *params.IsActive
 	}
+	where = append(where, "rp.is_active = ?")
+	args = append(args, isActive)
 	if params.Search != "" {
 		where = append(where, "(rp.name ILIKE ? OR rp.material_code ILIKE ?)")
 		args = append(args, "%"+params.Search+"%", "%"+params.Search+"%")

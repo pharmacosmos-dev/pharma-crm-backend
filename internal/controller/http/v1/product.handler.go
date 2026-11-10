@@ -4738,7 +4738,7 @@ func (h *ProductHandler) PublicList(c *gin.Context) {
 // @Description 1C yuborgan rezerv mahsulotlar ro'yxati, default ORDER BY sort_index ASC (1C tartibi);
 // @Description top_selling=true bo'lsa sold_amount_15d DESC (eng ko'p pul keltirgan birinchi:
 // @Description sotilgan pachka × oxirgi importdagi retail_price_vat), teng bo'lsa sort_index ASC.
-// @Description is_active berilmasa aktiv va deaktiv qatorlar birga qaytadi.
+// @Description is_active berilmasa faqat aktiv (is_active = true) qatorlar qaytadi.
 // @Description Ro'yxatga do'konning ochiq rezerv hujjatiga kiritilgan, lekin 1C ro'yxatida yo'q
 // @Description mahsulotlar ham qo'shiladi — ular source="manual" va sort_index=0 bilan boshida turadi (top_selling=true da sold_amount_15d=0 bo'lgani uchun oxirida).
 // @Description Har qatorda product_id, unit_per_pack, do'kondagi qoldiq (available_quantity),
