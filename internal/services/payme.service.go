@@ -140,7 +140,8 @@ func (s *Services) PayReceipt(
 	payErr := s.PaymePayReceiptRequest(ctx, &response, s.cfg.PaymeApiUrl, jsonBytes, token)
 	if payErr != nil {
 		s.log.Errorf("could not send pay receipt request: %v", payErr)
-		return s.checkReceiptAfterPayFailure(ctx, data.Id, sale, token, payErr)
+		// Javob umuman kelmadi (tarmoq/timeout): natija noma'lum, holat tekshiriladi
+		return s.checkReceiptAfterPayFailure(ctx, data.Id, sale, token, payErr, false)
 	}
 	defer utils.Close(response.Body, s.log)
 
@@ -152,7 +153,9 @@ func (s *Services) PayReceipt(
 		if isPaymeBusinessError(err) {
 			return result.Result, err
 		}
-		return s.checkReceiptAfterPayFailure(ctx, data.Id, sale, token, err)
+		// result.Error.Valid — Payme javob berdi va rad etdi (masalan -32999, -31260):
+		// chek state=0 bo'lsa bu yakuniy rad, pending emas
+		return s.checkReceiptAfterPayFailure(ctx, data.Id, sale, token, err, result.Error.Valid)
 	}
 
 	return result.Result, nil
@@ -171,12 +174,15 @@ func isPaymeBusinessError(err error) bool {
 	return false
 }
 
+// paymeRejected — receipts.pay ga Payme aniq `error` javob qaytargan (javob kelgan, u rad etgan).
+// false bo'lsa javob umuman kelmagan (tarmoq/timeout) va natija noma'lum.
 func (s *Services) checkReceiptAfterPayFailure(
 	ctx context.Context,
 	receiptId string,
 	sale domain.Sale,
 	token string,
 	originalErr error,
+	paymeRejected bool,
 ) (domain.ReceiptCreateResponseDto, error) {
 	var empty domain.ReceiptCreateResponseDto
 	s.log.Infof("receipts.pay failed for sale %s, checking via receipts.check", sale.Id)
@@ -196,8 +202,18 @@ func (s *Services) checkReceiptAfterPayFailure(
 		// payme tomonidan bekor qilindi — originalErr qaytariladi, tx rollback bo'ladi
 		s.log.Warnf("receipts.check: receipt cancelled for sale %s, state=%d", sale.Id, state)
 		return empty, originalErr
+	case constants.PaymeReceiptStateCreated:
+		if paymeRejected {
+			// Payme aniq rad etdi va chek hali to'lanmagan (state=0): bu yakuniy xato,
+			// hech narsa jarayonda emas — Payme xabari qaytadi (424), kassir to'lov turini
+			// almashtira oladi. Tarmoq xatosida esa (paymeRejected=false) pending qoladi.
+			s.log.Warnf("receipts.check: receipt not paid after payme rejection for sale %s, returning error: %v", sale.Id, originalErr)
+			return empty, originalErr
+		}
+		s.log.Warnf("receipts.check: receipt still processing for sale %s, state=%d, marking as pending", sale.Id, state)
+		return empty, domain.PaymePendingError
 	default:
-		// state 0,1,2,3,5... — hali jarayonda, pending sifatida saqlash
+		// state 1,2,3,5... — hali jarayonda (hold bo'lishi mumkin), pending sifatida saqlash
 		s.log.Warnf("receipts.check: receipt still processing for sale %s, state=%d, marking as pending", sale.Id, state)
 		return empty, domain.PaymePendingError
 	}
@@ -399,9 +415,12 @@ func DecodePaymeResponse[T any](r io.Reader) (domain.PaymeResponseWrapper[T], []
 	}
 
 	if result.Error.Valid {
-		error := fmt.Errorf(
-			"payme error: %d, message: %s",
-			result.Error.Value.Code, result.Error.Value.Message,
+		// Ro'yxatda yo'q Payme xatolari (masalan -32999 "Сервис EPOS временно недоступен",
+		// -31260 "ИНН не предоставлен") 424 bilan, Payme xabari o'zgarmagan holda qaytadi —
+		// kassir aniq sababni ko'radi (avval 500 yoki 202 pending bo'lib ketar edi).
+		paymeErr := domain.NewError(
+			http.StatusFailedDependency,
+			fmt.Sprintf("%s (payme %d)", result.Error.Value.Message, result.Error.Value.Code),
 		)
 
 		// Convert payme errors to out own
@@ -419,7 +438,7 @@ func DecodePaymeResponse[T any](r io.Reader) (domain.PaymeResponseWrapper[T], []
 		case constants.PaymeInsufficientFundsErrorCode:
 			return result, response, domain.InsufficientFunds
 		default:
-			return result, response, error
+			return result, response, paymeErr
 		}
 	}
 

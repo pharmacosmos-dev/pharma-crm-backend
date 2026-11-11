@@ -636,7 +636,12 @@ func (s *Services) FinalizeSale(ctx context.Context, req *domain.FinalSale) (*do
 			updates["total_amount"] = gorm.Expr("(SELECT COALESCE(SUM(total_price) - SUM(discount_amount), 0) FROM cart_items WHERE sale_id = ?)", req.SaleId)
 			updates["total_discount"] = gorm.Expr("(SELECT COALESCE(SUM(discount_amount), 0) FROM cart_items WHERE sale_id = ?)", req.SaleId)
 			updates["return_amount"] = req.ReturnAmount
-			updates["stage"] = constants.SaleStageOfdWaiting
+			// Chek soliqqa allaqachon yuborilgan (stage=6, onlayn to'lov o'tmagan) bo'lsa,
+			// to'lov turini almashtirib qayta finalize qilishda stage pasaytirilmaydi —
+			// aks holda frontend chekni soliqqa ikkinchi marta yuboradi.
+			if sale.Stage != constants.SaleStageOfdSent {
+				updates["stage"] = constants.SaleStageOfdWaiting
+			}
 			updates["updated_at"] = time.Now()
 			updates["is_corporate"] = req.IsCorporate
 
@@ -888,7 +893,9 @@ func (s *Services) EposResult(ctx context.Context, req *domain.EposResponseReque
 	}
 
 	isOnlineOrder := sale.ServiceType == constants.ServiceTypeUzum || sale.ServiceType == constants.ServiceTypeNoor
-	if sale.Stage < constants.SaleStageFinished && fiscal.FiscalSign == "" && !isOnlineOrder {
+	// So'rovdagi fiskal belgi faqat chek hali soliqqa yuborilmagan (stage < 6) bo'lsa majburiy.
+	// Stage >= 6 da fiskal ma'lumot epos_responses dan olinadi (pastdagi else tarmog'i).
+	if sale.Stage < constants.SaleStageOfdSent && fiscal.FiscalSign == "" && !isOnlineOrder {
 		_ = tx.Rollback()
 		return nil, domain.FiscalSignRequiredError
 	}
@@ -912,6 +919,11 @@ func (s *Services) EposResult(ctx context.Context, req *domain.EposResponseReque
 	}
 
 	updates := map[string]any{}
+
+	// Shu so'rovda soliqqa yuborilgan deb belgilangan maydonlar (stage=6, fiscal_sign, ...).
+	// Onlayn to'lov xato bersa tranzaksiya rollback bo'ladi, lekin chek soliqqa allaqachon
+	// ketgan — shu maydonlar alohida saqlanadi, qayta urinishda chek ikkinchi marta ketmaydi.
+	var ofdSentUpdates map[string]any
 
 	if sale.Stage < constants.SaleStageOfdSent {
 		req.Status = 1
@@ -938,13 +950,20 @@ func (s *Services) EposResult(ctx context.Context, req *domain.EposResponseReque
 		sale.Stage = constants.SaleStageOfdSent
 
 		// Clear updates for next stages
+		ofdSentUpdates = updates
 		updates = map[string]any{}
 
 	} else {
+		// Chek soliqqa allaqachon yuborilgan (oldingi urinishda onlayn to'lov o'tmagan):
+		// frontend EPOS javobini qayta yubormaydi, fiskal ma'lumot epos_responses dan olinadi.
 		fiscal, err = s.getFiscalDataBySaleId(ctx, sale.Id)
 		if err != nil {
 			_ = tx.Rollback()
 			return nil, err
+		}
+		if fiscal.FiscalSign == "" && !isOnlineOrder {
+			_ = tx.Rollback()
+			return nil, domain.FiscalSignRequiredError
 		}
 	}
 
@@ -955,6 +974,14 @@ func (s *Services) EposResult(ctx context.Context, req *domain.EposResponseReque
 		err = s.Payment(payCtx, tx, sale, &fiscal)
 		if err != nil {
 			_ = tx.Rollback()
+			// Onlayn to'lov (Payme/Click/Alif) o'tmadi, lekin chek soliqqa yuborilgan:
+			// stage=6 va fiskal ma'lumotni tranzaksiyadan tashqarida saqlab qo'yamiz.
+			// Frontend to'lov turini almashtirib qayta yuborganda EPOS'ga bormaydi.
+			if ofdSentUpdates != nil {
+				if saveErr := s.updateSaleFields(ctx, s.db, sale.Id, ofdSentUpdates); saveErr != nil {
+					s.log.Errorf("could not persist ofd_sent stage after payment failure for sale %s: %v", sale.Id, saveErr)
+				}
+			}
 			return nil, err
 		}
 		updates["stage"] = constants.SaleStagePayFinished
@@ -3215,10 +3242,28 @@ func (s *Services) DecodeFiscalData(reqJsonStr string) (domain.FiscalData, error
 	return fiscal, nil
 }
 
+// getFiscalDataBySaleId soliqqa allaqachon yuborilgan sale uchun fiskal ma'lumotni
+// epos_responses dagi oxirgi muvaffaqiyatli (status=1) javobdan qayta tiklaydi.
+// Yozuv topilmasa bo'sh FiscalData qaytadi (xato emas) — chaqiruvchi o'zi tekshiradi.
 func (s *Services) getFiscalDataBySaleId(ctx context.Context, saleId string) (domain.FiscalData, error) {
 	var res domain.FiscalData
+	var epos domain.EposResponse
 
-	return res, nil
+	err := s.db.WithContext(ctx).Raw(`
+		SELECT response
+		FROM epos_responses
+		WHERE sale_id = ? AND status = 1
+		ORDER BY created_at DESC
+		LIMIT 1`, saleId).Scan(&epos).Error
+	if err != nil {
+		s.log.Errorf("could not get epos response for sale %s: %v", saleId, err)
+		return res, domain.InternalServerError
+	}
+	if epos.Response == "" {
+		return res, nil
+	}
+
+	return s.DecodeFiscalData(epos.Response)
 }
 
 func (s *Services) getSalePayAmounts(sale *domain.Sale, req *domain.FinalSale) *domain.Sale {

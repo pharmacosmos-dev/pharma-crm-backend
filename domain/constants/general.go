@@ -350,6 +350,7 @@ const (
 )
 
 const (
+	PaymeReceiptStateCreated   = 0  // Чек создан, не оплачен
 	PaymeReceiptStatePaid      = 4  // Чек оплачен
 	PaymeReceiptStateCancelled = 50 // Чек отменен
 )
