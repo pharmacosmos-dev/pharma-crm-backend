@@ -200,12 +200,16 @@ func mapErrorCodeToStatus(code int) Status {
 		return BadRequest
 	case 401:
 		return UNAUTHORIZED
+	case 402:
+		return PaymentRequired
 	case 403:
 		return FORBIDDEN
 	case 404:
 		return NotFound
 	case 406:
 		return NotAcceptable
+	case 408:
+		return RequestTimeout
 	case 409:
 		return CONFLICT
 	case 422:

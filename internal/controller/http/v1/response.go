@@ -97,6 +97,16 @@ var (
 		Status:      "ERROR",
 		Description: "The request conflicts with the current state of the server, such as edit conflicts in a database.",
 	}
+	PaymentRequired = Status{
+		Code:        402,
+		Status:      "PAYMENT_REQUIRED",
+		Description: "The payment was declined by the payment provider.",
+	}
+	RequestTimeout = Status{
+		Code:        408,
+		Status:      "REQUEST_TIMEOUT",
+		Description: "The request timed out before it could be completed.",
+	}
 	UnprocessableEntity = Status{
 		Code:        422,
 		Status:      "UNPROCESSABLE_ENTITY",

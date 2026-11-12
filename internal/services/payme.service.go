@@ -150,7 +150,7 @@ func (s *Services) PayReceipt(
 	_ = s.updatePaymeRequestInDb(ctx, payload.Id, bytes, constants.ActionPayReceipt)
 	if err != nil {
 		s.log.Errorf("could not decode pay receipt response: %v", err)
-		if isPaymeBusinessError(err) {
+		if result.Error.Valid && isPaymeBusinessErrorCode(result.Error.Value.Code) {
 			return result.Result, err
 		}
 		// result.Error.Valid — Payme javob berdi va rad etdi (masalan -32999, -31260):
@@ -161,17 +161,54 @@ func (s *Services) PayReceipt(
 	return result.Result, nil
 }
 
-func isPaymeBusinessError(err error) bool {
-	switch err {
-	case domain.IncorrectOTPError,
-		domain.OTPExpiredError,
-		domain.CardNotFoundError,
-		domain.IncorrectCardExpiryDateError,
-		domain.InsufficientFunds,
-		domain.PaymeNotOperationalError:
-		return true
+// isPaymeBusinessErrorCode — Payme'ning aniq biznes rad etishlari (OTP, karta, mablag',
+// servis ishlamayapti): chek to'lanmagani aniq, receipts.check shart emas.
+func isPaymeBusinessErrorCode(code int) bool {
+	return paymeKnownError(code) != nil
+}
+
+// paymeKnownError tanilgan Payme kodlarini mavjud domain xatolariga xaritalaydi.
+// Faqat HTTP kodi va zaxira xabar uchun ishlatiladi — javobga Payme'ning o'z xabari chiqadi.
+func paymeKnownError(code int) *domain.Error {
+	switch code {
+	case constants.PaymeServerNotOperationalErrorCode, constants.PaymeTemporarilyUnavailableErrorCode:
+		return domain.PaymeNotOperationalError
+	case constants.PaymeIncorrectOTPError:
+		return domain.IncorrectOTPError
+	case constants.PaymeCardNotFoundError:
+		return domain.CardNotFoundError
+	case constants.PaymeInvalidExpiryDateErrorCode:
+		return domain.IncorrectCardExpiryDateError
+	case constants.PaymeOTPExpiredErrorCode:
+		return domain.OTPExpiredError
+	case constants.PaymeInsufficientFundsErrorCode:
+		return domain.InsufficientFunds
+	default:
+		return nil
 	}
-	return false
+}
+
+// paymeErrorToDomain Payme JSON-RPC xatosini domain xatosiga aylantiradi.
+// HTTP kodi tanilgan xato turidan olinadi (402 mablag' yetmaydi, 400 noto'g'ri OTP, 408 OTP
+// muddati o'tgan, ...), notanish kodlar uchun 424. Xabar esa Payme'niki o'zgarmagan holda
+// qaytadi — kassir aniq sababni ko'radi ("Недостаточно денег на карте (payme -31630)"),
+// kalit so'z ("insufficient.funds") emas. Payme xabar bermasa tanilgan xatoning kaliti qoladi.
+func paymeErrorToDomain(code int, message string) *domain.Error {
+	base := paymeKnownError(code)
+
+	httpCode := http.StatusFailedDependency
+	if base != nil {
+		httpCode = base.Code
+	}
+	if message == "" {
+		if base != nil {
+			message = base.Message
+		} else {
+			message = "payme error"
+		}
+	}
+
+	return domain.NewError(httpCode, fmt.Sprintf("%s (payme %d)", message, code))
 }
 
 // paymeRejected — receipts.pay ga Payme aniq `error` javob qaytargan (javob kelgan, u rad etgan).
@@ -415,31 +452,31 @@ func DecodePaymeResponse[T any](r io.Reader) (domain.PaymeResponseWrapper[T], []
 	}
 
 	if result.Error.Valid {
-		// Ro'yxatda yo'q Payme xatolari (masalan -32999 "Сервис EPOS временно недоступен",
-		// -31260 "ИНН не предоставлен") 424 bilan, Payme xabari o'zgarmagan holda qaytadi —
-		// kassir aniq sababni ko'radi (avval 500 yoki 202 pending bo'lib ketar edi).
-		paymeErr := domain.NewError(
-			http.StatusFailedDependency,
-			fmt.Sprintf("%s (payme %d)", result.Error.Value.Message, result.Error.Value.Code),
-		)
+		// paymeErr := domain.NewError(
+		// 	http.StatusFailedDependency,
+		// 	fmt.Sprintf("%s (payme %d)", result.Error.Value.Message, result.Error.Value.Code),
+		// )
 
-		// Convert payme errors to out own
-		switch result.Error.Value.Code {
-		case constants.PaymeServerNotOperationalErrorCode, constants.PaymeTemporarilyUnavailableErrorCode:
-			return result, response, domain.PaymeNotOperationalError
-		case constants.PaymeIncorrectOTPError:
-			return result, response, domain.IncorrectOTPError
-		case constants.PaymeCardNotFoundError:
-			return result, response, domain.CardNotFoundError
-		case constants.PaymeInvalidExpiryDateErrorCode:
-			return result, response, domain.IncorrectCardExpiryDateError
-		case constants.PaymeOTPExpiredErrorCode:
-			return result, response, domain.OTPExpiredError
-		case constants.PaymeInsufficientFundsErrorCode:
-			return result, response, domain.InsufficientFunds
-		default:
-			return result, response, paymeErr
-		}
+		// // Convert payme errors to out own
+		// switch result.Error.Value.Code {
+		// case constants.PaymeServerNotOperationalErrorCode, constants.PaymeTemporarilyUnavailableErrorCode:
+		// 	return result, response, domain.PaymeNotOperationalError
+		// case constants.PaymeIncorrectOTPError:
+		// 	return result, response, domain.IncorrectOTPError
+		// case constants.PaymeCardNotFoundError:
+		// 	return result, response, domain.CardNotFoundError
+		// case constants.PaymeInvalidExpiryDateErrorCode:
+		// 	return result, response, domain.IncorrectCardExpiryDateError
+		// case constants.PaymeOTPExpiredErrorCode:
+		// 	return result, response, domain.OTPExpiredError
+		// case constants.PaymeInsufficientFundsErrorCode:
+		// 	return result, response, domain.InsufficientFunds
+		// default:
+		// 	return result, response, paymeErr
+		// }
+		
+		// Payme xatosi: HTTP kodi tanilgan turga qarab, xabar Payme'niki (paymeErrorToDomain).
+		return result, response, paymeErrorToDomain(result.Error.Value.Code, result.Error.Value.Message)
 	}
 
 	return result, response, nil
