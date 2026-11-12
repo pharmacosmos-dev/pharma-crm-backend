@@ -12951,6 +12951,184 @@ paths:
       summary: Send Inventory
       tags:
       - Inventory
+  /liki/category/list:
+    get:
+      consumes:
+      - application/json
+      description: Get a category list for filter
+      parameters:
+      - description: Limit
+        in: query
+        name: limit
+        type: integer
+      - description: Offset
+        in: query
+        name: offset
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/domain.NoorCategory'
+            type: array
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.IntegrationErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.IntegrationErrorResponse'
+      security:
+      - BasicAuth: []
+      summary: Get a category list for filter
+      tags:
+      - Liki API
+  /liki/product/list:
+    get:
+      consumes:
+      - application/json
+      description: List Products
+      parameters:
+      - description: Limit
+        in: query
+        name: limit
+        type: integer
+      - description: Offset
+        in: query
+        name: offset
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/domain.NoorProduct'
+            type: array
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.IntegrationErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.IntegrationErrorResponse'
+      security:
+      - BasicAuth: []
+      summary: List Products
+      tags:
+      - Liki API
+  /liki/store-product/list:
+    get:
+      consumes:
+      - application/json
+      description: List Store Products
+      parameters:
+      - description: Shop ID
+        in: query
+        name: shopId
+        type: string
+      - description: Limit
+        in: query
+        name: limit
+        type: integer
+      - description: Offset
+        in: query
+        name: offset
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/domain.NoorStoreProduct'
+            type: array
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.IntegrationErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.IntegrationErrorResponse'
+      security:
+      - BasicAuth: []
+      summary: List Store Products
+      tags:
+      - Liki API
+  /liki/store-product/quantity:
+    get:
+      consumes:
+      - application/json
+      description: |-
+        Berilgan do'kondagi berilgan mahsulotlarning qoldig'i, qadoqda (uzum availability bilan bir xil).
+        Har bir mahsulotdan faqat eng katta partiya olinadi: buyurtma ham bitta partiyadan yoziladi.
+        shop_id va product_ids body'da yuboriladi (eski store_id kaliti ham qabul qilinadi).
+        Javob har doim massiv. Qoldiq tugagan bo'lsa ham qatori qaytadi, quantity: 0 bilan.
+        price online_products_price'dan olinadi. Narxi kiritilmagan mahsulot javobga tushmaydi.
+      parameters:
+      - description: shop_id va product_ids (ko'pi bilan 500 ta)
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/domain.NoorStoreProductQuantityRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/domain.NoorStoreProductQuantity'
+            type: array
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.IntegrationErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.IntegrationErrorResponse'
+      security:
+      - BasicAuth: []
+      summary: Get product quantities in a store
+      tags:
+      - Liki API
+  /liki/store/list:
+    get:
+      consumes:
+      - application/json
+      description: List Store Products
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/domain.NoorStore'
+            type: array
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.IntegrationErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.IntegrationErrorResponse'
+      security:
+      - BasicAuth: []
+      summary: List Store Products
+      tags:
+      - Liki API
   /login:
     post:
       consumes:

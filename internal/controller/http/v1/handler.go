@@ -133,6 +133,7 @@ func (h *Handler) InitRoutes(r *gin.Engine) {
 		h.NewMarkingUnitSaleHandler(v1)
 		// handler for external apis
 		h.NewNoorHandler(external)
+		h.NewLikiHandler(external)
 		// handler for partner catalog apis
 		h.NewPartnerApiHandler(partnerApi)
 		// handler for partner auth apis
