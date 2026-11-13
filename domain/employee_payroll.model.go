@@ -350,13 +350,17 @@ type EmployeePayrollRow struct {
 	AdvanceCardAmount float64 `json:"advance_card_amount"`
 	AdvanceCashAmount float64 `json:"advance_cash_amount"`
 
-	// DeductionRecountAmount — ro'yxatda employee_payrolls ustunidan EMAS,
+	// Deduction*Amount — ro'yxatda employee_payrolls ustunlaridan EMAS,
 	// deduction_installments'dan jonli olinadi: xodim + do'kon bo'yicha shu
-	// oyga tushgan RECOUNT to'lovlari yig'indisi (to'langan va to'lanmagan).
-	// Qolgan ikkitasi avvalgidek payroll qatoridan.
+	// oyga tushgan to'lovlar yig'indisi, tur bo'yicha (TERM/RECOUNT/FINE),
+	// to'langan va to'lanmagan birga.
 	DeductionTermAmount    float64 `json:"deduction_term_amount"`
 	DeductionRecountAmount float64 `json:"deduction_recount_amount"`
 	DeductionFineAmount    float64 `json:"deduction_fine_amount"`
+	// DeductionIsPaid — shu oydagi BARCHA ushlab qolish to'lovlari to'langanmi
+	// (deduction_installments.is_paid bo'yicha bool_and). To'lov yo'q bo'lsa
+	// false. Bazada bunday ustun yo'q, faqat javobda hisoblanadi.
+	DeductionIsPaid bool `json:"deduction_is_paid"`
 
 	NetPayAmount float64 `json:"net_pay_amount"`
 

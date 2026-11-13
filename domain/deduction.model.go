@@ -11,9 +11,9 @@ import "time"
 //	DeductionDetail — xodim bo'yicha aniq summa
 //
 // employee_payrolls bilan bog'liqlik faqat O'QISHDA: oylik ro'yxati
-// deduction_recount_amount'ni deduction_installments'dan jonli oladi (qarang:
-// payrollRecountInstallmentsSQL). Payroll qatoriga hech narsa yozilmaydi,
-// cron bu jadvallarga tegmaydi.
+// deduction_*_amount va deduction_is_paid'ni deduction_installments'dan jonli
+// oladi (qarang: payrollDeductionInstallmentsSQL). Payroll qatoriga hech narsa
+// yozilmaydi, cron bu jadvallarga tegmaydi.
 
 // region Types
 

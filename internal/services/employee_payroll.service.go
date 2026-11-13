@@ -1522,13 +1522,14 @@ ON CONFLICT (employee_id, year, month) DO UPDATE SET
 
 // employeePayrollsSelectQuery — hisobotni employee_payrolls'dan o'qiydi.
 // Deyarli hamma narsa qatorning o'zida snapshot qilingan; ikkita istisno
-// JONLI olinadi: role_type employees'dan, deduction_recount_amount esa
-// deduction_installments'dan (qarang: payrollRecountInstallmentsSQL).
+// JONLI olinadi: role_type employees'dan, deduction_*_amount va
+// deduction_is_paid esa deduction_installments'dan (qarang:
+// payrollDeductionInstallmentsSQL).
 //
 // Nega snapshot emas: role_type management ekranidan tahrirlanadi
 // (PUT /employee/payroll/{id}/management) va faqat employees'ga yoziladi.
 // Snapshot bo'lganida tahrirdan keyin cron ishlagunicha hisobotda eski qiymat
-// turgan bo'lardi. Pereuchyot qarzi ham shunday: u deduction_* jadvallarida
+// turgan bo'lardi. Ushlab qolishlar ham shunday: ular deduction_* jadvallarida
 // yuritiladi va payroll qatoriga yozilmaydi.
 //
 // Filtrlar ixtiyoriy — NULL berilsa o'sha shart tekshirilmaydi.
@@ -1546,40 +1547,51 @@ SELECT
     p.kpi_amount, COALESCE(e.kpi_bez_nds, FALSE) AS kpi_bez_nds,
     p.bonus_amount, p.gross_salary_amount,
     p.advance_card_amount, p.advance_cash_amount,
-    p.deduction_term_amount,
-    COALESCE(r.amount, 0) AS deduction_recount_amount,
-    p.deduction_fine_amount,
+    COALESCE(r.term_amount, 0)    AS deduction_term_amount,
+    COALESCE(r.recount_amount, 0) AS deduction_recount_amount,
+    COALESCE(r.fine_amount, 0)    AS deduction_fine_amount,
+    COALESCE(r.is_paid, FALSE)    AS deduction_is_paid,
     p.net_pay_amount, p.status, p.year, p.month, p.completed_at, p.calculated_at,
     COUNT(*) OVER () AS total_count
 FROM employee_payrolls p
-LEFT JOIN employees e ON e.id = p.employee_id` + payrollRecountInstallmentsSQL + payrollSelectFilterSQL + `
+LEFT JOIN employees e ON e.id = p.employee_id` + payrollDeductionInstallmentsSQL + payrollSelectFilterSQL + `
 ORDER BY p.store_name, p.full_name
 LIMIT NULLIF(@limit, 0) OFFSET @offset`
 
-// payrollRecountInstallmentsSQL — pereuchyot (RECOUNT) qarzining so'ralgan oyga
+// payrollDeductionInstallmentsSQL — ushlab qolish qarzlarining so'ralgan oyga
 // to'g'ri keladigan to'lovlari, xodim + do'kon bo'yicha yig'ilgan
 // (p = employee_payrolls).
 //
-// Bir xodimda bir oyda bir necha to'lov bo'lishi mumkin (ikki alohida qarz),
-// shuning uchun avval GROUP BY bilan yig'iladi, keyin JOIN qilinadi — aks
-// holda payroll qatori ko'payib ketardi. Mos to'lov yo'q bo'lsa NULL, SELECT'da
-// 0 ga tushiriladi.
+// Hamma tur kiradi, har biri o'z ustuniga tushadi: TERM → term_amount,
+// RECOUNT → recount_amount, FINE → fine_amount. Keyin qo'shilgan boshqa tur
+// (masalan SHORTAGE) hech qaysi summaga kirmaydi — payroll qatorida unga
+// ustun yo'q — lekin is_paid'ga ta'sir qiladi.
 //
-// is_paid bo'yicha filtr YO'Q: to'langan ham, to'lanmagan ham kiradi — ro'yxat
-// "shu oyda qancha ushlab qolinadi"ni ko'rsatadi, to'lov holatini emas.
+// Bir xodimda bir oyda bir necha to'lov bo'lishi mumkin (ikki alohida qarz,
+// yoki shtraf + pereuchyot), shuning uchun avval GROUP BY bilan yig'iladi,
+// keyin JOIN qilinadi — aks holda payroll qatori ko'payib ketardi. Mos to'lov
+// yo'q bo'lsa NULL, SELECT'da summalar 0 ga, is_paid FALSE ga tushiriladi.
+//
+// Summalarda is_paid bo'yicha filtr YO'Q: to'langan ham, to'lanmagan ham
+// kiradi — ro'yxat "shu oyda qancha ushlab qolinadi"ni ko'rsatadi. is_paid esa
+// bool_and: shu oydagi BARCHA to'lovlar to'langandagina true. Bitta qarz
+// to'langan, ikkinchisi to'lanmagan bo'lsa false.
 //
 // Bu faqat O'QISH tomoni. Cron (payrollUpsertQuery), avans yangilash va
-// net_pay_amount avvalgidek employee_payrolls.deduction_recount_amount
-// ustuniga tayanadi va shu yerdagi summani hisobga olmaydi.
-const payrollRecountInstallmentsSQL = `
+// net_pay_amount avvalgidek employee_payrolls.deduction_*_amount ustunlariga
+// tayanadi va shu yerdagi summalarni hisobga olmaydi.
+const payrollDeductionInstallmentsSQL = `
 LEFT JOIN (
-    SELECT i.employee_id, i.store_id, SUM(i.amount) AS amount
+    SELECT i.employee_id, i.store_id,
+           SUM(i.amount) FILTER (WHERE dt.code = '` + domain.DeductionCodeTerm + `')    AS term_amount,
+           SUM(i.amount) FILTER (WHERE dt.code = '` + domain.DeductionCodeRecount + `') AS recount_amount,
+           SUM(i.amount) FILTER (WHERE dt.code = '` + domain.DeductionCodeFine + `')    AS fine_amount,
+           bool_and(i.is_paid) AS is_paid
     FROM deduction_installments i
     JOIN deduction_details dd ON dd.id = i.deduction_detail_id
     JOIN deduction_types  dt ON dt.id = dd.deduction_type_id
     WHERE i.year  = @year
       AND i.month = @month
-      AND dt.code = '` + domain.DeductionCodeRecount + `'
     GROUP BY i.employee_id, i.store_id
 ) r ON r.employee_id = p.employee_id AND r.store_id = p.store_id`
 
