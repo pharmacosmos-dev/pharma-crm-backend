@@ -1521,13 +1521,15 @@ ON CONFLICT (employee_id, year, month) DO UPDATE SET
     updated_at               = NOW()`
 
 // employeePayrollsSelectQuery — hisobotni employee_payrolls'dan o'qiydi.
-// Deyarli hamma narsa qatorning o'zida snapshot qilingan; yagona istisno —
-// role_type, u employees'dan JONLI olinadi.
+// Deyarli hamma narsa qatorning o'zida snapshot qilingan; ikkita istisno
+// JONLI olinadi: role_type employees'dan, deduction_recount_amount esa
+// deduction_installments'dan (qarang: payrollRecountInstallmentsSQL).
 //
 // Nega snapshot emas: role_type management ekranidan tahrirlanadi
 // (PUT /employee/payroll/{id}/management) va faqat employees'ga yoziladi.
 // Snapshot bo'lganida tahrirdan keyin cron ishlagunicha hisobotda eski qiymat
-// turgan bo'lardi.
+// turgan bo'lardi. Pereuchyot qarzi ham shunday: u deduction_* jadvallarida
+// yuritiladi va payroll qatoriga yozilmaydi.
 //
 // Filtrlar ixtiyoriy — NULL berilsa o'sha shart tekshirilmaydi.
 const employeePayrollsSelectQuery = `
@@ -1544,13 +1546,42 @@ SELECT
     p.kpi_amount, COALESCE(e.kpi_bez_nds, FALSE) AS kpi_bez_nds,
     p.bonus_amount, p.gross_salary_amount,
     p.advance_card_amount, p.advance_cash_amount,
-    p.deduction_term_amount, p.deduction_recount_amount, p.deduction_fine_amount,
+    p.deduction_term_amount,
+    COALESCE(r.amount, 0) AS deduction_recount_amount,
+    p.deduction_fine_amount,
     p.net_pay_amount, p.status, p.year, p.month, p.completed_at, p.calculated_at,
     COUNT(*) OVER () AS total_count
 FROM employee_payrolls p
-LEFT JOIN employees e ON e.id = p.employee_id` + payrollSelectFilterSQL + `
+LEFT JOIN employees e ON e.id = p.employee_id` + payrollRecountInstallmentsSQL + payrollSelectFilterSQL + `
 ORDER BY p.store_name, p.full_name
 LIMIT NULLIF(@limit, 0) OFFSET @offset`
+
+// payrollRecountInstallmentsSQL — pereuchyot (RECOUNT) qarzining so'ralgan oyga
+// to'g'ri keladigan to'lovlari, xodim + do'kon bo'yicha yig'ilgan
+// (p = employee_payrolls).
+//
+// Bir xodimda bir oyda bir necha to'lov bo'lishi mumkin (ikki alohida qarz),
+// shuning uchun avval GROUP BY bilan yig'iladi, keyin JOIN qilinadi — aks
+// holda payroll qatori ko'payib ketardi. Mos to'lov yo'q bo'lsa NULL, SELECT'da
+// 0 ga tushiriladi.
+//
+// is_paid bo'yicha filtr YO'Q: to'langan ham, to'lanmagan ham kiradi — ro'yxat
+// "shu oyda qancha ushlab qolinadi"ni ko'rsatadi, to'lov holatini emas.
+//
+// Bu faqat O'QISH tomoni. Cron (payrollUpsertQuery), avans yangilash va
+// net_pay_amount avvalgidek employee_payrolls.deduction_recount_amount
+// ustuniga tayanadi va shu yerdagi summani hisobga olmaydi.
+const payrollRecountInstallmentsSQL = `
+LEFT JOIN (
+    SELECT i.employee_id, i.store_id, SUM(i.amount) AS amount
+    FROM deduction_installments i
+    JOIN deduction_details dd ON dd.id = i.deduction_detail_id
+    JOIN deduction_types  dt ON dt.id = dd.deduction_type_id
+    WHERE i.year  = @year
+      AND i.month = @month
+      AND dt.code = '` + domain.DeductionCodeRecount + `'
+    GROUP BY i.employee_id, i.store_id
+) r ON r.employee_id = p.employee_id AND r.store_id = p.store_id`
 
 // payrollSelectFilterSQL — hisobotning WHERE bo'lagi. Ro'yxat ham, statistika
 // ham AYNAN shu shartdan foydalanadi: aks holda ekrandagi qatorlar bilan
