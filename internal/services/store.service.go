@@ -65,6 +65,7 @@ func (s *Services) GetStores(ctx context.Context, params *domain.StoreQueryParam
 			"name",
 			"detailed_name",
 			"stores.short_name",
+			"ofd_type",
 			"stores.company_id",
 			"phone",
 			"contact",

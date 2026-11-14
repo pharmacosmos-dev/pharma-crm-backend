@@ -42623,6 +42623,9 @@ const docTemplate = `{
                 "name": {
                     "type": "string"
                 },
+                "ofd_type": {
+                    "type": "string"
+                },
                 "phone": {
                     "type": "string"
                 },

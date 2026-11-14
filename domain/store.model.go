@@ -13,6 +13,7 @@ type Store struct {
 	Name               string         `gorm:"name" json:"name"`
 	DetailedName       string         `gorm:"detailed_name" json:"detailed_name"`
 	ShortName          string         `gorm:"short_name" json:"short_name"`
+	OfdType            string         `gorm:"ofd_type" json:"ofd_type"`
 	CompanyId          string         `gorm:"company_id" json:"company_id"`
 	Phone              string         `gorm:"phone" json:"phone"`
 	Contact            string         `gorm:"contact" json:"contact"`
@@ -36,6 +37,7 @@ type StoreDto struct {
 	Name               string         `gorm:"name" json:"name"`
 	DetailedName       string         `gorm:"detailed_name" json:"detailed_name"`
 	ShortName          string         `gorm:"short_name" json:"short_name"`
+	OfdType            string         `gorm:"ofd_type" json:"ofd_type"`
 	CompanyId          string         `gorm:"company_id" json:"company_id"`
 	Phone              string         `gorm:"phone" json:"phone"`
 	Contact            string         `gorm:"contact" json:"contact"`
@@ -63,6 +65,7 @@ type StoreRequest struct {
 	WorkHours     string         `gorm:"work_hours" json:"work_hours"`
 	DetailedName  string         `gorm:"detailed_name" json:"detailed_name"`
 	ShortName     string         `gorm:"short_name" json:"short_name"`
+	OfdType       string         `gorm:"ofd_type" json:"ofd_type"`
 	Address       string         `gorm:"address" json:"address"`
 	Inn           string         `gorm:"inn" json:"inn"`
 	EmployeeCount float64        `gorm:"employee_count" json:"employee_count"`
@@ -74,6 +77,7 @@ type StoreRequest struct {
 }
 
 // Store Update Request
+// OfdType pointer: nil bo'lsa (yuborilmasa) o'zgarmaydi, "" yuborilsa tozalanadi.
 type StoreUpdateRequest struct {
 	Id            string         `gorm:"id" json:"-"`
 	Name          string         `gorm:"name" json:"name"`
@@ -81,6 +85,7 @@ type StoreUpdateRequest struct {
 	WorkHours     string         `gorm:"work_hours" json:"work_hours"`
 	DetailedName  string         `gorm:"detailed_name" json:"detailed_name"`
 	ShortName     string         `gorm:"short_name" json:"short_name"`
+	OfdType       *string        `gorm:"ofd_type" json:"ofd_type"`
 	Address       string         `gorm:"address" json:"address"`
 	Inn           string         `gorm:"inn" json:"inn"`
 	EmployeeCount float64        `gorm:"employee_count" json:"employee_count"`
@@ -190,10 +195,10 @@ type StoreMapInfoDetail struct {
 }
 
 type StoreMapInfoEmployee struct {
-	Id         string     `json:"id"`
-	FullName   string     `json:"full_name"`
-	CheckInAt  *time.Time `json:"check_in_at,omitempty"`
-	CheckOutAt *time.Time `json:"check_out_at,omitempty"`
+	Id            string     `json:"id"`
+	FullName      string     `json:"full_name"`
+	CheckInAt     *time.Time `json:"check_in_at,omitempty"`
+	CheckOutAt    *time.Time `json:"check_out_at,omitempty"`
 	LastEventType string     `json:"last_event_type,omitempty"`
 	LastEventAt   *time.Time `json:"last_event_at,omitempty"`
 }
