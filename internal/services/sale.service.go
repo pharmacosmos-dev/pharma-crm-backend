@@ -68,6 +68,12 @@ func (s *Services) CreateReturnSale(ctx context.Context, req *domain.SaleReturnR
 		}
 	}()
 
+	// validation only: lock the parent sale and refuse a second return for it
+	if err := s.checkSaleReturnable(ctx, tx, req.SaleId); err != nil {
+		_ = tx.Rollback()
+		return nil, err
+	}
+
 	// build create sale query
 	query := `
 	INSERT INTO sales (
@@ -166,6 +172,52 @@ func (s *Services) CreateReturnSale(ctx context.Context, req *domain.SaleReturnR
 		return nil, domain.InternalServerError
 	}
 	return &sale, nil
+}
+
+// checkSaleReturnable is a validation step shared by CreateReturnSale and
+// FinalizeReturnSale. It locks the parent sale row (FOR UPDATE) until the
+// transaction ends and rejects the request when the sale is itself a RETURN, is
+// already marked is_returned, or already has a FINISHED RETURN child (stage 11).
+// Unfinished RETURN children (stage 1/5/10, attempts the cashier abandoned) do not
+// block: they are not visible in the pending list and cannot be deleted, so
+// blocking on them would make the sale impossible to return at all. Because of the
+// row lock two simultaneous requests run one after another, so the second one sees
+// the first one's result and fails instead of returning the stock twice.
+func (s *Services) checkSaleReturnable(ctx context.Context, tx *gorm.DB, saleId string) error {
+	var parent struct {
+		SaleType          string `gorm:"column:sale_type"`
+		IsReturned        bool   `gorm:"column:is_returned"`
+		HasFinishedReturn bool   `gorm:"column:has_finished_return"`
+	}
+
+	query := `
+	SELECT
+		s.sale_type,
+		COALESCE(s.is_returned, false) AS is_returned,
+		EXISTS (
+			SELECT 1 FROM sales r
+			WHERE r.parent_id = s.id AND r.sale_type = ? AND r.stage = ?
+		) AS has_finished_return
+	FROM sales s
+	WHERE s.id = ?
+	FOR UPDATE OF s`
+
+	res := tx.WithContext(ctx).Raw(query, constants.SaleTypeReturn, constants.SaleStageReturnedFinish, saleId).Scan(&parent)
+	if res.Error != nil {
+		s.log.Errorf("could not check sale %s before return: %v", saleId, res.Error)
+		return domain.InternalServerError
+	}
+	if res.RowsAffected == 0 {
+		return domain.NotFoundError
+	}
+	if parent.SaleType == constants.SaleTypeReturn {
+		return domain.ReturnSaleNotReturnableError
+	}
+	if parent.IsReturned || parent.HasFinishedReturn {
+		s.log.Warnf("sale %s is already returned, second return rejected", saleId)
+		return domain.SaleAlreadyReturnedError
+	}
+	return nil
 }
 
 func (s *Services) CreateNoorSale(ctx context.Context, req *domain.OnlineOrderRequest) (int, error) {
@@ -693,6 +745,13 @@ func (s *Services) FinalizeSale(ctx context.Context, req *domain.FinalSale) (*do
 }
 
 func (s *Services) FinalizeReturnSale(ctx context.Context, tx *gorm.DB, req *domain.FinalSale, sale *domain.Sale) (*domain.MarkingItemsResponse, error) {
+	// validation only: another RETURN of the same parent may have finished meanwhile
+	if sale.ParentId != "" {
+		if err := s.checkSaleReturnable(ctx, tx, sale.ParentId); err != nil {
+			return nil, err
+		}
+	}
+
 	// Validate payment types for return
 	if len(req.PaymentTypes) == 0 {
 		return nil, domain.PaymentTypeRequiredError

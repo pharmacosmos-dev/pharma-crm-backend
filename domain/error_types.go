@@ -80,6 +80,8 @@ var (
 	AlreadyCompletedError                = NewError(http.StatusConflict, "already.completed")
 	AlreadySentError                     = NewError(http.StatusConflict, "already.sent")
 	SaleIsClosedError                    = NewError(http.StatusConflict, "sale.is.closed")
+	SaleAlreadyReturnedError             = NewError(http.StatusConflict, "sale.already.returned")
+	ReturnSaleNotReturnableError         = NewError(http.StatusConflict, "return.sale.not.returnable")
 	PrescriptionsAlreadyIssued           = NewError(http.StatusConflict, "prescriptions.already.issued")
 	AlreadyUpdatedError                  = NewError(http.StatusConflict, "already.updated")
 	NoOpenCashboxError                   = NewError(http.StatusConflict, "no.open.cashbox")
