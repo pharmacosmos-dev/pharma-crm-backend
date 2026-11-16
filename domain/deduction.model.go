@@ -10,10 +10,12 @@ import "time"
 //	Deduction       — do'kon + oy sarlavhasi: to'liq to'landimi yoki ochiqmi
 //	DeductionDetail — xodim bo'yicha aniq summa
 //
-// employee_payrolls bilan bog'liqlik faqat O'QISHDA: oylik ro'yxati
-// deduction_*_amount va deduction_is_paid'ni deduction_installments'dan jonli
-// oladi (qarang: payrollDeductionInstallmentsSQL). Payroll qatoriga hech narsa
-// yozilmaydi, cron bu jadvallarga tegmaydi.
+// employee_payrolls bilan bog'liqlik: oylik ro'yxati deduction_*_amount va
+// deduction_is_paid'ni deduction_installments'dan jonli oladi (qarang:
+// payrollDeductionInstallmentsSQL). Payroll cron'i esa shu oyga tushgan
+// to'lovlarni employee_payrolls.deduction_*_amount ustunlariga yozadi va
+// net_pay_amount'dan ayiradi (qarang: payrollUpsertQuery). Cron bu jadvallarning
+// o'ziga yozmaydi, faqat o'qiydi.
 
 // region Types
 

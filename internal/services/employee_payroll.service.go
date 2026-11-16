@@ -90,8 +90,10 @@ import (
 //
 // Ish kuni soni esa kalendardan olinadi, ya'ni fevral va mart uchun norma har xil.
 //
-// Avans va ushlab qolishlar qo'lda kiritiladi — cron ularga TEGMAYDI, faqat
-// net_pay_amount'ni ular hisobga olingan holda qayta hisoblaydi.
+// Avanslar qo'lda kiritiladi — cron ularga TEGMAYDI. Ushlab qolishlar esa
+// deduction_installments'dan olinadi: cron shu oyga tushgan to'lovlarni xodim +
+// do'kon bo'yicha yig'ib deduction_*_amount ustunlariga yozadi. net_pay_amount
+// ikkalasi ham ayirilgan holda qayta hisoblanadi.
 
 // region Types
 
@@ -1212,9 +1214,11 @@ func mergeStoreTotals(stores []storeRef, totals []domain.StorePayroll) []domain.
 //	final    — kpi_amount = (zav bo'lsa do'kon, aks holda o'z savdosi) * kpi_percent
 //	INSERT   — UPSERT: qator yo'q bo'lsa yaratadi, bor bo'lsa yangilaydi
 //
-// ON CONFLICT'da avans/ushlab qolish, status, approved_by va completed_at
-// YANGILANMAYDI — ular qo'lda kiritiladi. net_pay_amount esa mavjud qatordagi
-// avans/ushlab qolishlar hisobga olingan holda qayta hisoblanadi.
+// ON CONFLICT'da avans, status, approved_by va completed_at YANGILANMAYDI —
+// ular qo'lda kiritiladi. Ushlab qolishlar (deduction_*_amount) esa har safar
+// deduction_installments'dan shu oy uchun qayta yig'ilib yoziladi (qarang:
+// deduction_agg). net_pay_amount mavjud qatordagi avanslar va yangi yig'ilgan
+// ushlab qolishlar ayirilgan holda qayta hisoblanadi.
 const payrollUpsertQuery = `
 WITH bounds AS (
     SELECT
@@ -1323,6 +1327,22 @@ roles_agg AS (
     JOIN roles r ON r.id = er.role_id
     GROUP BY er.employee_id
 ),
+-- Ushlab qolishlar: shu oyga tushgan to'lovlar (deduction_installments), xodim +
+-- do'kon bo'yicha yig'ilgan va tur bo'yicha uchta ustunga ajratilgan. Qoida
+-- ro'yxatdagi payrollDeductionInstallmentsSQL bilan bir xil: to'langan ham,
+-- to'lanmagan ham kiradi; TERM/RECOUNT/FINE'dan boshqa tur hech qaysi summaga
+-- kirmaydi (payroll qatorida unga ustun yo'q).
+deduction_agg AS (
+    SELECT i.employee_id, i.store_id,
+           COALESCE(SUM(i.amount) FILTER (WHERE dt.code = '` + domain.DeductionCodeTerm + `'), 0)    AS term_amount,
+           COALESCE(SUM(i.amount) FILTER (WHERE dt.code = '` + domain.DeductionCodeRecount + `'), 0) AS recount_amount,
+           COALESCE(SUM(i.amount) FILTER (WHERE dt.code = '` + domain.DeductionCodeFine + `'), 0)    AS fine_amount
+    FROM deduction_installments i
+    JOIN deduction_details dd ON dd.id = i.deduction_detail_id
+    JOIN deduction_types  dt ON dt.id = dd.deduction_type_id
+    WHERE i.year = @year AND i.month = @month
+    GROUP BY i.employee_id, i.store_id
+),
 base AS (
     SELECT
         e.id                                    AS employee_id,
@@ -1362,6 +1382,9 @@ base AS (
         COALESCE(st.amount, 0)                  AS store_plan_amount,
         COALESCE(ss.store_sales_amount, 0)      AS store_sales_amount,
         COALESCE(et.amount, 0)                  AS employee_plan_amount,
+        COALESCE(ded.term_amount, 0)            AS deduction_term_amount,
+        COALESCE(ded.recount_amount, 0)         AS deduction_recount_amount,
+        COALESCE(ded.fine_amount, 0)            AS deduction_fine_amount,
         w.month_work_days,
         w.elapsed_work_days,
         w.month_days,
@@ -1377,6 +1400,7 @@ base AS (
     LEFT JOIN store_targets st
            ON st.store_id = e.store_id AND st.year = @year AND st.month = @month
     LEFT JOIN targets_agg et ON et.employee_id = e.id
+    LEFT JOIN deduction_agg ded ON ded.employee_id = e.id AND ded.store_id = e.store_id
     WHERE e.is_active
       AND e.status = @status
       AND e.deleted_at IS NULL
@@ -1462,6 +1486,7 @@ INSERT INTO employee_payrolls (
     employee_plan_amount, expected_plan_amount, plan_achievement_percent,
     month_work_days, elapsed_work_days,
     plan_kpi_percent, employee_kpi_percent, kpi_percent, kpi_amount, bonus_amount,
+    deduction_term_amount, deduction_recount_amount, deduction_fine_amount,
     gross_salary_amount, net_pay_amount,
     status, year, month, calculated_at
 )
@@ -1476,8 +1501,11 @@ SELECT
     f.plan_kpi_percent, f.employee_kpi_percent, f.kpi_percent,
     f.kpi_amount,
     f.bonus_amount,
+    f.deduction_term_amount, f.deduction_recount_amount, f.deduction_fine_amount,
     f.actual_salary_amount + f.kpi_amount + f.bonus_amount,
-    f.actual_salary_amount + f.kpi_amount + f.bonus_amount,
+    -- Yangi qatorda avans hali yo'q: itog = gross minus ushlab qolishlar
+    f.actual_salary_amount + f.kpi_amount + f.bonus_amount
+        - (f.deduction_term_amount + f.deduction_recount_amount + f.deduction_fine_amount),
     @draft, @year, @month, NOW()
 FROM final f
 ON CONFLICT (employee_id, year, month) DO UPDATE SET
@@ -1510,13 +1538,17 @@ ON CONFLICT (employee_id, year, month) DO UPDATE SET
     kpi_amount               = EXCLUDED.kpi_amount,
     bonus_amount             = EXCLUDED.bonus_amount,
     gross_salary_amount      = EXCLUDED.gross_salary_amount,
-    -- Avans va ushlab qolishlar qo'lda kiritilgan: EXCLUDED emas, MAVJUD qatordan olinadi
+    deduction_term_amount    = EXCLUDED.deduction_term_amount,
+    deduction_recount_amount = EXCLUDED.deduction_recount_amount,
+    deduction_fine_amount    = EXCLUDED.deduction_fine_amount,
+    -- Avanslar qo'lda kiritilgan: MAVJUD qatordan olinadi. Ushlab qolishlar esa
+    -- to'lov jadvalidan qayta yig'ilgan, shuning uchun EXCLUDED'dan.
     net_pay_amount           = EXCLUDED.gross_salary_amount
                                - (employee_payrolls.advance_card_amount
                                 + employee_payrolls.advance_cash_amount
-                                + employee_payrolls.deduction_term_amount
-                                + employee_payrolls.deduction_recount_amount
-                                + employee_payrolls.deduction_fine_amount),
+                                + EXCLUDED.deduction_term_amount
+                                + EXCLUDED.deduction_recount_amount
+                                + EXCLUDED.deduction_fine_amount),
     calculated_at            = NOW(),
     updated_at               = NOW()`
 
@@ -1577,9 +1609,10 @@ LIMIT NULLIF(@limit, 0) OFFSET @offset`
 // bool_and: shu oydagi BARCHA to'lovlar to'langandagina true. Bitta qarz
 // to'langan, ikkinchisi to'lanmagan bo'lsa false.
 //
-// Bu faqat O'QISH tomoni. Cron (payrollUpsertQuery), avans yangilash va
-// net_pay_amount avvalgidek employee_payrolls.deduction_*_amount ustunlariga
-// tayanadi va shu yerdagi summalarni hisobga olmaydi.
+// Bu O'QISH tomoni. Cron (payrollUpsertQuery) xuddi shu qoida bilan summalarni
+// employee_payrolls.deduction_*_amount ustunlariga yozadi va net_pay_amount'dan
+// ayiradi; avans yangilash va statistikalar o'sha ustunlarga tayanadi. Cron
+// ishlagunicha kunduzi kiritilgan o'zgarish faqat shu yerda (ro'yxatda) ko'rinadi.
 const payrollDeductionInstallmentsSQL = `
 LEFT JOIN (
     SELECT i.employee_id, i.store_id,
