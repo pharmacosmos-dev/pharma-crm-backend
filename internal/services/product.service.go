@@ -1299,7 +1299,7 @@ func (s *Services) GetStoreProductsByProductId(ctx context.Context, params *doma
 func (s *Services) GetNoorProducts(params *domain.NoorQueryParam) ([]domain.NoorProduct, error) {
 	var (
 		res    []domain.NoorProduct
-		filter = ` WHERE p.requires_prescription = false AND EXISTS (
+		filter = ` WHERE EXISTS (
 			SELECT 1 FROM online_products_price opp
 			WHERE opp.product_id = p.id AND opp.type = ?
 		) `
@@ -1381,7 +1381,7 @@ func (s *Services) GetNoorStoreProducts(params *domain.NoorQueryParam) ([]domain
 
 	var (
 		res    []domain.NoorStoreProduct
-		filter = " WHERE p.requires_prescription = false AND sp.unit_quantity > 0"
+		filter = " WHERE sp.unit_quantity > 0"
 		args   = []any{constants.ServiceTypeUzum}
 	)
 
