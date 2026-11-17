@@ -3,6 +3,7 @@ package services
 import (
 	"context"
 	"fmt"
+	"net/http"
 
 	"github.com/pharma-crm-backend/domain"
 	"github.com/pharma-crm-backend/pkg/utils"
@@ -61,10 +62,10 @@ func (s *Services) getMarkingAvailableUnits(ctx context.Context, tx *gorm.DB, ma
 }
 
 // Xabar: "marking.not.enough:<qoldiq>:<mahsulot nomi>" — nom oxirida, chunki
-// uning ichida ham ":" bo'lishi mumkin.
-func markingNotEnoughError(available int, productName string) error {
+// uning ichida ham ":" bo'lishi mumkin. code: savatga qo'shishda 409, /sale/final da 400.
+func markingNotEnoughError(code, available int, productName string) error {
 	return domain.NewError(
-		domain.MarkingNotEnoughError.Code,
+		code,
 		fmt.Sprintf("%s:%d:%s", domain.MarkingNotEnoughError.Message, available, productName),
 	)
 }
@@ -150,7 +151,7 @@ func (s *Services) checkMarkingCanCover(ctx context.Context, tx *gorm.DB, cartIt
 		needed -= available[m]
 	}
 	if needed > available[marking] && available[marking] < unitPerPack {
-		return markingNotEnoughError(available[marking], product.Name)
+		return markingNotEnoughError(domain.MarkingNotEnoughError.Code, available[marking], product.Name)
 	}
 
 	return nil
@@ -188,8 +189,9 @@ func (s *Services) validateSaleMarkingStock(ctx context.Context, tx *gorm.DB, sa
 		remaining := item.UnitQuantity
 		partial := ""
 		for _, m := range item.Markings {
+			// /sale/final da 400: frontend xatoni ko'rsatib, to'lovga o'tmasdan to'xtaydi
 			if available[m] <= 0 {
-				return domain.MarkingAlreadySoldError
+				return domain.NewError(http.StatusBadRequest, domain.MarkingAlreadySoldError.Message)
 			}
 			if available[m] < unitPerPack && partial == "" {
 				partial = m
@@ -200,7 +202,7 @@ func (s *Services) validateSaleMarkingStock(ctx context.Context, tx *gorm.DB, sa
 		}
 
 		if remaining > 0 && partial != "" {
-			return markingNotEnoughError(item.UnitQuantity-remaining, item.ProductName)
+			return markingNotEnoughError(http.StatusBadRequest, item.UnitQuantity-remaining, item.ProductName)
 		}
 	}
 
