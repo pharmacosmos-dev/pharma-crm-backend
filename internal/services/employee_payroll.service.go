@@ -120,6 +120,17 @@ const payrollNdsDivisor = 1.12
 // salary_rate_amount va employees.salary o'zgarmaydi.
 const payrollOvertimeRateCap = 3_000_000
 
+// payrollHalfShiftHours — yarim stavka kunlik smenasi. Normasi ish kunlari ×
+// shu soat bo'lgan xodimning (masalan noyabr: 25 × 4 = 100) normadan ORTIQ
+// soatlari to'liq stavka normasidan (ish kunlari × payrollWorkDayHours, ya'ni
+// 200) hisoblanadi:
+//
+//	actual_salary = oklad + ortiqcha × MIN(oklad, chegara) / (ish kunlari × 8)
+//
+// Masalan oklad 2 mln, norma 100, ishlagan 160.5: 2 mln + 60.5 × 2 mln / 200.
+// Norma ichidagi soatlar va boshqa smenadagi xodimlar o'zgarishsiz.
+const payrollHalfShiftHours = 4
+
 // storeRef — sahifalangan do'kon ro'yxati uchun minimal ma'lumot.
 //
 // Ikkala son ham employees/stores jadvallaridan keladi, payroll yig'indisidan
@@ -418,6 +429,7 @@ func (s *Services) recalculatePayrollMonth(
 		"pharmacist":        domain.RoleTypePharmacist,
 		"nds_divisor":       payrollNdsDivisor,
 		"overtime_rate_cap": payrollOvertimeRateCap,
+		"half_shift_hours":  payrollHalfShiftHours,
 	})
 	if tx.Error != nil {
 		return 0, fmt.Errorf("upsert payrolls: %w", tx.Error)
@@ -488,13 +500,18 @@ func (s *Services) UpdateEmployeePayrollAdvance(
 				SELECT
 					x.*,
 					-- actual_salary yangi normadan hisoblanadi. Cron bilan bir xil:
-					-- normadan ortiq soatlar LEAST(oklad, chegara) soatbayidan.
+					-- normadan ortiq soatlar LEAST(oklad, chegara) soatbayidan;
+					-- yarim stavkada soatbay to'liq stavka normasidan olinadi.
 					COALESCE(ROUND(CASE
 						WHEN x.worked_hours > x.avg_monthly_hours
 						THEN x.salary
 							+ (x.worked_hours - x.avg_monthly_hours)
 							  * LEAST(x.salary, CAST(@overtime_rate_cap AS numeric))
-							  / NULLIF(x.avg_monthly_hours, 0)
+							  / NULLIF(CASE
+									WHEN x.avg_monthly_hours = x.month_work_days * CAST(@half_shift_hours AS numeric)
+									THEN x.month_work_days * CAST(@work_day_hours AS numeric)
+									ELSE x.avg_monthly_hours
+								END, 0)
 						ELSE x.salary * (x.worked_hours / NULLIF(x.avg_monthly_hours, 0))
 					END, 2), 0) AS actual_salary
 				FROM (
@@ -502,6 +519,7 @@ func (s *Services) UpdateEmployeePayrollAdvance(
 						r.id,
 						r.bonus_amount,
 						r.worked_hours,
+						r.month_work_days,
 						COALESCE(CAST(@card AS numeric),   r.advance_card_amount) AS card,
 						COALESCE(CAST(@cash AS numeric),   r.advance_cash_amount) AS cash,
 						COALESCE(CAST(@kpi AS numeric),    r.kpi_percent)         AS kpi_percent,
@@ -615,6 +633,8 @@ func (s *Services) UpdateEmployeePayrollAdvance(
 			"pharmacist":        domain.RoleTypePharmacist,
 			"nds_divisor":       payrollNdsDivisor,
 			"overtime_rate_cap": payrollOvertimeRateCap,
+			"half_shift_hours":  payrollHalfShiftHours,
+			"work_day_hours":    payrollWorkDayHours,
 		}).Scan(&res)
 		if result.Error != nil {
 			s.log.Errorf("payroll: could not update payroll row: %v", result.Error)
@@ -1410,12 +1430,22 @@ calc AS (
            -- Norma ichidagi soatlar o'z okladidan, normadan ORTIQ soatlar esa
            -- oklad bilan chegara (qarang: payrollOvertimeRateCap) dan kichigining
            -- soatbayidan hisoblanadi. avg_monthly_hours = 0 bo'lsa 0 qaytadi.
+           --
+           -- Yarim stavka (kunlik smena 4 soat, ya'ni norma = ish kunlari × 4):
+           -- ortiqcha soatlarning soatbayi o'z normasidan emas, TO'LIQ stavka
+           -- normasidan (ish kunlari × kunlik smena default'i) olinadi. Masalan
+           -- norma 100, to'liq norma 200: ortiqcha soat oklad / 200 dan to'lanadi.
+           -- Norma ichidagi hisob va boshqa xodimlar o'zgarishsiz.
            COALESCE(ROUND(CASE
                WHEN b.worked_hours > b.avg_monthly_hours
                THEN b.salary_rate_amount
                     + (b.worked_hours - b.avg_monthly_hours)
                       * LEAST(b.salary_rate_amount, CAST(@overtime_rate_cap AS numeric))
-                      / NULLIF(b.avg_monthly_hours, 0)
+                      / NULLIF(CASE
+                            WHEN b.avg_monthly_hours = b.month_work_days * CAST(@half_shift_hours AS numeric)
+                            THEN b.month_work_days * CAST(@work_day_hours AS numeric)
+                            ELSE b.avg_monthly_hours
+                        END, 0)
                ELSE b.salary_rate_amount * (b.worked_hours / NULLIF(b.avg_monthly_hours, 0))
            END, 2), 0) AS actual_salary_amount,
            -- DO'KON rejasi o'tgan KALENDAR kunlariga proporsional kesiladi:
