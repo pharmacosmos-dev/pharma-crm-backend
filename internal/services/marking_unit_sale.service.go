@@ -189,9 +189,13 @@ func (s *Services) validateSaleMarkingStock(ctx context.Context, tx *gorm.DB, sa
 		remaining := item.UnitQuantity
 		partial := ""
 		for _, m := range item.Markings {
-			// /sale/final da 400: frontend xatoni ko'rsatib, to'lovga o'tmasdan to'xtaydi
+			// /sale/final da 400: frontend xatoni ko'rsatib, to'lovga o'tmasdan to'xtaydi.
+			// Xabar: "marking.already.sold:<mahsulot nomi>" — qaysi dorida muammo ekani ko'rinsin.
 			if available[m] <= 0 {
-				return domain.NewError(http.StatusBadRequest, domain.MarkingAlreadySoldError.Message)
+				return domain.NewError(
+					http.StatusBadRequest,
+					fmt.Sprintf("%s:%s", domain.MarkingAlreadySoldError.Message, item.ProductName),
+				)
 			}
 			if available[m] < unitPerPack && partial == "" {
 				partial = m
