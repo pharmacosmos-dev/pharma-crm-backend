@@ -38,6 +38,7 @@ var (
 	ReminderExpiredDateError                  = NewError(http.StatusBadRequest, "reminder.to_date.must.be.in.future")
 	InvalidEventTypeError                     = NewError(http.StatusBadRequest, "invalid.event_type")
 	AttendanceCheckInRequiredError            = NewError(http.StatusBadRequest, "attendance.check_in.required")
+	AttendanceEventAtBeforeLastEventError     = NewError(http.StatusBadRequest, "attendance.event_at.before.last_event")
 	ShiftFromEmployeeNotCheckedOutError       = NewError(http.StatusBadRequest, "shift.from_employee.not_checked_out")
 	ShiftToEmployeeNotCheckedInError          = NewError(http.StatusBadRequest, "shift.to_employee.not_checked_in")
 	CashboxCloseCheckOutRequiredError         = NewError(http.StatusBadRequest, "cashbox.close.check_out.required")

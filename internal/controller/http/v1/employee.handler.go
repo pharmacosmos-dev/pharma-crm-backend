@@ -1072,6 +1072,9 @@ func (h *EmployeeHandler) CheckInOut(c *gin.Context) {
 // @Summary      Manually create attendance check-in/check-out (admin)
 // @Description  Admin tomonidan berilgan employee_id, event_type va event_at bo'yicha attendance_logs yozuvini qo'lda yaratadi. Face id orqali check-in/check-out ishlamay qolgan hollarda ishlatiladi uchun. Faqat admin huquqiga ega foydalanuvchilar chaqira oladi.
 // @Description  created_by maydoniga tokendagi user_id yoziladi — keyinchalik yozuvni kim qo'lda kiritganini ko'rish uchun.
+// @Description  Navbat event_at kunidagi (Toshkent) oxirgi voqeaga qarab tekshiriladi: ketma-ket ikki check-in → attendance.already.checked_in,
+// @Description  ketma-ket ikki check-out yoki kunning birinchi voqeasi check-out → attendance.check_in.required,
+// @Description  event_at oxirgi voqea vaqtidan katta bo'lmasa → attendance.event_at.before.last_event.
 // @Tags         employees
 // @Security     BearerAuth
 // @Accept       json

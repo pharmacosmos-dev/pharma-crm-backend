@@ -120,9 +120,16 @@ func (s *Services) CreateAttendanceLog(ctx context.Context, employeeId, storeId,
 
 // CreateManualAttendanceLog — admin tomonidan berilgan employee_id, event_type va
 // event_at asosida attendance_logs yozuvini qo'lda yaratadi (face id orqali belgilash
-// ishlamay qolgan hollar uchun). Xodimning store_id'si employees jadvalidan olinadi,
-// ketma-ketlik (check-in/check-out navbati) tekshiruvi qo'llanilmaydi — bu qo'lda
-// tuzatish uchun mo'ljallangan.
+// ishlamay qolgan hollar uchun). Xodimning store_id'si employees jadvalidan olinadi.
+//
+// Ketma-ketlik event_at kuni (Toshkent vaqti) bo'yicha shu kundagi ENG OXIRGI
+// voqeaga qarab tekshiriladi:
+//   - kun bo'sh bo'lsa faqat check-in mumkin (check-out → AttendanceCheckInRequiredError);
+//   - oxirgisi check-in bo'lsa yana check-in → AttendanceAlreadyCheckedInError;
+//   - oxirgisi check-out bo'lsa yana check-out → AttendanceCheckInRequiredError;
+//   - event_at oxirgi voqea vaqtidan katta bo'lishi shart (teng yoki kichik →
+//     AttendanceEventAtBeforeLastEventError). Masalan 08:00 in, 16:00 out bo'lsa
+//     15:49 dagi check-in rad etiladi, 16:01 dagisi yoziladi.
 //
 // createdBy — tokendagi user_id, ya'ni yozuvni kiritgan admin (employee_id'dan
 // farq qilishi mumkin va shu bilan qo'lda kiritilgani ko'rinadi).
@@ -138,6 +145,40 @@ func (s *Services) CreateManualAttendanceLog(ctx context.Context, employeeId, ev
 		}
 		s.log.Errorf("could not get employee: %v", err)
 		return nil, domain.InternalServerError
+	}
+
+	// event_at kunidagi (Toshkent) eng oxirgi voqea
+	var last struct {
+		EventType string    `gorm:"column:event_type"`
+		EventAt   time.Time `gorm:"column:event_at"`
+	}
+	err := s.db.WithContext(ctx).Raw(`
+		SELECT event_type, event_at
+		FROM attendance_logs
+		WHERE employee_id = ?
+		  AND (event_at AT TIME ZONE 'Asia/Tashkent')::date =
+		      (CAST(? AS timestamptz) AT TIME ZONE 'Asia/Tashkent')::date
+		ORDER BY event_at DESC, created_at DESC
+		LIMIT 1
+	`, employeeId, eventAt).Take(&last).Error
+	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
+		s.log.Errorf("could not get last attendance log for manual create: %v", err)
+		return nil, domain.InternalServerError
+	}
+	hasLast := err == nil
+
+	switch {
+	case !hasLast:
+		if eventType == domain.AttendanceEventCheckOut {
+			return nil, domain.AttendanceCheckInRequiredError
+		}
+	case last.EventType == eventType:
+		if eventType == domain.AttendanceEventCheckIn {
+			return nil, domain.AttendanceAlreadyCheckedInError
+		}
+		return nil, domain.AttendanceCheckInRequiredError
+	case !eventAt.After(last.EventAt):
+		return nil, domain.AttendanceEventAtBeforeLastEventError
 	}
 
 	var storeIdPtr *string
