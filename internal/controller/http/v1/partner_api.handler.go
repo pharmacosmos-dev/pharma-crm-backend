@@ -37,7 +37,7 @@ func (h *PartnerApiHandler) PartnerApiRoutes(r *gin.RouterGroup) {
 // @Failure 	500 {object} v1.IntegrationErrorResponse
 // @Router 		/partner/store/list [get]
 func (h *PartnerApiHandler) StoreList(c *gin.Context) {
-	res, err := h.service.GetNoorStores()
+	res, err := h.service.GetPartnerStores()
 	if err != nil {
 		handleResponseNoor(c, http.StatusInternalServerError, err)
 		return
@@ -57,7 +57,7 @@ func (h *PartnerApiHandler) StoreList(c *gin.Context) {
 // @Failure 	500 {object} v1.IntegrationErrorResponse
 // @Router 		/partner/category/list [get]
 func (h *PartnerApiHandler) CategoryList(c *gin.Context) {
-	res, err := h.service.GetNoorCategories()
+	res, err := h.service.GetPartnerCategories()
 	if err != nil {
 		handleResponseNoor(c, http.StatusInternalServerError, err)
 		return
@@ -87,7 +87,7 @@ func (h *PartnerApiHandler) ProductList(c *gin.Context) {
 	}
 	params.Limit, params.Offset = defaultLimitOffset(params.Limit, params.Offset)
 
-	res, err := h.service.GetNoorProducts(&params)
+	res, err := h.service.GetPartnerProducts(&params)
 	if err != nil {
 		handleResponseNoor(c, http.StatusInternalServerError, err)
 		return
@@ -118,7 +118,7 @@ func (h *PartnerApiHandler) StoreProductList(c *gin.Context) {
 	}
 	params.Limit, params.Offset = defaultLimitOffset(params.Limit, params.Offset)
 
-	res, err := h.service.GetNoorStoreProducts(&params)
+	res, err := h.service.GetPartnerStoreProducts(&params)
 	if err != nil {
 		handleResponseNoor(c, http.StatusInternalServerError, err)
 		return
