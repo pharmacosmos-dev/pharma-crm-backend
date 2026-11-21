@@ -67,8 +67,8 @@ func (s *Services) CreatePartnerOAuthClient(ctx context.Context, req *domain.OAu
 // Partner API faqat retseptsiz va Uzum online narxi bor mahsulotlarni qaytaradi.
 
 // GetPartnerStores returns active stores, ordered by store_code.
-func (s *Services) GetPartnerStores() ([]domain.NoorStore, error) {
-	var res []domain.NoorStore
+func (s *Services) GetPartnerStores() ([]domain.ProdocStore, error) {
+	var res []domain.ProdocStore
 
 	query := `
 	SELECT
@@ -123,8 +123,8 @@ func (s *Services) GetPartnerStores() ([]domain.NoorStore, error) {
 }
 
 // GetPartnerCategories returns the category tree flattened, parents before children.
-func (s *Services) GetPartnerCategories() ([]domain.NoorCategory, error) {
-	var res []domain.NoorCategory
+func (s *Services) GetPartnerCategories() ([]domain.ProdocCategory, error) {
+	var res []domain.ProdocCategory
 
 	query := `
 	WITH RECURSIVE category_hierarchy AS (

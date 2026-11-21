@@ -516,6 +516,33 @@ type NoorCategory struct {
 
 // end region
 
+
+// region ProdocOnline
+type ProdocStore struct {
+	Id        string `gorm:"id" json:"id"`
+	Name      string `gorm:"name" json:"name"`
+	Phone     string `gorm:"phone" json:"phone"`
+	Address   string `gorm:"address" json:"address"`
+	Location  string `gorm:"location" json:"-"`
+	Inn       string `gorm:"inn" json:"inn"`
+	Location1 Point  `gorm:"-" json:"location"`
+	WorkHours string `gorm:"work_hours" json:"work_hours"`
+	IsFullday bool   `gorm:"is_fullday" json:"is_fullday"`
+	IsActive  bool   `gorm:"is_active" json:"is_active"`
+}
+
+type ProdocCategory struct {
+	Id       string `gorm:"id" json:"id"`
+	NameUz   string `gorm:"name_uz" json:"name_uz"`
+	NameRu   string `gorm:"name_ru" json:"name_ru"`
+	NameEn   string `gorm:"name_en" json:"name_en"`
+	NameKr   string `gorm:"name_kr" json:"name_kr"`
+	ParentId string `gorm:"parent_id" json:"parent_id"`
+	Photo    string `gorm:"photo" json:"photo"`
+}
+
+// end region
+
 type UpdatePackagingRequest struct {
 	ProductId   string `json:"product_id" binding:"required"`
 	UnitPerPack int    `json:"unit_per_pack" binding:"required,min=1"`
