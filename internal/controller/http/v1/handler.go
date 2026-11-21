@@ -135,7 +135,7 @@ func (h *Handler) InitRoutes(r *gin.Engine) {
 		h.NewNoorHandler(external)
 		h.NewLikiHandler(external)
 		// handler for partner catalog apis
-		h.NewPartnerApiHandler(partnerApi)
+		h.NewPartnerApiHandler(public)
 		// handler for partner auth apis
 		h.NewPartnerAuthHandler(r.Group(""))
 		// handler for uzum apis
