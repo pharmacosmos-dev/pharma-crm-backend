@@ -462,6 +462,7 @@ func (s *Services) InventoryDetailList(ctx context.Context, params *domain.Inven
 		p.name,
 		COALESCE(pr.name, '') AS producer_name,
 		p.unit_per_pack,
+		MAX(imd.supply_price_vat) AS supply_price,
 		MAX(imd.retail_price_vat) AS retail_price,
 		MAX(imd.expire_date) AS expire_date,
 		ROUND(SUM(imd.received_count/p.unit_per_pack), 4) AS current_quantity,
