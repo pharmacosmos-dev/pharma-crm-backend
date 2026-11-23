@@ -53,6 +53,7 @@ type Sale struct {
 	CartItems          []*CartItem    `gorm:"foreignKey:SaleId" json:"cart_items"`
 	CashBack           float64        `gorm:"cash_back" json:"cash_back"`
 	VendorOrderId      string         `gorm:"vendor_order_id" json:"vendor_order_id"`
+	ExternalId         string         `gorm:"external_id" json:"external_id"`
 	ClientComment      string         `gorm:"client_comment" json:"client_comment"`
 }
 
@@ -115,6 +116,7 @@ type OnlineSaleCreate struct {
 	Id            string                  `gorm:"id" json:"id"`
 	StoreId       string                  `gorm:"store_id" json:"store_id"`
 	VendorOrderId string                  `gorm:"vendor_order_id" json:"vendor_order_id"`
+	ExternalId    string                  `gorm:"external_id" json:"external_id"`
 	ServiceType   string                  `gorm:"service_type" json:"service_type"`
 	CustomerId    string                  `gorm:"customer_id" json:"customer_id"`
 	ClientComment string                  `gorm:"client_comment" json:"client_comment"`
@@ -138,6 +140,7 @@ type SaleResponse struct {
 	Id              string     `gorm:"id" json:"id"`
 	DisplayId       int        `gorm:"display_id" json:"display_id"`
 	VendorOrderId   string     `gorm:"vendor_order_id" json:"vendor_order_id"`
+	ExternalId      string     `gorm:"external_id" json:"external_id"`
 	ParentId        string     `gorm:"parent_id" json:"parent_id"`
 	SaleNumber      int        `gorm:"sale_number" json:"sale_number"`
 	TotalDiscount   float64    `gorm:"total_discount" json:"total_discount"`
@@ -397,13 +400,14 @@ type AddDiscountCard struct {
 // create online order request structure
 // noor online order request
 type OnlineOrderRequest struct {
-	ShopId        string                  `json:"shop_id" binding:"required,uuid"`
-	ExternalId    string                  `json:"external_id"`
-	Products      []OnlineCartItemRequest `json:"product_ids" binding:"required,dive"`
-	ClientInfo    NoorClientInfo          `json:"client_info" binding:"required"`
-	DeliveryTime  string                  `json:"delivery_time"`
-	Destination   Point                   `json:"destination" binding:"required"`
-	ClientComment string                  `json:"client_comment"`
+	ShopId          string                  `json:"shop_id" binding:"required,uuid"`
+	ExternalId      string                  `json:"external_id"`
+	VendorDisplayId string                  `json:"vendor_display_id"`
+	Products        []OnlineCartItemRequest `json:"product_ids" binding:"required,dive"`
+	ClientInfo      NoorClientInfo          `json:"client_info" binding:"required"`
+	DeliveryTime    string                  `json:"delivery_time"`
+	Destination     Point                   `json:"destination" binding:"required"`
+	ClientComment   string                  `json:"client_comment"`
 }
 
 // noor online order product
@@ -473,6 +477,7 @@ type OnlineSaleDto struct {
 	StoreId       string     `gorm:"store_id" json:"store_id"`
 	SaleNumber    int        `gorm:"sale_number" json:"sale_number"`
 	VendorOrderId string     `gorm:"vendor_order_id" json:"vendor_order_id"`
+	ExternalId    string     `gorm:"external_id" json:"external_id"`
 	OnlineStatus  int        `gorm:"online_status" json:"online_status"`
 	Stage         int        `gorm:"stage" json:"stage"`
 	Type          string     `gorm:"type" json:"type"`

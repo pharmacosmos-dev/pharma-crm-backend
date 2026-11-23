@@ -85,9 +85,10 @@ func (s *Services) SendNoorOrderCompleted(saleId string) {
 	var sale struct {
 		SaleNumber    int    `gorm:"column:sale_number"`
 		VendorOrderId string `gorm:"column:vendor_order_id"`
+		ExternalId    string `gorm:"column:external_id"`
 	}
 	err := s.db.WithContext(ctx).Table("sales").
-		Select("sale_number, COALESCE(vendor_order_id, '') AS vendor_order_id").
+		Select("sale_number, COALESCE(vendor_order_id, '') AS vendor_order_id, COALESCE(external_id, '') AS external_id").
 		Where("id = ?", saleId).
 		Take(&sale).Error
 	if err != nil {
@@ -183,7 +184,7 @@ func (s *Services) SendNoorOrderCompleted(saleId string) {
 	}
 
 	_ = s.SendNoorOrderStatus(ctx, &domain.NoorOrderStatusRequest{
-		ExternalId: sale.VendorOrderId,
+		ExternalId: sale.ExternalId,
 		OrderId:    sale.SaleNumber,
 		Status:     constants.NoorOrderStatusCompleted,
 		Items:      items,

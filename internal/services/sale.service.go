@@ -253,7 +253,8 @@ func (s *Services) CreateNoorSale(ctx context.Context, req *domain.OnlineOrderRe
 		Id:            saleId,
 		StoreId:       req.ShopId,
 		CustomerId:    customer.Id,
-		VendorOrderId: req.ExternalId,
+		VendorOrderId: req.VendorDisplayId,
+		ExternalId:    req.ExternalId,
 		ServiceType:   constants.ServiceTypeNoor,
 		ClientComment: req.ClientComment,
 		Items:         cartItems,
@@ -319,7 +320,7 @@ func (s *Services) fillNoorCartItemMarkings(ctx context.Context, items []domain.
 	return nil
 }
 
-// get sale_number of noor order by external_id (stored in sales.vendor_order_id)
+// get sale_number of noor order by external_id (stored in sales.external_id)
 func (s *Services) getNoorSaleNumberByExternalId(ctx context.Context, externalId string) (int, bool, error) {
 	if externalId == "" {
 		return 0, false, nil
@@ -328,7 +329,7 @@ func (s *Services) getNoorSaleNumberByExternalId(ctx context.Context, externalId
 	var saleNumbers []int
 	err := s.db.WithContext(ctx).
 		Table("sales").
-		Where("vendor_order_id = ? AND service_type = ?", externalId, constants.ServiceTypeNoor).
+		Where("external_id = ? AND service_type = ?", externalId, constants.ServiceTypeNoor).
 		Order("created_at").
 		Limit(1).
 		Pluck("sale_number", &saleNumbers).Error
@@ -380,10 +381,11 @@ func (s *Services) CreateOnlineSale(ctx context.Context, req *domain.OnlineSaleC
 		is_paid,
 		client_comment,
 		vendor_order_id,
+		external_id,
 		uzum_self_pickup,
 		courier_arrival_at
 		)
-	VALUES(?, ?, ?, ?, ?, NULLIF(?, '')::uuid, ?, ?, ?, ?, ?, ?, ?) RETURNING *`,
+	VALUES(?, ?, ?, ?, ?, NULLIF(?, '')::uuid, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING *`,
 		req.Id,
 		req.StoreId,
 		constants.SaleTypeOnline,
@@ -395,6 +397,7 @@ func (s *Services) CreateOnlineSale(ctx context.Context, req *domain.OnlineSaleC
 		true,
 		req.ClientComment,
 		req.VendorOrderId,
+		req.ExternalId,
 		req.SelfPickup,
 		req.CourierArrivalAt,
 	).Scan(&sale).Error
@@ -1713,7 +1716,7 @@ func (s *Services) AcceptOnlineSale(ctx context.Context, req *domain.ConfirmOnli
 
 	if sale.ServiceType == constants.ServiceTypeNoor {
 		err = s.SendNoorOrderStatus(ctx, &domain.NoorOrderStatusRequest{
-			ExternalId: sale.VendorOrderId,
+			ExternalId: sale.ExternalId,
 			OrderId:    sale.SaleNumber,
 			Status:     constants.NoorOrderStatusAccepted,
 		})
@@ -1812,7 +1815,7 @@ func (s *Services) CancelOnlineSale(ctx context.Context, req *domain.CancelOnlin
 
 	if sale.ServiceType == constants.ServiceTypeNoor {
 		err = s.SendNoorOrderStatus(ctx, &domain.NoorOrderStatusRequest{
-			ExternalId: sale.VendorOrderId,
+			ExternalId: sale.ExternalId,
 			OrderId:    sale.SaleNumber,
 			Status:     constants.NoorOrderStatusRejected,
 			Reason:     reason,
