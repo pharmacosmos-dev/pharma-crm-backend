@@ -26967,7 +26967,7 @@ const docTemplate = `{
                     },
                     {
                         "type": "string",
-                        "description": "Order: +store_code, -store_name, -sale_date, +uzcard etc.",
+                        "description": "Order: -store_code / -created_at (do'kon ochilgan sanasi: eng yangilari birinchi), +store_code / +created_at (eng birinchi ochilganlar), -store_name, -sale_date, +uzcard etc.",
                         "name": "order",
                         "in": "query"
                     },

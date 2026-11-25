@@ -725,7 +725,7 @@ func (h *ReportHandler) LflReport(c *gin.Context) {
 // @Param   start_date query string false "Start Date Format(2025-03)"
 // @Param   end_date query string false "End Date Format(2025-04)"
 // @Param   search query string false "Search"
-// @Param   order query string false "Order: +store_code, -store_name, -sale_date, +uzcard etc."
+// @Param   order query string false "Order: -store_code / -created_at (do'kon ochilgan sanasi: eng yangilari birinchi), +store_code / +created_at (eng birinchi ochilganlar), -store_name, -sale_date, +uzcard etc."
 // @Param   store_id query string false "Store ID"
 // @Param   body body domain.DashboardBody false "ids"
 // @Success 200 {object} v1.Response

@@ -252,8 +252,13 @@ func BuildProductReport(orderField string) string {
 
 func BuildStoreReportOrderClause(orderField string) string {
 	allowedFields := map[string]string{
-		"store_code":    "s.store_code",
+		// Frontend store_code yuboradi, lekin do'konlar ochilgan sanasi bo'yicha
+		// tartiblanadi: -store_code — eng yangi ochilganlar birinchi,
+		// store_code — eng birinchi ochilganlar birinchi.
+		"store_code":    "s.created_at",
 		"store_name":    "store_name",
+		"created_at":    "s.created_at",
+		"sale_date":  "sale_date",
 		"cash":          "cash",
 		"uzcard":        "uzcard",
 		"humo":          "humo",
@@ -277,11 +282,13 @@ func BuildStoreReportOrderClause(orderField string) string {
 	}
 
 	if col, ok := allowedFields[field]; ok {
-		return fmt.Sprintf("%s %s ", col, direction)
+		// Bir do'konning har kuni alohida qator — teng qiymatlarda tartib
+		// sahifadan sahifaga sakramasligi uchun do'kon va sana bo'yicha ham.
+		return fmt.Sprintf("%s %s, s.id, sale_date", col, direction)
 	}
 
-	// fallback default
-	return "store_name, start_date "
+	// fallback default (start_date bu so'rovda yo'q ustun edi — SQL xatosi berardi)
+	return "store_name, sale_date"
 }
 
 func BuildTopProductOrderClause(orderField string) string {
