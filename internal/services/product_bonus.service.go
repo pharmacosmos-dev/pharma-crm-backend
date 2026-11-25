@@ -39,10 +39,35 @@ func (s *Services) GetProductBonuses(ctx context.Context, params *domain.QueryPa
 		qb = qb.Where("p.name ILIKE ?", "%"+params.Search+"%")
 	}
 
+	// filter by period: bonuses whose [start_date, end_date] overlaps the requested range
+	if params.StartDate != "" {
+		qb = qb.Where("(pb.end_date IS NULL OR pb.end_date >= ?::date)", params.StartDate)
+	}
+	if params.EndDate != "" {
+		qb = qb.Where("(pb.start_date IS NULL OR pb.start_date <= ?::date)", params.EndDate)
+	}
+
 	var totalCount int64
 	if err := qb.Count(&totalCount).Error; err != nil {
 		s.log.Errorf("could not get product_bonuses total_count: %v", err)
 		return nil, 0, domain.InternalServerError
+	}
+
+	// "+field" = ascending, "-field" = descending
+	order := "pb.created_at DESC"
+	switch params.Order {
+	case "+start_date":
+		order = "pb.start_date ASC NULLS LAST, pb.id"
+	case "-start_date":
+		order = "pb.start_date DESC NULLS LAST, pb.id DESC"
+	case "+end_date":
+		order = "pb.end_date ASC NULLS LAST, pb.id"
+	case "-end_date":
+		order = "pb.end_date DESC NULLS LAST, pb.id DESC"
+	case "+created_at":
+		order = "pb.created_at ASC"
+	case "-created_at":
+		order = "pb.created_at DESC"
 	}
 
 	// complete query
@@ -63,7 +88,7 @@ func (s *Services) GetProductBonuses(ctx context.Context, params *domain.QueryPa
 		).
 		Limit(params.Limit).
 		Offset(params.Offset).
-		Order("created_at DESC").
+		Order(order).
 		Find(&tmpBonus).Error
 	if err != nil {
 		s.log.Errorf("could not get product_bonuses list: %v", err)

@@ -1770,6 +1770,8 @@ definitions:
         type: array
       shop_id:
         type: string
+      vendor_display_id:
+        type: string
     required:
     - client_info
     - destination
@@ -8157,6 +8159,9 @@ paths:
       description: |-
         Admin tomonidan berilgan employee_id, event_type va event_at bo'yicha attendance_logs yozuvini qo'lda yaratadi. Face id orqali check-in/check-out ishlamay qolgan hollarda ishlatiladi uchun. Faqat admin huquqiga ega foydalanuvchilar chaqira oladi.
         created_by maydoniga tokendagi user_id yoziladi — keyinchalik yozuvni kim qo'lda kiritganini ko'rish uchun.
+        Navbat event_at kunidagi (Toshkent) oxirgi voqeaga qarab tekshiriladi: ketma-ket ikki check-in → attendance.already.checked_in,
+        ketma-ket ikki check-out yoki kunning birinchi voqeasi check-out → attendance.check_in.required,
+        event_at oxirgi voqea vaqtidan katta bo'lmasa → attendance.event_at.before.last_event.
       parameters:
       - description: Manual attendance data
         in: body
@@ -15455,6 +15460,19 @@ paths:
         in: query
         name: search
         type: string
+      - description: Start date (YYYY-MM-DD)
+        in: query
+        name: start_date
+        type: string
+      - description: End date (YYYY-MM-DD)
+        in: query
+        name: end_date
+        type: string
+      - description: 'Order: +start_date, -start_date, +end_date, -end_date, +created_at,
+          -created_at'
+        in: query
+        name: order
+        type: string
       produces:
       - application/json
       responses:
@@ -15496,6 +15514,19 @@ paths:
       - description: Search
         in: query
         name: search
+        type: string
+      - description: Start date (YYYY-MM-DD)
+        in: query
+        name: start_date
+        type: string
+      - description: End date (YYYY-MM-DD)
+        in: query
+        name: end_date
+        type: string
+      - description: 'Order: +start_date, -start_date, +end_date, -end_date, +created_at,
+          -created_at'
+        in: query
+        name: order
         type: string
       produces:
       - application/json

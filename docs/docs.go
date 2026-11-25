@@ -7337,7 +7337,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Admin tomonidan berilgan employee_id, event_type va event_at bo'yicha attendance_logs yozuvini qo'lda yaratadi. Face id orqali check-in/check-out ishlamay qolgan hollarda ishlatiladi uchun. Faqat admin huquqiga ega foydalanuvchilar chaqira oladi.\ncreated_by maydoniga tokendagi user_id yoziladi — keyinchalik yozuvni kim qo'lda kiritganini ko'rish uchun.",
+                "description": "Admin tomonidan berilgan employee_id, event_type va event_at bo'yicha attendance_logs yozuvini qo'lda yaratadi. Face id orqali check-in/check-out ishlamay qolgan hollarda ishlatiladi uchun. Faqat admin huquqiga ega foydalanuvchilar chaqira oladi.\ncreated_by maydoniga tokendagi user_id yoziladi — keyinchalik yozuvni kim qo'lda kiritganini ko'rish uchun.\nNavbat event_at kunidagi (Toshkent) oxirgi voqeaga qarab tekshiriladi: ketma-ket ikki check-in → attendance.already.checked_in,\nketma-ket ikki check-out yoki kunning birinchi voqeasi check-out → attendance.check_in.required,\nevent_at oxirgi voqea vaqtidan katta bo'lmasa → attendance.event_at.before.last_event.",
                 "consumes": [
                     "application/json"
                 ],
@@ -18861,6 +18861,24 @@ const docTemplate = `{
                         "description": "Search",
                         "name": "search",
                         "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Start date (YYYY-MM-DD)",
+                        "name": "start_date",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "End date (YYYY-MM-DD)",
+                        "name": "end_date",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Order: +start_date, -start_date, +end_date, -end_date, +created_at, -created_at",
+                        "name": "order",
+                        "in": "query"
                     }
                 ],
                 "responses": {
@@ -18926,6 +18944,24 @@ const docTemplate = `{
                         "type": "string",
                         "description": "Search",
                         "name": "search",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Start date (YYYY-MM-DD)",
+                        "name": "start_date",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "End date (YYYY-MM-DD)",
+                        "name": "end_date",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Order: +start_date, -start_date, +end_date, -end_date, +created_at, -created_at",
+                        "name": "order",
                         "in": "query"
                     }
                 ],
@@ -41240,6 +41276,9 @@ const docTemplate = `{
                     }
                 },
                 "shop_id": {
+                    "type": "string"
+                },
+                "vendor_display_id": {
                     "type": "string"
                 }
             }

@@ -136,6 +136,9 @@ func (h *ProductBonusHandler) Get(c *gin.Context) {
 // @Param 	offset query int false "Offset"
 // @Param 	store_id query string false "Store ID"
 // @Param   search  query string false "Search"
+// @Param   start_date query string false "Start date (YYYY-MM-DD)"
+// @Param   end_date   query string false "End date (YYYY-MM-DD)"
+// @Param   order      query string false "Order: +start_date, -start_date, +end_date, -end_date, +created_at, -created_at"
 // @Success 200 {object} v1.Response
 // @Failure 400 {object} v1.Response
 // @Failure 500 {object} v1.Response
@@ -189,6 +192,9 @@ func (h *ProductBonusHandler) List(c *gin.Context) {
 // @Param 	offset   query int false "Offset"
 // @Param 	store_id query string false "Store ID"
 // @Param   search   query string false "Search"
+// @Param   start_date query string false "Start date (YYYY-MM-DD)"
+// @Param   end_date   query string false "End date (YYYY-MM-DD)"
+// @Param   order      query string false "Order: +start_date, -start_date, +end_date, -end_date, +created_at, -created_at"
 // @Success 200 {object} v1.Response
 // @Failure 400 {object} v1.Response
 // @Failure 500 {object} v1.Response
