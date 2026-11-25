@@ -38,7 +38,7 @@ func (h *NoorHandler) NoorRoutes(r *gin.RouterGroup) {
 // @Summary List Products
 // @Description List Products
 // @Tags 		Noor API
-// @Security    BasicAuth
+// @Security    BearerAuth
 // @Accept 		json
 // @Produce 	json
 // @Param   	limit 	query     int      false "Limit"
@@ -70,7 +70,7 @@ func (h *NoorHandler) ProductList(c *gin.Context) {
 // @Summary List Store Products
 // @Description List Store Products
 // @Tags 		Noor API
-// @Security    BasicAuth
+// @Security    BearerAuth
 // @Accept 		json
 // @Produce 	json
 // @Param		shopId  query   string   false "Shop ID"
@@ -102,7 +102,7 @@ func (h *NoorHandler) StoreProductList(c *gin.Context) {
 // @Summary List Store Products
 // @Description List Store Products
 // @Tags 		Noor API
-// @Security    BasicAuth
+// @Security    BearerAuth
 // @Accept 		json
 // @Produce 	json
 // @Success 	200 {object} []domain.NoorStore
@@ -131,7 +131,7 @@ const noorMaxProductIds = 500
 // @Description Javob har doim massiv. Qoldiq tugagan bo'lsa ham qatori qaytadi, quantity: 0 bilan.
 // @Description price online_products_price'dan olinadi. Narxi kiritilmagan mahsulot javobga tushmaydi.
 // @Tags 		Noor API
-// @Security    BasicAuth
+// @Security    BearerAuth
 // @Accept 		json
 // @Produce 	json
 // @Param 		body body domain.NoorStoreProductQuantityRequest true "shop_id va product_ids (ko'pi bilan 500 ta)"
@@ -205,7 +205,7 @@ func (h *NoorHandler) StoreProductQuantity(c *gin.Context) {
 // @Summary Get a category list for filter
 // @Description Get a category list for filter
 // @Tags 		Noor API
-// @Security    BasicAuth
+// @Security    BearerAuth
 // @Accept 		json
 // @Produce 	json
 // @Param 		limit query int false "Limit"
@@ -236,7 +236,7 @@ func (h *NoorHandler) CategoryList(c *gin.Context) {
 // @Summary 	Create a sale
 // @Description Create a sale
 // @Tags 		Noor API
-// @Security    BasicAuth
+// @Security    BearerAuth
 // @Accept 		json
 // @Produce 	json
 // @Param 		body body 	domain.OnlineOrderRequest true "Order Request body"
@@ -278,7 +278,7 @@ func (h *NoorHandler) CreateOrder(c *gin.Context) {
 // @Summary 	Create a sale
 // @Description Create a sale
 // @Tags 		Noor API
-// @Security    BasicAuth
+// @Security    BearerAuth
 // @Accept 		json
 // @Produce 	json
 // @Param 		order_id path int true "Cancel Order"
@@ -311,7 +311,7 @@ func (h *NoorHandler) CancelOrder(c *gin.Context) {
 // @Summary 	Create a sale
 // @Description Create a sale
 // @Tags 		Noor API
-// @Security    BasicAuth
+// @Security    BearerAuth
 // @Accept 		json
 // @Produce 	json
 // @Param 		order_id path int true "Accept Courier Order"

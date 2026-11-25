@@ -69,6 +69,11 @@ func (h *Handler) InitRoutes(r *gin.Engine) {
 	basicAuth := middleware.ExternalBasicAuth(h.cfg)
 	external.Use(basicAuth.Middleware)
 
+	// Route Group for Noor APIs
+	noor := r.Group("/v1")
+	// Static Token Auth Middleware for Noor APIs
+	noor.Use(middleware.NoorTokenAuth(h.cfg))
+
 	// Route Group for Partner catalog APIs
 	partnerApi := r.Group("/v1")
 	// Static Token Auth Middleware for Partner catalog APIs
@@ -132,7 +137,7 @@ func (h *Handler) InitRoutes(r *gin.Engine) {
 		h.NewDeductionHandler(v1)
 		h.NewMarkingUnitSaleHandler(v1)
 		// handler for external apis
-		h.NewNoorHandler(external)
+		h.NewNoorHandler(noor)
 		h.NewLikiHandler(external)
 		// handler for partner catalog apis
 		h.NewPartnerApiHandler(public)

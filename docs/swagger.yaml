@@ -13587,7 +13587,7 @@ paths:
           schema:
             $ref: '#/definitions/v1.IntegrationErrorResponse'
       security:
-      - BasicAuth: []
+      - BearerAuth: []
       summary: Get a category list for filter
       tags:
       - Noor API
@@ -13619,7 +13619,7 @@ paths:
           schema:
             $ref: '#/definitions/v1.IntegrationErrorResponse'
       security:
-      - BasicAuth: []
+      - BearerAuth: []
       summary: Create a sale
       tags:
       - Noor API
@@ -13650,7 +13650,7 @@ paths:
           schema:
             $ref: '#/definitions/v1.IntegrationErrorResponse'
       security:
-      - BasicAuth: []
+      - BearerAuth: []
       summary: Create a sale
       tags:
       - Noor API
@@ -13681,7 +13681,7 @@ paths:
           schema:
             $ref: '#/definitions/v1.IntegrationErrorResponse'
       security:
-      - BasicAuth: []
+      - BearerAuth: []
       summary: Create a sale
       tags:
       - Noor API
@@ -13717,7 +13717,7 @@ paths:
           schema:
             $ref: '#/definitions/v1.IntegrationErrorResponse'
       security:
-      - BasicAuth: []
+      - BearerAuth: []
       summary: List Products
       tags:
       - Noor API
@@ -13757,7 +13757,7 @@ paths:
           schema:
             $ref: '#/definitions/v1.IntegrationErrorResponse'
       security:
-      - BasicAuth: []
+      - BearerAuth: []
       summary: List Store Products
       tags:
       - Noor API
@@ -13796,7 +13796,7 @@ paths:
           schema:
             $ref: '#/definitions/v1.IntegrationErrorResponse'
       security:
-      - BasicAuth: []
+      - BearerAuth: []
       summary: Get product quantities in a store
       tags:
       - Noor API
@@ -13823,7 +13823,7 @@ paths:
           schema:
             $ref: '#/definitions/v1.IntegrationErrorResponse'
       security:
-      - BasicAuth: []
+      - BearerAuth: []
       summary: List Store Products
       tags:
       - Noor API

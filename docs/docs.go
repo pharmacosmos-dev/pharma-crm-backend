@@ -15965,7 +15965,7 @@ const docTemplate = `{
             "get": {
                 "security": [
                     {
-                        "BasicAuth": []
+                        "BearerAuth": []
                     }
                 ],
                 "description": "Get a category list for filter",
@@ -16022,7 +16022,7 @@ const docTemplate = `{
             "post": {
                 "security": [
                     {
-                        "BasicAuth": []
+                        "BearerAuth": []
                     }
                 ],
                 "description": "Create a sale",
@@ -16073,7 +16073,7 @@ const docTemplate = `{
             "post": {
                 "security": [
                     {
-                        "BasicAuth": []
+                        "BearerAuth": []
                     }
                 ],
                 "description": "Create a sale",
@@ -16122,7 +16122,7 @@ const docTemplate = `{
             "post": {
                 "security": [
                     {
-                        "BasicAuth": []
+                        "BearerAuth": []
                     }
                 ],
                 "description": "Create a sale",
@@ -16171,7 +16171,7 @@ const docTemplate = `{
             "get": {
                 "security": [
                     {
-                        "BasicAuth": []
+                        "BearerAuth": []
                     }
                 ],
                 "description": "List Products",
@@ -16228,7 +16228,7 @@ const docTemplate = `{
             "get": {
                 "security": [
                     {
-                        "BasicAuth": []
+                        "BearerAuth": []
                     }
                 ],
                 "description": "List Store Products",
@@ -16291,7 +16291,7 @@ const docTemplate = `{
             "get": {
                 "security": [
                     {
-                        "BasicAuth": []
+                        "BearerAuth": []
                     }
                 ],
                 "description": "Berilgan do'kondagi berilgan mahsulotlarning qoldig'i, qadoqda (uzum availability bilan bir xil).\nHar bir mahsulotdan faqat eng katta partiya olinadi: buyurtma ham bitta partiyadan yoziladi.\nshop_id va product_ids body'da yuboriladi (eski store_id kaliti ham qabul qilinadi).\nJavob har doim massiv. Qoldiq tugagan bo'lsa ham qatori qaytadi, quantity: 0 bilan.\nprice online_products_price'dan olinadi. Narxi kiritilmagan mahsulot javobga tushmaydi.",
@@ -16345,7 +16345,7 @@ const docTemplate = `{
             "get": {
                 "security": [
                     {
-                        "BasicAuth": []
+                        "BearerAuth": []
                     }
                 ],
                 "description": "List Store Products",
