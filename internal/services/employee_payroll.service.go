@@ -1748,9 +1748,15 @@ const payrollOutOfWorkedHoursSQL = `
 // per_store'da do'kon bo'yicha bittaga tushiriladi, keyin qo'shiladi.
 const payrollStatisticsQuery = `
 WITH filtered AS (
-    SELECT p.*
+    -- Ushlab qolishlar ro'yxatdagi kabi deduction_installments'dan jonli olinadi
+    -- (payrollDeductionInstallmentsSQL): cron hali yozmagan shtraf/pereuchyot ham
+    -- statistikada darhol ko'rinadi.
+    SELECT p.*,
+           COALESCE(r.term_amount, 0)    AS live_deduction_term_amount,
+           COALESCE(r.recount_amount, 0) AS live_deduction_recount_amount,
+           COALESCE(r.fine_amount, 0)    AS live_deduction_fine_amount
     FROM employee_payrolls p
-    LEFT JOIN employees e ON e.id = p.employee_id` + payrollSelectFilterSQL + `
+    LEFT JOIN employees e ON e.id = p.employee_id` + payrollDeductionInstallmentsSQL + payrollSelectFilterSQL + `
 ),
 per_store AS (
     SELECT store_id,
@@ -1781,9 +1787,9 @@ SELECT
     COALESCE(SUM(f.advance_card_amount), 0) AS total_advance_card_amount,
     COALESCE(SUM(f.advance_cash_amount), 0) AS total_advance_cash_amount,
 
-    COALESCE(SUM(f.deduction_term_amount), 0)    AS total_deduction_term_amount,
-    COALESCE(SUM(f.deduction_recount_amount), 0) AS total_deduction_recount_amount,
-    COALESCE(SUM(f.deduction_fine_amount), 0)    AS total_deduction_fine_amount,
+    COALESCE(SUM(f.live_deduction_term_amount), 0)    AS total_deduction_term_amount,
+    COALESCE(SUM(f.live_deduction_recount_amount), 0) AS total_deduction_recount_amount,
+    COALESCE(SUM(f.live_deduction_fine_amount), 0)    AS total_deduction_fine_amount,
 
     COALESCE(SUM(f.net_pay_amount), 0) AS total_net_pay_amount
 FROM filtered f`
