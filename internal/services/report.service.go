@@ -445,6 +445,28 @@ func (s *Services) GetStoreAmountReport(ctx context.Context, params *domain.Repo
 	if params.EndDate != nil && !params.EndDate.GetTime().IsZero() {
 		qb = qb.Where("sa.completed_at <= ?", params.EndDate.UTC())
 	}
+
+	order := utils.BuildStoreReportOrderClause(params.Order)
+
+	// store_code / created_at bo'yicha tartib: do'konning birinchi yakunlangan
+	// savdosi vaqti. Har do'kon uchun bir marta hisoblanadi va
+	// idx_sales_created_at_store (created_at, store_id WHERE stage = 9 AND
+	// sale_type = 'SALE') qisman indeksidan foydalanadi. Faqat shu tartib
+	// so'ralganda qo'shiladi.
+	if strings.Contains(order, utils.StoreFirstSaleOrderColumn) {
+		qb = qb.
+			Joins(`LEFT JOIN (
+				SELECT st.id AS store_id,
+				       (SELECT MIN(f.created_at)
+				        FROM sales f
+				        WHERE f.store_id = st.id
+				          AND f.stage = ?
+				          AND f.sale_type = 'SALE') AS first_sale_at
+				FROM stores st
+			) fs ON fs.store_id = s.id`, constants.SaleStageFinished).
+			Group(utils.StoreFirstSaleOrderColumn)
+	}
+
 	// Count distinct (store_id, sale_date) combinations using a subquery
 	var totalCount int64
 	countQuery := qb.Select("s.id", "sa.completed_at::date AS sale_date").Group("s.id, sale_date")
@@ -452,10 +474,7 @@ func (s *Services) GetStoreAmountReport(ctx context.Context, params *domain.Repo
 		s.log.Errorf("could not get store_amount report total_count: %v", err)
 		return nil, 0, domain.InternalServerError
 	}
-	var (
-		res   []domain.StoreAmount
-		order = utils.BuildStoreReportOrderClause(params.Order)
-	)
+	var res []domain.StoreAmount
 
 	err := qb.
 		Select(

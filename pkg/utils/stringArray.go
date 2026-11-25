@@ -250,15 +250,21 @@ func BuildProductReport(orderField string) string {
 	return "s.completed_at DESC "
 }
 
+// StoreFirstSaleOrderColumn — do'konning birinchi yakunlangan (stage 9) savdosi
+// vaqti. BuildStoreReportOrderClause shu ustunni qaytarsa, so'rov uni beruvchi
+// "fs" join'ini qo'shishi shart (qarang: GetStoreAmountReport).
+const StoreFirstSaleOrderColumn = "fs.first_sale_at"
+
 func BuildStoreReportOrderClause(orderField string) string {
 	allowedFields := map[string]string{
-		// Frontend store_code yuboradi, lekin do'konlar ochilgan sanasi bo'yicha
-		// tartiblanadi: -store_code — eng yangi ochilganlar birinchi,
+		// Frontend store_code yuboradi, lekin do'konlar birinchi savdosi
+		// (sales.created_at, stage 9) bo'yicha tartiblanadi:
+		// -store_code — eng yangi ochilganlar birinchi,
 		// store_code — eng birinchi ochilganlar birinchi.
-		"store_code":    "s.created_at",
+		"store_code":    StoreFirstSaleOrderColumn,
 		"store_name":    "store_name",
-		"created_at":    "s.created_at",
-		"sale_date":  "sale_date",
+		"created_at":    StoreFirstSaleOrderColumn,
+		"sale_date":     "sale_date",
 		"cash":          "cash",
 		"uzcard":        "uzcard",
 		"humo":          "humo",
@@ -284,7 +290,7 @@ func BuildStoreReportOrderClause(orderField string) string {
 	if col, ok := allowedFields[field]; ok {
 		// Bir do'konning har kuni alohida qator — teng qiymatlarda tartib
 		// sahifadan sahifaga sakramasligi uchun do'kon va sana bo'yicha ham.
-		return fmt.Sprintf("%s %s, s.id, sale_date", col, direction)
+		return fmt.Sprintf("%s %s NULLS LAST, s.id, sale_date", col, direction)
 	}
 
 	// fallback default (start_date bu so'rovda yo'q ustun edi — SQL xatosi berardi)
