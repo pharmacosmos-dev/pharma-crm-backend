@@ -1490,7 +1490,7 @@ func (h *ProductHandler) ExportProductMovementsExcel(c *gin.Context) {
 	// get pagination with default
 	params.Limit, params.Offset = defaultLimitOffset(params.Limit, params.Offset)
 
-	params.ProducerId = productId
+	params.ProductId = productId
 	// get product-movements data from the product service
 	res, _, err := h.service.GetProductMovements(ctx, &params, user)
 	if err != nil {
