@@ -36,6 +36,12 @@ import (
 //	                1.4%  (achievement >= 100)
 //	kpi_amount    = KPI bazasi * kpi_percent / 100
 //
+// YANGI APTEKA (stores.first_sale_at, Toshkent sanasi bo'yicha): birinchi savdo
+// 15-sanadan oldin bo'lsa ochilgan oy + keyingi 1 oy, 15-sana yoki keyin bo'lsa
+// ochilgan oy + keyingi 2 oy. Bu oylarda oy YAKUNLANGANDA (calc_date oyning
+// oxirgi kuni) kpi_percent target foizidan qat'i nazar qat'iy 1.0% bo'ladi;
+// oy davomida yuqoridagi pog'onalar ko'rsatiladi.
+//
 // expected_plan KALENDAR kunlari bo'yicha kesiladi (oy 31 kun, kecha 30-sana →
 // reja * 30/31): yakshanba va bayramlar chegirilmaydi, chunki do'kon o'sha
 // kunlari ham savdo qiladi. Ish kunlari sanog'i (month_work_days) faqat
@@ -1371,6 +1377,18 @@ base AS (
         e.company_id                            AS company_id,
         e.store_id                              AS store_id,
         COALESCE(s.name, '')                    AS store_name,
+        -- YANGI APTEKA: stores.first_sale_at (UTC'da saqlanadi) Toshkent sanasiga
+        -- o'giriladi. Birinchi savdo 15-sanadan oldin bo'lsa ochilgan oy + 1 oy,
+        -- 15-sana yoki keyin bo'lsa ochilgan oy + 2 oy yangi hisoblanadi.
+        -- first_sale_at bo'sh bo'lsa yangi emas. Qarang: kpi_tier.
+        COALESCE(
+            w.month_start >= date_trunc('month', (s.first_sale_at + INTERVAL '5 hours')::date)
+            AND w.month_start < date_trunc('month', (s.first_sale_at + INTERVAL '5 hours')::date)
+                + CASE WHEN EXTRACT(DAY FROM s.first_sale_at + INTERVAL '5 hours') < 15
+                       THEN INTERVAL '2 months'
+                       ELSE INTERVAL '3 months'
+                  END,
+            FALSE)                              AS is_new_store,
         COALESCE(e.first_name, '')              AS first_name,
         COALESCE(e.last_name, '')               AS last_name,
         COALESCE(e.full_name, '')               AS full_name,
@@ -1469,7 +1487,13 @@ kpi_tier AS (
            -- (hisob oyning oxirgi kunigacha yetganda: cron oyning 1-kunida
            -- o'tgan oyni yopganda yoki o'tgan oy qo'lda qayta hisoblanganda).
            -- Oy davomida bu oraliq 0 ko'rsatadi.
+           --
+           -- Yangi apteka (is_new_store) oy yakunlanganda target foizidan qat'i
+           -- nazar QAT'IY 1.0 oladi (0% ham, 120% ham). Oy davomida esa
+           -- oddiy pog'onalar bo'yicha ko'rsatiladi.
            CAST(CASE
+               WHEN k.is_new_store
+                AND k.elapsed_days >= k.month_days    THEN 1.0
                WHEN k.plan_achievement_percent >= 100 THEN 1.4
                WHEN k.plan_achievement_percent >= 90  THEN 1.0
                WHEN k.plan_achievement_percent >= 80  THEN 0.6
