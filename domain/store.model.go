@@ -26,6 +26,7 @@ type Store struct {
 	IsFullday          bool           `gorm:"is_fullday" json:"is_fullday"`
 	AverageTargetSales float64        `gorm:"column:average_target_sales" json:"average_target_sales"`
 	IsOnlineOrder      bool           `gorm:"column:is_online_order" json:"is_online_order"`
+	FirstSaleAt        *time.Time     `gorm:"column:first_sale_at" json:"first_sale_at"`
 	CreatedAt          *time.Time     `gorm:"created_at" json:"created_at"`
 	UpdatedAt          *time.Time     `gorm:"updated_at" json:"updated_at"`
 	TerminalID         pq.StringArray `gorm:"type:varchar(255)[];column:terminal_id" json:"terminal_ids" swaggertype:"array,string"`
@@ -51,6 +52,7 @@ type StoreDto struct {
 	IsFullday          bool           `gorm:"is_fullday" json:"is_fullday"`
 	TargetAmount       float64        `gorm:"column:target_amount" json:"target_amount"`
 	AverageTargetSales float64        `gorm:"column:average_target_sales" json:"average_target_sales"`
+	FirstSaleAt        *time.Time     `gorm:"column:first_sale_at" json:"first_sale_at"`
 	CreatedAt          *time.Time     `gorm:"created_at" json:"created_at"`
 	UpdatedAt          *time.Time     `gorm:"updated_at" json:"updated_at"`
 	TerminalID         pq.StringArray `gorm:"type:varchar(255)[];column:terminal_id" json:"terminal_ids" swaggertype:"array,string"`

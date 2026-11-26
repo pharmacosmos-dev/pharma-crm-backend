@@ -736,6 +736,7 @@ func (s *Services) FinalizeSale(ctx context.Context, req *domain.FinalSale) (*do
 	}
 
 	if updates["stage"] == constants.SaleStageFinished {
+		s.setStoreFirstSaleAt(ctx, sale.Id)
 		// go s.CreateProductMovementsForSale(sale)
 		go s.updateStocksAfterSaleFinished(sale.Id)
 
@@ -1111,6 +1112,7 @@ func (s *Services) EposResult(ctx context.Context, req *domain.EposResponseReque
 	}
 
 	if updates["stage"] == constants.SaleStageFinished {
+		s.setStoreFirstSaleAt(ctx, sale.Id)
 		// go s.CreateProductMovementsForSale(sale)
 		go s.updateStocksAfterSaleFinished(sale.Id)
 
@@ -1855,6 +1857,26 @@ func (s *Services) ReturnStatusPending(ctx context.Context, tx *gorm.DB, sale *d
 		return err
 	}
 	return nil
+}
+
+// setStoreFirstSaleAt — yakunlangan SALE do'konning birinchi savdosi bo'lsa,
+// stores.first_sale_at ga uning created_at ini yozadi. Tranzaksiya commit
+// bo'lgandan keyin chaqiriladi: xato savdoni bekor qilmaydi, faqat log'ga yoziladi.
+// WHERE sharti mos kelmasa (first_sale_at allaqachon kichikroq) qator bloklanmaydi.
+func (s *Services) setStoreFirstSaleAt(ctx context.Context, saleId string) {
+	err := s.db.WithContext(ctx).Exec(`
+		UPDATE stores st
+		SET first_sale_at = sa.created_at
+		FROM sales sa
+		WHERE sa.id = ?
+		  AND sa.sale_type = ?
+		  AND st.id = sa.store_id
+		  AND (st.first_sale_at IS NULL OR st.first_sale_at > sa.created_at)`,
+		saleId, constants.SaleTypeSale,
+	).Error
+	if err != nil {
+		s.log.Errorf("could not set stores.first_sale_at for sale %s: %v", saleId, err)
+	}
 }
 
 func (s *Services) updateSaleFields(ctx context.Context, tx *gorm.DB, saleId string, updates map[string]any) error {

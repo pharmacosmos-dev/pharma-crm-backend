@@ -250,10 +250,10 @@ func BuildProductReport(orderField string) string {
 	return "s.completed_at DESC "
 }
 
-// StoreFirstSaleOrderColumn — do'konning birinchi yakunlangan (stage 9) savdosi
-// vaqti. BuildStoreReportOrderClause shu ustunni qaytarsa, so'rov uni beruvchi
-// "fs" join'ini qo'shishi shart (qarang: GetStoreAmountReport).
-const StoreFirstSaleOrderColumn = "fs.first_sale_at"
+// StoreFirstSaleOrderColumn — do'konning birinchi yakunlangan (stage 9, SALE)
+// savdosi vaqti, stores.first_sale_at ustuni. So'rovda stores "s" alias bilan
+// bo'lishi kerak (qarang: GetStoreAmountReport).
+const StoreFirstSaleOrderColumn = "s.first_sale_at"
 
 func BuildStoreReportOrderClause(orderField string) string {
 	allowedFields := map[string]string{

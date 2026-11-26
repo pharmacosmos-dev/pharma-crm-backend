@@ -80,6 +80,7 @@ func (s *Services) GetStores(ctx context.Context, params *domain.StoreQueryParam
 			"is_fullday",
 			"COALESCE(st.amount, 0) AS target_amount",
 			"average_target_sales",
+			"stores.first_sale_at",
 			"stores.created_at",
 			"stores.updated_at",
 		)

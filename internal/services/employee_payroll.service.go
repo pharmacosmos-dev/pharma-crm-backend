@@ -28,8 +28,10 @@ import (
 //
 //	expected_plan = store_targets.amount * (o'tgan kun / oydagi kun)
 //	achievement   = store_sales / expected_plan * 100
-//	kpi_percent   = 0%    (achievement < 80)
+//	kpi_percent   = 0%    (achievement < 80; oy yakunlangach — achievement < 77)
 //	                0.6%  (80 <= achievement < 90)
+//	                0.6%  (77 <= achievement < 80, FAQAT oy yakunlanganda —
+//	                       calc_date oyning oxirgi kuni bo'lsa)
 //	                1.0%  (90 <= achievement < 100)
 //	                1.4%  (achievement >= 100)
 //	kpi_amount    = KPI bazasi * kpi_percent / 100
@@ -1463,10 +1465,16 @@ kpi AS (
 ),
 kpi_tier AS (
     SELECT k.*,
+           -- 77–79.99% oraliq ham 0.6 oladi, lekin FAQAT oy yakunlanganda
+           -- (hisob oyning oxirgi kunigacha yetganda: cron oyning 1-kunida
+           -- o'tgan oyni yopganda yoki o'tgan oy qo'lda qayta hisoblanganda).
+           -- Oy davomida bu oraliq 0 ko'rsatadi.
            CAST(CASE
                WHEN k.plan_achievement_percent >= 100 THEN 1.4
                WHEN k.plan_achievement_percent >= 90  THEN 1.0
                WHEN k.plan_achievement_percent >= 80  THEN 0.6
+               WHEN k.plan_achievement_percent >= 77
+                AND k.elapsed_days >= k.month_days    THEN 0.6
                ELSE 0
            END AS numeric) AS plan_kpi_percent
     FROM kpi k
