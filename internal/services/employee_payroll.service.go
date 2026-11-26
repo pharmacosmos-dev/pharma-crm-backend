@@ -1227,6 +1227,27 @@ func mergeStoreTotals(stores []storeRef, totals []domain.StorePayroll) []domain.
 
 // region SQL
 
+// payrollNewStoreSQL — "yangi apteka" bayrog'ining SQL ifodasi. Cron
+// (payrollUpsertQuery) ham, hisobot (employeePayrollsSelectQuery) ham AYNAN
+// shu qoidani ishlatadi.
+//
+// firstSaleAt — stores.first_sale_at ustuni (UTC'da saqlanadi, Toshkent
+// sanasiga +5 soat bilan o'giriladi); monthStart — hisoblanayotgan oyning
+// 1-kuni (date). Birinchi savdo 15-sanadan oldin bo'lsa ochilgan oy + keyingi
+// 1 oy, 15-sana yoki keyin bo'lsa ochilgan oy + keyingi 2 oy yangi hisoblanadi.
+// first_sale_at bo'sh bo'lsa FALSE.
+func payrollNewStoreSQL(firstSaleAt, monthStart string) string {
+	opened := "date_trunc('month', (" + firstSaleAt + " + INTERVAL '5 hours')::date)"
+	return `COALESCE(
+            ` + monthStart + ` >= ` + opened + `
+            AND ` + monthStart + ` < ` + opened + `
+                + CASE WHEN EXTRACT(DAY FROM ` + firstSaleAt + ` + INTERVAL '5 hours') < 15
+                       THEN INTERVAL '2 months'
+                       ELSE INTERVAL '3 months'
+                  END,
+            FALSE)`
+}
+
 // payrollUpsertQuery — bitta oyni oy boshidan @calc_date'gacha hisoblab
 // employee_payrolls'ga yozadi.
 //
@@ -1247,7 +1268,7 @@ func mergeStoreTotals(stores []storeRef, totals []domain.StorePayroll) []domain.
 // deduction_installments'dan shu oy uchun qayta yig'ilib yoziladi (qarang:
 // deduction_agg). net_pay_amount mavjud qatordagi avanslar va yangi yig'ilgan
 // ushlab qolishlar ayirilgan holda qayta hisoblanadi.
-const payrollUpsertQuery = `
+var payrollUpsertQuery = `
 WITH bounds AS (
     SELECT
         make_date(@year, @month, 1)                                      AS month_start,
@@ -1377,18 +1398,8 @@ base AS (
         e.company_id                            AS company_id,
         e.store_id                              AS store_id,
         COALESCE(s.name, '')                    AS store_name,
-        -- YANGI APTEKA: stores.first_sale_at (UTC'da saqlanadi) Toshkent sanasiga
-        -- o'giriladi. Birinchi savdo 15-sanadan oldin bo'lsa ochilgan oy + 1 oy,
-        -- 15-sana yoki keyin bo'lsa ochilgan oy + 2 oy yangi hisoblanadi.
-        -- first_sale_at bo'sh bo'lsa yangi emas. Qarang: kpi_tier.
-        COALESCE(
-            w.month_start >= date_trunc('month', (s.first_sale_at + INTERVAL '5 hours')::date)
-            AND w.month_start < date_trunc('month', (s.first_sale_at + INTERVAL '5 hours')::date)
-                + CASE WHEN EXTRACT(DAY FROM s.first_sale_at + INTERVAL '5 hours') < 15
-                       THEN INTERVAL '2 months'
-                       ELSE INTERVAL '3 months'
-                  END,
-            FALSE)                              AS is_new_store,
+        -- YANGI APTEKA (qarang: payrollNewStoreSQL va kpi_tier).
+        ` + payrollNewStoreSQL("s.first_sale_at", "w.month_start") + ` AS is_new_store,
         COALESCE(e.first_name, '')              AS first_name,
         COALESCE(e.last_name, '')               AS last_name,
         COALESCE(e.full_name, '')               AS full_name,
@@ -1626,10 +1637,16 @@ ON CONFLICT (employee_id, year, month) DO UPDATE SET
 // turgan bo'lardi. Ushlab qolishlar ham shunday: ular deduction_* jadvallarida
 // yuritiladi va payroll qatoriga yozilmaydi.
 //
+// first_sale_at va is_new_store ham JONLI: stores'dan, so'ralgan oy bo'yicha
+// (payrollNewStoreSQL — cron bilan bir xil qoida). Frontend yangi/eski aptekani
+// shu ikki maydon bilan ajratadi.
+//
 // Filtrlar ixtiyoriy — NULL berilsa o'sha shart tekshirilmaydi.
-const employeePayrollsSelectQuery = `
+var employeePayrollsSelectQuery = `
 SELECT
     p.id, p.employee_id, p.store_id, p.store_name,
+    ps.first_sale_at,
+    ` + payrollNewStoreSQL("ps.first_sale_at", "make_date(p.year, p.month, 1)") + ` AS is_new_store,
     p.first_name, p.last_name, p.full_name, p.position_snapshot, p.role,
     COALESCE(e.role_type, '') AS role_type,
     p.experience_years, p.worked_hours, p.avg_monthly_hours,
@@ -1648,7 +1665,8 @@ SELECT
     p.net_pay_amount, p.status, p.year, p.month, p.completed_at, p.calculated_at,
     COUNT(*) OVER () AS total_count
 FROM employee_payrolls p
-LEFT JOIN employees e ON e.id = p.employee_id` + payrollDeductionInstallmentsSQL + payrollSelectFilterSQL + `
+LEFT JOIN employees e ON e.id = p.employee_id
+LEFT JOIN stores ps   ON ps.id = p.store_id` + payrollDeductionInstallmentsSQL + payrollSelectFilterSQL + `
 ORDER BY p.store_name, p.full_name
 LIMIT NULLIF(@limit, 0) OFFSET @offset`
 

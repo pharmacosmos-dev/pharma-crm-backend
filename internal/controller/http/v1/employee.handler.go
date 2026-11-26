@@ -1705,6 +1705,7 @@ func (h *EmployeeHandler) RecalculatePayroll(c *gin.Context) {
 // @Description  KPI summasi esa shaxsiy: kpi_amount = individual_sales × kpi_percent. Do'kon rejani bajarmasa kpi_percent = 0 va hech kim KPI olmaydi.
 // @Description  kpi_bez_nds = true bo'lsa: pharmacist → individual_sales ÷ 1.12 × kpi_percent, head_pharmacist → store_sales ÷ 1.12 × kpi_percent. false bo'lsa eski qoida.
 // @Description  year/month berilmasa joriy oy olinadi.
+// @Description  first_sale_at — do'konning birinchi savdosi (UTC). is_new_store — so'ralgan oyda do'kon yangi apteka hisoblanadimi (birinchi savdo 15-sanadan oldin → ochilgan oy + 1 oy, 15-sana yoki keyin → ochilgan oy + 2 oy, Toshkent sanasi bo'yicha). Yangi aptekada oy yakunlanganda KPI qat'iy 1%.
 // @Tags         employees
 // @Security     BearerAuth
 // @Accept       json

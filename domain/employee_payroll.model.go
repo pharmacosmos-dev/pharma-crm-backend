@@ -290,10 +290,17 @@ type PayrollStatistics struct {
 type EmployeePayrollRow struct {
 	// Id — employee_payrolls qatorining id'si. Avansni yangilash uchun kerak:
 	// PUT /employee/payroll/{id}/advance.
-	Id               string  `json:"id"`
-	EmployeeId       string  `json:"employee_id"`
-	StoreId          *string `json:"store_id"`
-	StoreName        string  `json:"store_name"`
+	Id         string  `json:"id"`
+	EmployeeId string  `json:"employee_id"`
+	StoreId    *string `json:"store_id"`
+	StoreName  string  `json:"store_name"`
+
+	// FirstSaleAt — do'konning birinchi savdosi (stores.first_sale_at, UTC),
+	// jonli olinadi. IsNewStore — shu oy do'kon "yangi apteka" hisoblanadimi
+	// (qoida cron bilan bir xil); yangi aptekada oy yakunida KPI qat'iy 1%.
+	FirstSaleAt *time.Time `json:"first_sale_at"`
+	IsNewStore  bool       `json:"is_new_store"`
+
 	FirstName        string  `json:"first_name"`
 	LastName         string  `json:"last_name"`
 	FullName         string  `json:"full_name"`
