@@ -2394,7 +2394,7 @@ func (s *Services) GetSales(ctx context.Context, params *domain.SaleQueryParams,
 		).
 		Limit(params.Limit).
 		Offset(params.Offset).
-		Order("s.completed_at DESC").
+		Order(saleListOrderClause(params.Order)).
 		Debug().
 		Find(&res).Error
 	if err != nil {
@@ -2403,6 +2403,19 @@ func (s *Services) GetSales(ctx context.Context, params *domain.SaleQueryParams,
 	}
 
 	return res, totalCount, nil
+}
+
+// saleListOrderClause maps the `order` query param to an ORDER BY clause.
+// " total_amount" is accepted too, since an unencoded "+" in a query string is decoded as a space.
+func saleListOrderClause(order string) string {
+	switch order {
+	case "+total_amount", " total_amount", "total_amount":
+		return "s.total_amount ASC, s.completed_at DESC"
+	case "-total_amount":
+		return "s.total_amount DESC, s.completed_at DESC"
+	default:
+		return "s.completed_at DESC"
+	}
 }
 
 func (s *Services) GetSalesStats(ctx context.Context, params *domain.SaleQueryParams, user *domain.EmployeeClaims) (*domain.SaleStats, error) {

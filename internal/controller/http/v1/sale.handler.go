@@ -204,6 +204,7 @@ func (h *SaleHandler) Get(c *gin.Context) {
 // @Param payme 			query bool false 	"payme"
 // @Param alif 				query bool false 	"alif"
 // @Param unified_qr 			query bool false 	"unified_qr"
+// @Param order 			query string false 	"order: +total_amount (smallest first) | -total_amount (largest first); default completed_at DESC"
 // @Success 200 {object} v1.Response
 // @Failure 400 {object} v1.Response
 // @Failure 500 {object} v1.Response

@@ -90,6 +90,7 @@ type SaleQueryParams struct {
 	OnlineStatus    *int        `form:"online_status"`
 	ProductId       string      `form:"product_id"`
 	CustomerId      string      `form:"customer_id"`
+	Order           string      `form:"order"`
 }
 
 // SaleRequest structure for create
