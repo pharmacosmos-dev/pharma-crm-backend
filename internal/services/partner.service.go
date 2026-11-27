@@ -185,6 +185,9 @@ func (s *Services) GetPartnerProducts(params *domain.NoorQueryParam) ([]domain.N
 	SELECT
 		p.id,
 		p.name,
+		-- GetNomenclature (uzum) bilan bir xil: avval products.barcode,
+		-- bo'sh bo'lsa product_barcodes'dagi eng oxirgisi
+		COALESCE(NULLIF(p.barcode, ''), pb.barcode, '') AS barcode,
 		p.photos,
 		p.unit_code,
 		p.description,
@@ -219,6 +222,14 @@ func (s *Services) GetPartnerProducts(params *domain.NoorQueryParam) ([]domain.N
 			ORDER BY sp.created_at DESC
 			LIMIT 1
 		) sp ON TRUE
+		LEFT JOIN LATERAL (
+			SELECT b.barcode
+			FROM product_barcodes b
+			WHERE b.product_id = p.id
+			  AND b.barcode IS NOT NULL AND b.barcode != ''
+			ORDER BY b.created_at DESC
+			LIMIT 1
+		) pb ON TRUE
 	WHERE EXISTS (
 		SELECT 1 FROM online_products_price opp
 		WHERE opp.product_id = p.id AND opp.type = ?

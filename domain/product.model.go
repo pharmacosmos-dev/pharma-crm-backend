@@ -439,6 +439,7 @@ type MinMaxProduct struct {
 type NoorProduct struct {
 	Id            string            `gorm:"id" json:"id"`
 	Name          string            `gorm:"name" json:"name"`
+	Barcode       string            `gorm:"barcode" json:"barcode"`
 	Photos        utils.StringArray `gorm:"type:text[]" json:"photos"`
 	Description   string            `gorm:"description" json:"description"`
 	DescriptionRu string            `gorm:"description_ru" json:"description_ru"`
