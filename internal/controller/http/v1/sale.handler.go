@@ -401,7 +401,7 @@ func (h *SaleHandler) ExportSalesExcel(c *gin.Context) {
 	f.SetSheetName("Sheet1", sheetName)
 
 	// Headerlar
-	headers := []string{"ID", "Филиал", "Наличный", "Humo", "Uzcard", "Payme", "Click", "AlifBank", "Карта лояльности", "Скидка", "Обшая сумма", "Дата продажа", "Касса", "Кассир", "Клиент"}
+	headers := []string{"ID", "Филиал", "Наличный", "Humo", "Uzcard", "Payme", "Click", "AlifBank", "Uzum", "Uzum Tezkor", "Noor", "Yagona QR", "Карта лояльности", "Скидка", "Обшая сумма", "Дата продажа", "Касса", "Кассир", "Клиент"}
 
 	err = setExcelHeaders(f, sheetName, headers)
 	if err != nil {
@@ -421,16 +421,20 @@ func (h *SaleHandler) ExportSalesExcel(c *gin.Context) {
 		f.SetCellValue(sheetName, "F"+row, sale.Payme)
 		f.SetCellValue(sheetName, "G"+row, sale.Click)
 		f.SetCellValue(sheetName, "H"+row, sale.Alif)
-		f.SetCellValue(sheetName, "I"+row, sale.LoyaltyCard)
-		f.SetCellValue(sheetName, "J"+row, sale.TotalDiscount)
-		f.SetCellValue(sheetName, "K"+row, sale.TotalAmount)
-		f.SetCellValue(sheetName, "L"+row, sale.CompletedAt.Add(time.Hour*5).Format("2006-01-02 15:04:05"))
-		f.SetCellValue(sheetName, "M"+row, sale.CashBoxName)
-		f.SetCellValue(sheetName, "N"+row, sale.FullName)
+		f.SetCellValue(sheetName, "I"+row, sale.Uzum)
+		f.SetCellValue(sheetName, "J"+row, sale.UzumTezKor)
+		f.SetCellValue(sheetName, "K"+row, sale.Noor)
+		f.SetCellValue(sheetName, "L"+row, sale.UnifiedQr)
+		f.SetCellValue(sheetName, "M"+row, sale.LoyaltyCard)
+		f.SetCellValue(sheetName, "N"+row, sale.TotalDiscount)
+		f.SetCellValue(sheetName, "O"+row, sale.TotalAmount)
+		f.SetCellValue(sheetName, "P"+row, sale.CompletedAt.Add(time.Hour*5).Format("2006-01-02 15:04:05"))
+		f.SetCellValue(sheetName, "Q"+row, sale.CashBoxName)
+		f.SetCellValue(sheetName, "R"+row, sale.FullName)
 		if sale.CustomerName != nil {
-			f.SetCellValue(sheetName, "O"+row, *sale.CustomerName)
+			f.SetCellValue(sheetName, "S"+row, *sale.CustomerName)
 		} else {
-			f.SetCellValue(sheetName, "O"+row, "N/A")
+			f.SetCellValue(sheetName, "S"+row, "N/A")
 		}
 	}
 
