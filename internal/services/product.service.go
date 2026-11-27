@@ -594,6 +594,7 @@ func (s *Services) GetProductsByStores(ctx context.Context, params *domain.Produ
 			"p.name",
 			"p.barcode",
 			"p.unit_per_pack",
+			"COALESCE(p.max_price, 0) AS max_price",
 			"p.country_id",
 			"COALESCE(cnt.name, '') AS country",
 			"COALESCE(pr.name, '') AS manufacturer",
