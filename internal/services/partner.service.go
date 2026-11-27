@@ -188,6 +188,7 @@ func (s *Services) GetPartnerProducts(params *domain.NoorQueryParam) ([]domain.N
 		-- GetNomenclature (uzum) bilan bir xil: avval products.barcode,
 		-- bo'sh bo'lsa product_barcodes'dagi eng oxirgisi
 		COALESCE(NULLIF(p.barcode, ''), pb.barcode, '') AS barcode,
+		COALESCE(p.mxik, '') AS mxik,
 		p.photos,
 		p.unit_code,
 		p.description,
