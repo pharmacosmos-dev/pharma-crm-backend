@@ -94,11 +94,11 @@ func (s *Services) GetEmployees(
 
 	if params.Search != "" {
 		search := fmt.Sprintf("%%%s%%", params.Search)
-		query = query.Where(`
+		query = query.Where(`(
 			employees.full_name ILIKE ? OR
 			employees.phone LIKE ? OR
 			CAST(employees.public_id AS TEXT) LIKE ?
-		`,
+		)`,
 			search,
 			search,
 			search,
